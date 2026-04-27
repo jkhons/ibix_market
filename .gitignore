@@ -93,3 +93,9 @@ relatorios/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Celery runtime (beat scheduler / SQLite WAL)
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+celerybeat.pid

@@ -94,7 +94,7 @@
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
     <link href="/static/css/landing/header.css" rel="stylesheet">
-    <link href="/static/css/loja.css?v=52" rel="stylesheet">
+    <link href="/static/css/loja.css?v=53" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
         body.loja-page { background: var(--loja-bg, #FEF7F1); }
@@ -229,12 +229,29 @@
         @media (max-width: 767px) {
             #loja-produto-heroi-grid,
             #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
-                grid-template-columns: 1fr !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                 gap: 10px;
             }
             #loja-produto-heroi-grid > .loja-heroi-produto-slot,
             #loja-produto-heroi-grid > * {
-                width: 100% !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: 100% !important;
+                box-sizing: border-box;
+            }
+        }
+        #loja-todos-produtos #loja-anuncios {
+            display: grid;
+            box-sizing: border-box;
+            margin: 0 !important;
+        }
+        @media (max-width: 767px) {
+            #loja-todos-produtos #loja-anuncios {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 10px;
+            }
+            #loja-todos-produtos #loja-anuncios > * {
+                width: auto !important;
                 min-width: 0 !important;
                 max-width: 100% !important;
                 box-sizing: border-box;
@@ -358,13 +375,9 @@
           <i data-feather="crosshair" style="width:18px;height:18px;"></i> Usar minha localização
         </button>
         <div id="geo-navegador-status" style="display:none;font-size:.8rem;color:#6b7280;margin:-8px 0 12px;text-align:center;"></div>
-        <div style="text-align:center;color:#aaa;font-size:.8rem;margin-bottom:8px;">— ou informe seu endereço (mais preciso) —</div>
-        <div style="display:flex;gap:8px;margin-bottom:8px;">
-          <input type="text" id="geo-cep-input" placeholder="CEP" maxlength="9" inputmode="numeric" autocomplete="postal-code" style="flex:1.2;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;">
-          <input type="text" id="geo-numero-input" placeholder="Número" maxlength="20" inputmode="numeric" autocomplete="address-line2" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;">
-        </div>
-        <input type="text" id="geo-complemento-input" placeholder="Complemento (opcional)" maxlength="80" autocomplete="address-line3" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;margin-bottom:8px;">
-        <button type="button" id="geo-btn-confirmar-endereco" style="width:100%;padding:10px;border:1px solid var(--loja-action,#5C6E4A);border-radius:10px;background:#fff;color:var(--loja-action,#5C6E4A);font-weight:600;cursor:pointer;margin-bottom:14px;">Confirmar endereço</button>
+        <div style="text-align:center;color:#aaa;font-size:.8rem;margin-bottom:8px;">— ou informe seu CEP —</div>
+        <input type="text" id="geo-cep-input" placeholder="CEP" maxlength="9" inputmode="numeric" autocomplete="postal-code" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;margin-bottom:8px;">
+        <button type="button" id="geo-btn-confirmar-endereco" style="width:100%;padding:10px;border:1px solid var(--loja-action,#5C6E4A);border-radius:10px;background:#fff;color:var(--loja-action,#5C6E4A);font-weight:600;cursor:pointer;margin-bottom:14px;">Confirmar CEP</button>
         <div id="geo-endereco-status" style="display:none;font-size:.8rem;color:#6b7280;margin:-8px 0 12px;text-align:center;"></div>
         <div style="text-align:center;color:#aaa;font-size:.8rem;margin-bottom:12px;">— ou escolha uma cidade —</div>
         <input type="text" id="geo-cidade-input" placeholder="Digite o nome da cidade..." style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;" autocomplete="off">
@@ -509,8 +522,6 @@
         }
 
         var geoCepInput = document.getElementById('geo-cep-input');
-        var geoNumeroInput = document.getElementById('geo-numero-input');
-        var geoComplementoInput = document.getElementById('geo-complemento-input');
         var geoBtnConfirmarEndereco = document.getElementById('geo-btn-confirmar-endereco');
         var geoEnderecoStatus = document.getElementById('geo-endereco-status');
 
@@ -531,28 +542,22 @@
         if (geoBtnConfirmarEndereco) {
             geoBtnConfirmarEndereco.addEventListener('click', function () {
                 var cep = (geoCepInput && geoCepInput.value || '').trim();
-                var numero = (geoNumeroInput && geoNumeroInput.value || '').trim();
-                var complemento = (geoComplementoInput && geoComplementoInput.value || '').trim();
                 var cepDigits = cep.replace(/\D/g, '');
                 if (cepDigits.length !== 8) {
                     geoSetEnderecoStatus('Informe um CEP válido (8 dígitos).', false);
                     return;
                 }
-                if (!numero) {
-                    geoSetEnderecoStatus('Informe o número do imóvel.', false);
-                    return;
-                }
                 geoBtnConfirmarEndereco.disabled = true;
-                geoSetEnderecoStatus('Localizando endereço...', true);
+                geoSetEnderecoStatus('Localizando CEP...', true);
                 if (typeof Vitrine === 'undefined' || !Vitrine.geocodeAddress) {
                     geoSetEnderecoStatus('Recurso de geocodificação indisponível.', false);
                     geoBtnConfirmarEndereco.disabled = false;
                     return;
                 }
-                Vitrine.geocodeAddress({ cep: cepDigits, numero: numero, complemento: complemento })
+                Vitrine.geocodeAddress({ cep: cepDigits })
                     .then(function (data) {
                         if (!data || data.lat == null || data.lng == null) {
-                            geoSetEnderecoStatus('Endereço não localizado.', false);
+                            geoSetEnderecoStatus('CEP não localizado.', false);
                             return;
                         }
                         Vitrine.setGeoLocation({
@@ -561,8 +566,6 @@
                             cidade: data.cidade || null,
                             uf: data.uf || null,
                             cep: cepDigits,
-                            numero: numero,
-                            complemento: complemento || null,
                             bairro: data.bairro || null,
                             endereco_formatado: data.endereco_formatado || null,
                             precision: data.precision || null,

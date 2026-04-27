@@ -536,32 +536,52 @@ async def geo_reverso(
 @router.get("/geo/geocodificar", dependencies=[Depends(check_geo_rate_limit)])
 async def geo_geocodificar(
     cep: str = Query(..., min_length=8, max_length=10, description="CEP (00000-000 ou 00000000)"),
-    numero: Optional[str] = Query(None, max_length=20, description="Número do imóvel"),
-    complemento: Optional[str] = Query(None, max_length=80, description="Complemento (apto, bloco)"),
+    numero: Optional[str] = Query(None, max_length=20, description="Número do imóvel (opcional)"),
+    complemento: Optional[str] = Query(None, max_length=80, description="Complemento (opcional)"),
     cidade: Optional[str] = Query(None, max_length=100, description="Cidade (opcional, ajuda fallback)"),
     uf: Optional[str] = Query(None, max_length=2, description="UF (opcional, ajuda fallback)"),
 ):
-    """Geocodifica endereço residencial (CEP + número) com a melhor precisão disponível.
+    """Geocodifica CEP (e opcionalmente número/complemento) com a melhor precisão disponível.
 
-    Retorna lat/lng e cidade/UF normalizados. O campo `precision` indica se o resultado
-    é rooftop/range/locality (o front pode rejeitar `locality` quando a UX exigir
-    proximidade certeira).
+    Retorna lat/lng e cidade/UF normalizados. O campo `precision` indica
+    rooftop/range/geometric_center/approximate/locality. Quando `numero` é informado
+    e o resultado vem como `locality`, devolve 422 (sinal de número inválido).
+    Sem `numero`, qualquer precisão válida é aceita (centro do CEP é o esperado).
     """
-    from ...services.geo_service import PRECISION_LOCALITY, geocode_address
+    from ...services.geo_service import (
+        PRECISION_LOCALITY,
+        GeocodeResult,
+        geocode_address,
+        geocode_cep,
+    )
 
-    if not (numero or "").strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Informe o número do imóvel para geocodificação certeira.",
-        )
+    numero_norm = (numero or "").strip() or None
+    result = geocode_address(cep=cep, numero=numero_norm, complemento=complemento, cidade=cidade, uf=uf)
 
-    result = geocode_address(cep=cep, numero=numero, complemento=complemento, cidade=cidade, uf=uf)
+    if not result and not numero_norm:
+        # Sem número, garantimos um ponto razoável (centro do CEP/cidade) usando geocode_cep.
+        legado = geocode_cep(cep, cidade=cidade, uf=uf)
+        if legado:
+            lat_legado, lng_legado = legado
+            result = GeocodeResult(
+                lat=lat_legado,
+                lng=lng_legado,
+                precision=PRECISION_LOCALITY,
+                cidade=cidade,
+                uf=uf,
+                bairro=None,
+                endereco_formatado=(
+                    f"{cidade or ''}{('/' + uf) if uf else ''}" or None
+                ),
+                provider="brasilapi",
+            )
+
     if not result:
         raise HTTPException(
             status_code=404,
-            detail="Endereço não encontrado. Confira CEP e número e tente novamente.",
+            detail="CEP não encontrado. Confira e tente novamente.",
         )
-    if result.precision == PRECISION_LOCALITY:
+    if numero_norm and result.precision == PRECISION_LOCALITY:
         raise HTTPException(
             status_code=422,
             detail="Endereço retornou apenas a cidade (sem rua). Confira o número informado.",

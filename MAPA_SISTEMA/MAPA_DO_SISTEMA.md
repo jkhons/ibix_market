@@ -894,7 +894,7 @@ Os arquivos do sistema Certilog foram copiados para diretórios `referencia/` co
 
 **APIs públicas (`/api/v1/loja/geo` e `/api/v1/loja/anuncios`):**
 - `GET /geo/cidades` (autocomplete), `GET /geo/cidade-proxima`, `GET /geo/reverso` — preservados.
-- **`GET /geo/geocodificar?cep=&numero=&complemento=`** — endpoint público para localização precisa do consumidor; rejeita precisão `locality` (404 "endereço não encontrado"); rate limit 30/min.
+- **`GET /geo/geocodificar?cep=&numero=&complemento=`** — endpoint público para localização do consumidor; `numero`/`complemento` opcionais (a UI atual pede só CEP). Sem `numero`: aceita qualquer precisão e faz fallback automático para `geocode_cep` (centro do CEP) se `geocode_address` falhar. Com `numero`: bloqueia `locality` com 422 (digitação errada). Rate limit 30/min.
 - **`GET /anuncios/perto-de-voce?lat=&lng=&limit=12&pool=40`** — home: pool aleatório diverso (máx 2 anúncios por loja) com pré-filtro por bounding box (~50 km Haversine), refinado por `distance_matrix`, ordenado por **duração de rota** crescente.
 - **`GET /anuncios/proximos?q=&lat=&lng=&limit=20`** — pós-busca: filtra por `q` em `titulo|descricao|produto.nome|produto.codigo`, agrupa por loja (melhor oferta por preço/promo), top-N Haversine, refina com `distance_matrix` e ordena por rota.
 - Helper interno `_montar_anuncio_response(anuncio, loja, leg=None)` em `app/api/v1/loja.py` padroniza a montagem do `AnuncioVitrineResponse` enriquecido.
@@ -902,7 +902,7 @@ Os arquivos do sistema Certilog foram copiados para diretórios `referencia/` co
 **Schema:** `AnuncioVitrineResponse` (em `app/schemas/marketplace.py`) ganhou `bairro_loja`, `distancia_rota_km`, `duracao_rota_min`, `rota_estimada` — além dos já existentes `distancia_km`, `cidade_loja`, `uf_loja`.
 
 **Frontend vitrine:**
-- **Modal de localização** (`base_loja.html` `#geo-modal`): além de "Usar minha localização" e busca por cidade, novos campos **CEP + Número + Complemento** com botão "Confirmar endereço" → chama `Vitrine.geocodeAddress` que persiste `ibix_geo_location` enriquecido (`{lat,lng,cidade,uf,bairro,precision,provider}`).
+- **Modal de localização** (`base_loja.html` `#geo-modal`): além de "Usar minha localização" e busca por cidade, campo **CEP** (apenas) com botão "Confirmar CEP" → chama `Vitrine.geocodeAddress({cep})` que persiste `ibix_geo_location` enriquecido (`{lat,lng,cidade,uf,bairro,cep,precision,...}`). O endpoint backend continua aceitando `numero`/`complemento` opcionais (compat para integrações futuras / mobile).
 - **`vitrine.js`** novos helpers: `geocodeAddress(cep, numero, complemento)`, `getAnunciosPertoDeVoce({lat,lng,limit,pool})`, `getAnunciosProximosPorBusca({q,lat,lng,limit})`, exportados em `window.Vitrine`.
 - **Home (`templates/loja/index.html`):** `loadPertoDeVoce` agora chama `/anuncios/perto-de-voce` quando há lat/lng precisos; senão cai no `/anuncios?sort=proximidade` (compat). Cards exibem badge "X km · Y min" para rota real e "~X km" quando `rota_estimada=true`.
 - **Pós-busca:** nova `<section id="loja-busca-proximas">` exibida abaixo da listagem quando `busca_ativa && busca_q`; populada por `loadBuscaProximas()`. Callback global `window._geoOnChange` re-renderiza ambas as seções quando o usuário troca de localização.
