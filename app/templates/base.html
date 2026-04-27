@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- frame-ancestors só tem efeito via header HTTP (ex.: Nginx); em meta é ignorado e gera aviso no console -->
+    <meta name="description" content="Ibix - Sistema de vendas e gestão (desenvolvido por automscale)">
+    <meta name="author" content="Ibix">
+    <meta name="keywords" content="ibix, vendas, gestão, sistema, dashboard, responsive, css, html, theme, front-end, web">
+    
+    <meta name="theme-color" content="#2c3e50">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link rel="shortcut icon" href="/static/img/arte-pdv.png" />
+
+    <link rel="canonical" href="{{ request.url.scheme }}://{{ request.url.netloc }}{{ request.url.path }}" />
+
+    {% set APP_VERSION = "1.0.0.6" %}
+    <title>{% block title %}Ibix{% endblock %}</title>
+
+    <!-- CSS Obrigatório - Template Ibix -->
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <link href="/static/css/certipeso.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Estilos para Notificações */
+        #notificacoesList .list-group-item.read {
+            background-color: #f8f9fa;
+            opacity: 0.7;
+        }
+        #notificacoesList .list-group-item:hover {
+            background-color: #e9ecef;
+        }
+        .indicator {
+            position: absolute;
+            top: -3px;
+            right: -3px;
+            display: inline-block;
+            padding: 0.25em 0.5em;
+            font-size: 75%;
+            font-weight: 700;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 50rem;
+            background-color: #3b7ddd;
+            color: white;
+        }
+        .nav-icon-chat { cursor: pointer; opacity: 0.85; }
+        .nav-icon-chat:hover { opacity: 1; }
+        .role-badge-header {
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.25em 0.5em;
+            letter-spacing: 0.02em;
+        }
+        .role-badge-sa { background-color: #dc3545 !important; color: #fff; }
+        .role-badge-ad { background-color: #0d6efd !important; color: #fff; }
+        .role-badge-ca { background-color: #198754 !important; color: #fff; }
+        .role-badge-cf { background-color: #fd7e14 !important; color: #fff; }
+        .role-badge-tc { background-color: #0dcaf0 !important; color: #000; }
+        .role-badge-sc { background-color: #6c757d !important; color: #fff; }
+        .chat-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 360px;
+            max-width: 100%;
+            height: 100%;
+            background: #fff;
+            box-shadow: -2px 0 12px rgba(0,0,0,0.15);
+            z-index: 1050;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-panel-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 1045;
+        }
+        .chat-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .chat-panel-body { padding: 1rem; overflow-y: auto; flex: 1; }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body data-user-role="{{ user_role | default('') }}">
+    <div class="wrapper">
+        <!-- Sidebar Obrigatória -->
+        {% include 'components/sidebar.html' %}
+        <!-- Overlay para fechar sidebar no mobile (clique fora) -->
+        <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true" onclick="closeSidebarMobile();"></div>
+
+        <!-- Conteúdo Principal -->
+        <div class="main">
+            <!-- Navbar Superior Obrigatória -->
+            <nav class="navbar navbar-expand navbar-light navbar-bg">
+                <a class="sidebar-toggle js-sidebar-toggle" href="#" onclick="toggleSidebar(); return false;">
+                    <i class="hamburger align-self-center"></i>
+                </a>
+
+                <div class="navbar-collapse collapse">
+                    <ul class="navbar-nav navbar-align">
+                        <li class="nav-item">
+                            <a class="nav-icon nav-icon-chat" href="#" title="Enviar mensagem por WhatsApp" onclick="event.preventDefault(); window.toggleChatPanel && window.toggleChatPanel();">
+                                <svg class="align-middle" width="22" height="22" viewBox="0 0 24 24" fill="#25D366" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                </svg>
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-icon dropdown-toggle" href="#" id="alertsDropdown" data-bs-toggle="dropdown">
+                                <div class="position-relative">
+                                    <i class="align-middle" data-feather="bell"></i>
+                                    <span class="indicator" id="notificacoesCount">0</span>
+                                </div>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end py-0" aria-labelledby="alertsDropdown">
+                                <div class="dropdown-menu-header" id="notificacoesHeader">
+                                    <span class="spinner-border spinner-border-sm"></span> Carregando...
+                                </div>
+                                <div class="list-group" id="notificacoesList">
+                                    <!-- Notificações serão carregadas aqui -->
+                                </div>
+                                <div class="dropdown-menu-footer">
+                                    <a href="#" class="text-muted" onclick="marcarTodasLidas()">Marcar todas como lidas</a>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-icon dropdown-toggle" href="#" id="messagesDropdown" data-bs-toggle="dropdown">
+                                <div class="position-relative">
+                                    <i class="align-middle" data-feather="message-square"></i>
+                                    <span class="indicator d-none" id="mensagensCount">0</span>
+                                </div>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-lg dropdown-menu-end py-0" aria-labelledby="messagesDropdown">
+                                <div class="dropdown-menu-header" id="mensagensHeader">
+                                    0 Mensagens
+                                </div>
+                                <div class="list-group" id="mensagensList">
+                                    <div class="list-group-item text-center text-muted py-4">
+                                        <i data-feather="inbox"></i>
+                                        <p class="mb-0 mt-2">Nenhuma mensagem</p>
+                                    </div>
+                                </div>
+                                <div class="dropdown-menu-footer d-none">
+                                    <a href="#" class="text-muted">Ver todas as mensagens</a>
+                                </div>
+                            </div>
+                        </li>
+                        {% include 'components/user_dropdown.html' %}
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Conteúdo da Página -->
+            <main class="content">
+                {% block content %}
+                <!-- Conteúdo específico da página será inserido aqui -->
+                {% endblock %}
+            </main>
+
+            <!-- Footer Obrigatório -->
+            {% include 'components/footer.html' %}
+        </div>
+    </div>
+
+    <!-- Painel Chat (slide-over) -->
+    <div id="chatPanel" class="chat-panel d-none">
+        <div class="chat-panel-header">
+            <h5 class="chat-panel-title mb-0">
+                <svg class="align-middle me-1" width="20" height="20" viewBox="0 0 24 24" fill="#25D366" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                WhatsApp
+            </h5>
+            <button type="button" class="btn btn-link btn-sm text-dark p-0" id="chatPanelClose" title="Fechar"><i data-feather="x"></i></button>
+        </div>
+        <div class="chat-panel-body">
+            <p class="text-muted small">Envie uma mensagem por WhatsApp. O sistema inclui sua identificação e empresa na mensagem.</p>
+            <form id="chatWhatsAppForm">
+                <div class="mb-2">
+                    <label for="chatNumeroDestino" class="form-label small">Número (com DDI, ex: 5511999999999)</label>
+                    <input type="text" class="form-control form-control-sm" id="chatNumeroDestino" placeholder="5511999999999" required>
+                </div>
+                <div class="mb-2">
+                    <label for="chatMensagem" class="form-label small">Mensagem</label>
+                    <textarea class="form-control form-control-sm" id="chatMensagem" rows="3" placeholder="Digite a mensagem..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="align-middle me-1" data-feather="send"></i> Enviar por WhatsApp</button>
+            </form>
+            <div id="chatEnvioResultado" class="mt-2 small d-none"></div>
+        </div>
+    </div>
+    <div id="chatPanelOverlay" class="chat-panel-overlay d-none" onclick="window.closeChatPanel && window.closeChatPanel();"></div>
+
+    <!-- JavaScript Obrigatório - Template Ibix -->
+    <!-- app.js contém o Feather Icons -->
+    <script>
+        window.USER_IS_CLIENTE = {{ 'true' if user_is_cliente else 'false' }};
+        window.USER_CAN_EDIT_EQUIPAMENTOS = false;
+    </script>
+    <script src="/static/js/app.js"></script>
+    <script>
+    // Wrapper seguro para feather.replace - evita TypeError ao encontrar ícone inexistente ou elemento inválido
+    (function() {
+        if (typeof feather === 'undefined' || !feather.replace) return;
+        var origReplace = feather.replace.bind(feather);
+        feather.replace = function(opts) {
+            try {
+                return origReplace(opts);
+            } catch (e) {
+                console.warn('feather.replace:', e.message || e);
+            }
+        };
+    })();
+    </script>
+    
+    <!-- Scripts principais -->
+    <script src="/static/js/dashboard.js?v=2.3"></script>
+    <script src="/static/js/certipeso.js?v=2.2"></script>
+    <script src="/static/js/alert-system.js?v=1.1"></script>
+    <script src="/static/js/breadcrumbs.js?v=2.1"></script>
+    <script src="/static/js/user-dropdown.js?v=1.1"></script>
+    <script src="/static/js/notificacoes.js?v=2.7"></script>
+    <script src="/static/js/chat.js?v=1.0"></script>
+
+    {% block extra_js %}{% endblock %}
+    
+    <script>
+    // Toggle do sidebar: em mobile usa .show + overlay; em desktop usa .collapsed
+    function isSidebarMobile() {
+        return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
+    }
+    function closeSidebarMobile() {
+        var sidebar = document.querySelector('.js-sidebar');
+        var overlay = document.getElementById('sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
+    }
+    function toggleSidebar() {
+        var sidebar = document.querySelector('.js-sidebar');
+        var overlay = document.getElementById('sidebar-overlay');
+        var main = document.querySelector('.main');
+        if (!sidebar) return;
+        if (isSidebarMobile()) {
+            sidebar.classList.toggle('show');
+            if (overlay) overlay.classList.toggle('show', sidebar.classList.contains('show'));
+        } else {
+            sidebar.classList.toggle('collapsed');
+            if (main) main.classList.toggle('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+            localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+        }
+    }
+    window.addEventListener('resize', function() {
+        if (!isSidebarMobile()) {
+            closeSidebarMobile();
+        }
+    });
+    // Fechar sidebar ao clicar em um link no mobile (navegação)
+    document.addEventListener('DOMContentLoaded', function() {
+        var sidebar = document.querySelector('.js-sidebar');
+        if (sidebar) {
+            sidebar.addEventListener('click', function(e) {
+                if (e.target.closest('a') && isSidebarMobile()) {
+                    closeSidebarMobile();
+                }
+            });
+        }
+    });
+    </script>
+    <script>
+    // Guard PWA PDV: quando aberto em modo app (standalone), manter navegação apenas no PDV.
+    (function () {
+        try {
+            var isStandalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+            if (!isStandalone) return;
+            var path = window.location.pathname || '';
+            var pdvBase = '/negocio/venda/pdv';
+            if (!path.startsWith(pdvBase)) {
+                window.location.replace('/negocio/venda/pdv?source=pwa');
+            }
+        } catch (_err) {}
+    })();
+    </script>
+</body>
+
+</html>

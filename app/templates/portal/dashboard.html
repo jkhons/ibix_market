@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Portal - Dashboard | Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h1 class="h3 mb-4">Dashboard</h1>
+    <p class="text-muted">Visão geral dos seus certificados.</p>
+    <div class="row">
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h6 class="text-uppercase text-muted mb-1">Certificados válidos</h6>
+                            <h3 class="mb-0" id="portal-card-validos">-</h3>
+                        </div>
+                        <div class="col-auto"><i data-feather="file-text" class="text-success"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h6 class="text-uppercase text-muted mb-1">A vencer (30 dias)</h6>
+                            <h3 class="mb-0" id="portal-card-vencendo">-</h3>
+                        </div>
+                        <div class="col-auto"><i data-feather="alert-circle" class="text-warning"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h6 class="text-uppercase text-muted mb-1">Vencidos</h6>
+                            <h3 class="mb-0" id="portal-card-vencidos">-</h3>
+                        </div>
+                        <div class="col-auto"><i data-feather="x-circle" class="text-danger"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-header"><h5 class="mb-0">Próximos vencimentos</h5></div>
+        <div class="card-body">
+            <div id="portal-proximos-vencimentos" class="table-responsive">
+                <p class="text-muted mb-0">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof feather !== "undefined") feather.replace();
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)pdv_automscale_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    var headers = { "Authorization": "Bearer " + token };
+    (function() {
+        var v = document.getElementById("portal-card-validos"); if (v) v.textContent = "0";
+        var v2 = document.getElementById("portal-card-vencendo"); if (v2) v2.textContent = "0";
+        var v3 = document.getElementById("portal-card-vencidos"); if (v3) v3.textContent = "0";
+    })();
+    fetch("/api/v1/certificados?limit=10&status=vencendo", { headers: headers })
+        .then(function(r) { return r.ok ? r.json() : []; })
+        .then(function(list) {
+            var el = document.getElementById("portal-proximos-vencimentos");
+            if (!el) return;
+            if (!list.length) { el.innerHTML = "<p class=\"text-muted mb-0\">Nenhum certificado a vencer nos próximos 30 dias.</p>"; return; }
+            var html = "<table class=\"table table-sm\"><thead><tr><th>Certificado</th><th>Equipamento</th><th>Validade</th></tr></thead><tbody>";
+            list.forEach(function(c) {
+                var eq = (c.equipamento && c.equipamento.numero_serie) ? c.equipamento.numero_serie : "-";
+                var val = c.data_validade || "-";
+                html += "<tr><td>" + (c.numero || "-") + "</td><td>" + eq + "</td><td>" + val + "</td></tr>";
+            });
+            html += "</tbody></table>";
+            el.innerHTML = html;
+        });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}{% if seo and seo.title %}{{ seo.title }}{% else %}Categoria local{% endif %}{% endblock %}
+
+{% block seo_description %}{% if seo and seo.description %}{{ seo.description }}{% else %}{{ descricao_publica }}{% endif %}{% endblock %}
+
+{% block seo_og_title %}{% if seo and seo.title %}{{ seo.title }}{% else %}Categoria | Ibix{% endif %}{% endblock %}
+
+{% block seo_og_description %}{% if seo and seo.description %}{{ seo.description }}{% else %}{{ descricao_publica }}{% endif %}{% endblock %}
+
+{% block content %}
+<section class="container py-3">
+  <h1>{{ seo.h1 }}</h1>
+  <p>{{ descricao_publica }}</p>
+  <p class="small mb-0">
+    <a href="/">Voltar à página inicial da vitrine</a>
+    ·
+    <a href="/loja">Área institucional da loja</a>
+  </p>
+</section>
+
+<section class="container pb-4">
+  <div class="card">
+    <div class="card-body">
+      <h2 class="h5 mb-3">Lojas de {{ seo.categoria_label }} em {{ seo.cidade_label }}</h2>
+      {% if lojas_categoria %}
+        <ul class="mb-0">
+          {% for loja in lojas_categoria %}
+            <li>
+              <a href="/{{ loja.slug }}">{{ loja.nome_fantasia or loja.nome_loja or loja.slug }}</a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="mb-0 text-muted">Nenhuma loja encontrada para esta categoria.</p>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

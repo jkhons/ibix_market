@@ -1,0 +1,35 @@
+# PDV SOLUMATICA - PostgreSQL e Redis para desenvolvimento
+# Uso: docker compose up -d db   (sobe só o banco)
+#       docker compose up -d     (sobe banco + redis)
+# .env: DB_NAME=pdv_solumatica, DB_HOST=localhost, DB_USER=postgres, DB_PASSWORD=postgres
+# Portas em 127.0.0.1 para não expor DB/Redis à internet (produção).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pdv_solumatica_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pdv_solumatica
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pdv_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    container_name: pdv_solumatica_redis
+    command: redis-server --requirepass "${REDIS_PASSWORD:-fOg7PYg2N8t-ES3uZAIA1-pW88GjxPRAph1_ladhE74}" --protected-mode no
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-fOg7PYg2N8t-ES3uZAIA1-pW88GjxPRAph1_ladhE74}", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 5
+volumes:
+  pdv_pgdata:

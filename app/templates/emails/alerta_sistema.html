@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerta de Sistema - PDV Ibix</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: #dc3545; color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .alert-box { background-color: #f8d7da; border: 3px solid #dc3545; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .alert-box strong { color: #dc3545; font-size: 18px; }
+        .info-box { background-color: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 5px; font-family: monospace; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Alerta de Sistema</h1>
+        </div>
+        
+        <div class="content">
+            <div class="alert-box">
+                <strong>⚠️ ALERTA:</strong> {{tipo_alerta}}
+            </div>
+            
+            <p><strong>Descrição:</strong></p>
+            <p>{{descricao}}</p>
+            
+            <div class="info-box">
+                <strong>Detalhes Técnicos:</strong><br>
+                Data/Hora: {{data_hora}}<br>
+                Módulo: {{modulo}}<br>
+                Severidade: {{severidade}}<br>
+                Código: {{codigo_erro}}
+            </div>
+            
+            <p><strong>Ação Recomendada:</strong></p>
+            <p>{{acao_recomendada}}</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>PDV Ibix - Sistema de vendas e gestão PDV</strong></p>
+            <p>Este é um alerta automático do sistema.</p>
+        </div>
+    </div>
+</body>
+</html>
+

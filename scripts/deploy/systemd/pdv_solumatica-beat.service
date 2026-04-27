@@ -1,0 +1,30 @@
+# PDV SOLUMATICA - Celery Beat (agendador - job diário billing 03:00)
+# Pré-requisitos: Redis rodando, REDIS_URL ou CELERY_BROKER_URL no .env
+# Instalar: sudo cp scripts/deploy/systemd/pdv_solumatica-beat.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl enable --now pdv_solumatica-beat
+[Unit]
+Description=PDV SOLUMATICA Celery Beat - Job diário billing (03:00)
+Documentation=https://www.solumatica.com.br
+After=network.target redis-server.service pdv_solumatica.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/central_solumatica/pdv_solumatica
+
+EnvironmentFile=-/central_solumatica/pdv_solumatica/.env
+Environment="PATH=/central_solumatica/pdv_solumatica/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/central_solumatica/pdv_solumatica"
+Environment="TZ=America/Sao_Paulo"
+
+ExecStart=/central_solumatica/pdv_solumatica/.venv/bin/celery -A app.worker.celery_app beat -l info
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pdv_solumatica-beat
+
+[Install]
+WantedBy=multi-user.target

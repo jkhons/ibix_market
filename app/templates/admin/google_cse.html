@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Google — Busca de imagens (CSE) | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm me-2">&larr; Dashboard</a>
+        <h1 class="h3 d-inline align-middle">Google Custom Search — imagens produto</h1>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm mb-3" role="alert">
+        <div class="d-flex flex-wrap align-items-start gap-2">
+            <span class="text-primary flex-shrink-0"><i data-feather="globe" class="align-middle" style="width:20px;height:20px"></i></span>
+            <div class="flex-grow-1">
+                <strong>Configuração no Google Cloud</strong>
+                <p class="small mb-2 text-body-secondary">A autenticação da sua conta Google ocorre <strong>só no site do Google</strong> (links abaixo). Esta tela apenas <strong>armazena</strong> a API Key e o Search Engine ID (<code>cx</code>) no sistema — não há “login Google” embutido aqui.</p>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                    <a class="btn btn-sm btn-outline-primary" href="https://console.cloud.google.com/apis/library/customsearch.googleapis.com" target="_blank" rel="noopener noreferrer">Ativar Custom Search API</a>
+                    <a class="btn btn-sm btn-outline-primary" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Credenciais (chave API <code>AIza…</code>)</a>
+                    <a class="btn btn-sm btn-outline-primary" href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer">Faturamento do projeto</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="https://programmablesearchengine.google.com/" target="_blank" rel="noopener noreferrer">Search Engine (<code>cx</code>)</a>
+                </div>
+                <p class="small mb-0 text-body-secondary"><strong>Dica:</strong> use a mesma chave no campo abaixo que foi criada no <strong>mesmo projeto</strong> onde a API está ativa. Restrições da chave: para chamadas feitas <strong>pelo servidor</strong>, prefira restrição por <strong>IP</strong> (ou “Nenhuma” só para teste), não só por sites. Erro <em>403 / access to Custom Search JSON API</em> costuma exigir faturamento vinculado ao projeto.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header"><strong>Credenciais e parâmetros</strong></div>
+                <div class="card-body">
+                    <div id="cfg-loading" class="text-muted small">Carregando...</div>
+                    <div id="cfg-form" class="d-none">
+                        <p class="small text-muted mb-2">Prioridade: valores salvos aqui; se vazios, usa variáveis de ambiente no servidor.</p>
+                        <div class="mb-2">
+                            <label class="form-label">Search Engine ID (cx)</label>
+                            <input type="text" class="form-control form-control-sm" id="engine_id" autocomplete="off">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">API Key</label>
+                            <p class="small mb-1">Atual: <code id="api_key_masked">—</code></p>
+                            <input type="password" class="form-control form-control-sm" id="api_key" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label">Sufixo da busca (após o nome do produto)</label>
+                            <input type="text" class="form-control form-control-sm" id="query_suffix" placeholder="ex.: NCM ficha técnica">
+                            <div class="form-text">Concatenado ao nome no cadastro de produto (máx. 500 caracteres no total).</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Teto informacional (buscas/dia na plataforma)</label>
+                            <input type="number" class="form-control form-control-sm" id="plataforma_limite" min="0" step="1" placeholder="Opcional">
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm" id="btnSalvarConfig">Salvar configuração</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 mb-3">
+            <div class="card">
+                <div class="card-header"><strong>Resumo hoje</strong></div>
+                <div class="card-body">
+                    <div id="resumo-loading" class="text-muted small">Carregando...</div>
+                    <div id="resumo-body" class="d-none">
+                        <p class="mb-1"><strong>Credenciais:</strong> <span id="resumo-cred">—</span></p>
+                        <p class="mb-1"><strong>Uso total (tenants):</strong> <span id="resumo-uso">—</span></p>
+                        <p class="mb-1"><strong>Teto informacional:</strong> <span id="resumo-teto">—</span></p>
+                        <p class="mb-0"><strong>Tenants com uso hoje:</strong> <span id="resumo-tenants">—</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><strong>Cota por tenant</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr><th>ID</th><th>Nome</th><th>Limite / dia</th><th>Uso hoje</th><th>Restante</th><th></th></tr></thead>
+                    <tbody id="tbody-tenants"></tbody>
+                </table>
+            </div>
+            <p class="text-muted small p-2 mb-0">Limite 0 = busca bloqueada para o tenant. Superadmin e Administrador da plataforma não consomem cota ao testar.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/);
+        if (m) return m[1];
+        m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function authHeaders() {
+        var h = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+        var t = getToken();
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    }
+    function loadConfig() {
+        fetch('/api/v1/admin/integracoes/google-cse/config', { headers: authHeaders() })
+            .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+            .then(function(res) {
+                document.getElementById('cfg-loading').classList.add('d-none');
+                if (!res.ok) { document.getElementById('cfg-loading').textContent = 'Erro ao carregar config'; return; }
+                document.getElementById('cfg-form').classList.remove('d-none');
+                var j = res.j;
+                document.getElementById('engine_id').value = j.engine_id || '';
+                document.getElementById('api_key_masked').textContent = j.api_key_masked || (j.api_key_configured ? '***' : '—');
+                document.getElementById('query_suffix').value = j.query_suffix || '';
+                document.getElementById('plataforma_limite').value = (j.plataforma_limite_diario != null) ? j.plataforma_limite_diario : '';
+            });
+    }
+    function loadResumo() {
+        fetch('/api/v1/admin/integracoes/google-cse/resumo', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(j) {
+                document.getElementById('resumo-loading').classList.add('d-none');
+                document.getElementById('resumo-body').classList.remove('d-none');
+                document.getElementById('resumo-cred').textContent = j.credenciais_prontas ? 'OK' : 'Incompleto';
+                document.getElementById('resumo-uso').textContent = j.uso_total_hoje;
+                document.getElementById('resumo-teto').textContent = (j.plataforma_limite_diario != null) ? j.plataforma_limite_diario : '—';
+                document.getElementById('resumo-tenants').textContent = j.tenants_com_uso_hoje;
+            })
+            .catch(function() {
+                document.getElementById('resumo-loading').textContent = 'Erro ao carregar resumo';
+            });
+    }
+    function loadTenants() {
+        fetch('/api/v1/admin/integracoes/google-cse/tenants?limit=500', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(rows) {
+                var tb = document.getElementById('tbody-tenants');
+                tb.innerHTML = rows.map(function(row) {
+                    return '<tr data-tid="' + row.tenant_id + '">' +
+                        '<td>' + row.tenant_id + '</td>' +
+                        '<td>' + (row.nome || '').replace(/</g, '&lt;') + '</td>' +
+                        '<td><input type="number" class="form-control form-control-sm limite-inp" min="0" step="1" value="' + row.limite_diario + '" style="max-width:90px"></td>' +
+                        '<td>' + row.uso_hoje + '</td>' +
+                        '<td>' + row.restante + '</td>' +
+                        '<td><button type="button" class="btn btn-sm btn-outline-primary btn-save-limite">Salvar</button></td></tr>';
+                }).join('');
+                tb.querySelectorAll('.btn-save-limite').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        var tr = btn.closest('tr');
+                        var tid = parseInt(tr.getAttribute('data-tid'), 10);
+                        var lim = parseInt(tr.querySelector('.limite-inp').value, 10);
+                        if (isNaN(lim) || lim < 0) { alert('Limite inválido'); return; }
+                        fetch('/api/v1/admin/integracoes/google-cse/tenants/' + tid, {
+                            method: 'PATCH',
+                            headers: authHeaders(),
+                            body: JSON.stringify({ google_cse_limite_diario: lim })
+                        }).then(function(r) {
+                            return r.json().then(function(j) { return { ok: r.ok, j: j }; });
+                        }).then(function(res) {
+                            if (!res.ok) { alert(res.j.detail || 'Erro'); return; }
+                            var j = res.j;
+                            tr.children[3].textContent = j.uso_hoje;
+                            tr.children[4].textContent = j.restante;
+                            loadResumo();
+                        }).catch(function() { alert('Erro de rede'); });
+                    });
+                });
+            });
+    }
+    document.getElementById('btnSalvarConfig').addEventListener('click', function() {
+        var body = {
+            engine_id: document.getElementById('engine_id').value.trim(),
+            query_suffix: document.getElementById('query_suffix').value.trim()
+        };
+        var pk = document.getElementById('api_key').value.trim();
+        if (pk) body.api_key = pk;
+        var pl = document.getElementById('plataforma_limite').value.trim();
+        if (pl !== '') body.plataforma_limite_diario = parseInt(pl, 10);
+        fetch('/api/v1/admin/integracoes/google-cse/config', {
+            method: 'PATCH',
+            headers: authHeaders(),
+            body: JSON.stringify(body)
+        }).then(function(r) {
+            return r.json().then(function(j) { return { ok: r.ok, j: j }; });
+        }).then(function(res) {
+            if (!res.ok) { alert(res.j.detail || 'Erro ao salvar'); return; }
+            document.getElementById('api_key').value = '';
+            document.getElementById('api_key_masked').textContent = res.j.api_key_masked || '***';
+            alert('Configuração salva.');
+            loadResumo();
+        }).catch(function() { alert('Erro de rede'); });
+    });
+    loadConfig();
+    loadResumo();
+    loadTenants();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,471 @@
+/* PDV Ibix - Sistema de gestão de certificação, calibração e PDV */
+/* Estilos customizados para o dashboard */
+
+:root {
+  --certipeso-primary: #2c3e50;
+  --certipeso-secondary: #34495e;
+  --certipeso-success: #27ae60;
+  --certipeso-warning: #f39c12;
+  --certipeso-danger: #e74c3c;
+  --certipeso-info: #3498db;
+  --certipeso-light: #ecf0f1;
+  --certipeso-dark: #2c3e50;
+}
+
+/* Header customizado */
+.certipeso-header {
+  background: linear-gradient(135deg, var(--certipeso-primary), var(--certipeso-secondary));
+  color: white;
+  padding: 1rem 0;
+}
+
+/* Cards de estatísticas */
+.certipeso-stat-card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.certipeso-stat-card:hover {
+  transform: translateY(-2px);
+}
+
+.certipeso-stat-card .card-body {
+  padding: 1.5rem;
+}
+
+.certipeso-stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--certipeso-primary);
+}
+
+.certipeso-stat-label {
+  color: #6c757d;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Dashboard principal - cards de estatísticas: tamanho e ocupação uniformes */
+.dashboard-stat-cards .card {
+  min-height: 0;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+.dashboard-stat-cards .card-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1rem;
+}
+.dashboard-stat-cards .card-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0;
+}
+.dashboard-stat-cards .card h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+  margin-bottom: 0.25rem;
+}
+.dashboard-stat-cards .card .mb-0 {
+  margin-bottom: 0;
+}
+.dashboard-stat-cards .stat i {
+  width: 22px;
+  height: 22px;
+}
+
+/* Dashboard - linha do gráfico e calendário/tabela */
+.content .container-fluid .row.mb-3 + .row .card {
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.content .container-fluid .row .col-xl-5 .card,
+.content .container-fluid .row .col-xl-7 .card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.content .container-fluid .row .col-xl-5 .card-body,
+.content .container-fluid .row .col-xl-7 .card-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Gráficos customizados */
+.certipeso-chart-container {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Tabelas customizadas */
+.certipeso-table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.certipeso-table thead th {
+  background-color: var(--certipeso-primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+}
+
+/* Botões customizados */
+.btn-certipeso-primary {
+  background-color: var(--certipeso-primary);
+  border-color: var(--certipeso-primary);
+  color: white;
+}
+
+.btn-certipeso-primary:hover {
+  background-color: var(--certipeso-secondary);
+  border-color: var(--certipeso-secondary);
+  color: white;
+}
+
+/* Sidebar - altura fixa e área rolável (sem barra visível) */
+#sidebar.sidebar,
+.sidebar.js-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+/* Sidebar customizada */
+.certipeso-sidebar,
+.certlog-sidebar {
+  background: linear-gradient(180deg, var(--certipeso-primary), var(--certipeso-secondary));
+}
+
+.certipeso-sidebar .sidebar-nav .sidebar-item .sidebar-link {
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+.certipeso-sidebar .sidebar-nav .sidebar-item .sidebar-link:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* CORREÇÕES PARA DROPDOWNS DA NAVBAR */
+.navbar-nav .nav-item.dropdown {
+  position: relative;
+}
+
+.navbar-nav .nav-item.dropdown .nav-icon,
+.navbar-nav .nav-item.dropdown .nav-link {
+  cursor: pointer !important;
+  position: relative;
+  z-index: 1000;
+}
+
+.navbar-nav .nav-item.dropdown .dropdown-toggle {
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+
+.navbar-nav .nav-item.dropdown .dropdown-toggle::after {
+  display: inline-block;
+  margin-left: 0.255em;
+  vertical-align: 0.255em;
+  content: "";
+  border-top: 0.3em solid;
+  border-right: 0.3em solid transparent;
+  border-bottom: 0;
+  border-left: 0.3em solid transparent;
+}
+
+/* Garantir que os dropdowns apareçam */
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1000;
+  float: left;
+  min-width: 10rem;
+  padding: 0.5rem 0;
+  margin: 0.125rem 0 0;
+  font-size: 1rem;
+  color: #212529;
+  text-align: left;
+  list-style: none;
+  background-color: #fff;
+  background-clip: padding-box;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 0.375rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
+}
+
+.dropdown-menu.show {
+  display: block !important;
+}
+
+/* Posicionamento específico para dropdowns da navbar */
+.navbar-nav .dropdown-menu {
+  right: 0;
+  left: auto;
+}
+
+/* Indicadores de notificação */
+.nav-icon .position-relative .indicator {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: var(--certipeso-danger);
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+/* Hover effects para dropdowns */
+.navbar-nav .nav-item.dropdown:hover .dropdown-menu {
+  display: block;
+}
+
+/* Correção para ícones SVG */
+.nav-icon svg.feather {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Correção para avatar */
+.navbar-nav .avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* Sidebar toggle essencial */
+.sidebar-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  background: transparent;
+  color: #6c757d;
+  text-decoration: none;
+  border-radius: 0.375rem;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+  position: relative;
+  z-index: 1000;
+  pointer-events: auto;
+}
+
+.sidebar-toggle:hover {
+  color: #495057;
+  background-color: #f8f9fa;
+  text-decoration: none;
+}
+
+.sidebar-toggle .hamburger {
+  width: 24px;
+  height: 3px;
+  position: relative;
+  display: block;
+  background-color: #495057;
+}
+
+.sidebar-toggle .hamburger::before {
+  content: '';
+  position: absolute;
+  top: -7.5px;
+  width: 24px;
+  height: 3px;
+  background-color: #495057;
+}
+
+.sidebar-toggle .hamburger::after {
+  content: '';
+  position: absolute;
+  bottom: -7.5px;
+  width: 16px;
+  height: 3px;
+  background-color: #495057;
+}
+
+.certipeso-sidebar .sidebar-nav .sidebar-item.active .sidebar-link {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .certipeso-stat-number {
+    font-size: 1.5rem;
+  }
+  
+  .certipeso-chart-container {
+    padding: 1rem;
+  }
+} 
+
+/* Área rolável do menu da sidebar (scroll por roda do mouse, sem barra visível) */
+.sidebar .sidebar-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.sidebar .sidebar-content::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-version {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.sidebar-footer i {
+  width: 14px;
+  height: 14px;
+}
+
+/* Paginação customizada */
+.pagination {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+.pagination .page-item {
+  margin: 0;
+}
+
+.pagination .page-link {
+  border: 1px solid #dee2e6;
+  color: var(--certipeso-primary);
+  background-color: white;
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  border-radius: 0.375rem;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-width: 2.5rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.pagination .page-link:hover {
+  background-color: var(--certipeso-light);
+  border-color: var(--certipeso-primary);
+  color: var(--certipeso-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagination .page-item.active .page-link {
+  background-color: var(--certipeso-primary);
+  border-color: var(--certipeso-primary);
+  color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pagination .page-item.disabled .page-link {
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.pagination .page-item.disabled .page-link:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Estilo para ellipsis */
+.pagination .page-item.disabled .page-link:not([disabled]) {
+  background-color: transparent;
+  border-color: transparent;
+  color: #6c757d;
+  cursor: default;
+}
+
+/* Garantir que a paginação seja horizontal */
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.pagination-container nav {
+  display: flex;
+  align-items: center;
+}
+
+.pagination-container ul {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex-wrap: wrap;
+}
+
+/* Responsividade para paginação */
+@media (max-width: 768px) {
+  .pagination {
+    gap: 0.125rem;
+  }
+  
+  .pagination .page-link {
+    padding: 0.375rem 0.5rem;
+    min-width: 2rem;
+    font-size: 0.8rem;
+  }
+  
+  .pagination-container {
+    justify-content: center;
+  }
+} 

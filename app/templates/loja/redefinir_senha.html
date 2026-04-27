@@ -1,0 +1,116 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Redefinir senha{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title">Redefinir senha</h1>
+    <p class="loja-auth-subtitle">Digite sua nova senha abaixo.</p>
+
+    <div id="loja-redefinir-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+    <div id="loja-redefinir-success" class="alert alert-success" style="display: none;" role="alert"></div>
+
+    <div id="loja-redefinir-loading">Verificando link...</div>
+    <div id="loja-redefinir-invalid" style="display: none;">
+      <p class="text-danger">Link inválido ou expirado. Solicite uma nova redefinição de senha.</p>
+      <a href="/loja/esqueci-senha" class="btn btn-outline-primary">Solicitar novo link</a>
+    </div>
+
+    <form id="loja-redefinir-senha-form" style="display: none;">
+      <input type="hidden" id="loja-token" value="{{ token }}">
+      <div class="mb-3">
+        <label for="loja-new-password" class="form-label">Nova senha</label>
+        <input type="password" class="form-control" id="loja-new-password" required minlength="6">
+      </div>
+      <div class="mb-3">
+        <label for="loja-confirm-password" class="form-label">Confirmar senha</label>
+        <input type="password" class="form-control" id="loja-confirm-password" required minlength="6">
+      </div>
+      <div class="loja-auth-actions">
+        <button type="submit" class="btn btn-primary" id="loja-redefinir-btn">Redefinir senha</button>
+        <a href="/loja/login" class="loja-auth-link">Voltar ao login</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var token = document.getElementById("loja-token") ? document.getElementById("loja-token").value : "";
+  var loadingEl = document.getElementById("loja-redefinir-loading");
+  var invalidEl = document.getElementById("loja-redefinir-invalid");
+  var formEl = document.getElementById("loja-redefinir-senha-form");
+  var errorEl = document.getElementById("loja-redefinir-error");
+  var successEl = document.getElementById("loja-redefinir-success");
+
+  if (!token) {
+    if (loadingEl) loadingEl.style.display = "none";
+    invalidEl.style.display = "block";
+  } else {
+    fetch("/api/v1/loja/redefinir-senha/valida?token=" + encodeURIComponent(token), { credentials: "include" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (loadingEl) loadingEl.style.display = "none";
+        if (d.valid) {
+          formEl.style.display = "block";
+        } else {
+          invalidEl.style.display = "block";
+        }
+      })
+      .catch(function () {
+        if (loadingEl) loadingEl.style.display = "none";
+        invalidEl.style.display = "block";
+      });
+  }
+
+  formEl.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+    successEl.style.display = "none";
+
+    var newPwd = document.getElementById("loja-new-password").value;
+    var confirmPwd = document.getElementById("loja-confirm-password").value;
+    if (newPwd.length < 6) {
+      errorEl.textContent = "A senha deve ter no mínimo 6 caracteres.";
+      errorEl.style.display = "block";
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      errorEl.textContent = "As senhas não coincidem.";
+      errorEl.style.display = "block";
+      return;
+    }
+
+    var btn = document.getElementById("loja-redefinir-btn");
+    btn.disabled = true;
+
+    fetch("/api/v1/loja/redefinir-senha", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ token: token, new_password: newPwd, confirm_password: confirmPwd })
+    })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (result) {
+      if (result.ok) {
+        successEl.textContent = result.data.message || "Senha alterada. Redirecionando...";
+        successEl.style.display = "block";
+        setTimeout(function () { window.location.href = "/loja/login?msg=senha_alterada"; }, 1500);
+      } else {
+        errorEl.textContent = result.data.detail || "Erro ao redefinir senha.";
+        errorEl.style.display = "block";
+        btn.disabled = false;
+      }
+    })
+    .catch(function () {
+      errorEl.textContent = "Erro de conexão. Tente novamente.";
+      errorEl.style.display = "block";
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
+{% endblock %}

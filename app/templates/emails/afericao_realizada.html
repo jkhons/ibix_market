@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aferição Realizada - PDV Ibix</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: #17a2b8; color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .info-box { background-color: #e7f6f8; border-left: 4px solid #17a2b8; padding: 15px; margin: 20px 0; }
+        .info-box strong { color: #17a2b8; display: block; margin-bottom: 5px; }
+        .resultado { padding: 10px; border-radius: 5px; margin: 10px 0; font-weight: bold; }
+        .aprovado { background-color: #d4edda; color: #155724; }
+        .reprovado { background-color: #f8d7da; color: #721c24; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Aferição Realizada</h1>
+        </div>
+        
+        <div class="content">
+            <p>Olá, <strong>{{cliente_nome}}</strong>!</p>
+            
+            <p>Informamos que a aferição do seu equipamento foi realizada.</p>
+            
+            <div class="info-box">
+                <strong>⚙️ Equipamento:</strong>
+                {{equipamento}}
+                
+                <strong>📅 Data da Aferição:</strong>
+                {{data_afericao}}
+                
+                <strong>🔬 Técnico Responsável:</strong>
+                {{tecnico_nome}}
+                
+                <strong>📊 Número da Aferição:</strong>
+                {{numero_afericao}}
+            </div>
+            
+            <div class="resultado {{status_classe}}">
+                📋 Resultado: {{resultado}}
+            </div>
+            
+            <p><strong>Observações Técnicas:</strong></p>
+            <p>{{observacoes}}</p>
+            
+            <p>O certificado será emitido em breve e você receberá uma notificação por e-mail.</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>PDV Ibix - Sistema de vendas e gestão PDV</strong></p>
+            <p>Este é um e-mail automático, por favor não responda.</p>
+        </div>
+    </div>
+</body>
+</html>
+

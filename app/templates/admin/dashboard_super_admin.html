@@ -1,0 +1,365 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard Super Admin | Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-dashboard .card-stat { min-height: 120px; }
+    .admin-dashboard .card-stat .stat { width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.375rem; }
+    .admin-dashboard .card-stat .stat.text-primary { background: rgba(13, 110, 253, 0.12); }
+    .admin-dashboard .card-stat .stat.text-info { background: rgba(13, 202, 240, 0.12); }
+    .admin-dashboard .card-stat .stat.text-success { background: rgba(25, 135, 84, 0.12); }
+    .admin-dashboard .card-stat .stat.text-danger { background: rgba(220, 53, 69, 0.12); }
+    .admin-dashboard .card-stat .stat.text-warning { background: rgba(255, 193, 7, 0.2); }
+    .admin-dashboard .card-stat .stat.text-secondary { background: rgba(108, 117, 125, 0.15); }
+    .admin-dashboard .section-title { font-size: 0.875rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 0.75rem; }
+    .admin-dashboard .card-table .card-header { background: #f8f9fa; font-weight: 600; }
+    .admin-dashboard .card-table .table { font-size: 0.8125rem; }
+    .admin-dashboard .card-table .table thead th { border-bottom-width: 1px; font-weight: 600; color: #495057; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 admin-dashboard">
+    <!-- Cabeçalho -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-1"><strong>Dashboard</strong> Super Admin</h1>
+            <p class="text-muted small mb-0">Visão geral de clientes, acessos e cobranças</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/admin/hierarquia" class="btn btn-outline-success btn-sm">
+                <i class="align-middle me-1" data-feather="git-branch" style="width: 14px; height: 14px;"></i> Hierarquia
+            </a>
+            <a href="/admin/billing/tenants" class="btn btn-outline-primary btn-sm">
+                <i class="align-middle me-1" data-feather="dollar-sign" style="width: 14px; height: 14px;"></i> Cobranças (Admin)
+            </a>
+        </div>
+    </div>
+
+    <!-- Indicadores (cards) -->
+    <p class="section-title mb-0">Indicadores</p>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-4 col-xl">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Clientes novos</h5>
+                        <div class="stat text-primary">
+                            <i class="align-middle" data-feather="users" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="saClientesNovos7d"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small">Últimos 7 dias</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4 col-xl">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Cadastros novos</h5>
+                        <div class="stat text-secondary">
+                            <i class="align-middle" data-feather="user-plus" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="saCadastrosNovos7d"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small">Usuários (últimos 7 dias)</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4 col-xl">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Usuários ativos</h5>
+                        <div class="stat text-info">
+                            <i class="align-middle" data-feather="activity" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="saUsuariosAtivos24h"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small">Login nas últimas 24h</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4 col-xl">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Pagamentos no mês</h5>
+                        <div class="stat text-success">
+                            <i class="align-middle" data-feather="credit-card" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="saPagamentosMes"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small" id="saPagamentosMesValor">-</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4 col-xl">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Pagamentos vencidos</h5>
+                        <div class="stat text-danger">
+                            <i class="align-middle" data-feather="alert-circle" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="saPagamentosVencidos"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <a href="/admin/billing/tenants" class="text-muted small text-decoration-none">Ver Cobranças &rarr;</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4 col-xl">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Próximos 15 dias</h5>
+                        <div class="stat text-warning">
+                            <i class="align-middle" data-feather="calendar" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="saProximos15d"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small">Próximos vencimentos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visitantes (Hoje) -->
+    <p class="section-title mb-2 mt-3">Visitantes hoje</p>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-4">
+            <div class="card h-100 card-stat border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat text-primary" style="width: 3rem; height: 3rem;">
+                        <span style="font-size: 1.5rem;">👤</span>
+                    </div>
+                    <div>
+                        <h2 class="mb-0 fw-bold" id="saVisitantesHumanos"><span class="spinner-border spinner-border-sm"></span></h2>
+                        <span class="text-muted small">Humanos</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card h-100 card-stat border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat text-secondary" style="width: 3rem; height: 3rem;">
+                        <span style="font-size: 1.5rem;">🤖</span>
+                    </div>
+                    <div>
+                        <h2 class="mb-0 fw-bold" id="saVisitantesBots"><span class="spinner-border spinner-border-sm"></span></h2>
+                        <span class="text-muted small">Bots</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-4">
+            <div class="card h-100 card-stat border-0 shadow-sm">
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="stat text-info" style="width: 3rem; height: 3rem;">
+                        <span style="font-size: 1.5rem;">☁</span>
+                    </div>
+                    <div>
+                        <h2 class="mb-0 fw-bold" id="saVisitantesCloud"><span class="spinner-border spinner-border-sm"></span></h2>
+                        <span class="text-muted small">Cloud</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Listas (tabelas) -->
+    <p class="section-title mb-0">Detalhes</p>
+    <div class="row g-3">
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small"><i class="align-middle me-2" data-feather="user-plus" style="width: 1rem; height: 1rem;"></i> Cadastros novos</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0">
+                            <thead class="sticky-top bg-white"><tr><th>Usuário</th><th>Função</th><th class="text-end">Data</th></tr></thead>
+                            <tbody id="saTabelaCadastrosNovos">
+                                <tr><td colspan="3" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small"><i class="align-middle me-2" data-feather="log-in" style="width: 1rem; height: 1rem;"></i> Últimos logins</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0">
+                            <thead class="sticky-top bg-white"><tr><th>Usuário</th><th class="text-end">Data/Hora</th></tr></thead>
+                            <tbody id="saTabelaUltimosLogins">
+                                <tr><td colspan="2" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small"><i class="align-middle me-2" data-feather="alert-circle" style="width: 1rem; height: 1rem;"></i> Pagamentos vencidos</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0">
+                            <thead class="sticky-top bg-white"><tr><th>Tenant</th><th>Vencimento</th><th class="text-end">Dias</th></tr></thead>
+                            <tbody id="saTabelaPagamentosVencidos">
+                                <tr><td colspan="3" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small"><i class="align-middle me-2" data-feather="calendar" style="width: 1rem; height: 1rem;"></i> Próximos 15 dias</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 260px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0">
+                            <thead class="sticky-top bg-white"><tr><th>Tenant</th><th class="text-end">Data</th></tr></thead>
+                            <tbody id="saTabelaProximos15d">
+                                <tr><td colspan="2" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : (localStorage.getItem('pdv_automscale_token') || localStorage.getItem('token') || '');
+    }
+    function authFetch(url) {
+        if (typeof window.authenticatedFetch === 'function') return window.authenticatedFetch(url);
+        var token = getToken();
+        var opts = { credentials: 'same-origin' };
+        if (token) opts.headers = { 'Authorization': 'Bearer ' + token };
+        return fetch(url, opts);
+    }
+    var ids = {
+        clientes7d: 'saClientesNovos7d',
+        cadastros7d: 'saCadastrosNovos7d',
+        usuarios24h: 'saUsuariosAtivos24h',
+        pagamentosMes: 'saPagamentosMes',
+        pagamentosMesValor: 'saPagamentosMesValor',
+        vencidos: 'saPagamentosVencidos',
+        proximos15d: 'saProximos15d',
+        visitantesHumanos: 'saVisitantesHumanos',
+        visitantesBots: 'saVisitantesBots',
+        visitantesCloud: 'saVisitantesCloud',
+        tabelaCadastros: 'saTabelaCadastrosNovos',
+        tabelaLogins: 'saTabelaUltimosLogins',
+        tabelaVencidos: 'saTabelaPagamentosVencidos',
+        tabelaProximos: 'saTabelaProximos15d'
+    };
+    function set(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+    function formatBRL(centavos) {
+        if (centavos == null) return 'R$ 0,00';
+        return 'R$ ' + (centavos / 100).toFixed(2).replace('.', ',');
+    }
+    function formatDateTime(iso) {
+        if (!iso) return '-';
+        var d = new Date(iso);
+        return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    function formatDate(iso) {
+        if (!iso) return '-';
+        return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR');
+    }
+    function load() {
+        authFetch('/api/v1/admin/dashboard')
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Erro ' + r.status)); })
+            .then(function(data) {
+                set(ids.clientes7d, data.clientes_novos && data.clientes_novos.total_7d != null ? data.clientes_novos.total_7d : 0);
+                set(ids.cadastros7d, data.cadastros_novos && data.cadastros_novos.total_7d != null ? data.cadastros_novos.total_7d : 0);
+                set(ids.usuarios24h, data.usuarios_ativos_24h && data.usuarios_ativos_24h.total != null ? data.usuarios_ativos_24h.total : 0);
+                set(ids.pagamentosMes, data.pagamentos_realizados && data.pagamentos_realizados.total_mes != null ? data.pagamentos_realizados.total_mes : 0);
+                set(ids.pagamentosMesValor, formatBRL(data.pagamentos_realizados && data.pagamentos_realizados.valor_mes_centavos));
+                set(ids.vencidos, data.pagamentos_vencidos && data.pagamentos_vencidos.total != null ? data.pagamentos_vencidos.total : 0);
+                set(ids.proximos15d, (data.proximos_pagamentos_15d && data.proximos_pagamentos_15d.lista ? data.proximos_pagamentos_15d.lista.length : 0));
+                var v = data.visitantes_hoje || {};
+                set(ids.visitantesHumanos, v.humanos != null ? v.humanos : 0);
+                set(ids.visitantesBots, v.bots != null ? v.bots : 0);
+                set(ids.visitantesCloud, v.cloud != null ? v.cloud : 0);
+                var cadastros = (data.cadastros_novos && data.cadastros_novos.lista) || [];
+                var tbodyCadastros = document.getElementById(ids.tabelaCadastros);
+                if (tbodyCadastros) {
+                    tbodyCadastros.innerHTML = cadastros.length === 0
+                        ? '<tr><td colspan="3" class="text-center text-muted py-4">Nenhum cadastro recente</td></tr>'
+                        : cadastros.map(function(c) { return '<tr><td>' + (c.nome || '-') + '<br><small class="text-muted">' + (c.email || '') + '</small></td><td>' + (c.role_nome || '-') + '</td><td class="text-end">' + formatDateTime(c.created_at) + '</td></tr>'; }).join('');
+                }
+                var logins = data.ultimos_logins || [];
+                var tbodyLogins = document.getElementById(ids.tabelaLogins);
+                if (tbodyLogins) {
+                    tbodyLogins.innerHTML = logins.length === 0
+                        ? '<tr><td colspan="2" class="text-center text-muted py-4">Nenhum login recente</td></tr>'
+                        : logins.map(function(l) { return '<tr><td>' + (l.nome || '-') + '<br><small class="text-muted">' + (l.email || '') + '</small></td><td class="text-end">' + formatDateTime(l.data_hora) + '</td></tr>'; }).join('');
+                }
+                var vencidos = (data.pagamentos_vencidos && data.pagamentos_vencidos.lista) || [];
+                var tbodyVencidos = document.getElementById(ids.tabelaVencidos);
+                if (tbodyVencidos) {
+                    tbodyVencidos.innerHTML = vencidos.length === 0
+                        ? '<tr><td colspan="3" class="text-center text-muted py-4">Nenhum vencido</td></tr>'
+                        : vencidos.map(function(v) { return '<tr><td><a href="/admin/billing/tenant/' + v.tenant_id + '">' + (v.tenant_nome || '-') + '</a></td><td>' + formatDate(v.next_charge_at) + '</td><td class="text-end"><span class="badge bg-danger">' + v.dias_atraso + 'd</span></td></tr>'; }).join('');
+                }
+                var proximos = (data.proximos_pagamentos_15d && data.proximos_pagamentos_15d.lista) || [];
+                var tbodyProximos = document.getElementById(ids.tabelaProximos);
+                if (tbodyProximos) {
+                    tbodyProximos.innerHTML = proximos.length === 0
+                        ? '<tr><td colspan="2" class="text-center text-muted py-4">Nenhum nos próximos 15 dias</td></tr>'
+                        : proximos.map(function(p) { return '<tr><td><a href="/admin/billing/tenant/' + p.tenant_id + '">' + (p.tenant_nome || '-') + '</a></td><td class="text-end">' + formatDate(p.next_charge_at) + '</td></tr>'; }).join('');
+                }
+                if (typeof feather !== 'undefined') feather.replace();
+            })
+            .catch(function() {
+                set(ids.clientes7d, '0');
+                set(ids.cadastros7d, '0');
+                set(ids.usuarios24h, '0');
+                set(ids.pagamentosMes, '0');
+                set(ids.pagamentosMesValor, 'R$ 0,00');
+                set(ids.vencidos, '0');
+                set(ids.proximos15d, '0');
+                set(ids.visitantesHumanos, '0');
+                set(ids.visitantesBots, '0');
+                set(ids.visitantesCloud, '0');
+                var tbodyCadastros = document.getElementById(ids.tabelaCadastros);
+                if (tbodyCadastros) tbodyCadastros.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Erro ao carregar</td></tr>';
+                var tbodyLogins = document.getElementById(ids.tabelaLogins);
+                if (tbodyLogins) tbodyLogins.innerHTML = '<tr><td colspan="2" class="text-center text-danger">Erro ao carregar</td></tr>';
+                var tbodyVencidos = document.getElementById(ids.tabelaVencidos);
+                if (tbodyVencidos) tbodyVencidos.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Erro ao carregar</td></tr>';
+                var tbodyProximos = document.getElementById(ids.tabelaProximos);
+                if (tbodyProximos) tbodyProximos.innerHTML = '<tr><td colspan="2" class="text-center text-danger">Erro ao carregar</td></tr>';
+            });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof feather !== 'undefined') feather.replace();
+        load();
+    });
+})();
+</script>
+{% endblock %}

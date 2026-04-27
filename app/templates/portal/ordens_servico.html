@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Ordens de serviço | Portal | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h1 class="h3 mb-4">Ordens de serviço</h1>
+    <p class="text-muted">Lista das ordens de serviço vinculadas ao seu cadastro (somente leitura).</p>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div id="portal-ordens-list" class="table-responsive">
+                <p class="text-muted mb-0">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Visualizar Ordem (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap) -->
+<div id="modalVisualizarOrdemCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Ordem de serviço</h3>
+            <button type="button" onclick="fecharModalVisualizarOrdem()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div id="modalVisualizarOrdemBody" style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <p style="margin: 0; color: #6c757d;">Carregando...</p>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end;">
+            <button type="button" onclick="fecharModalVisualizarOrdem()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function fecharModalVisualizarOrdem() {
+    var modal = document.getElementById("modalVisualizarOrdemCustom");
+    if (modal) {
+        modal.style.display = "none";
+        document.body.style.overflow = "";
+    }
+}
+
+function abrirVisualizar(ordemId) {
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)pdv_automscale_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    var headers = { "Authorization": "Bearer " + token };
+    var modal = document.getElementById("modalVisualizarOrdemCustom");
+    var body = document.getElementById("modalVisualizarOrdemBody");
+    if (!modal || !body) return;
+    body.innerHTML = "<p style=\"margin: 0; color: #6c757d;\">Carregando...</p>";
+    modal.style.display = "block";
+    document.body.style.overflow = "hidden";
+    fetch("/api/v1/ordens-servico/" + ordemId, { headers: headers })
+            .then(function(r) {
+                if (!r.ok) {
+                    body.innerHTML = "<p style=\"margin: 0; color: #dc3545;\">Não foi possível carregar os detalhes desta ordem.</p>";
+                    return null;
+                }
+                return r.json();
+            })
+            .then(function(os) {
+                if (!os) return;
+                var fmtDt = function(s) { return (s && s.replace) ? s.replace("T", " ").slice(0, 16) : "-"; };
+                var html = "<div class=\"mb-3\"><strong>Código:</strong> " + (os.codigo || "-") + " &nbsp; <strong>Status:</strong> <span class=\"badge bg-secondary\">" + (os.status || "-") + "</span> &nbsp; <strong>Tipo:</strong> " + (os.tipo || "-") + " &nbsp; <strong>Prioridade:</strong> " + (os.prioridade || "-") + "</div>";
+                html += "<table class=\"table table-sm\"><tbody>";
+                html += "<tr><td class=\"text-muted\" style=\"width:140px\">Data abertura</td><td>" + fmtDt(os.data_abertura) + "</td></tr>";
+                html += "<tr><td class=\"text-muted\">Data prevista</td><td>" + fmtDt(os.data_prevista) + "</td></tr>";
+                html += "<tr><td class=\"text-muted\">Data conclusão</td><td>" + fmtDt(os.data_conclusao) + "</td></tr>";
+                if (os.observacoes) html += "<tr><td class=\"text-muted\">Observações</td><td>" + (os.observacoes || "-") + "</td></tr>";
+                html += "</tbody></table>";
+                if (os.equipamentos && os.equipamentos.length > 0) {
+                    html += "<h6 class=\"mt-3 mb-2\">Equipamentos</h6><ul class=\"list-unstyled small\">";
+                    os.equipamentos.forEach(function(eq) {
+                        html += "<li>" + (eq.equipamento_nome || eq.equipamento_modelo || eq.equipamento_numero_serie || "Equipamento") + " (" + (eq.papel || "-") + ")</li>";
+                    });
+                    html += "</ul>";
+                }
+                if (os.itens && os.itens.length > 0) {
+                    html += "<h6 class=\"mt-3 mb-2\">Itens / Serviços</h6><table class=\"table table-sm\"><thead><tr><th>Descrição</th><th>Qtd</th><th>Valor unit.</th><th>Total</th></tr></thead><tbody>";
+                    var totalItens = 0;
+                    os.itens.forEach(function(it) {
+                        var vt = (it.valor_total != null && !isNaN(it.valor_total)) ? parseFloat(it.valor_total) : 0;
+                        totalItens += vt;
+                        var vu = (it.valor_unitario != null && !isNaN(it.valor_unitario)) ? parseFloat(it.valor_unitario) : 0;
+                        html += "<tr><td>" + (it.nome || "-") + "</td><td>" + (it.quantidade != null ? it.quantidade : "-") + "</td><td>R$ " + vu.toFixed(2).replace(".", ",") + "</td><td>R$ " + vt.toFixed(2).replace(".", ",") + "</td></tr>";
+                    });
+                    html += "<tr class=\"fw-bold\"><td colspan=\"3\">Total</td><td>R$ " + totalItens.toFixed(2).replace(".", ",") + "</td></tr></tbody></table>";
+                }
+                body.innerHTML = html;
+            });
+}
+
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof feather !== "undefined") feather.replace();
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)pdv_automscale_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    var headers = { "Authorization": "Bearer " + token };
+    fetch("/api/v1/ordens-servico", { headers: headers })
+        .then(function(r) { return r.ok ? r.json() : { ordens: [], total: 0 }; })
+        .then(function(d) {
+            var list = d.ordens || [];
+            var el = document.getElementById("portal-ordens-list");
+            if (!el) return;
+            if (list.length === 0) {
+                el.innerHTML = "<p class=\"text-muted mb-0\">Nenhuma ordem de serviço encontrada.</p>";
+                return;
+            }
+            var html = "<table class=\"table table-hover\"><thead><tr><th>Código</th><th>Status</th><th>Tipo</th><th>Data abertura</th><th>Data conclusão</th><th>Ação</th></tr></thead><tbody>";
+            list.forEach(function(os) {
+                var dataAbertura = (os.data_abertura && os.data_abertura.replace) ? os.data_abertura.replace("T", " ").slice(0, 16) : "-";
+                var dataConclusao = (os.data_conclusao && os.data_conclusao.replace) ? os.data_conclusao.replace("T", " ").slice(0, 16) : "-";
+                html += "<tr><td>" + (os.codigo || "-") + "</td><td><span class=\"badge bg-secondary\">" + (os.status || "-") + "</span></td><td>" + (os.tipo || "-") + "</td><td>" + dataAbertura + "</td><td>" + dataConclusao + "</td>";
+                html += "<td><button type=\"button\" class=\"btn btn-sm btn-outline-primary\" onclick=\"abrirVisualizar(" + (os.id || 0) + ")\">Visualizar</button></td></tr>";
+            });
+            html += "</tbody></table>";
+            el.innerHTML = html;
+        });
+    var modalOverlay = document.getElementById("modalVisualizarOrdemCustom");
+    if (modalOverlay) {
+        modalOverlay.addEventListener("click", function(e) {
+            if (e.target === modalOverlay) fecharModalVisualizarOrdem();
+        });
+    }
+});
+</script>
+{% endblock %}

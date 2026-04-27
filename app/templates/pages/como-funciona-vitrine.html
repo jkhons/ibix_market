@@ -1,0 +1,401 @@
+{% extends "base_vitrine_institucional.html" %}
+{% block title %}Como funciona a vitrine | Ibix{% endblock %}
+{% block meta_description %}Venda online com vitrine própria, frete gerenciado pela plataforma e gestão completa do seu negócio. Conheça o Ibix.{% endblock %}
+{% block canonical_path %}/como-funciona-vitrine{% endblock %}
+
+{% block page_styles %}
+<style>
+  .vitrine-cf-hero {
+    padding: 2rem 0 1.75rem;
+    border: 1px solid var(--loja-border);
+    background: var(--ibix-surface);
+    box-shadow: var(--loja-shadow-sm);
+    margin: 0.35rem 0 0.75rem;
+    border-radius: 12px !important;
+  }
+  .vitrine-cf-kicker {
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--ibix-action);
+    margin-bottom: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .vitrine-cf-kicker .feather { width: 1rem; height: 1rem; }
+  .vitrine-cf-hero h1 {
+    font-family: "Poppins", "DM Sans", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    color: var(--ibix-text-strong);
+    line-height: 1.2;
+    margin: 0 0 1rem;
+  }
+  .vitrine-cf-lead {
+    font-size: 1.02rem;
+    color: var(--ibix-text);
+    max-width: 48rem;
+    line-height: 1.65;
+    margin-bottom: 1.25rem;
+  }
+  .vitrine-cf-section {
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--loja-border);
+  }
+  .vitrine-cf-section:last-of-type { border-bottom: none; }
+  .vitrine-cf-section h2 {
+    font-family: "Poppins", "DM Sans", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--ibix-text-strong);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .vitrine-cf-section h2 .feather {
+    width: 1.35rem;
+    height: 1.35rem;
+    color: var(--ibix-action);
+    flex-shrink: 0;
+  }
+  .vitrine-cf-sub {
+    font-size: 0.95rem;
+    color: var(--ibix-text);
+    margin-bottom: 1.25rem;
+    max-width: 48rem;
+  }
+  /* Raio único em todos os “cards” (Bootstrap/certipeso às vezes forçam cantos retos) */
+  .vitrine-cf-card,
+  .vitrine-cf-note-ok,
+  .vitrine-cf-note-warn,
+  .diagram-wrap {
+    border-radius: 10px !important;
+  }
+  .vitrine-cf-card {
+    border: 1px solid var(--loja-border);
+    background: var(--ibix-surface);
+    padding: 1.15rem 1.1rem;
+    height: 100%;
+    box-shadow: var(--loja-shadow-sm);
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .vitrine-cf-card:hover {
+    box-shadow: var(--loja-shadow-block);
+    transform: translateY(-2px);
+  }
+  .vitrine-cf-card .cf-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 10px !important;
+    background: rgba(92, 110, 74, 0.12);
+    color: var(--ibix-action);
+    margin-bottom: 0.65rem;
+  }
+  .vitrine-cf-card .cf-icon .feather { width: 1.2rem; height: 1.2rem; }
+  .vitrine-cf-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--ibix-text-strong);
+    margin-bottom: 0.35rem;
+  }
+  .vitrine-cf-card p {
+    font-size: 0.92rem;
+    color: var(--ibix-text);
+    margin: 0;
+    line-height: 1.55;
+  }
+  .vitrine-cf-card .cf-step {
+    font-weight: 800;
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--ibix-hover);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  .vitrine-cf-prose p,
+  .vitrine-cf-prose li { color: var(--ibix-text); line-height: 1.7; }
+  .vitrine-cf-prose ul { padding-left: 1.25rem; margin-bottom: 1rem; }
+  .vitrine-cf-band {
+    background: var(--loja-bg-strip);
+    border-top: 1px solid var(--loja-border);
+    border-bottom: 1px solid var(--loja-border);
+  }
+  .vitrine-cf-note-ok {
+    border: 1px solid rgba(92, 110, 74, 0.45);
+    background: rgba(92, 110, 74, 0.08);
+    padding: 1.25rem 1.35rem;
+    margin: 1.5rem 0;
+  }
+  .vitrine-cf-note-ok h3 {
+    font-family: "Poppins", "DM Sans", system-ui, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--ibix-text-strong);
+    margin-bottom: 0.5rem;
+  }
+  .vitrine-cf-note-warn {
+    border: 1px solid rgba(196, 122, 68, 0.45);
+    background: rgba(196, 122, 68, 0.08);
+    padding: 1.1rem 1.25rem;
+    margin: 1.15rem 0;
+    color: var(--ibix-text);
+  }
+  .vitrine-cf-note-warn strong { color: var(--ibix-text-strong); }
+  .diagram-wrap {
+    background: var(--ibix-surface);
+    border: 1px solid var(--loja-border);
+    padding: 1.25rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-shadow: var(--loja-shadow-sm);
+  }
+  .diagram-wrap .mermaid { display: flex; justify-content: center; min-height: 120px; }
+  /* Fluxograma Mermaid: nós padrão são retângulos sem rx — alinhar à vitrine */
+  .diagram-wrap svg g.node rect,
+  .diagram-wrap svg g.nodes rect,
+  .diagram-wrap svg .cluster rect {
+    rx: 8px !important;
+    ry: 8px !important;
+  }
+  .diagram-wrap svg .edgePath .path {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .vitrine-cf-cta {
+    text-align: center;
+    padding: 2.75rem 1rem;
+    background: var(--loja-bg-trust);
+    border: 1px solid var(--loja-border);
+    border-radius: 12px !important;
+    margin-bottom: 1.25rem;
+    box-shadow: var(--loja-shadow-sm);
+  }
+  .vitrine-cf-cta h2 {
+    font-family: "Poppins", "DM Sans", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    color: var(--ibix-text-strong);
+    margin-bottom: 0.5rem;
+  }
+  .vitrine-cf-cta p {
+    color: var(--ibix-text);
+    max-width: 36rem;
+    margin: 0 auto 1.25rem;
+    line-height: 1.6;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="vitrine-cf-hero">
+  <div class="px-1 px-sm-0">
+    <div class="vitrine-cf-kicker"><i data-feather="shopping-cart"></i> Vitrine Ibix</div>
+    <h1>Venda online sem complicação.<br>Sua loja na vitrine em minutos.</h1>
+    <p class="vitrine-cf-lead">
+      Cadastre produtos no <strong>PDV Ibix</strong>, publique na <strong>vitrine pública</strong> e comece a receber pedidos.
+      Você decide como o frete funciona — e se preferir, <strong>a plataforma cuida da coleta e da entrega por você</strong>.
+    </p>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-primary" href="{{ _base }}/cadastro">Criar minha conta</a>
+      <a class="btn btn-outline-primary" href="{{ _base }}/">Voltar à vitrine</a>
+    </div>
+  </div>
+</section>
+
+<section class="vitrine-cf-section">
+  <div class="row g-3">
+    <div class="col-12">
+      <h2><i data-feather="git-branch"></i> Como funciona na prática</h2>
+      <p class="vitrine-cf-sub mb-0">Do cadastro ao pedido entregue, em quatro passos simples.</p>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="vitrine-cf-card">
+        <div class="cf-step">Passo 1</div>
+        <div class="cf-icon"><i data-feather="box"></i></div>
+        <h3>Cadastre seus produtos</h3>
+        <p>Use o PDV para registrar itens com foto, descrição, preço e estoque. Tudo no mesmo sistema que você já usa no dia a dia.</p>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="vitrine-cf-card">
+        <div class="cf-step">Passo 2</div>
+        <div class="cf-icon"><i data-feather="instagram"></i></div>
+        <h3>Publique na vitrine</h3>
+        <p>Em <strong>Minha Loja</strong>, ative a loja e publique anúncios. Seus produtos ficam visíveis no site público para qualquer consumidor.</p>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="vitrine-cf-card">
+        <div class="cf-step">Passo 3</div>
+        <div class="cf-icon"><i data-feather="truck"></i></div>
+        <h3>Escolha o frete</h3>
+        <p>Defina se a entrega é por sua conta (retirada, taxa fixa ou grátis) ou se a <strong>plataforma gerencia</strong> toda a logística.</p>
+      </div>
+    </div>
+    <div class="col-md-6 col-lg-3">
+      <div class="vitrine-cf-card">
+        <div class="cf-step">Passo 4</div>
+        <div class="cf-icon"><i data-feather="inbox"></i></div>
+        <h3>Receba pedidos</h3>
+        <p>Cada venda gera um pedido no seu painel. Você acompanha status, pagamento e entrega em tempo real.</p>
+      </div>
+    </div>
+    <div class="col-12">
+      <div class="diagram-wrap mt-2">
+        <pre class="mermaid">
+flowchart LR
+  A["Cadastro no PDV"] --> B["Publica na vitrine"]
+  B --> C["Consumidor compra"]
+  C --> D["Pedido no seu painel"]
+        </pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="vitrine-cf-section vitrine-cf-band">
+  <div class="vitrine-cf-prose">
+    <h2><i data-feather="layout"></i> Sua loja dentro de um marketplace completo</h2>
+    <p class="vitrine-cf-sub">Visibilidade profissional sem precisar montar um site do zero.</p>
+    <p>
+      A <strong>página inicial da vitrine</strong> conta com banners, destaques e blocos de ofertas gerenciados pela <strong>equipe da plataforma</strong> — como em grandes marketplaces.
+      Seus produtos aparecem nesse ambiente de alto tráfego, ao lado de outras lojas, sem custo extra de marketing.
+    </p>
+    <p class="mb-0">
+      Você cuida do que é seu: <strong>nome da loja, catálogo, fotos, preços, descrições e política de frete</strong>.
+      A plataforma cuida da infraestrutura, da exposição e do checkout seguro.
+    </p>
+  </div>
+</section>
+
+<section class="vitrine-cf-section">
+  <div class="vitrine-cf-prose">
+    <h2><i data-feather="package"></i> Frete flexível: você escolhe o modelo</h2>
+    <p class="vitrine-cf-sub mb-0">Configure em <strong>Negócios → Marketplace / Minha Loja</strong> e mude quando quiser.</p>
+
+    <div class="row g-3 mt-2">
+      <div class="col-md-6">
+        <div class="vitrine-cf-card h-100">
+          <div class="cf-step">Opção A</div>
+          <h3>Loja gerencia o frete</h3>
+          <ul class="mb-0">
+            <li><strong>Sem frete (retirada)</strong> — o cliente busca o pedido no seu endereço.</li>
+            <li><strong>Frete grátis</strong> — você absorve o custo da entrega; o cliente vê "grátis" no checkout.</li>
+            <li><strong>Taxa fixa</strong> — você define o valor cobrado. Pode configurar "grátis acima de R$ X".</li>
+          </ul>
+          <p class="mt-3 mb-0 small" style="color: var(--ibix-text); opacity: 0.9;">
+            Nessas opções, a separação, embalagem e entrega ficam sob a responsabilidade da <strong>sua loja</strong>.
+          </p>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="vitrine-cf-card h-100" style="background: var(--loja-bg-trust);">
+          <div class="cf-step">Opção B</div>
+          <h3>Plataforma gerencia o frete</h3>
+          <ul class="mb-0">
+            <li>A <strong>plataforma calcula o valor</strong> do frete exibido ao consumidor (baseado em CEP, cidade e tabelas internas).</li>
+            <li>Após a confirmação do pedido, a <strong>plataforma recolhe o produto na sua loja</strong> e realiza a <strong>entrega diretamente ao cliente</strong>.</li>
+            <li>Você só precisa <strong>separar e embalar</strong> — a logística de transporte é nossa.</li>
+          </ul>
+          <p class="mt-3 mb-0 small" style="color: var(--ibix-text);">
+            Ideal para quem quer vender online <strong>sem se preocupar com motoboy, Correios ou transportadora</strong>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="vitrine-cf-note-ok">
+      <h3>Plataforma define = nós buscamos e entregamos</h3>
+      <p class="mb-0">
+        Quando você seleciona <strong>"Plataforma define"</strong> como formato de frete, a responsabilidade pelo <strong>recolhimento do produto na sua loja e pela entrega ao cliente final</strong> passa a ser da <strong>plataforma</strong>.
+        O valor do frete é calculado automaticamente e apresentado ao comprador no checkout. Você foca no que faz de melhor: <strong>preparar o produto</strong>.
+      </p>
+    </div>
+
+    <p>
+      Em cada <strong>anúncio</strong> publicado, é possível <strong>sobrescrever</strong> a regra geral da loja — por exemplo, oferecer frete grátis em um produto específico como ação promocional, mesmo que a loja use taxa fixa nos demais itens.
+    </p>
+
+    <div class="diagram-wrap">
+      <pre class="mermaid">
+flowchart TB
+  L["Configuracao de frete da loja"]
+  R["Retirada / Gratis / Taxa fixa"]
+  P["Plataforma define"]
+  E1["Loja entrega ao cliente"]
+  E2["Plataforma recolhe na loja e entrega ao cliente"]
+  L --> R
+  L --> P
+  R --> E1
+  P --> E2
+      </pre>
+    </div>
+  </div>
+</section>
+
+<section class="vitrine-cf-section vitrine-cf-band">
+  <div class="vitrine-cf-prose">
+    <h2><i data-feather="users"></i> Quem faz o quê</h2>
+    <p class="vitrine-cf-sub mb-0">Transparência total sobre as responsabilidades de cada parte.</p>
+
+    <div class="row g-3 mt-2">
+      <div class="col-md-6">
+        <div class="vitrine-cf-card h-100">
+          <h3>Responsabilidades da loja</h3>
+          <ul class="mb-0">
+            <li>Cadastro correto dos produtos (fotos, preços, descrição, estoque).</li>
+            <li>Separação e embalagem dos pedidos.</li>
+            <li>Entrega ao cliente <strong>quando o frete for gerenciado pela loja</strong> (retirada, grátis ou taxa fixa).</li>
+            <li>Atendimento pós-venda, trocas e devoluções conforme legislação.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="vitrine-cf-card h-100" style="background: var(--loja-bg-trust);">
+          <h3>Responsabilidades da plataforma</h3>
+          <ul class="mb-0">
+            <li>Infraestrutura da vitrine, checkout e processamento de pagamento.</li>
+            <li>Marketing da página inicial e exposição das lojas.</li>
+            <li><strong>Coleta do produto na loja e entrega ao cliente</strong> quando o formato de frete for <strong>"Plataforma define"</strong>.</li>
+            <li>Cálculo e exibição do valor de frete no checkout.</li>
+            <li>Suporte operacional e dados de pedido para acompanhamento.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="vitrine-cf-note-warn">
+      <strong>Pagamento:</strong> o status de pagamento acompanha o pedido no painel do lojista em tempo real. A plataforma nunca exibe "pagamento confirmado" sem que o fluxo real do gateway tenha confirmado a transação.
+    </div>
+  </div>
+</section>
+
+<section class="vitrine-cf-cta">
+  <h2>Pronto para vender na vitrine?</h2>
+  <p>Cadastre seus produtos, ative sua loja e comece a receber pedidos hoje mesmo.</p>
+  <a href="{{ _base }}/cadastro" class="btn btn-primary btn-lg">Criar minha conta</a>
+</section>
+{% endblock %}
+
+{% block scripts_extra %}
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js" crossorigin="anonymous"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'neutral',
+    securityLevel: 'strict',
+    fontFamily: 'DM Sans, system-ui, sans-serif',
+    themeVariables: {
+      primaryBorderRadius: '8px'
+    }
+  });
+</script>
+{% endblock %}

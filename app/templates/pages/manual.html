@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Manual do Sistema | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    .manual-layout { display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    .manual-index { flex: 0 0 240px; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+    .manual-index .list-group-item { border-radius: 6px; margin-bottom: 2px; }
+    .manual-index .list-group-item:hover { background: #f0f4f8; }
+    .manual-index .list-group-item.active { background: #3b7ddd; border-color: #3b7ddd; }
+    .manual-content { flex: 1; min-width: 0; }
+    .manual-section { margin-bottom: 2.5rem; padding-top: 0.5rem; scroll-margin-top: 1rem; }
+    .manual-section h2 { font-size: 1.35rem; color: #2c3e50; border-bottom: 2px solid #3b7ddd; padding-bottom: 0.4rem; margin-bottom: 1rem; }
+    .manual-section h3 { font-size: 1.1rem; color: #495057; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+    .manual-section p, .manual-section li { color: #495057; line-height: 1.65; }
+    .manual-section ul { padding-left: 1.25rem; }
+    .manual-search-wrap { margin-bottom: 1rem; }
+    .manual-search-wrap input { border-radius: 8px; padding: 0.5rem 0.75rem; width: 100%; border: 1px solid #dee2e6; }
+    .manual-search-wrap input:focus { border-color: #3b7ddd; outline: 0; box-shadow: 0 0 0 3px rgba(59,125,221,0.15); }
+    .manual-section.highlight { background: rgba(59,125,221,0.08); border-radius: 8px; padding: 0.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h1 class="h4 mb-0">
+            <i data-feather="book" class="me-2" style="width: 1.25rem; height: 1.25rem;"></i>
+            Manual do Sistema
+        </h1>
+    </div>
+    <p class="text-muted small mb-3">
+        Este manual ajuda você a <strong>gerenciar seu negócio na plataforma</strong> PDV Ibix. Use o índice e a busca para encontrar o que precisa: como emitir nota fiscal, como fazer uma venda, como cadastrar certificado e outros passos do dia a dia.
+    </p>
+
+    <div class="manual-layout">
+        <nav class="manual-index card card-body">
+            <div class="manual-search-wrap">
+                <input type="text" id="manual-search" class="form-control form-control-sm" placeholder="Buscar por palavra ou tópico..." aria-label="Buscar no manual">
+            </div>
+            <div id="manual-index-list" class="list-group list-group-flush">
+                <a href="#emitir-nota" class="list-group-item list-group-item-action" data-section="emitir-nota">1. Como emitir uma nota fiscal</a>
+                <a href="#certificado" class="list-group-item list-group-item-action" data-section="certificado">2. Como cadastrar o certificado para emissão de nota</a>
+                <a href="#dados-empresa" class="list-group-item list-group-item-action" data-section="dados-empresa">3. Como cadastrar os dados da empresa (emissor da nota)</a>
+                <a href="#fazer-venda" class="list-group-item list-group-item-action" data-section="fazer-venda">4. Como fazer uma venda</a>
+                <a href="#orcamento-faturar" class="list-group-item list-group-item-action" data-section="orcamento-faturar">5. Como criar orçamento e pedido e faturar</a>
+                <a href="#minha-equipe" class="list-group-item list-group-item-action" data-section="minha-equipe">6. Como adicionar usuários e técnicos (Minha equipe)</a>
+                <a href="#estoque-vendas" class="list-group-item list-group-item-action" data-section="estoque-vendas">7. Estoque e movimentações</a>
+                <a href="#entrada-nfe" class="list-group-item list-group-item-action" data-section="entrada-nfe">8. Entrada de notas NFe (importação XML)</a>
+                <a href="#area-contador" class="list-group-item list-group-item-action" data-section="area-contador">9. Área do contador / Como dar acesso ao seu contador</a>
+                <a href="#marketplace-entrega" class="list-group-item list-group-item-action" data-section="marketplace-entrega">10. Tipo de entrega e Formato de frete (Marketplace)</a>
+            </div>
+        </nav>
+
+        <div class="manual-content">
+            <section id="emitir-nota" class="manual-section" data-keywords="emitir nota fiscal inserir nota fiscal NF-e NFC-e NFS-e nota produto nota serviço enviar autorizar baixar XML PDF">
+                <h2>1. Como emitir uma nota fiscal</h2>
+                <p>Serve para gerar notas de produto (NF-e, NFC-e) e notas de serviço (NFS-e) a partir da plataforma. Na Área do contador, todas aparecem na listagem e nas exportações.</p>
+                <h3>O que você precisa antes</h3>
+                <p>É necessário (1) ter os <strong>dados da empresa</strong> cadastrados (razão social, CNPJ, endereço etc.) — veja o item 3 — e (2) ter um <strong>certificado digital válido</strong> cadastrado para emissão — veja o item 2. Se usar provedor externo (gateway), o certificado pode ficar no próprio serviço.</p>
+                <h3>Onde ir</h3>
+                <p>Menu <strong>Fiscal → Notas fiscais</strong>.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li>Crie uma nova nota ou use a nota gerada ao faturar um pedido (o link &quot;Ver nota #X&quot; leva até ela).</li>
+                    <li>Preencha os dados e envie conforme o provedor configurado na empresa (local ou gateway).</li>
+                    <li>Se precisar, use os botões para baixar XML ou PDF — eles aparecem conforme sua conta; se não vir o botão, sua função não possui essa permissão.</li>
+                </ol>
+            </section>
+
+            <section id="certificado" class="manual-section" data-keywords="certificado A1 PFX P12 upload senha validade emissão nota provedor local gateway">
+                <h2>2. Como cadastrar o certificado para emissão de nota</h2>
+                <p>Serve para que a empresa possa emitir notas com o provedor <strong>local</strong> (envio direto à SEFAZ). Sem certificado válido, a emissão local não funciona.</p>
+                <h3>Onde ir</h3>
+                <p>Na tela da <strong>Empresa</strong>: menu Fiscal → Empresa.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li>Use o campo de upload de certificado e informe o arquivo .pfx ou .p12 e a senha.</li>
+                    <li>Após enviar, a <strong>data de validade</strong> do certificado é preenchida automaticamente (o campo é somente leitura).</li>
+                    <li>Se sua empresa usar provedor <strong>Gateway externo</strong>, o certificado pode ser gerenciado pelo próprio gateway; consulte a documentação do provedor.</li>
+                </ol>
+            </section>
+
+            <section id="dados-empresa" class="manual-section" data-keywords="empresa fiscal cadastro CNPJ IE razão social endereço logo provedor local gateway emissor">
+                <h2>3. Como cadastrar os dados da empresa (emissor da nota)</h2>
+                <p>Serve para configurar quem emite as notas: razão social, CNPJ, inscrição estadual, endereço, logo e tipo de emissão.</p>
+                <h3>Onde ir</h3>
+                <p>Menu <strong>Fiscal → Empresa</strong>.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li>Preencha razão social, CNPJ, IE, endereço e, se quiser, o logo do emissor.</li>
+                    <li>Escolha o <strong>provedor fiscal</strong>: emissão local (direto à SEFAZ) ou via gateway externo. O vínculo com sua empresa é definido automaticamente pelo sistema.</li>
+                </ol>
+            </section>
+
+            <section id="fazer-venda" class="manual-section" data-keywords="venda PDV caixa registrar venda itens finalizar pagamento">
+                <h2>4. Como fazer uma venda</h2>
+                <p>Serve para registrar vendas no PDV e vincular ao caixa.</p>
+                <h3>Onde ir</h3>
+                <p>Menu de <strong>Vendas</strong> ou <strong>PDV</strong>.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li>Abra uma nova venda.</li>
+                    <li>Inclua os itens e informe o pagamento, se a tela exigir.</li>
+                    <li>Finalize a venda. Se houver emissão de nota, ela pode ser gerada conforme a configuração do seu negócio.</li>
+                </ol>
+            </section>
+
+            <section id="orcamento-faturar" class="manual-section" data-keywords="orçamento pedido converter faturar nota Ver nota link">
+                <h2>5. Como criar orçamento e pedido e faturar</h2>
+                <p>Serve para criar proposta comercial (orçamento), transformar em pedido e faturar; ao faturar, o sistema gera a nota em rascunho.</p>
+                <h3>Onde ir</h3>
+                <p>Módulo de <strong>Orçamento e Pedido</strong> (Meu negócio ou equivalente).</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li><strong>Criar orçamento:</strong> informe a validade, os itens e, se quiser, o destinatário. Emita e converta em pedido quando aprovado.</li>
+                    <li><strong>Faturar pedido:</strong> use a ação de faturar no pedido. O sistema gera a nota em rascunho e exibe o link &quot;Ver nota #X&quot; para você abrir a nota na tela de Notas fiscais.</li>
+                </ol>
+            </section>
+
+            <section id="minha-equipe" class="manual-section" data-keywords="minha equipe adicionar usuário técnico e-mail criar pessoa">
+                <h2>6. Como adicionar usuários e técnicos (Minha equipe)</h2>
+                <p>Serve para incluir pessoas que acessam o sistema no seu negócio: quem usa como cliente final e quem atua como técnico.</p>
+                <h3>Onde ir</h3>
+                <p>Menu <strong>Minha equipe</strong>.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li>Para adicionar alguém: use o e-mail se a pessoa já tiver cadastro, ou crie um novo usuário com nome e senha.</li>
+                    <li>Na criação, escolha a função adequada (acesso de cliente final ou de técnico). O sistema associa a pessoa ao seu negócio automaticamente.</li>
+                </ol>
+            </section>
+
+            <section id="estoque-vendas" class="manual-section" data-keywords="estoque vendas PDV movimentação produto alerta consultar">
+                <h2>7. Estoque e movimentações</h2>
+                <p>Serve para consultar produtos, movimentações de estoque e alertas, e para operar vendas e caixa.</p>
+                <h3>Onde ir</h3>
+                <p>No módulo de negócios: <strong>Estoque</strong>, <strong>Vendas</strong>, <strong>PDVs</strong> e <strong>Caixa</strong>.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li><strong>Estoque:</strong> selecione a loja/filial e consulte produtos, movimentações e alertas.</li>
+                    <li><strong>Vendas e caixa:</strong> as operações aparecem conforme os PDVs e lojas do seu negócio.</li>
+                </ol>
+            </section>
+
+            <section id="entrada-nfe" class="manual-section" data-keywords="entrada nota NFe importar XML compra conciliação vincular produto lançar estoque mapa fornecedor">
+                <h2>8. Entrada de notas NFe (importação XML)</h2>
+                <p>Serve para <strong>importar XML de NF-e de compra</strong>, vincular cada item da nota a um produto do seu cadastro e, em seguida, <strong>lançar as entradas no estoque</strong> com custo rateado (frete, seguro etc.).</p>
+                <h3>Onde ir</h3>
+                <p>No módulo de negócios: acesse <strong>Estoque</strong> e use o link <strong>Entrada de Notas NFe</strong>, ou acesse diretamente o menu/item que leva à tela de <strong>Entrada de Notas NFe</strong>.</p>
+                <h3>Passos</h3>
+                <ol>
+                    <li><strong>Importar o XML:</strong> selecione o estabelecimento, escolha o arquivo XML da NF-e (modelo 55) e clique em <strong>Importar</strong>. O sistema cria o documento e os itens; itens já conhecidos (por código do fornecedor ou por código de barras/EAN) podem ser vinculados automaticamente.</li>
+                    <li><strong>Conciliação:</strong> na lista de notas importadas, clique em <strong>Conciliação</strong> na nota desejada. Para cada item ainda pendente, use o botão <strong>Vincular</strong> e escolha o produto interno correspondente. Ao vincular, o sistema grava o mapa (código do fornecedor → produto interno) para reconhecer o mesmo item nas próximas importações.</li>
+                    <li><strong>Confirmar e lançar no estoque:</strong> quando todos os itens estiverem vinculados, clique em <strong>Confirmar e lançar no estoque</strong>. O sistema calcula o custo por item (valor do produto + rateio de frete, seguro e outras despesas) e gera as movimentações de entrada, atualizando quantidade e custo dos produtos.</li>
+                </ol>
+                <p class="small text-muted mb-0">Recomendação: mantenha o cadastro de <strong>produtos por estabelecimento</strong> e o <strong>mapa de códigos do fornecedor</strong> (produto do fornecedor → seu produto) atualizados para que a conciliação automática funcione nas próximas notas.</p>
+            </section>
+
+            <section id="area-contador" class="manual-section" data-keywords="contador acesso contador dar acesso exportar relatório fiscal área do contador CSV resumo período">
+                <h2>9. Área do contador / Como dar acesso ao seu contador</h2>
+                <p>Serve para que você possa dar acesso a um contador (só consulta e exportação) e para que o contador visualize e exporte os documentos fiscais do seu negócio.</p>
+                <h3>Para quem gerencia o negócio</h3>
+                <p>Para dar acesso ao contador: crie um usuário (em Minha equipe ou na gestão de usuários do seu negócio) e escolha a função que permite <strong>apenas visualizar e exportar</strong>. O contador verá somente os dados da sua empresa: poderá ver documentos, baixar XML/PDF e exportar relatórios, mas <strong>não edita nem cancela notas</strong>.</p>
+                <h3>Para o contador</h3>
+                <p>Acesse pelo menu <strong>Área do Contador</strong>. Você pode: ver o <strong>resumo por período</strong>, listar as notas (NF-e, NFC-e e notas de serviço), baixar XML/PDF (se sua conta tiver permissão) e <strong>exportar CSV</strong>. Os botões de editar e cancelar não aparecem — sua função é só consulta e exportação.</p>
+            </section>
+
+            <section id="marketplace-entrega" class="manual-section" data-keywords="marketplace minha loja tipo entrega formato frete retirada entrega checkout vitrine lojista cliente">
+                <h2>10. Tipo de entrega e Formato de frete (Marketplace)</h2>
+                <p>Serve para entender como configurar as opções de retirada e entrega na sua loja do marketplace e o que o cliente final verá no checkout.</p>
+                <h3>Onde configurar</h3>
+                <p>Em <strong>Marketplace → Minha loja</strong>, na seção de dados da loja: campos <strong>Tipo de entrega</strong> e <strong>Formato de frete</strong>.</p>
+                <h3>Formato de frete define o que o cliente vê</h3>
+                <p>O que o cliente final vê no checkout (Retirada, Entrega ou ambos) é definido pelo <strong>Formato de frete</strong>, <em>não</em> pelo campo &quot;Tipo de entrega&quot;:</p>
+                <ul>
+                    <li><strong>Sem frete (apenas retirada)</strong> — apenas a opção &quot;Retirada&quot; fica disponível no checkout.</li>
+                    <li><strong>Grátis / Taxa fixa / Plataforma define</strong> — o cliente pode escolher entre &quot;Retirada&quot; ou &quot;Entrega&quot;.</li>
+                </ul>
+                <h3>Tipo de entrega</h3>
+                <p>O campo <strong>Tipo de entrega</strong> (Retirada, Entrega) é uma preferência informativa da loja e não altera as opções exibidas ao cliente no checkout. Use-o para indicar o foco da sua operação.</p>
+                <h3>Onde o cliente escolhe</h3>
+                <p>O cliente escolhe o tipo de entrega na tela de <strong>Checkout</strong> da vitrine (<code>/loja/checkout</code>), após adicionar produtos ao carrinho. Se &quot;Entrega&quot; estiver disponível, ele informa o endereço; se &quot;Retirada&quot;, não é necessário.</p>
+            </section>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var searchEl = document.getElementById('manual-search');
+    var sections = document.querySelectorAll('.manual-section');
+    var indexLinks = document.querySelectorAll('#manual-index-list a[data-section]');
+
+    function normalize(s) { return (s || '').toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, ''); }
+    function getKeywords(section) {
+        var kw = (section.getAttribute('data-keywords') || '') + ' ' + (section.textContent || '');
+        return normalize(kw);
+    }
+    function showSection(sectionId) {
+        sections.forEach(function(s) {
+            s.classList.remove('highlight');
+            if (s.id === sectionId) {
+                s.classList.add('highlight');
+                s.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        });
+        indexLinks.forEach(function(a) {
+            a.classList.toggle('active', a.getAttribute('data-section') === sectionId);
+        });
+    }
+
+    indexLinks.forEach(function(a) {
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            var id = a.getAttribute('data-section');
+            var el = document.getElementById(id);
+            if (el) showSection(id);
+        });
+    });
+
+    searchEl.addEventListener('input', function() {
+        var q = normalize(searchEl.value).trim().split(/\s+/).filter(Boolean);
+        if (q.length === 0) {
+            sections.forEach(function(s) { s.classList.remove('highlight'); });
+            indexLinks.forEach(function(a) { a.classList.remove('active'); a.style.display = ''; });
+            return;
+        }
+        var firstId = null;
+        sections.forEach(function(s) {
+            var text = getKeywords(s);
+            var match = q.every(function(word) { return text.indexOf(word) !== -1; });
+            if (match && !firstId) firstId = s.id;
+        });
+        indexLinks.forEach(function(a) {
+            var sectionId = a.getAttribute('data-section');
+            var section = document.getElementById(sectionId);
+            var text = section ? getKeywords(section) : '';
+            var linkMatch = q.every(function(word) { return text.indexOf(word) !== -1; });
+            a.style.display = linkMatch ? '' : 'none';
+        });
+        if (firstId) showSection(firstId);
+    });
+})();
+</script>
+{% endblock %}

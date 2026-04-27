@@ -1,0 +1,46 @@
+# PDV SOLUMATICA - Aplicação web (produção)
+# Instalar: sudo ./scripts/install_systemd.sh
+# Habilitar no boot: sudo systemctl enable --now pdv_solumatica pdv_solumatica-celery
+[Unit]
+Description=PDV SOLUMATICA - Sistema PDV e Caixa
+Documentation=https://www.ibix.com.br
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/central_solumatica/pdv_solumatica
+
+# Carregar variáveis do .env
+EnvironmentFile=-/central_solumatica/pdv_solumatica/.env
+Environment="PATH=/central_solumatica/pdv_solumatica/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/central_solumatica/pdv_solumatica"
+Environment="TZ=America/Sao_Paulo"
+
+# Liberar porta 8000 antes de iniciar (evita "Address already in use" em restarts)
+ExecStartPre=-/bin/sh -c 'fuser -k 8000/tcp 2>/dev/null; sleep 2'
+# Tempo para o gunicorn encerrar workers ao receber SIGTERM
+TimeoutStopSec=30
+
+ExecStart=/central_solumatica/pdv_solumatica/.venv/bin/gunicorn main:app \
+    -w 4 \
+    -k uvicorn.workers.UvicornWorker \
+    -b 127.0.0.1:8000 \
+    --log-level info \
+    --access-logfile - \
+    --error-logfile -
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pdv_solumatica
+
+# Limites de recursos
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

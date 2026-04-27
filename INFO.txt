@@ -1,0 +1,21 @@
+PDV Automscale
+==============
+Baseado no sistema CertiPeso — PDV e Caixa.
+
+Estrutura:
+  pdv_automscale/   — aplicação (FastAPI, porta 8000)
+  docker-compose.yml — PostgreSQL 16 + Redis (portas 5432, 6379)
+  certipeso.sql     — dump opcional (restaurar no banco pdv_automscale)
+
+Ambiente:
+  .env em pdv_automscale/ configurado para PostgreSQL local (postgres/autom081530Re#).
+  Banco: pdv_automscale (já criado) | Redis: localhost:6379
+
+Subir ambiente:
+  1. docker-compose up -d
+  2. cd pdv_automscale && .venv/bin/alembic upgrade head
+  3. (opcional) Restaurar dump:
+     docker exec -i pdv_automscale_db psql -U postgres pdv_automscale < certipeso.sql
+  4. cd pdv_automscale && .venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+
+Data: 2026-02-17

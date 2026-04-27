@@ -1,0 +1,32 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Compra finalizada{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title text-success">Parabéns!</h1>
+    <p class="loja-auth-subtitle mb-3">Sua compra foi finalizada e logo enviaremos os detalhes da entrega.</p>
+    {% if pedidos_sessao %}
+    <p class="mb-2"><strong>Pedidos</strong></p>
+    <ul class="list-unstyled mb-3 text-start">
+      {% for p in pedidos_sessao %}
+      <li>#{{ p.numero_pedido }}</li>
+      {% endfor %}
+    </ul>
+    <p class="text-muted small mb-3">Você pode acompanhar em <a href="/loja/acompanhar-pedido">Acompanhar pedido</a>.</p>
+    {% else %}
+    {% set ref_pedido = numero_pedido|default(request.query_params.get('pedido')) %}
+    {% if ref_pedido %}
+    <p class="mb-2"><strong>Pedido #{{ ref_pedido }}</strong></p>
+    <p class="text-muted small mb-3">Você pode acompanhar o pedido em <a href="/loja/acompanhar-pedido">Acompanhar pedido</a>.</p>
+    {% endif %}
+    {% endif %}
+    <div class="loja-auth-actions d-flex flex-wrap gap-2">
+      <a href="/loja/acompanhar-pedido" class="btn btn-outline-primary">Acompanhar pedido</a>
+      <a href="/loja/meus-pedidos" class="btn btn-outline-secondary">Meus pedidos</a>
+      <a href="/" class="btn btn-primary">Voltar à loja</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>Página não encontrada | Ibix</title>
+    <link rel="shortcut icon" href="/static/img/arte-pdv.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "DM Sans", system-ui, sans-serif; background: #f5f7fa; color: #2c3e50; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .error-page { text-align: center; padding: 2rem; max-width: 480px; }
+        .error-code { font-size: 6rem; font-weight: 700; color: #dfe6ed; line-height: 1; }
+        .error-title { font-size: 1.5rem; font-weight: 600; margin: 1rem 0 0.5rem; }
+        .error-text { color: #6b7280; margin-bottom: 2rem; line-height: 1.6; }
+        .error-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+        .error-actions a { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.65rem 1.25rem; border-radius: 8px; font-weight: 600; font-size: 0.9375rem; text-decoration: none; transition: background 0.15s, color 0.15s; }
+        .btn-primary-404 { background: #2c3e50; color: #fff; }
+        .btn-primary-404:hover { background: #34495e; }
+        .btn-outline-404 { background: transparent; color: #2c3e50; border: 1px solid #dfe6ed; }
+        .btn-outline-404:hover { background: #eef1f5; }
+    </style>
+</head>
+<body>
+    <div class="error-page">
+        <div class="error-code">404</div>
+        <h1 class="error-title">Página não encontrada</h1>
+        <p class="error-text">A página que você procura não existe ou foi movida. Que tal explorar nossos produtos?</p>
+        <div class="error-actions">
+            <a href="/" class="btn-primary-404">Ir para a loja</a>
+            <a href="javascript:history.back()" class="btn-outline-404">Voltar</a>
+        </div>
+    </div>
+</body>
+</html>

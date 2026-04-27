@@ -1,0 +1,84 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Cadastro{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <h1 class="h4 mb-3">Criar conta</h1>
+    <form id="loja-cadastro-form">
+      <div class="mb-3">
+        <label for="nome" class="form-label">Nome *</label>
+        <input type="text" class="form-control" id="loja-cadastro-nome" name="nome" required>
+      </div>
+      <div class="mb-3">
+        <label for="email" class="form-label">E-mail *</label>
+        <input type="email" class="form-control" id="loja-cadastro-email" name="email" required>
+      </div>
+      <div class="mb-3">
+        <label for="senha" class="form-label">Senha *</label>
+        <input type="password" class="form-control" id="loja-cadastro-senha" name="senha" required minlength="6">
+      </div>
+      <div class="mb-3">
+        <label for="telefone" class="form-label">Telefone</label>
+        <input type="text" class="form-control" id="loja-cadastro-telefone" name="telefone" placeholder="(11) 99999-9999">
+      </div>
+      <div class="mb-3">
+        <label for="documento" class="form-label">CPF/CNPJ</label>
+        <input type="text" class="form-control" id="loja-cadastro-documento" name="documento">
+      </div>
+      <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="loja-cadastro-termos" name="aceite_termos" required>
+        <label class="form-check-label" for="loja-cadastro-termos">Aceito os termos de uso *</label>
+      </div>
+      <div id="loja-cadastro-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+      <button type="submit" class="btn btn-primary">Cadastrar</button>
+      <a href="/loja/login" class="btn btn-link">Já tenho conta</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("loja-cadastro-form");
+  var errorEl = document.getElementById("loja-cadastro-error");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+    var data = {
+      nome: document.getElementById("loja-cadastro-nome").value.trim(),
+      email: document.getElementById("loja-cadastro-email").value.trim().toLowerCase(),
+      senha: document.getElementById("loja-cadastro-senha").value,
+      telefone: (document.getElementById("loja-cadastro-telefone").value || "").trim() || null,
+      documento: (document.getElementById("loja-cadastro-documento").value || "").trim() || null,
+      aceite_termos: document.getElementById("loja-cadastro-termos").checked,
+    };
+    if (!data.nome || !data.email || !data.senha) {
+      errorEl.textContent = "Preencha nome, e-mail e senha.";
+      errorEl.style.display = "block";
+      return;
+    }
+    if (!data.aceite_termos) {
+      errorEl.textContent = "É necessário aceitar os termos.";
+      errorEl.style.display = "block";
+      return;
+    }
+    window.Vitrine.postCadastro(data)
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) {
+          var msg = d.detail;
+          if (Array.isArray(msg)) msg = msg.map(function (x) { return x.msg || (typeof x === "string" ? x : ""); }).join("; ");
+          throw new Error(msg || "Erro ao cadastrar");
+        });
+        window.location.href = "/loja/login";
+      })
+      .catch(function (err) {
+        errorEl.textContent = (err && err.message) ? err.message : "Erro ao cadastrar.";
+        errorEl.style.display = "block";
+      });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+
+{% block title %}Visualizar Contrato | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Cabeçalho -->
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Detalhes do Contrato</h1>
+        <a href="/contratos" class="btn btn-outline-secondary float-end">
+            <i class="align-middle me-1" data-feather="arrow-left"></i> Voltar
+        </a>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading" class="text-center my-5">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-2">Carregando dados do contrato...</p>
+    </div>
+
+    <!-- Dados do Contrato -->
+    <div id="contrato-dados" style="display: none;">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="align-middle me-2" data-feather="file-text"></i>
+                            <span id="numero_contrato"></span>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6 class="text-muted">Cliente</h6>
+                                <p class="mb-0" id="cliente_nome"></p>
+                                <small class="text-muted" id="cliente_cnpj"></small>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-muted">Status</h6>
+                                <p class="mb-0" id="status_badge"></p>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <h6 class="text-muted">Data de Início</h6>
+                                <p class="mb-0" id="data_inicio"></p>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-muted">Data de Término</h6>
+                                <p class="mb-0" id="data_fim"></p>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-muted">Periodicidade</h6>
+                                <p class="mb-0" id="periodicidade"></p>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6 class="text-muted">Valor Mensal</h6>
+                                <p class="mb-0 h4 text-primary" id="valor_mensal"></p>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3" id="equipamentos_section" style="display: none;">
+                            <div class="col-12">
+                                <h6 class="text-muted">Equipamentos Contratados</h6>
+                                <p class="mb-0" id="equipamentos_contratados"></p>
+                            </div>
+                        </div>
+
+                        <div class="row" id="observacoes_section" style="display: none;">
+                            <div class="col-12">
+                                <h6 class="text-muted">Observações</h6>
+                                <p class="mb-0" id="observacoes"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="button" class="btn btn-primary" onclick="editar()">
+                            <i class="align-middle me-1" data-feather="edit"></i> Editar
+                        </button>
+                        <button type="button" class="btn btn-danger" onclick="excluir()">
+                            <i class="align-middle me-1" data-feather="trash-2"></i> Excluir
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container para alertas -->
+<div id="alert-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const contratoId = {{ contrato_id }};
+
+// Carregar dados do contrato
+async function carregarContrato() {
+    try {
+        const response = await fetch(`/api/v1/contratos-afericao/${contratoId}`, {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('pdv_automscale_token')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) throw new Error('Contrato não encontrado');
+        
+        const contrato = await response.json();
+        
+        // Preencher dados
+        document.getElementById('numero_contrato').textContent = contrato.numero_contrato || '-';
+        document.getElementById('cliente_nome').textContent = contrato.cliente_nome || '-';
+        document.getElementById('cliente_cnpj').textContent = contrato.cliente_cnpj || '-';
+        document.getElementById('data_inicio').textContent = (typeof formatarDataApenas === 'function') ? formatarDataApenas(contrato.data_inicio) : contrato.data_inicio;
+        document.getElementById('data_fim').textContent = (typeof formatarDataApenas === 'function') ? formatarDataApenas(contrato.data_fim) : contrato.data_fim;
+        document.getElementById('periodicidade').textContent = contrato.periodicidade || '-';
+        document.getElementById('valor_mensal').textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contrato.valor_mensal);
+        
+        // Status badge
+        let statusBadge = '';
+        switch(contrato.status) {
+            case 'ativo':
+                statusBadge = '<span class="badge bg-success">Ativo</span>';
+                break;
+            case 'suspenso':
+                statusBadge = '<span class="badge bg-warning">Suspenso</span>';
+                break;
+            case 'cancelado':
+                statusBadge = '<span class="badge bg-danger">Cancelado</span>';
+                break;
+            case 'finalizado':
+                statusBadge = '<span class="badge bg-secondary">Finalizado</span>';
+                break;
+        }
+        document.getElementById('status_badge').innerHTML = statusBadge;
+        
+        // Equipamentos (se houver)
+        if (contrato.equipamentos_contratados) {
+            document.getElementById('equipamentos_contratados').textContent = contrato.equipamentos_contratados;
+            document.getElementById('equipamentos_section').style.display = 'block';
+        }
+        
+        // Observações (se houver)
+        if (contrato.observacoes) {
+            document.getElementById('observacoes').textContent = contrato.observacoes;
+            document.getElementById('observacoes_section').style.display = 'block';
+        }
+        
+        // Mostrar dados e ocultar loading
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('contrato-dados').style.display = 'block';
+        
+        // Re-inicializar ícones Feather
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar contrato:', error);
+        document.getElementById('loading').innerHTML = `
+            <div class="alert alert-danger">
+                <i data-feather="alert-circle" class="me-2"></i>
+                Erro ao carregar contrato: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Editar contrato
+function editar() {
+    window.location.href = `/contratos/editar/${contratoId}`;
+}
+
+// Excluir contrato
+async function excluir() {
+    if (!confirm('Tem certeza que deseja excluir este contrato?')) return;
+    
+    try {
+        const response = await fetch(`/api/v1/contratos-afericao/${contratoId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('pdv_automscale_token')}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Erro ao excluir');
+        
+        alert('Contrato excluído com sucesso!');
+        window.location.href = '/contratos';
+        
+    } catch (error) {
+        console.error('Erro ao excluir:', error);
+        alert('Erro ao excluir contrato: ' + error.message);
+    }
+}
+
+// Carregar ao inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    carregarContrato();
+});
+</script>
+{% endblock %}
+

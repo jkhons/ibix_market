@@ -1,0 +1,820 @@
+{% extends "base.html" %}
+
+{% block title %}Contratos de Aferição | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Cabeçalho -->
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle"><strong>Gestão de</strong> Contratos de Aferição</h1>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Total</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-primary">
+                                <i class="align-middle" data-feather="file-text"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="totalContratos">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Ativos</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-success">
+                                <i class="align-middle" data-feather="check-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="ativosContratos">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Suspensos</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-warning">
+                                <i class="align-middle" data-feather="pause-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="suspensosContratos">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Finalizados</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-secondary">
+                                <i class="align-middle" data-feather="check"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="finalizadosContratos">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Contratos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="align-middle me-2" data-feather="list"></i>
+                                Lista de Contratos
+                            </h5>
+                        </div>
+                        <div class="col-auto">
+                            <!-- Filtros -->
+                            <select class="form-select form-select-sm d-inline-block w-auto me-2" id="filtroStatus">
+                                <option value="">Todos os Status</option>
+                                <option value="ativo">Ativo</option>
+                                <option value="suspenso">Suspenso</option>
+                                <option value="cancelado">Cancelado</option>
+                                <option value="finalizado">Finalizado</option>
+                            </select>
+                            <a href="tipos" class="btn btn-info btn-sm me-2" id="btnTiposContratos">
+                                <i class="align-middle me-1" data-feather="layers"></i> Tipos de Contratos
+                            </a>
+                            <a href="cadastro" class="btn btn-primary btn-sm" id="btnNovoContrato">
+                                <i class="align-middle me-1" data-feather="plus"></i> Novo Contrato
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped" id="tabelaContratos">
+                            <thead>
+                                <tr>
+                                    <th>Nº Contrato</th>
+                                    <th>Cliente</th>
+                                    <th>Periodicidade</th>
+                                    <th>Vigência</th>
+                                    <th>Valor Mensal</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="spinner-border spinner-border-sm me-2"></div>
+                                        Carregando contratos...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container para alertas -->
+<div id="alert-container"></div>
+
+<!-- Modal Criar Agendamentos Automáticos - Isolado -->
+<div id="modalAgendamentosAutomaticosCustom" style="display: none;">
+    <div class="modal-agendamentos-overlay">
+        <div class="modal-agendamentos-container">
+            <div class="modal-agendamentos-header">
+                <h4>
+                    <i data-feather="calendar" style="width: 20px; height: 20px;"></i>
+                    Criar Agendamentos Automáticos
+                </h4>
+                <button type="button" class="modal-agendamentos-close" onclick="fecharModalAgendamentos()">×</button>
+            </div>
+            <div class="modal-agendamentos-body">
+                <div class="alert alert-info">
+                    <i data-feather="info" class="me-2"></i>
+                    <strong>Como funciona:</strong> Os agendamentos serão criados automaticamente baseados na periodicidade do contrato.
+                </div>
+
+                <input type="hidden" id="contratoIdAgendamento">
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6 class="text-primary mb-3">
+                            <i data-feather="file-text"></i> Informações do Contrato
+                        </h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Nº Contrato:</strong> <span id="infoNumeroContrato">-</span></p>
+                                        <p class="mb-2"><strong>Cliente:</strong> <span id="infoCliente">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p class="mb-2"><strong>Periodicidade:</strong> <span id="infoPeriodicidade">-</span></p>
+                                        <p class="mb-0"><strong>Vigência:</strong> <span id="infoVigencia">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6 class="text-primary mb-3">
+                            <i data-feather="package"></i> Equipamentos
+                            <span class="badge bg-secondary ms-2" id="totalEquipamentos">0</span>
+                        </h6>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="todosEquipamentos" checked>
+                            <label class="form-check-label fw-bold" for="todosEquipamentos">
+                                Criar agendamentos para TODOS os equipamentos do cliente
+                            </label>
+                        </div>
+                        <div id="listaEquipamentos" class="border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
+                            <p class="text-muted mb-0">Carregando equipamentos...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-12">
+                        <h6 class="text-primary mb-3">
+                            <i data-feather="settings"></i> Configurações
+                        </h6>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="dataInicio" class="form-label">Data de Início *</label>
+                        <input type="date" class="form-control" id="dataInicioAgendamento" required>
+                        <small class="text-muted">Primeira data dos agendamentos</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="dataFim" class="form-label">Data de Término *</label>
+                        <input type="date" class="form-control" id="dataFimAgendamento" required>
+                        <small class="text-muted">Última data para criar agendamentos</small>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="horaAgendamento" class="form-label">Hora Padrão *</label>
+                        <input type="time" class="form-control" id="horaAgendamentoPadrao" value="08:00" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="tipoServico" class="form-label">Tipo de Serviço *</label>
+                        <select class="form-select" id="tipoServicoAgendamento" required>
+                            <option value="calibracao">Calibração</option>
+                            <option value="afericao" selected>Aferição</option>
+                            <option value="manutencao">Manutenção</option>
+                            <option value="inspecao">Inspeção</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning">
+                    <i data-feather="alert-triangle" class="me-2"></i>
+                    <strong>Atenção:</strong> Serão criados <strong id="totalAgendamentosEstimado">0</strong> agendamentos com base na periodicidade do contrato.
+                </div>
+            </div>
+            <div class="modal-agendamentos-footer">
+                <button type="button" class="btn btn-secondary" onclick="fecharModalAgendamentos()">
+                    <i data-feather="x" style="width: 16px; height: 16px;"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="confirmarCriacaoAutomatica()">
+                    <i data-feather="check" style="width: 16px; height: 16px;"></i> Criar Agendamentos
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Modal Agendamentos Automáticos - CSS Isolado */
+.modal-agendamentos-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeInAgendamentos 0.3s ease;
+}
+
+.modal-agendamentos-container {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideInAgendamentos 0.3s ease;
+}
+
+.modal-agendamentos-header {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: white;
+    padding: 20px 30px;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-agendamentos-header h4 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.modal-agendamentos-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 32px;
+    line-height: 1;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-agendamentos-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+.modal-agendamentos-body {
+    padding: 30px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-agendamentos-footer {
+    background: #f8f9fa;
+    padding: 20px 30px;
+    border-radius: 0 0 12px 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    border-top: 2px solid #e9ecef;
+}
+
+.modal-agendamentos-footer .btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.modal-agendamentos-footer .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes fadeInAgendamentos {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInAgendamentos {
+    from { 
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Scrollbar customizado */
+.modal-agendamentos-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-agendamentos-body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.modal-agendamentos-body::-webkit-scrollbar-thumb {
+    background: #27ae60;
+    border-radius: 10px;
+}
+
+.modal-agendamentos-body::-webkit-scrollbar-thumb:hover {
+    background: #229954;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Obter token: cookie primeiro, depois localStorage (padrão certipeso)
+function getToken() {
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'pdv_automscale_token') return value || '';
+    }
+    return localStorage.getItem('pdv_automscale_token') || sessionStorage.getItem('pdv_automscale_token') || '';
+}
+
+// Carregar estatísticas
+async function carregarEstatisticas() {
+    try {
+        const response = await fetch('/api/v1/contratos-afericao/?skip=0&limit=100', {
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error('Erro na resposta:', response.status, response.statusText);
+            throw new Error('Erro ao carregar dados');
+        }
+        
+        const data = await response.json();
+        console.log('Dados recebidos:', data);
+        
+        const total = data.total || 0;
+        const ativos = data.contratos?.filter(c => c.status === 'ativo').length || 0;
+        const suspensos = data.contratos?.filter(c => c.status === 'suspenso').length || 0;
+        const finalizados = data.contratos?.filter(c => c.status === 'finalizado').length || 0;
+        
+        console.log('Estatísticas:', { total, ativos, suspensos, finalizados });
+        
+        document.getElementById('totalContratos').textContent = total;
+        document.getElementById('ativosContratos').textContent = ativos;
+        document.getElementById('suspensosContratos').textContent = suspensos;
+        document.getElementById('finalizadosContratos').textContent = finalizados;
+    } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+        document.getElementById('totalContratos').textContent = '0';
+        document.getElementById('ativosContratos').textContent = '0';
+        document.getElementById('suspensosContratos').textContent = '0';
+        document.getElementById('finalizadosContratos').textContent = '0';
+    }
+}
+
+// Carregar contratos
+async function carregarContratos() {
+    try {
+        const filtroStatus = document.getElementById('filtroStatus').value;
+        let url = '/api/v1/contratos-afericao/?skip=0&limit=100';
+        
+        if (filtroStatus) {
+            url += `&status=${filtroStatus}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) throw new Error('Erro ao carregar contratos');
+        
+        const data = await response.json();
+        const tbody = document.querySelector('#tabelaContratos tbody');
+        
+        if (data.contratos && data.contratos.length > 0) {
+            tbody.innerHTML = '';
+            
+            data.contratos.forEach(contrato => {
+                const dataInicio = (typeof formatarDataApenas === 'function') ? formatarDataApenas(contrato.data_inicio) : contrato.data_inicio;
+                const dataFim = (typeof formatarDataApenas === 'function') ? formatarDataApenas(contrato.data_fim) : contrato.data_fim;
+                const valorFormatado = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(contrato.valor_mensal);
+                
+                let statusBadge = '';
+                switch(contrato.status) {
+                    case 'ativo':
+                        statusBadge = '<span class="badge bg-success">Ativo</span>';
+                        break;
+                    case 'suspenso':
+                        statusBadge = '<span class="badge bg-warning">Suspenso</span>';
+                        break;
+                    case 'cancelado':
+                        statusBadge = '<span class="badge bg-danger">Cancelado</span>';
+                        break;
+                    case 'finalizado':
+                        statusBadge = '<span class="badge bg-secondary">Finalizado</span>';
+                        break;
+                    default:
+                        statusBadge = '<span class="badge bg-light text-dark">' + contrato.status + '</span>';
+                }
+                
+                const row = `
+                    <tr>
+                        <td><strong>${contrato.numero_contrato || '-'}</strong></td>
+                        <td>${contrato.cliente_nome || '-'}</td>
+                        <td><span class="badge bg-info">${contrato.periodicidade || '-'}</span></td>
+                        <td>${dataInicio} - ${dataFim}</td>
+                        <td>${valorFormatado}</td>
+                        <td>${statusBadge}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="visualizar(${contrato.id})" title="Visualizar">
+                                        <i data-feather="eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" onclick="editar(${contrato.id})" title="Editar">
+                                        <i data-feather="edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-success" onclick="verAgendamentos(${contrato.id})" title="Criar Agendamentos Automáticos">
+                                        <i data-feather="calendar"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger" onclick="excluir(${contrato.id})" title="Excluir">
+                                        <i data-feather="trash-2"></i>
+                                    </button>
+                                </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+            
+            // Re-inicializar ícones Feather
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum contrato encontrado</td></tr>';
+        }
+    } catch (error) {
+        console.error('Erro ao carregar contratos:', error);
+        const tbody = document.querySelector('#tabelaContratos tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar dados</td></tr>';
+    }
+}
+
+// Funções de ação
+function visualizar(id) {
+    window.location.href = `/contratos/${id}`;
+}
+
+function editar(id) {
+    window.location.href = `/contratos/editar/${id}`;
+}
+
+async function verAgendamentos(contratoId) {
+    try {
+        // Buscar dados do contrato
+        const response = await fetch(`/api/v1/contratos-afericao/${contratoId}`, {
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Erro ao carregar contrato');
+        
+        const contrato = await response.json();
+        
+        // Preencher modal com informações do contrato
+        document.getElementById('contratoIdAgendamento').value = contratoId;
+        document.getElementById('infoNumeroContrato').textContent = contrato.numero_contrato || '-';
+        document.getElementById('infoCliente').textContent = contrato.cliente_nome || '-';
+        document.getElementById('infoPeriodicidade').textContent = contrato.periodicidade || '-';
+        document.getElementById('infoVigencia').textContent = 
+            `${(typeof formatarDataApenas === 'function' ? formatarDataApenas(contrato.data_inicio) : contrato.data_inicio)} - ${(typeof formatarDataApenas === 'function' ? formatarDataApenas(contrato.data_fim) : contrato.data_fim)}`;
+        
+        // Definir datas padrão
+        document.getElementById('dataInicioAgendamento').value = contrato.data_inicio;
+        document.getElementById('dataFimAgendamento').value = contrato.data_fim;
+        
+        // Carregar equipamentos do cliente
+        await carregarEquipamentosModal(contrato.cliente_id);
+        
+        // Calcular estimativa de agendamentos
+        calcularEstimativaAgendamentos();
+        
+        // Abrir modal customizado
+        document.getElementById('modalAgendamentosAutomaticosCustom').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        
+        // Atualizar ícones
+        setTimeout(() => {
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao carregar informações do contrato', 'danger');
+    }
+}
+
+async function carregarEquipamentosModal(clienteId) {
+    try {
+        const response = await fetch(`/api/v1/equipamentos?cliente_id=${clienteId}&per_page=10000`, {
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
+        });
+        
+        const equipamentos = response.ok ? ((await response.json()).equipamentos || []) : [];
+        
+        const lista = document.getElementById('listaEquipamentos');
+        const totalEl = document.getElementById('totalEquipamentos');
+        if (!lista) return;
+
+        if (equipamentos.length > 0) {
+            lista.innerHTML = equipamentos.map(eq => `
+                <div class="d-flex align-items-center mb-2 p-2 border-bottom">
+                    <i data-feather="package" class="me-2 text-primary" style="width: 18px; height: 18px;"></i>
+                    <div class="flex-grow-1">
+                        <strong>${eq.fabricante} ${eq.modelo}</strong>
+                        <small class="text-muted d-block">Nº Série: ${eq.numero_serie}</small>
+                    </div>
+                </div>
+            `).join('');
+            
+            if (totalEl) totalEl.textContent = equipamentos.length;
+            
+        } else {
+            lista.innerHTML = '<p class="text-muted mb-0">Nenhum equipamento cadastrado para este cliente</p>';
+            if (totalEl) totalEl.textContent = '0';
+        }
+        
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar equipamentos:', error);
+        const lista = document.getElementById('listaEquipamentos');
+        if (lista) lista.innerHTML = '<p class="text-danger mb-0">Erro ao carregar equipamentos</p>';
+    }
+}
+
+function calcularEstimativaAgendamentos() {
+    const dataInicio = document.getElementById('dataInicioAgendamento').value;
+    const dataFim = document.getElementById('dataFimAgendamento').value;
+    const periodicidade = document.getElementById('infoPeriodicidade').textContent;
+    
+    if (!dataInicio || !dataFim || !periodicidade || periodicidade === '-') {
+        document.getElementById('totalAgendamentosEstimado').textContent = '0';
+        return;
+    }
+    
+    const inicio = new Date(dataInicio);
+    const fim = new Date(dataFim);
+    const diffMeses = Math.round((fim - inicio) / (1000 * 60 * 60 * 24 * 30));
+    
+    let qtdAgendamentos = 0;
+    
+    switch(periodicidade.toLowerCase()) {
+        case 'mensal':
+            qtdAgendamentos = Math.ceil(diffMeses / 1);
+            break;
+        case 'bimestral':
+            qtdAgendamentos = Math.ceil(diffMeses / 2);
+            break;
+        case 'trimestral':
+            qtdAgendamentos = Math.ceil(diffMeses / 3);
+            break;
+        case 'semestral':
+            qtdAgendamentos = Math.ceil(diffMeses / 6);
+            break;
+        case 'anual':
+            qtdAgendamentos = Math.ceil(diffMeses / 12);
+            break;
+    }
+    
+    document.getElementById('totalAgendamentosEstimado').textContent = qtdAgendamentos > 0 ? qtdAgendamentos : '0';
+}
+
+// Atualizar estimativa quando mudar as datas
+document.addEventListener('DOMContentLoaded', function() {
+    const dataInicioInput = document.getElementById('dataInicioAgendamento');
+    const dataFimInput = document.getElementById('dataFimAgendamento');
+    
+    if (dataInicioInput) {
+        dataInicioInput.addEventListener('change', calcularEstimativaAgendamentos);
+    }
+    if (dataFimInput) {
+        dataFimInput.addEventListener('change', calcularEstimativaAgendamentos);
+    }
+});
+
+async function confirmarCriacaoAutomatica() {
+    try {
+        const contratoId = document.getElementById('contratoIdAgendamento').value;
+        const dataInicio = document.getElementById('dataInicioAgendamento').value;
+        const dataFim = document.getElementById('dataFimAgendamento').value;
+        const hora = document.getElementById('horaAgendamentoPadrao').value;
+        const tipoServico = document.getElementById('tipoServicoAgendamento').value;
+        const todosEquipamentos = document.getElementById('todosEquipamentos').checked;
+        
+        if (!dataInicio || !dataFim || !hora || !tipoServico) {
+            showAlert('Preencha todos os campos obrigatórios', 'warning');
+            return;
+        }
+        
+        // Confirmar ação
+        const estimativa = document.getElementById('totalAgendamentosEstimado').textContent;
+        if (!confirm(`Confirma a criação de ${estimativa} agendamentos automáticos?`)) {
+            return;
+        }
+        
+        // Enviar requisição
+        const response = await fetch(`/api/v1/contratos-afericao/${contratoId}/criar-agendamentos-automaticos`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                data_inicio: dataInicio,
+                data_fim: dataFim,
+                hora_padrao: hora,
+                tipo_servico: tipoServico,
+                todos_equipamentos: todosEquipamentos
+            })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao criar agendamentos');
+        }
+        
+        const result = await response.json();
+        
+        // Fechar modal customizado
+        fecharModalAgendamentos();
+        
+        // Mostrar sucesso
+        showAlert(`✅ ${result.total_criados} agendamento(s) criado(s) com sucesso!`, 'success');
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao criar agendamentos: ' + error.message, 'danger');
+    }
+}
+
+async function excluir(id) {
+    if (!confirm('Tem certeza que deseja excluir este contrato?')) return;
+    
+    try {
+        const response = await fetch(`/api/v1/contratos-afericao/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${getToken()}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('Erro ao excluir');
+        
+        showAlert('Contrato excluído com sucesso!', 'success');
+        carregarContratos();
+        carregarEstatisticas();
+    } catch (error) {
+        console.error('Erro ao excluir:', error);
+        showAlert('Erro ao excluir contrato: ' + error.message, 'danger');
+    }
+}
+
+// Mostrar alertas
+function showAlert(message, type = 'info') {
+    const alertContainer = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    alertContainer.appendChild(alert);
+    
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Função para fechar modal customizado
+function fecharModalAgendamentos() {
+    document.getElementById('modalAgendamentosAutomaticosCustom').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Event listeners
+document.getElementById('filtroStatus').addEventListener('change', carregarContratos);
+
+// Navegar para cadastro/tipos enviando token na URL para o servidor setar o cookie (evita redirect para login)
+function navegarComToken(pathSuffix) {
+    var path = window.location.pathname.replace(/\/$/, '') || '/contratos';
+    var url = path + pathSuffix;
+    var token = getToken();
+    if (token) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    window.location.href = url;
+}
+
+// Carregar ao inicializar
+document.addEventListener('DOMContentLoaded', function() {
+    var path = window.location.pathname.replace(/\/$/, '') || '/contratos';
+    var btnNovo = document.getElementById('btnNovoContrato');
+    var btnTipos = document.getElementById('btnTiposContratos');
+    if (btnNovo) {
+        btnNovo.setAttribute('href', path + '/cadastro');
+        btnNovo.addEventListener('click', function(e) { e.preventDefault(); navegarComToken('/cadastro'); });
+    }
+    if (btnTipos) {
+        btnTipos.setAttribute('href', path + '/tipos');
+        btnTipos.addEventListener('click', function(e) { e.preventDefault(); navegarComToken('/tipos'); });
+    }
+
+    carregarEstatisticas();
+    carregarContratos();
+});
+</script>
+{% endblock %}
+

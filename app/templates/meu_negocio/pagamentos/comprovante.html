@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprovante de pagamento – {{ numero_pedido or uuid }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        h1 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+        .muted { color: #666; font-size: 0.9rem; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+        th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid #ddd; }
+        th { background: #f5f5f5; font-weight: 600; }
+        .valor { font-size: 1.5rem; font-weight: bold; color: #0a0; }
+        .status { display: inline-block; padding: 4px 10px; border-radius: 4px; font-weight: 600; }
+        .status-paid { background: #d4edda; color: #155724; }
+        .status-authorized { background: #cce5ff; color: #004085; }
+        @media print {
+            body { margin: 0; padding: 16px; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="margin-bottom: 16px;">
+        <button type="button" onclick="window.print()" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Imprimir / Salvar PDF</button>
+        <a href="/negocio/recebiveis" style="margin-left: 12px;">Voltar a Recebíveis</a>
+    </div>
+
+    <h1>Comprovante de pagamento</h1>
+    <p class="muted">Gerado em {{ data_geracao }}</p>
+
+    <table>
+        <tr><th>Referência</th><td>{{ numero_pedido or ('Transação ' + uuid) }}</td></tr>
+        <tr><th>Comprador</th><td>{{ comprador_nome or '—' }}</td></tr>
+        <tr><th>Valor</th><td class="valor">R$ {{ valor }}</td></tr>
+        <tr><th>Forma de pagamento</th><td>{{ payment_method }}</td></tr>
+        <tr><th>Status</th><td><span class="status status-{{ status_class }}">{{ status_label }}</span></td></tr>
+        <tr><th>Data do pagamento</th><td>{{ paid_at or '—' }}</td></tr>
+        {% if provider_transaction_id %}
+        <tr><th>ID no Mercado Pago</th><td><code>{{ provider_transaction_id }}</code></td></tr>
+        {% endif %}
+        <tr><th>UUID da transação</th><td><code style="font-size: 0.85rem;">{{ uuid }}</code></td></tr>
+    </table>
+
+    <p class="muted" style="margin-top: 24px; font-size: 0.8rem;">
+        Este comprovante foi gerado pelo sistema PDV Ibix. Para comprovante oficial do Pix, consulte o app do Mercado Pago em "Últimas atividades".
+    </p>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!-- PDV Ibix - Componente Dropdown do Usuário -->
+<li class="nav-item dropdown">
+    <!-- Dropdown para dispositivos móveis -->
+    <a class="nav-icon dropdown-toggle d-inline-block d-sm-none" href="#" data-bs-toggle="dropdown">
+        <i class="align-middle" data-feather="settings"></i>
+    </a>
+
+    <!-- Dropdown para desktop -->
+    <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown" id="userDropdownToggle">
+        <img src="/static/img/avatars/avatar.jpg" class="avatar img-fluid rounded me-1" alt="Usuário" id="userAvatar" />
+        <span class="text-dark" id="userName">{{ user_name or 'Usuário' }}</span>
+        {% if user_role == 'Superadministrador' %}
+        <span class="badge role-badge-header role-badge-sa ms-1" title="Perfil: {{ user_role }}">SA</span>
+        {% elif user_role == 'Administrador' %}
+        <span class="badge role-badge-header role-badge-ad ms-1" title="Perfil: {{ user_role }}">AD</span>
+        {% elif user_role == 'Cliente Administrador' %}
+        <span class="badge role-badge-header role-badge-ca ms-1" title="Perfil: {{ user_role }}">CA</span>
+        {% elif user_role == 'Contador' %}
+        <span class="badge role-badge-header role-badge-cf ms-1" title="Perfil: {{ user_role }}">CF</span>
+        {% elif user_role == 'Técnico' %}
+        <span class="badge role-badge-header role-badge-tc ms-1" title="Perfil: {{ user_role }}">TC</span>
+        {% elif user_role == 'Subcliente' %}
+        <span class="badge role-badge-header role-badge-sc ms-1" title="Perfil: {{ user_role }}">SC</span>
+        {% endif %}
+    </a>
+    
+    <!-- Menu do dropdown -->
+    <div class="dropdown-menu dropdown-menu-end">
+        <a class="dropdown-item" href="/change-password">
+            <i class="align-middle me-1" data-feather="lock"></i> Alterar Senha
+        </a>
+        <div class="dropdown-divider"></div>
+        <a class="dropdown-item" href="/configuracoes">
+            <i class="align-middle me-1" data-feather="settings"></i> Configurações
+        </a>
+        <a class="dropdown-item" href="/help-center">
+            <i class="align-middle me-1" data-feather="help-circle"></i> Central de Ajuda
+        </a>
+        <div class="dropdown-divider"></div>
+        <a class="dropdown-item" href="/logout" id="logoutBtn">
+            <i class="align-middle me-1" data-feather="log-out"></i> Sair
+        </a>
+    </div>
+</li> 

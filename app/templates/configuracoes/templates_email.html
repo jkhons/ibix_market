@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Templates de E-mail - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Header -->
+    <div class="mb-3">
+        <h1 class="h3 mb-3">Templates de E-mail</h1>
+    </div>
+
+    <div class="row">
+        <!-- Lista de Templates -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">
+                            <i class="align-middle me-2" data-feather="list"></i>
+                            Templates
+                        </h5>
+                        <button type="button" class="btn btn-success btn-sm" id="btnNovoTemplate">
+                            <i class="align-middle me-1" data-feather="plus"></i>
+                            Novo
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="listaTemplates">
+                        <div class="list-group-item text-center text-muted">
+                            Carregando templates...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Editor de Template -->
+        <div class="col-md-8">
+            <div class="card" id="cardEditor" style="display: none;">
+                <div class="card-header">
+                    <h5 class="card-title mb-0" id="tituloEditor">
+                        <i class="align-middle me-2" data-feather="edit"></i>
+                        Editor de Template
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="formTemplate">
+                        <input type="hidden" id="templateOriginalNome">
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="templateNome" class="form-label">Nome do Template *</label>
+                                <input type="text" class="form-control" id="templateNome" placeholder="certificado_pronto" required>
+                                <div class="form-text">Letras minúsculas, números e underscore apenas</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="templateAssunto" class="form-label">Assunto Padrão *</label>
+                                <input type="text" class="form-control" id="templateAssunto" placeholder="Certificado {{numero}} - Pronto" required>
+                                <div class="form-text">Use {{variavel}} para campos dinâmicos</div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="templateVariaveis" class="form-label">Variáveis Disponíveis</label>
+                            <input type="text" class="form-control" id="templateVariaveis" placeholder="nome, numero, link">
+                            <div class="form-text">Separadas por vírgula. Exemplo: nome, email, data</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="templateHtml" class="form-label">Código HTML *</label>
+                            <textarea class="form-control font-monospace" id="templateHtml" rows="20" required style="font-size: 12px;"></textarea>
+                            <div class="form-text">
+                                <strong>Variáveis:</strong> Use {{nome_variavel}} no HTML<br>
+                                <strong>Exemplo:</strong> &lt;h1&gt;Olá, {{cliente_nome}}!&lt;/h1&gt;
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="align-middle me-1" data-feather="save"></i>
+                                Salvar Template
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="btnCancelar">
+                                Cancelar
+                            </button>
+                            <button type="button" class="btn btn-outline-danger ms-auto" id="btnExcluirTemplate" style="display: none;">
+                                <i class="align-middle me-1" data-feather="trash-2"></i>
+                                Excluir Template
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Card de Boas-vindas -->
+            <div class="card" id="cardBoasVindas">
+                <div class="card-body text-center py-5">
+                    <i data-feather="mail" style="width: 48px; height: 48px; color: #6c757d;"></i>
+                    <h5 class="mt-3 text-muted">Selecione um template ou crie um novo</h5>
+                    <p class="text-muted">Use templates para personalizar os e-mails enviados pelo sistema</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alertas -->
+    <div id="alert-container"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/templates-email.js?v=1.0.0"></script>
+{% endblock %}
+

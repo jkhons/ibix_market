@@ -1,0 +1,91 @@
+{
+  "expo": {
+    "name": "Ibix Market",
+    "slug": "ibix-market",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "ibixmarket",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "imageWidth": 200,
+      "resizeMode": "contain",
+      "backgroundColor": "#2980b9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ibix.market",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Permitir uso de Face ID para login rápido",
+        "NSCameraUsageDescription": "Tirar fotos para devoluções e chat",
+        "NSPhotoLibraryUsageDescription": "Selecionar fotos para devoluções e chat",
+        "NSLocationWhenInUseUsageDescription": "Usamos sua localização para mostrar lojas e produtos mais perto de você."
+      },
+      "associatedDomains": [
+        "applinks:www.ibix.com.br",
+        "webcredentials:www.ibix.com.br"
+      ],
+      "usesAppleSignIn": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#2980b9"
+      },
+      "package": "com.ibix.market",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "www.ibix.com.br",
+              "pathPrefix": "/loja"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      "expo-apple-authentication",
+      "expo-local-authentication",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Usamos sua localização para mostrar lojas e produtos mais perto de você."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#2980b9"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#2980b9",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

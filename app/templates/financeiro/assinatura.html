@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Assinatura - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Assinatura</h1>
+    </div>
+
+    {% if subscription_blocked %}
+    <div class="alert alert-danger mb-4" role="alert">
+        <strong>Conta bloqueada.</strong> Realize o pagamento para reativar o acesso ao sistema.
+    </div>
+    {% endif %}
+
+    <div id="assinatura-status-card" class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Status da assinatura</h5>
+        </div>
+        <div class="card-body">
+            <div id="assinatura-loading" class="text-muted">
+                <span class="spinner-border spinner-border-sm me-2" role="status"></span>Carregando...
+            </div>
+            <div id="assinatura-content" class="d-none">
+                <p class="mb-2"><strong>Status:</strong> <span id="status-text"></span></p>
+                <p class="mb-2 text-muted small" id="status-detail"></p>
+                <div id="valor-cobranca-row" class="mb-0">
+                    <p class="mb-1"><strong>Valor da assinatura:</strong> <span id="valor-base-exibicao">-</span> <span class="text-muted small">/ mês</span></p>
+                    <p class="mb-1 d-none" id="desconto-row"><strong>Desconto:</strong> <span id="desconto-percent-exibicao">-</span></p>
+                    <p class="mb-0"><strong id="total-label">Total:</strong> <span id="valor-exibicao">-</span> <span class="text-muted small">/ mês</span></p>
+                </div>
+            </div>
+            <div id="assinatura-erro" class="text-danger d-none"></div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <p class="mb-2" id="valor-aviso"><strong id="valor-aviso-text">Valor a ser cobrado: -</strong></p>
+            <button type="button" class="btn btn-primary" id="btn-pagar-agora">
+                Pagar agora
+            </button>
+            <p class="text-muted small mt-2 mb-0">Você será redirecionado ao checkout do Mercado Pago para pagar com Pix, cartão ou boleto.</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Histórico de pagamentos</h5>
+        </div>
+        <div class="card-body">
+            <div id="pagamentos-loading" class="text-muted small">Carregando...</div>
+            <div id="pagamentos-content" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead><tr><th>Data</th><th>Valor</th><th>Status</th></tr></thead>
+                        <tbody id="pagamentos-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="pagamentos-erro" class="text-danger small d-none"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function authHeaders() {
+        var t = getToken();
+        var h = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    }
+
+    function showStatus(data) {
+        document.getElementById('assinatura-loading').classList.add('d-none');
+        document.getElementById('assinatura-erro').classList.add('d-none');
+        var content = document.getElementById('assinatura-content');
+        content.classList.remove('d-none');
+        var statusText = document.getElementById('status-text');
+        var statusDetail = document.getElementById('status-detail');
+        var s = data.status || 'N/A';
+        statusText.textContent = s;
+        if (data.valor_base_exibicao != null) {
+            document.getElementById('valor-base-exibicao').textContent = data.valor_base_exibicao || '-';
+        } else {
+            document.getElementById('valor-base-exibicao').textContent = '-';
+        }
+        var descontoRow = document.getElementById('desconto-row');
+        var totalLabel = document.getElementById('total-label');
+        if (data.desconto_percent != null && data.desconto_percent > 0) {
+            descontoRow.classList.remove('d-none');
+            document.getElementById('desconto-percent-exibicao').textContent = data.desconto_percent + '%';
+            totalLabel.textContent = 'Total com desconto:';
+        } else {
+            descontoRow.classList.add('d-none');
+            totalLabel.textContent = 'Total:';
+        }
+        if (data.valor_exibicao) {
+            document.getElementById('valor-exibicao').textContent = data.valor_exibicao;
+            document.getElementById('valor-aviso-text').textContent = 'Valor a ser cobrado: ' + data.valor_exibicao + ' / mês';
+        } else {
+            document.getElementById('valor-exibicao').textContent = '-';
+            document.getElementById('valor-aviso-text').textContent = 'Valor a ser cobrado: consulte o status acima.';
+        }
+        if (data.is_in_trial && data.trial_days_left !== undefined) {
+            statusDetail.textContent = 'Faltam ' + data.trial_days_left + ' dias do teste.';
+        } else if (data.is_past_due && !data.is_blocked && data.grace_days_left !== undefined) {
+            statusDetail.textContent = 'Você está no período de carência: ' + data.grace_days_left + ' dias.';
+        } else if (data.is_blocked) {
+            statusDetail.textContent = 'Conta bloqueada. Pagar para reativar.';
+        } else {
+            statusDetail.textContent = data.next_charge_at ? 'Próximo vencimento: ' + data.next_charge_at : '';
+        }
+    }
+
+    function showStatusError(msg) {
+        document.getElementById('assinatura-loading').classList.add('d-none');
+        document.getElementById('assinatura-content').classList.add('d-none');
+        var el = document.getElementById('assinatura-erro');
+        el.textContent = msg || 'Não foi possível carregar o status.';
+        el.classList.remove('d-none');
+    }
+
+    fetch('/api/v1/billing/my-subscription', { headers: authHeaders() })
+        .then(function(r) {
+            if (r.ok) return r.json();
+            if (r.status === 404) {
+                showStatus({ status: 'Sem assinatura', status_detail: 'Entre em contato com o administrador.' });
+                return;
+            }
+            throw new Error('Erro ' + r.status);
+        })
+        .then(showStatus)
+        .catch(function(e) {
+            showStatusError(e.message || 'Erro ao carregar.');
+        });
+
+    document.getElementById('btn-pagar-agora').addEventListener('click', function() {
+        var btn = this;
+        btn.disabled = true;
+        fetch('/api/v1/billing/pay-now', { method: 'POST', headers: authHeaders() })
+            .then(function(r) {
+                return r.text().then(function(text) {
+                    var data = {};
+                    try { data = JSON.parse(text); } catch (e) {}
+                    if (!r.ok) {
+                        var msg = (data && data.detail) || ('Erro ' + r.status);
+                        if (typeof msg !== 'string') msg = msg.detail || msg.message || 'Erro ao gerar link';
+                        throw new Error(msg);
+                    }
+                    return data;
+                });
+            })
+            .then(function(data) {
+                var url = data.init_point || data.sandbox_init_point;
+                if (url) window.open(url, '_blank');
+                else alert('Link não disponível. Tente mais tarde.');
+            })
+            .catch(function(e) {
+                alert(e.message || 'Não foi possível gerar o link de pagamento. Verifique a configuração em Cobranças (Admin) > Config.');
+            })
+            .finally(function() { btn.disabled = false; });
+    });
+
+    fetch('/api/v1/billing/my-payments?limit=50', { headers: authHeaders() })
+        .then(function(r) {
+            if (!r.ok) throw new Error('Erro');
+            return r.json();
+        })
+        .then(function(data) {
+            var list = Array.isArray(data) ? data : (data.items || data.pagamentos || []);
+            document.getElementById('pagamentos-loading').classList.add('d-none');
+            document.getElementById('pagamentos-erro').classList.add('d-none');
+            var tbody = document.getElementById('pagamentos-body');
+            if (list.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="text-muted">Nenhum pagamento registrado.</td></tr>';
+            } else {
+                tbody.innerHTML = list.map(function(p) {
+                    var data = p.paid_at || p.created_at || '';
+                    var valor = p.amount_centavos != null ? 'R$ ' + (p.amount_centavos / 100).toFixed(2) : (p.valor || '');
+                    var status = p.status || '';
+                    return '<tr><td>' + data + '</td><td>' + valor + '</td><td>' + status + '</td></tr>';
+                }).join('');
+            }
+            document.getElementById('pagamentos-content').classList.remove('d-none');
+        })
+        .catch(function() {
+            document.getElementById('pagamentos-loading').classList.add('d-none');
+            document.getElementById('pagamentos-erro').textContent = 'Não foi possível carregar os pagamentos.';
+            document.getElementById('pagamentos-erro').classList.remove('d-none');
+        });
+})();
+</script>
+{% endblock %}

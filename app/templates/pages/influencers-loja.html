@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Influencers | Minha Loja{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3">Influencers</h1>
+        <p class="text-muted">Busque influencers e crie campanhas para sua loja.</p>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-buscar">Buscar Influencers</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-campanhas">Minhas Campanhas</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Buscar -->
+        <div class="tab-pane fade show active" id="tab-buscar">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <strong>Influencers disponiveis</strong>
+                    <div class="d-flex gap-2">
+                        <input type="text" class="form-control form-control-sm" id="busca-cidade" placeholder="Cidade..." style="width:140px">
+                        <input type="text" class="form-control form-control-sm" id="busca-nicho" placeholder="Nicho..." style="width:140px">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadDisp" class="text-muted small">Carregando...</div>
+                    <div class="row g-3" id="grid-influencers"></div>
+
+                    <!-- Formulario inline: contratar campanha -->
+                    <div id="form-contratar" class="d-none border rounded p-3 mt-3 bg-light">
+                        <h6 class="fw-bold mb-2">Criar campanha com influencer</h6>
+                        <div id="form-contratar-alert"></div>
+                        <input type="hidden" id="ct-div-id">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-auto">
+                                <label class="form-label small mb-1">Influencer</label>
+                                <input type="text" class="form-control form-control-sm" id="ct-nome" readonly style="width:180px;background:#e9ecef">
+                            </div>
+                            <div class="col">
+                                <label class="form-label small mb-1">Titulo da campanha</label>
+                                <input class="form-control form-control-sm" type="text" id="ct-titulo" placeholder="Nome da campanha">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-1">Tipo</label>
+                                <select class="form-control form-control-sm" id="ct-tipo" style="width:150px">
+                                    <option value="cupom">Cupom de desconto</option>
+                                    <option value="propaganda">Propaganda</option>
+                                    <option value="live">Live / Link</option>
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary btn-sm" onclick="criarCampanhaCA()">Criar</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="fecharFormContratar()">Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Campanhas -->
+        <div class="tab-pane fade" id="tab-campanhas">
+            <div class="card">
+                <div class="card-header"><strong>Minhas Campanhas</strong></div>
+                <div class="card-body">
+                    <div id="loadMC" class="text-muted small">Carregando...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover d-none" id="tblMC">
+                            <thead>
+                                <tr>
+                                    <th>Titulo</th>
+                                    <th>Influencer</th>
+                                    <th>Tipo</th>
+                                    <th>Status</th>
+                                    <th>Cupom</th>
+                                    <th>Criado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyMC"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var F = window.authenticatedFetch || fetch;
+    var statusBadge = { ativa:'success', pausada:'warning', finalizada:'dark', cancelada:'danger', rascunho:'secondary' };
+    function badge(s){ return '<span class="badge bg-'+(statusBadge[s]||'secondary')+'">'+s+'</span>'; }
+    function fmt(d){ return d ? new Date(d).toLocaleDateString('pt-BR') : '-'; }
+
+    function inlineAlert(containerId, msg, type) {
+        var el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = '<div class="alert alert-' + (type||'info') + ' alert-dismissible fade show py-1 px-2 small mb-2">' + msg + '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+        el.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+
+    function buscarDisponiveis(){
+        var ci = document.getElementById('busca-cidade').value.trim();
+        var ni = document.getElementById('busca-nicho').value.trim();
+        var qs = [];
+        if (ci) qs.push('cidade='+ci);
+        if (ni) qs.push('nicho='+ni);
+        F('/api/v1/influencers/disponiveis' + (qs.length ? '?' + qs.join('&') : '')).then(function(r){return r.json()}).then(function(data){
+            document.getElementById('loadDisp').classList.add('d-none');
+            var grid = document.getElementById('grid-influencers');
+            grid.innerHTML = '';
+            if (!data.length) { grid.innerHTML = '<div class="col-12 text-muted">Nenhum influencer encontrado.</div>'; return; }
+            data.forEach(function(d){
+                var redes = '';
+                try { var rs = JSON.parse(d.redes_sociais||'{}'); redes = Object.entries(rs).map(function(e){return e[0]+': '+e[1]}).join(' | '); } catch(e){}
+                var nomeEsc = (d.nome||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+                grid.innerHTML += '<div class="col-md-6 col-lg-4">'
+                    + '<div class="card h-100"><div class="card-body">'
+                    + '<h6 class="fw-bold mb-1">' + d.nome + '</h6>'
+                    + '<p class="text-muted small mb-1">' + (d.nicho||'-') + ' &middot; ' + (d.cidade||'-') + '/' + (d.estado||'') + '</p>'
+                    + '<p class="small mb-1">Score: <strong>' + (d.score_performance||0) + '</strong></p>'
+                    + (redes ? '<p class="small text-muted mb-1">' + redes + '</p>' : '')
+                    + (d.bio ? '<p class="small mb-2">' + d.bio.substring(0,120) + '</p>' : '')
+                    + '<button class="btn btn-primary btn-sm" onclick="contratar('+d.id+',\''+nomeEsc+'\')">Contratar campanha</button>'
+                    + '</div></div></div>';
+            });
+        });
+    }
+
+    function carregarMinhasCampanhas(){
+        F('/api/v1/influencers/campanhas').then(function(r){return r.json()}).then(function(data){
+            document.getElementById('loadMC').classList.add('d-none');
+            document.getElementById('tblMC').classList.remove('d-none');
+            var tb = document.getElementById('tbodyMC');
+            tb.innerHTML = '';
+            data.forEach(function(c){
+                tb.innerHTML += '<tr>'
+                    + '<td>'+c.titulo+'</td>'
+                    + '<td>'+(c.influencer_nome||'-')+'</td>'
+                    + '<td>'+c.tipo+'</td>'
+                    + '<td>'+badge(c.status)+'</td>'
+                    + '<td>'+(c.cupom_codigo||'-')+'</td>'
+                    + '<td>'+fmt(c.created_at)+'</td>'
+                    + '</tr>';
+            });
+        });
+    }
+
+    window.contratar = function(divId, nome){
+        document.getElementById('ct-div-id').value = divId;
+        document.getElementById('ct-nome').value = nome;
+        document.getElementById('ct-titulo').value = '';
+        document.getElementById('form-contratar-alert').innerHTML = '';
+        var formEl = document.getElementById('form-contratar');
+        formEl.classList.remove('d-none');
+        formEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+        document.getElementById('ct-titulo').focus();
+    };
+
+    window.fecharFormContratar = function(){
+        document.getElementById('form-contratar').classList.add('d-none');
+    };
+
+    window.criarCampanhaCA = function(){
+        var titulo = document.getElementById('ct-titulo').value.trim();
+        if (!titulo) { inlineAlert('form-contratar-alert', 'Informe o titulo da campanha.', 'warning'); return; }
+        var payload = {
+            divulgador_id: parseInt(document.getElementById('ct-div-id').value),
+            titulo: titulo,
+            tipo: document.getElementById('ct-tipo').value
+        };
+        F('/api/v1/influencers/campanhas', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        }).then(function(r){
+            if (!r.ok) return r.json().then(function(d){ throw new Error(d.detail||'Erro'); });
+            return r.json();
+        }).then(function(){
+            inlineAlert('form-contratar-alert', 'Campanha criada com sucesso!', 'success');
+            document.getElementById('ct-titulo').value = '';
+            carregarMinhasCampanhas();
+            setTimeout(function(){ document.getElementById('form-contratar').classList.add('d-none'); }, 2000);
+        }).catch(function(e){
+            inlineAlert('form-contratar-alert', e.message, 'danger');
+        });
+    };
+
+    var t;
+    document.getElementById('busca-cidade').addEventListener('input', function(){ clearTimeout(t); t=setTimeout(buscarDisponiveis,500); });
+    document.getElementById('busca-nicho').addEventListener('input', function(){ clearTimeout(t); t=setTimeout(buscarDisponiveis,500); });
+
+    buscarDisponiveis();
+    carregarMinhasCampanhas();
+})();
+</script>
+{% endblock %}

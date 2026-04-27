@@ -1,0 +1,143 @@
+/* Formulário, pesos e ensaios - Novo Processo (não inclui modal) */
+
+/* Chips de composição */
+#composicaoAtual .badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+#pesoItensList .d-flex {
+    transition: background-color 0.2s ease;
+}
+
+#pesoItensList .d-flex:hover {
+    background-color: #f8f9fa;
+}
+
+#pesoConjuntoResumo .badge {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+}
+
+#pontosContainer .table {
+    font-size: 0.875rem;
+}
+
+#pontosContainer .table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+
+#pontosContainer .table input[readonly] {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+#listaPecasAjusteManual .form-check {
+    padding: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+#listaPecasAjusteManual .form-check:last-child {
+    border-bottom: none;
+}
+
+#listaPecasAjusteManual .form-check:hover {
+    background-color: #f8f9fa;
+}
+
+#cargaInput + .input-group-text .btn {
+    margin: 0 0.125rem;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Accordion pesos/ensaios */
+#accordionPesosEnsaios .accordion-button {
+    background-color: transparent;
+    color: #0d6efd;
+    border: 1px solid #0d6efd;
+    font-weight: 400;
+    padding: 0.375rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: 0.375rem;
+    box-shadow: none;
+}
+
+#accordionPesosEnsaios .accordion-button:hover {
+    background-color: #0d6efd;
+    color: #ffffff;
+    border-color: #0d6efd;
+}
+
+#accordionPesosEnsaios .accordion-button:not(.collapsed) {
+    background-color: #0d6efd;
+    color: #ffffff;
+    border-color: #0d6efd;
+    box-shadow: none;
+}
+
+#accordionPesosEnsaios .accordion-button:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+#accordionPesosEnsaios .accordion-item {
+    border: none;
+    margin-bottom: 0.5rem;
+    background-color: transparent;
+}
+
+#accordionPesosEnsaios .accordion-body {
+    padding: 1rem;
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+#accordionPesosEnsaios .accordion-collapse {
+    border: none;
+}
+
+#accordionPesosEnsaios .accordion-body input[type="number"],
+#accordionPesosEnsaios .accordion-body input[type="text"] {
+    pointer-events: auto !important;
+    user-select: text !important;
+}
+
+#accordionPesosEnsaios .accordion-body input[type="number"]:disabled,
+#accordionPesosEnsaios .accordion-body input[type="text"]:disabled {
+    pointer-events: none;
+}
+
+#cargaInput {
+    pointer-events: auto !important;
+    user-select: text !important;
+}
+
+#cargaInput:disabled {
+    pointer-events: none;
+}
+
+#composicaoSoma {
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+    border-radius: 0.25rem;
+    margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+    #pontosContainer .table {
+        font-size: 0.75rem;
+    }
+    #pontosContainer .table th,
+    #pontosContainer .table td {
+        padding: 0.5rem 0.25rem;
+    }
+    #composicaoAtual .badge {
+        font-size: 0.75rem;
+        padding: 0.375rem 0.5rem;
+    }
+}

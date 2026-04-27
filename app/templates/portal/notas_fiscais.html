@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Notas fiscais | Portal | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h1 class="h3 mb-4">Notas fiscais</h1>
+    <p class="text-muted">Notas fiscais de serviço (NFS-e) emitidas para o seu cadastro (somente leitura).</p>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div id="portal-notas-list" class="table-responsive">
+                <p class="text-muted mb-0">Carregando...</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof feather !== "undefined") feather.replace();
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)pdv_automscale_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    var headers = { "Authorization": "Bearer " + token };
+    fetch("/api/v1/fiscal/notas-servico?limit=200", { headers: headers })
+        .then(function(r) { return r.ok ? r.json() : []; })
+        .then(function(list) {
+            var el = document.getElementById("portal-notas-list");
+            if (!el) return;
+            if (!list.length) {
+                el.innerHTML = "<p class=\"text-muted mb-0\">Nenhuma nota fiscal encontrada.</p>";
+                return;
+            }
+            var html = "<table class=\"table table-hover\"><thead><tr><th>Número</th><th>Data emissão</th><th>Valor total</th><th>Status</th></tr></thead><tbody>";
+            list.forEach(function(n) {
+                var dataEmissao = (n.data_emissao && n.data_emissao.replace) ? n.data_emissao.replace("T", " ").slice(0, 16) : "-";
+                var valor = (n.valor_total != null && !isNaN(n.valor_total)) ? "R$ " + Number(n.valor_total).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-";
+                html += "<tr><td>" + (n.numero || "-") + "</td><td>" + dataEmissao + "</td><td>" + valor + "</td><td><span class=\"badge bg-secondary\">" + (n.status || "-") + "</span></td></tr>";
+            });
+            html += "</tbody></table>";
+            el.innerHTML = html;
+        });
+});
+</script>
+{% endblock %}

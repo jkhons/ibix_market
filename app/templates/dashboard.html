@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Ibix - Dashboard{% endblock %}
+{% block extra_css %}
+{% endblock %}
+{% block content %}
+				<div class="container-fluid p-0">
+
+					<h1 class="h3 mb-3"><strong>Ibix</strong> Dashboard</h1>
+
+					<!-- Cards de Estatísticas -->
+					<div class="row g-3 mb-3 dashboard-stat-cards">
+						<div class="col-12 col-md-6 col-xl">
+							<div class="card h-100">
+								<div class="card-body">
+									<div class="row">
+										<div class="col mt-0">
+											<h5 class="card-title">Certificados Emitidos</h5>
+										</div>
+										<div class="col-auto">
+											<div class="stat text-primary">
+												<i class="align-middle" data-feather="file-text"></i>
+											</div>
+										</div>
+									</div>
+									<h1 class="mt-1 mb-3" id="totalCertificadosMes">
+										<div class="spinner-border spinner-border-sm"></div>
+									</h1>
+									<div class="mb-0">
+										<span class="text-muted">Mês atual</span>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="col-12 col-md-6 col-xl">
+							<div class="card h-100">
+								<div class="card-body">
+									<div class="row">
+										<div class="col mt-0">
+											<h5 class="card-title">Vencendo</h5>
+										</div>
+										<div class="col-auto">
+											<div class="stat text-danger">
+												<i class="align-middle" data-feather="alert-triangle"></i>
+											</div>
+										</div>
+									</div>
+									<h1 class="mt-1 mb-3" id="totalCertificadosVencendo">
+										<div class="spinner-border spinner-border-sm"></div>
+									</h1>
+									<div class="mb-0">
+										<span class="text-muted">Próximos 30 dias</span>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div class="row">
+						<div class="col-12">
+							<div class="card flex-fill w-100">
+								<div class="card-header">
+									<h5 class="card-title mb-0">
+										<i class="align-middle me-2" data-feather="trending-up"></i>
+										Certificados Emitidos (Últimos 12 Meses)
+									</h5>
+								</div>
+							</div>
+								<div class="card-body py-3">
+									<div class="chart chart-sm">
+										<canvas id="chartjs-dashboard-line"></canvas>
+									</div>
+								</div>
+							</div>
+						</div>
+								</div>
+
+				</div>
+{% endblock %}
+{% block extra_js %}
+	<script>
+		// Não definir getAuthToken aqui: certipeso.js já fornece um que usa cookie + sessionStorage (token pós-login).
+		window.USER_IS_CLIENTE = {{ 'true' if user_is_cliente else 'false' }};
+	</script>
+	<script>
+	
+	// Garantir que os scripts essenciais foram carregados (sidebar já inicializado pelo dashboard.js no DOMContentLoaded)
+	window.addEventListener('load', function() {
+		if (typeof feather !== 'undefined') {
+			feather.replace();
+		}
+	});
+	
+		// Carregar estatísticas dos cards
+		async function carregarEstatisticasDashboard() {
+		try {
+			const totalCertificadosMesEl = document.getElementById('totalCertificadosMes');
+			const totalCertificadosVencendoEl = document.getElementById('totalCertificadosVencendo');
+			if (totalCertificadosMesEl) totalCertificadosMesEl.textContent = '0';
+			if (totalCertificadosVencendoEl) totalCertificadosVencendoEl.textContent = '0';
+		} catch (error) {
+			['totalCertificadosMes', 'totalCertificadosVencendo'].forEach(id => {
+				const el = document.getElementById(id);
+				if (el) el.textContent = '0';
+			});
+		}
+	}
+	
+	// Variável global para o gráfico
+	let graficoLinha = null;
+	
+	// Gerar gráfico com dados reais
+	async function gerarGrafico() {
+		const meses = [];
+		const hoje = new Date();
+		for (let i = 11; i >= 0; i--) {
+			const data = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+			meses.push({
+				mes: data.getMonth() + 1,
+				ano: data.getFullYear(),
+				label: data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+			});
+		}
+		
+		const labels = meses.map(m => m.label);
+		let dados = meses.map(() => 0);
+		let cor = window.theme?.primary || '#3498db';
+		
+		try {
+			// Certificados: endpoint removido, exibir zeros
+			const tituloGrafico = 'Certificados Emitidos';
+			
+			// Destruir gráfico anterior se existir
+			if (graficoLinha) {
+				graficoLinha.destroy();
+			}
+			
+			// Criar novo gráfico
+			const ctx = document.getElementById('chartjs-dashboard-line');
+			graficoLinha = new Chart(ctx, {
+				type: 'line',
+				data: {
+					labels: labels,
+					datasets: [{
+						label: tituloGrafico,
+						fill: true,
+						backgroundColor: cor + '20',
+						borderColor: cor,
+						borderWidth: 2,
+						pointBackgroundColor: cor,
+						pointBorderColor: '#fff',
+						pointBorderWidth: 2,
+						pointRadius: 4,
+						pointHoverRadius: 6,
+						data: dados,
+						tension: 0.3
+					}]
+				},
+				options: {
+					maintainAspectRatio: false,
+					responsive: true,
+					plugins: {
+					legend: {
+						display: false
+					},
+						tooltip: {
+							intersect: false,
+							backgroundColor: 'rgba(0, 0, 0, 0.8)',
+							titleColor: '#fff',
+							bodyColor: '#fff',
+							borderColor: cor,
+							borderWidth: 1
+						}
+					},
+					scales: {
+						y: {
+							beginAtZero: true,
+							ticks: {
+								stepSize: 1,
+								callback: function(value) {
+									return Math.floor(value);
+								}
+							},
+							grid: {
+								color: 'rgba(0, 0, 0, 0.05)'
+							}
+						},
+						x: {
+							grid: {
+								display: false
+							}
+						}
+					}
+				}
+			});
+			
+				} catch (error) {
+		}
+	}
+	
+	// Carregar ao inicializar página
+	document.addEventListener('DOMContentLoaded', function() {
+		if (typeof feather !== 'undefined') {
+			feather.replace();
+		}
+		
+		carregarEstatisticasDashboard();
+		gerarGrafico();
+	});
+	</script>
+{% endblock %}

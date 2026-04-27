@@ -1,0 +1,71 @@
+{% extends "entregador/base_entregador.html" %}
+{% block title %}Detalhe da entrega{% endblock %}
+{% block content %}
+<h2>Entrega <span id="entrega-id"></span></h2>
+<div class="entregador-card" id="detalhe"></div>
+<div id="acoes-status"></div>
+<p><a href="/entregador/minhas-entregas" class="btn-secondary">Voltar</a></p>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)entregador_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    var path = window.location.pathname;
+    var id = path.split("/entregador/entrega/")[1];
+    if (!token) { window.location.href = "/entregador/login"; return; }
+    if (!id) { window.location.href = "/entregador/minhas-entregas"; return; }
+    document.getElementById("entrega-id").textContent = id;
+    fetch("/api/v1/entregador/entregas/" + id, { headers: { "Authorization": "Bearer " + token } })
+        .then(function(r) {
+            if (r.status === 401) { window.location.href = "/entregador/login"; return null; }
+            if (r.status === 404) { document.getElementById("detalhe").innerHTML = "<p>Entrega não encontrada.</p>"; return null; }
+            return r.json();
+        })
+        .then(function(e) {
+            if (!e) return;
+            var d = document.getElementById("detalhe");
+            d.innerHTML = "<p><strong>Status:</strong> " + (e.status || "") + "</p>" +
+                "<p><strong>Frete:</strong> R$ " + (e.valor_frete != null ? Number(e.valor_frete).toFixed(2) : "0,00") + "</p>" +
+                (e.nome_destinatario ? "<p><strong>Destinatário:</strong> " + e.nome_destinatario + "</p>" : "") +
+                (e.telefone_destinatario ? "<p><strong>Tel:</strong> " + e.telefone_destinatario + "</p>" : "");
+            var acoes = document.getElementById("acoes-status");
+            var next = { aceita: "em_retirada", em_retirada: "retirada", retirada: "em_rota", em_rota: "entregue" };
+            var label = { em_retirada: "Indo retirar", retirada: "Retirada feita", em_rota: "Saiu para entrega", entregue: "Entregue" };
+            var s = e.status;
+            if (next[s]) {
+                var btn = document.createElement("button");
+                btn.className = "btn-primary";
+                btn.textContent = label[next[s]] || next[s];
+                btn.onclick = function() {
+                    fetch("/api/v1/entregador/entregas/" + id + "/status", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                        body: JSON.stringify({ novo_status: next[s] })
+                    }).then(function(res) {
+                        if (res.ok) window.location.reload();
+                        else res.json().then(function(d) { alert(d.detail || "Erro"); });
+                    });
+                };
+                acoes.appendChild(btn);
+            }
+            if (s === "em_rota") {
+                var btnFalha = document.createElement("button");
+                btnFalha.className = "btn-secondary";
+                btnFalha.style.marginLeft = "8px";
+                btnFalha.textContent = "Falha na entrega";
+                btnFalha.onclick = function() {
+                    fetch("/api/v1/entregador/entregas/" + id + "/status", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+                        body: JSON.stringify({ novo_status: "falha_entrega" })
+                    }).then(function(res) {
+                        if (res.ok) window.location.reload();
+                        else res.json().then(function(d) { alert(d.detail || "Erro"); });
+                    });
+                };
+                acoes.appendChild(btnFalha);
+            }
+        });
+})();
+</script>
+{% endblock %}

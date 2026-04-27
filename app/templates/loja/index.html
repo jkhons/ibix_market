@@ -1,0 +1,1550 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}{% if loja_nome_context %}{{ loja_nome_context }}{% elif categoria_nome %}{{ categoria_nome }}{% else %}Vitrine{% endif %}{% endblock %}
+
+{% block seo_description %}{% if loja_nome_context and busca_ativa and busca_q %}{{ loja_nome_context }}: resultados para "{{ busca_q }}". Pesquise produtos por nome, descrição, assunto e categoria.{% elif loja_nome_context %}Produtos da loja {{ loja_nome_context }}. Busque por nome, descrição, assunto e categoria.{% elif categoria_nome %}Produtos de {{ categoria_nome }} - Encontre as melhores ofertas.{% elif busca_ativa and busca_q %}Resultados para "{{ busca_q }}" - Encontre produtos.{% else %}Comércio que você conhece, entregue como você precisa. Compre em várias lojas em um só lugar.{% endif %}{% endblock %}
+
+{% block seo_og_title %}{% if loja_nome_context %}{{ loja_nome_context }} | Ibix{% elif categoria_nome %}{{ categoria_nome }} | Ibix{% elif busca_ativa and busca_q %}{{ busca_q }} | Ibix{% else %}Vitrine | Ibix{% endif %}{% endblock %}
+
+{% block seo_og_description %}{% if loja_nome_context %}Loja {{ loja_nome_context }} com produtos e ofertas no Ibix.{% elif categoria_nome %}Produtos de {{ categoria_nome }} - Encontre as melhores ofertas.{% else %}Comércio que você conhece. Entrega e retirada do seu jeito.{% endif %}{% endblock %}
+
+{% block seo_keywords %}{% if loja_nome_context %}{{ loja_nome_context }}, loja {{ loja_nome_context }}, produtos {{ loja_nome_context }}, Ibix, marketplace, ofertas, comprar online{% elif busca_ativa and busca_q %}{{ busca_q }}, produtos, Ibix, marketplace, ofertas, comprar online{% else %}Ibix, marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endif %}{% endblock %}
+
+{% block seo_extra %}
+{% if loja_slug_context %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "{% if loja_nome_context %}{{ loja_nome_context|e }}{% else %}Loja{% endif %}",
+  "url": "{{ base_url|default('', true) }}/{{ loja_slug_context|e }}",
+  "description": "{% if loja_nome_context %}Produtos da loja {{ loja_nome_context|e }} na Ibix Marketplace.{% else %}Página da loja no marketplace.{% endif %}"
+}
+</script>
+{% endif %}
+{% if loja_store_jsonld %}
+<script type="application/ld+json">
+{{ loja_store_jsonld | tojson }}
+</script>
+{% endif %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="loja-vitrine-page-shell{% if busca_ativa %} loja-vitrine-page-shell--busca{% endif %}">
+{% if not busca_ativa %}
+<div class="loja-vitrine-rail loja-vitrine-rail--top">
+<!-- 1. Barra de categorias -->
+<section class="loja-categorias-strip" id="inicio-vitrine">
+  <div class="container">
+    <div class="loja-section-head" style="display:none;"></div>
+    <div class="loja-categorias-wrap">
+      <button type="button" class="loja-categorias-nav loja-categorias-nav-prev" id="loja-cat-prev" aria-label="Categorias anteriores"><i data-feather="chevron-left"></i></button>
+      <div id="loja-categorias-list" class="loja-categorias-list"></div>
+      <button type="button" class="loja-categorias-nav loja-categorias-nav-next" id="loja-cat-next" aria-label="Próximas categorias"><i data-feather="chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+
+{% if marketing_vitrine.mostrar_hero_carrossel %}
+<!-- 2. Hero principal (bloco forte) — ligado em /admin/marketing-vitrine -->
+<section class="loja-hero vitrine-hero secao-vitrine">
+  <div class="container">
+    <div class="loja-hero-inner">
+      <div class="loja-hero-grid">
+        <div class="loja-hero-copy">
+          <h1 id="loja-hero-h1" class="vitrine-hero__titulo {% if vitrine_hero_titulo_uma_linha %}loja-hero-h1-uma-linha{% endif %}">{% if seo and seo.h1 %}{{ seo.h1 }}{% else %}Comércio que você conhece, entregue como você precisa.{% endif %}</h1>
+          {% if descricao_publica %}
+          <p class="loja-hero-desc vitrine-hero__texto">{{ descricao_publica }}</p>
+          {% endif %}
+          <p class="loja-hero-extra mb-0">Receba rápido, retire na loja ou combine do seu jeito.</p>
+          {% if loja_categoria_context and loja_cidade_context %}
+          <p class="mb-0 mt-2 loja-hero-extra">
+            <a href="/categoria/{{ loja_categoria_context }}-{{ loja_cidade_context }}">
+              Ver mais empresas de {{ loja_categoria_label|default(loja_categoria_context|replace('-', ' '), true)|title }} em {{ loja_cidade_label|default(loja_cidade_context|replace('-', ' '), true)|title }}
+            </a>
+          </p>
+          {% endif %}
+          <div class="loja-hero-actions">
+            <a href="#loja-ofertas" class="btn btn-primary">Ver ofertas</a>
+            <a href="#loja-todos-produtos" class="btn btn-outline-primary">Explorar categorias</a>
+          </div>
+        </div>
+        <div class="loja-hero-banner" role="region" aria-label="Destaques e ofertas">
+          <div class="loja-hero-carousel" id="loja-hero-carousel" tabindex="0">
+            <div class="loja-hero-carousel-track">
+              <!-- Slide 1: institucional -->
+              <div class="loja-hero-slide loja-hero-slide-active" data-layout="single" data-slide-index="0">
+                <div class="loja-hero-banner-card">
+                  <img src="/static/img/loja/hero-logo.jpg" alt="Destaque institucional da vitrine" class="loja-hero-banner-logo" />
+                </div>
+              </div>
+              <!-- Slide 2: promoção (estilo oferta) -->
+              <div class="loja-hero-slide" data-layout="single" data-slide-index="1">
+                <div class="loja-hero-banner-card loja-hero-slide-promo">
+                  <div class="loja-hero-slide-content">
+                    <span class="loja-hero-slide-kicker">Ofertas especiais</span>
+                    <h2 class="loja-hero-slide-title">Até 50% off em seleção</h2>
+                    <p class="loja-hero-slide-text">Aproveite as melhores promoções da vitrine.</p>
+                    <a href="#loja-ofertas" class="btn btn-primary loja-hero-slide-cta">Ver ofertas</a>
+                  </div>
+                </div>
+              </div>
+              <!-- Slide 3: benefício (frete / parcela) -->
+              <div class="loja-hero-slide" data-layout="single" data-slide-index="2">
+                <div class="loja-hero-banner-card loja-hero-slide-beneficio">
+                  <div class="loja-hero-slide-content">
+                    <span class="loja-hero-slide-icon"><i data-feather="truck"></i></span>
+                    <h2 class="loja-hero-slide-title">Frete ou retirada</h2>
+                    <p class="loja-hero-slide-text">Escolha como receber seu pedido.</p>
+                    <a href="#loja-todos-produtos" class="btn btn-outline-primary loja-hero-slide-cta">Explorar produtos</a>
+                  </div>
+                </div>
+              </div>
+              <!-- Slide 4: Certilog (banner com link externo) -->
+              <div class="loja-hero-slide" data-layout="single" data-slide-index="3">
+                <a href="https://www.certilog.com.br" target="_blank" rel="noopener noreferrer" class="loja-hero-banner-card loja-hero-banner-card-link">
+                  <img src="/static/img/loja/certilog.png" alt="Certilog" class="loja-hero-banner-logo" />
+                </a>
+              </div>
+              <!-- Slide 5: ROMA (banner com fundo preto) -->
+              <div class="loja-hero-slide" data-layout="single" data-slide-index="4">
+                <div class="loja-hero-banner-card loja-hero-slide-roma">
+                  <img src="/static/img/loja/roma.png" alt="ROMA - Peças para Trucks e Carretas" class="loja-hero-banner-logo" />
+                </div>
+              </div>
+            </div>
+            <button type="button" class="loja-hero-carousel-prev" id="loja-hero-carousel-prev" aria-label="Slide anterior" title="Anterior"><i data-feather="chevron-left"></i></button>
+            <button type="button" class="loja-hero-carousel-next" id="loja-hero-carousel-next" aria-label="Próximo slide" title="Próximo"><i data-feather="chevron-right"></i></button>
+            <div class="loja-hero-carousel-dots" id="loja-hero-carousel-dots" role="tablist" aria-label="Slides">
+              <button type="button" class="loja-hero-carousel-dot loja-hero-carousel-dot-active" role="tab" aria-selected="true" aria-label="Slide 1" data-slide-index="0"></button>
+              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 2" data-slide-index="1"></button>
+              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 3" data-slide-index="2"></button>
+              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 4 Certilog" data-slide-index="3"></button>
+              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 5 ROMA" data-slide-index="4"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<div class="container loja-vitrine-barra-urgencia-outer">
+  <div class="barra-urgencia loja-vitrine-barra-urgencia" role="status" aria-live="polite">
+    Ofertas limitadas — estoque reduzido em alguns itens
+  </div>
+</div>
+
+<!-- 3. Destaques — faixa horizontal carrossel (scroll + setas); cards com mesmo visual compacto que Ofertas -->
+<section id="loja-produto-heroi" class="loja-section-block secao-vitrine secao-vitrine--hero-card" style="display:none;">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker">Produto em evidência</span>
+        <h2>Oferta em destaque agora</h2>
+        <p class="loja-section-subtitle">Item selecionado para máxima visibilidade por oportunidade comercial.</p>
+      </div>
+    </div>
+    <div id="loja-produto-heroi-grid" class="loja-heroi-produtos-wrap loja-grid-produtos"></div>
+  </div>
+</section>
+
+<section id="loja-faixa-destaques" class="loja-section-block loja-faixa-destaques secao-vitrine">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker">Destaques</span>
+        <h2 class="loja-faixa-titulo">{% if marketing_vitrine.titulo_faixa_destaques %}{{ marketing_vitrine.titulo_faixa_destaques }}{% else %}Destaques{% endif %}</h2>
+      </div>
+    </div>
+    <div class="loja-faixa-carousel-wrap">
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-prev" id="loja-faixa-prev" aria-label="Anterior" title="Anterior"><i data-feather="chevron-left"></i></button>
+      <div id="loja-faixa-inner" class="loja-faixa-inner row g-3 flex-nowrap overflow-auto pb-1" style="flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;"></div>
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-next" id="loja-faixa-next" aria-label="Próximo" title="Próximo"><i data-feather="chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+
+<!-- Perto de você (geolocalização) -->
+<section id="loja-perto-voce" class="loja-section-block secao-vitrine" style="display:none;">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker"><i data-feather="map-pin" style="width:16px;height:16px;vertical-align:-2px;"></i> Perto de você</span>
+        <h2>Produtos perto de você</h2>
+        <p class="loja-section-subtitle" id="loja-perto-voce-sub">Mostrando produtos das lojas mais próximas da sua localização.</p>
+      </div>
+    </div>
+    <div class="loja-faixa-carousel-wrap">
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-prev" id="loja-perto-prev" aria-label="Anterior" title="Anterior"><i data-feather="chevron-left"></i></button>
+      <div id="loja-perto-voce-grid" class="loja-faixa-inner row g-3 flex-nowrap overflow-auto pb-1" style="flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;"></div>
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-next" id="loja-perto-next" aria-label="Próximo" title="Próximo"><i data-feather="chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+</div>
+
+<aside id="loja-ofertas" class="loja-ofertas-sidebar-col loja-ofertas-col" aria-label="Ofertas relâmpago">
+<section class="loja-section-block secao-vitrine secao-vitrine--oferta-relampago">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker">⚡ Oferta relâmpago</span>
+        <h2>{% if marketing_vitrine.titulo_ofertas_semana %}{{ marketing_vitrine.titulo_ofertas_semana }}{% else %}Oferta relâmpago{% endif %}</h2>
+        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_ofertas_semana %}{{ marketing_vitrine.subtitulo_ofertas_semana }}{% else %}Preços em evidência e produtos com saída acelerada.{% endif %}</p>
+      </div>
+    </div>
+    <div id="loja-ofertas-grid" class="row g-3 loja-grid-produtos"></div>
+  </div>
+</section>
+</aside>
+{% endif %}
+
+<!-- 4+5. Coluna principal: listagem + faixas finais (ofertas relâmpago: aside acima, coluna no desktop) -->
+<div class="loja-vitrine-main-rest">
+<div class="loja-ofertas-todos-wrap">
+<!-- 5. Todos os produtos -->
+<section id="loja-todos-produtos" class="loja-card-listagem-wrap secao-vitrine{% if busca_ativa %} loja-busca-first{% endif %}">
+  {% if busca_ativa %}
+  {# Barra de categorias some na busca; #inicio-vitrine não existe no topo — reaponta o fragmento para esta listagem. #}
+  <span id="inicio-vitrine" aria-hidden="true" style="display:block;height:0;width:0;overflow:hidden"></span>
+  {% endif %}
+  <div class="loja-card-listagem">
+    <div class="loja-card-listagem-header">
+      <h2 class="loja-card-listagem-title">
+        {% if busca_ativa and busca_q %}
+          Resultados para &quot;{{ busca_q }}&quot;
+        {% elif categoria_nome %}
+          {{ categoria_nome }}
+        {% else %}
+          Todos os produtos
+        {% endif %}
+      </h2>
+      <div class="loja-card-listagem-sort">
+        <label class="mb-0 me-2">Ordenar:</label>
+        <select class="form-select form-select-sm loja-card-listagem-sort-select" id="loja-sort">
+          <option value="recent">Mais recentes</option>
+          <option value="proximidade" id="loja-sort-proximidade">Mais perto</option>
+          <option value="preco_asc">Menor preço</option>
+          <option value="preco_desc">Maior preço</option>
+          <option value="nome">Nome</option>
+        </select>
+      </div>
+    </div>
+    <div class="loja-card-listagem-body">
+      <div id="loja-anuncios" class="row g-3 loja-grid-produtos"></div>
+      <div id="loja-load-more" class="mt-3 text-center" style="display: none;">
+        <button type="button" class="btn btn-outline-primary" id="loja-btn-more">Carregar mais</button>
+      </div>
+      <div id="loja-empty" class="text-muted text-center py-5" style="display: none;">Nenhum produto encontrado.</div>
+      <div id="loja-error" class="loja-error-box" style="display: none;" role="alert">
+        <p class="mb-2" id="loja-error-msg"></p>
+        <a href="/" class="btn btn-sm btn-outline-primary">Voltar à loja</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if busca_ativa and busca_q %}
+<!-- Faixa pós-busca: lojas mais próximas que vendem este produto -->
+<section id="loja-busca-proximas" class="loja-section-block secao-vitrine" style="display:none;">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker"><i data-feather="map-pin" style="width:16px;height:16px;vertical-align:-2px;"></i> Perto de você</span>
+        <h2>Lojas mais próximas que vendem isso</h2>
+        <p class="loja-section-subtitle">Resultados ordenados pela distância de carro até cada loja.</p>
+      </div>
+    </div>
+    <div class="loja-faixa-carousel-wrap">
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-prev" id="loja-busca-proximas-prev" aria-label="Anterior" title="Anterior"><i data-feather="chevron-left"></i></button>
+      <div id="loja-busca-proximas-grid" class="loja-faixa-inner row g-3 flex-nowrap overflow-auto pb-1" style="flex-wrap:nowrap;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;"></div>
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-next" id="loja-busca-proximas-next" aria-label="Próximo" title="Próximo"><i data-feather="chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+{% endif %}
+</div>
+
+{% if not busca_ativa %}
+<div class="loja-vitrine-rail">
+{% if marketing_vitrine.mostrar_secao_em_alta %}
+<!-- 6. Mais procurados (bloco branco) — ligado em /admin/marketing-vitrine -->
+<section id="loja-em-alta-section" class="loja-section-block secao-vitrine secao-vitrine--prova-social">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker">Prova social</span>
+        <h2>{% if marketing_vitrine.titulo_em_alta %}{{ marketing_vitrine.titulo_em_alta }}{% else %}Mais procurados em movimento{% endif %}</h2>
+        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_em_alta %}{{ marketing_vitrine.subtitulo_em_alta }}{% else %}Itens em evidência por recência e atividade da vitrine.{% endif %}</p>
+      </div>
+    </div>
+    <div class="loja-faixa-carousel-wrap">
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-prev" id="loja-em-alta-prev" aria-label="Anterior" title="Anterior"><i data-feather="chevron-left"></i></button>
+      <div id="loja-em-alta-grid" class="loja-faixa-inner row g-3 flex-nowrap overflow-auto pb-1" style="flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;"></div>
+      <button type="button" class="loja-faixa-nav loja-faixa-nav-next" id="loja-em-alta-next" aria-label="Próximo" title="Próximo"><i data-feather="chevron-right"></i></button>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+{% if marketing_vitrine.mostrar_secao_lojas_destaque %}
+<!-- 7. Lojas em destaque (bloco branco) — ligado em /admin/marketing-vitrine -->
+<section class="loja-section-block loja-lojas-destaque secao-vitrine">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker">Lojas</span>
+        <h2>Lojas em destaque</h2>
+        <p class="loja-section-subtitle">Produtos publicados por lojas da plataforma.</p>
+      </div>
+    </div>
+    <div id="loja-lojas-grid" class="loja-lojas-grid"></div>
+  </div>
+</section>
+{% endif %}
+</div>
+{% endif %}
+
+<!-- 8. Informações do marketplace -->
+<div class="loja-vitrine-rail">
+<section class="loja-section-block secao-vitrine loja-marketplace-how">
+  <div class="container">
+    <div class="loja-section-head loja-marketplace-how-head">
+      <div>
+        <span class="loja-section-kicker">Marketplace</span>
+        <h2>Compre em várias lojas da sua cidade em um só lugar</h2>
+        <p class="loja-section-subtitle">Compare ofertas, escolha a melhor opção e acompanhe seu pedido com praticidade e segurança.</p>
+      </div>
+    </div>
+    <div class="loja-trust-grid loja-marketplace-how-grid">
+      <div class="loja-trust-box loja-marketplace-how-card loja-marketplace-how-card--featured">
+        <div class="loja-marketplace-how-icon"><i class="bi bi-cart3" aria-hidden="true"></i></div>
+        <h3>Compare ofertas com facilidade</h3>
+        <p>Veja produtos de diferentes lojas parceiras na mesma vitrine e escolha a melhor opção para sua compra.</p>
+      </div>
+      <div class="loja-trust-box loja-marketplace-how-card">
+        <div class="loja-marketplace-how-icon"><i class="bi bi-truck" aria-hidden="true"></i></div>
+        <h3>Receba do seu jeito</h3>
+        <p>Escolha entre entrega ou retirada, conforme a disponibilidade da sua região e da loja.</p>
+      </div>
+      <div class="loja-trust-box loja-marketplace-how-card">
+        <div class="loja-marketplace-how-icon"><i class="bi bi-box-seam" aria-hidden="true"></i></div>
+        <h3>Acompanhamento do pedido</h3>
+        <p>Tenha visibilidade do andamento da compra e consulte as informações diretamente pela sua conta.</p>
+      </div>
+      <div class="loja-trust-box loja-marketplace-how-card">
+        <div class="loja-marketplace-how-icon"><i class="bi bi-grid-1x2" aria-hidden="true"></i></div>
+        <h3>Tudo em um só lugar</h3>
+        <p>Produtos, pedidos e lojas conectados em uma experiência mais simples e organizada.</p>
+      </div>
+    </div>
+    <div class="text-center mt-4">
+      {% if busca_ativa %}
+      {# Com busca ativa não existe #inicio-vitrine no DOM; precisa tirar ?q= da URL para listar o catálogo inteiro. #}
+      <a href="{% if loja_slug_context %}/{{ loja_slug_context|e }}{% else %}/{% endif %}#loja-todos-produtos" class="btn btn-primary px-4 py-2 fw-semibold">Explorar produtos</a>
+      {% else %}
+      <a href="#inicio-vitrine" class="btn btn-primary px-4 py-2 fw-semibold">Explorar produtos</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+</div>
+
+<!-- 8. Bloco de confiança (fundo cinza muito claro) -->
+<div class="loja-vitrine-rail">
+<section class="loja-trust-strip secao-vitrine">
+  <div class="container">
+    <div class="loja-trust-grid loja-beneficios-row">
+      <div class="loja-trust-box loja-beneficio-card">
+        <div class="loja-beneficio-icon loja-beneficio-verde"><i class="bi bi-shield-lock" aria-hidden="true"></i></div>
+        <div class="loja-beneficio-text">
+          <h3>Compra segura</h3>
+        </div>
+      </div>
+      <div class="loja-trust-box loja-beneficio-card">
+        <div class="loja-beneficio-icon loja-beneficio-azul"><i class="bi bi-geo-alt" aria-hidden="true"></i></div>
+        <div class="loja-beneficio-text">
+          <h3>Entrega ou retirada</h3>
+        </div>
+      </div>
+      <div class="loja-trust-box loja-beneficio-card">
+        <div class="loja-beneficio-icon loja-beneficio-laranja"><i class="bi bi-shop" aria-hidden="true"></i></div>
+        <div class="loja-beneficio-text">
+          <h3>Lojas parceiras</h3>
+        </div>
+      </div>
+      <div class="loja-trust-box loja-beneficio-card">
+        <div class="loja-beneficio-icon loja-beneficio-roxo"><i class="bi bi-phone" aria-hidden="true"></i></div>
+        <div class="loja-beneficio-text">
+          <h3>Acompanhe pedidos</h3>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (!window.Vitrine) return;
+
+  var Vitrine = window.Vitrine;
+  var lojaSlugContext = (typeof window.LOJA_SLUG_CONTEXT !== "undefined" && window.LOJA_SLUG_CONTEXT) ? String(window.LOJA_SLUG_CONTEXT) : null;
+  var buscaAtiva = {{ busca_ativa | default(false) | tojson }};
+  var buscaTermo = {{ (busca_q | default("")) | tojson }};
+
+  /** Recolhe o grid da vitrine quando o aside #loja-ofertas fica oculto (sem ofertas / marketing off). */
+  function syncOfertasColunaShell() {
+    var shell = document.querySelector(".loja-vitrine-page-shell");
+    var aside = document.getElementById("loja-ofertas");
+    if (!shell || !aside) return;
+    if (aside.style.display === "none") shell.classList.add("loja-vitrine-page-shell--sem-ofertas");
+    else shell.classList.remove("loja-vitrine-page-shell--sem-ofertas");
+  }
+
+  /** Classes de selo conforme faixa de desconto (v2visual: hierarquia). */
+  function discountBadgeClass(desconto) {
+    if (desconto <= 0) return "";
+    if (desconto < 10) return "loja-card-badge loja-card-badge--low";
+    if (desconto < 40) return "loja-card-badge loja-card-badge--mid";
+    return "loja-card-badge loja-card-badge--high";
+  }
+
+  /** Retorna HTML do card (sem wrapper). Usado com wrapper col (faixa destaques = mesmo grid que Ofertas). opts.featured = destaque no grid principal. */
+  function renderCardHtml(item, opts) {
+    opts = opts || {};
+    var featured = opts.featured === true;
+    var heroXl = opts.heroXl === true;
+    var social = opts.social === true;
+    var id = parseInt(item.id, 10);
+    if (isNaN(id) || id < 1) return "";
+    var lojaId = item && item.loja_id != null ? parseInt(item.loja_id, 10) : null;
+    if (isNaN(lojaId) || lojaId < 1) lojaId = null;
+    var desconto = Vitrine.calcDescontoPercent(item);
+    var badgeHtml = desconto > 0 ? '<span class="' + discountBadgeClass(desconto) + '">-' + desconto + "%</span>" : "";
+    var badgeFreteHtml = item.frete_gratis ? '<span class="loja-card-badge-frete">Frete grátis</span>' : "";
+    var ribbonHtml = featured ? '<span class="loja-card-ribbon-flag">Destaque</span>' : "";
+    var preco = Vitrine.formatPrecoCard(Vitrine.precoEfetivo(item));
+    var temPromo = item.preco_promocional != null && item.preco_promocional > 0;
+    var precoOldHtml = temPromo ? '<span class="loja-card-price-old">' + Vitrine.formatPreco(item.preco_original) + "</span>" : "";
+    var economiaHtml = "";
+    if (temPromo && item.preco_original != null && item.preco_promocional != null) {
+      var economia = Number(item.preco_original) - Number(item.preco_promocional);
+      if (!isNaN(economia) && economia > 0) {
+        economiaHtml = '<span class="produto-economia">Economize ' + Vitrine.formatPreco(economia) + "</span>";
+      }
+    }
+    var img = Vitrine.imagemPrincipalAnuncio(item) || Vitrine.PLACEHOLDER_IMG;
+    var imgCart = Vitrine.imagemCarrinhoAnuncio(item) || img;
+    var titulo = Vitrine.escapeHtml(item.titulo || "");
+    var nomeLojaTxt = item.nome_loja ? Vitrine.escapeHtml(item.nome_loja) : "";
+    var geoInfoHtml = "";
+    if (item.distancia_rota_km != null) {
+      var prefixoRota = item.rota_estimada ? '~' : '';
+      var kmTxt = prefixoRota + Number(item.distancia_rota_km).toFixed(item.distancia_rota_km < 10 ? 1 : 0) + ' km';
+      var minTxt = (item.duracao_rota_min != null && !item.rota_estimada)
+        ? ' · ' + Math.round(item.duracao_rota_min) + ' min'
+        : '';
+      geoInfoHtml = '<span class="loja-card-geo-badge" style="display:inline-block;font-size:.72rem;color:#5C6E4A;background:#e8f5e9;border-radius:6px;padding:1px 6px;margin-left:4px;" title="Distância de carro até a loja">' + kmTxt + minTxt + '</span>';
+    } else if (item.distancia_km != null) {
+      geoInfoHtml = '<span class="loja-card-geo-badge" style="display:inline-block;font-size:.72rem;color:#5C6E4A;background:#e8f5e9;border-radius:6px;padding:1px 6px;margin-left:4px;">~' + item.distancia_km + ' km</span>';
+    }
+    if (item.cidade_loja) {
+      var cidadeUfTxt = Vitrine.escapeHtml(item.cidade_loja) + (item.uf_loja ? '/' + Vitrine.escapeHtml(item.uf_loja) : '');
+      nomeLojaTxt = nomeLojaTxt ? nomeLojaTxt + ' · ' + cidadeUfTxt : cidadeUfTxt;
+    }
+    var nomeLoja = nomeLojaTxt ? ('<p class="loja-card-loja">' + nomeLojaTxt + geoInfoHtml + "</p>") : "";
+    var estoqueBaixo = Vitrine.isEstoqueBaixo(item);
+    var vendasTagsHtml = "";
+    if (estoqueBaixo) vendasTagsHtml += '<span class="produto-tag--urgente">⚡ Saindo rápido</span>';
+    if (item.frete_gratis) vendasTagsHtml += '<span class="produto-tag--entrega">🚚 Entrega facilitada</span>';
+    if (desconto >= 30) vendasTagsHtml += '<span class="produto-tag--oferta">🔥 Oferta forte</span>';
+    if (social) vendasTagsHtml += '<span class="produto-tag--social">💎 Alta procura</span>';
+    var isMobileCard =
+      (typeof window.Vitrine !== "undefined" && window.Vitrine.isMobile === true) ||
+      (window.matchMedia && window.matchMedia("(max-width: 767px)").matches);
+    var ctaHtml = "";
+    if (featured || heroXl) {
+      var ctaText = isMobileCard ? "Comprar" : "Comprar agora";
+      ctaHtml = '<span class="produto-btn-detalhes">' + ctaText + "</span>";
+    } else if (temPromo) {
+      var ctaOferta = isMobileCard ? "Oferta" : "Ver oferta";
+      ctaHtml = '<span class="produto-btn-detalhes">' + ctaOferta + "</span>";
+    }
+    var cartBtnHtml =
+      '<button type="button" class="loja-card-cart-btn" data-action="add-cart-card" data-anuncio-id="' + id + '" data-loja-id="' + (lojaId || "") + '" data-titulo="' + titulo + '" data-imagem-url="' + Vitrine.escapeHtml(imgCart) + '" data-preco="' + Vitrine.precoEfetivo(item) + '" data-slug-loja="' + Vitrine.escapeHtml(item.slug_loja || "") + '" data-nome-loja="' + Vitrine.escapeHtml(item.nome_loja || "") + '" aria-label="Adicionar ao carrinho">' +
+        '<i data-feather="shopping-cart"></i>' +
+      "</button>";
+    var cardClass = "loja-card produto-card"
+      + (featured ? " loja-card--featured produto-card--destaque" : "")
+      + (heroXl ? " card-destaque produto-card--destaque-xl" : "");
+    return '<div class="' + cardClass + '">' +
+      '<a href="' + Vitrine.produtoUrl(item.titulo, id) + '" class="loja-card-link">' +
+        '<div class="loja-card-img-wrap">' + badgeHtml + badgeFreteHtml + ribbonHtml +
+          '<img src="' + Vitrine.escapeHtml(img) + '" alt="' + titulo + '" loading="lazy" onerror="this.style.background=\'#eee\';this.src=\'\';">' +
+        '</div>' +
+        '<div class="loja-card-body">' +
+          '<h3 class="loja-card-title">' + titulo + '</h3>' +
+          nomeLoja +
+          (vendasTagsHtml ? '<div class="produto-tags-wrap">' + vendasTagsHtml + '</div>' : '') +
+          '<div class="loja-card-price-row">' +
+            '<div class="loja-card-price-block">' + precoOldHtml + '<span class="loja-card-price produto-preco-valor">' + preco + '</span>' + economiaHtml + ctaHtml + '</div>' +
+            cartBtnHtml +
+          '</div>' +
+        '</div>' +
+      '</a></div>';
+  }
+
+  function appendCardToGrid(container, item, wrapperClass, cardOpts) {
+    var html = renderCardHtml(item, cardOpts || {});
+    if (!html) return;
+    var wrap = document.createElement("div");
+    wrap.className = wrapperClass;
+    wrap.innerHTML = html;
+    container.appendChild(wrap);
+  }
+
+  function renderLivreCardHtml(entry) {
+    var titulo = Vitrine.escapeHtml(entry.titulo || "");
+    var img = Vitrine.escapeHtml(entry.imagem_url || "");
+    var href = Vitrine.escapeHtml(entry.link_url || "#");
+    var sub = (entry.descricao && String(entry.descricao).trim())
+      ? '<p class="loja-card-livre-sub">' + Vitrine.escapeHtml(String(entry.descricao).trim()) + "</p>"
+      : "";
+    return '<a href="' + href + '" class="loja-card-link">' +
+      '<div class="loja-card"><div class="loja-card-img-wrap">' +
+      '<img src="' + img + '" alt="' + titulo + '" loading="lazy" onerror="this.style.background=\'#eee\';this.src=\'\';">' +
+      '</div><div class="loja-card-body"><h3 class="loja-card-title">' + titulo + '</h3>' + sub + '</div></div></a>';
+  }
+
+  var LOJA_COL_CARD = "col-6 col-md-4 col-lg-3";
+  var FAIXA_SLIDE = "loja-faixa-slide";
+
+  function destaqueDefaultsCfg() {
+    return { destaque_layout: "carrossel", destaque_mostrar_setas: true, destaque_scroll_snap: true };
+  }
+
+  function applyDestaqueChrome(cfg) {
+    cfg = cfg || destaqueDefaultsCfg();
+    var layout = cfg.destaque_layout || "carrossel";
+    var setas = cfg.destaque_mostrar_setas !== false;
+    var snap = cfg.destaque_scroll_snap !== false;
+    var sec = document.getElementById("loja-faixa-destaques");
+    var inner = document.getElementById("loja-faixa-inner");
+    var prev = document.getElementById("loja-faixa-prev");
+    var next = document.getElementById("loja-faixa-next");
+    if (!sec || !inner) return;
+    sec.classList.toggle("loja-faixa-destaques--grade", layout === "grade");
+    if (prev) prev.style.display = layout === "carrossel" && setas ? "" : "none";
+    if (next) next.style.display = layout === "carrossel" && setas ? "" : "none";
+    if (layout === "grade") {
+      inner.className = "row g-3 loja-grid-produtos";
+      inner.style.scrollSnapType = "none";
+      /*
+        Nunca forçar overflow-x: visible aqui. Isso vira estilo inline e vence o CSS; no mobile, com
+        .container do trilho em padding 0, o .row (margem negativa) + filhos passam a alargar a
+        scrollWidth da página *depois* que o marketing API retorna (FOUC / “carrega certo e depois estoura”).
+        Deixamos o eixo no CSS (.loja-faixa-destaques--grade) ou removemos a propriedade.
+      */
+      inner.style.removeProperty("overflow-x");
+      inner.style.removeProperty("-webkit-overflow-scrolling");
+    } else {
+      inner.className = "loja-faixa-inner row g-3 flex-nowrap overflow-auto pb-1";
+      inner.style.overflowX = "auto";
+      inner.style.scrollSnapType = snap ? "x mandatory" : "none";
+      inner.style.webkitOverflowScrolling = "touch";
+    }
+  }
+
+  function getDestaqueWrapperClass(cfg) {
+    cfg = cfg || destaqueDefaultsCfg();
+    return cfg.destaque_layout === "grade" ? LOJA_COL_CARD : FAIXA_SLIDE;
+  }
+
+  function initFaixaNav() {
+    var inner = document.getElementById("loja-faixa-inner");
+    var prevBtn = document.getElementById("loja-faixa-prev");
+    var nextBtn = document.getElementById("loja-faixa-next");
+    if (!inner || !prevBtn || !nextBtn) return;
+    var epsilon = 2;
+
+    function getStep() {
+      var firstCard = inner.querySelector("." + FAIXA_SLIDE) || inner.firstElementChild;
+      if (!firstCard) return 186;
+      var cardWidth = firstCard.getBoundingClientRect().width || 180;
+      var styles = window.getComputedStyle(inner);
+      var gap = parseFloat(styles.columnGap || styles.gap || "6");
+      if (isNaN(gap)) gap = 6;
+      return Math.round(cardWidth + gap);
+    }
+
+    function getMaxScrollLeft() {
+      return Math.max(0, inner.scrollWidth - inner.clientWidth);
+    }
+
+    function updateNavState() {
+      var max = getMaxScrollLeft();
+      var left = inner.scrollLeft;
+      prevBtn.disabled = left <= epsilon;
+      nextBtn.disabled = left >= (max - epsilon);
+    }
+
+    if (!inner._faixaNavBound) {
+      inner._faixaNavBound = true;
+      prevBtn.addEventListener("click", function () {
+        inner.scrollBy({ left: -getStep(), behavior: "smooth" });
+      });
+      nextBtn.addEventListener("click", function () {
+        inner.scrollBy({ left: getStep(), behavior: "smooth" });
+      });
+      inner.addEventListener("scroll", updateNavState, { passive: true });
+      window.addEventListener("resize", updateNavState);
+    }
+    updateNavState();
+  }
+
+  function initEmAltaNav() {
+    var inner = document.getElementById("loja-em-alta-grid");
+    var prevBtn = document.getElementById("loja-em-alta-prev");
+    var nextBtn = document.getElementById("loja-em-alta-next");
+    if (!inner || !prevBtn || !nextBtn) return;
+    var epsilon = 2;
+
+    function getStep() {
+      var firstCard = inner.querySelector(".loja-faixa-slide") || inner.firstElementChild;
+      if (!firstCard) return 186;
+      var cardWidth = firstCard.getBoundingClientRect().width || 180;
+      var styles = window.getComputedStyle(inner);
+      var gap = parseFloat(styles.columnGap || styles.gap || "10");
+      if (isNaN(gap)) gap = 10;
+      return Math.round(cardWidth + gap);
+    }
+
+    function getMaxScrollLeft() {
+      return Math.max(0, inner.scrollWidth - inner.clientWidth);
+    }
+
+    function updateNavState() {
+      var max = getMaxScrollLeft();
+      var left = inner.scrollLeft;
+      prevBtn.disabled = left <= epsilon;
+      nextBtn.disabled = left >= (max - epsilon);
+    }
+
+    if (!inner._emAltaNavBound) {
+      inner._emAltaNavBound = true;
+      prevBtn.addEventListener("click", function () {
+        inner.scrollBy({ left: -getStep(), behavior: "smooth" });
+      });
+      nextBtn.addEventListener("click", function () {
+        inner.scrollBy({ left: getStep(), behavior: "smooth" });
+      });
+      inner.addEventListener("scroll", updateNavState, { passive: true });
+      window.addEventListener("resize", updateNavState);
+    }
+    updateNavState();
+  }
+
+  /** Quando não há cards de destaque no marketing: preenche a faixa (carrossel ou grade conforme config). */
+  function loadFaixaDestaquesFallback(cfg) {
+    cfg = cfg || destaqueDefaultsCfg();
+    applyDestaqueChrome(cfg);
+    var wrapClass = getDestaqueWrapperClass(cfg);
+    var faixaSection = document.getElementById("loja-faixa-destaques");
+    var faixaInner = document.getElementById("loja-faixa-inner");
+    if (!faixaSection || !faixaInner) return;
+    if (typeof Vitrine.getAnuncios !== "function") {
+      faixaSection.style.display = "none";
+      return;
+    }
+    var params = { skip: 0, limit: 8, sort: "recent" };
+    if (lojaSlugContext) params.loja_slug = lojaSlugContext;
+    Vitrine.getAnuncios(params)
+      .then(function (data) {
+        var items = (data && data.items) ? data.items : [];
+        faixaInner.innerHTML = "";
+        if (items.length === 0) {
+          faixaSection.style.display = "none";
+          return;
+        }
+        faixaSection.style.display = "";
+        items.forEach(function (item) {
+          appendCardToGrid(faixaInner, item, wrapClass);
+        });
+        featherReplace();
+        if ((cfg.destaque_layout || "carrossel") !== "grade") {
+          initFaixaNav();
+        }
+      })
+      .catch(function () {
+        faixaSection.style.display = "none";
+      });
+  }
+
+  function loadFaixaFromMarketing(m) {
+    var faixaSection = document.getElementById("loja-faixa-destaques");
+    var faixaInner = document.getElementById("loja-faixa-inner");
+    if (!faixaSection || !faixaInner) return;
+    var cfg = m && m.config ? m.config : destaqueDefaultsCfg();
+    applyDestaqueChrome(cfg);
+    var wrapClass = getDestaqueWrapperClass(cfg);
+    var faixaH2 = faixaSection.querySelector(".loja-faixa-titulo");
+    if (faixaH2 && cfg.titulo_faixa_destaques) faixaH2.textContent = cfg.titulo_faixa_destaques;
+    faixaInner.innerHTML = "";
+    var items = (m && m.destaques) ? m.destaques : [];
+    if (items.length === 0) {
+      loadFaixaDestaquesFallback(cfg);
+      return;
+    }
+    items.forEach(function (entry) {
+      if (entry.tipo_card === "livre") {
+        var wrap = document.createElement("div");
+        wrap.className = wrapClass;
+        wrap.innerHTML = renderLivreCardHtml(entry);
+        faixaInner.appendChild(wrap);
+      } else if (entry.tipo_card === "anuncio" && entry.anuncio) {
+        appendCardToGrid(faixaInner, entry.anuncio, wrapClass);
+      }
+    });
+    if (faixaInner.children.length === 0) {
+      loadFaixaDestaquesFallback(cfg);
+      return;
+    }
+    faixaSection.style.display = "";
+    featherReplace();
+    if ((cfg.destaque_layout || "carrossel") !== "grade") {
+      initFaixaNav();
+    }
+  }
+
+  /** Fallback da seção Ofertas: lista da API conforme cabeçalho (clientes CA, embaralhar, só desconto). */
+  function loadOfertasFromAnunciosPromocao(sectionCfg) {
+    var ofertasSection = document.getElementById("loja-ofertas");
+    var ofertasGrid = document.getElementById("loja-ofertas-grid");
+    if (!ofertasSection || !ofertasGrid || typeof Vitrine.getAnuncios !== "function") {
+      if (ofertasSection) ofertasSection.style.display = "none";
+      syncOfertasColunaShell();
+      return;
+    }
+    sectionCfg = sectionCfg || {};
+    var limRaw = sectionCfg.limite_ofertas_semana;
+    var limite = 8;
+    if (typeof limRaw === "number" && limRaw >= 1) limite = limRaw;
+    else if (limRaw != null && limRaw !== "") {
+      var limParsed = parseInt(limRaw, 10);
+      if (!isNaN(limParsed) && limParsed >= 1) limite = limParsed;
+    }
+    var sdFlag = sectionCfg.ofertas_somente_desconto;
+    if (sdFlag === undefined || sdFlag === null) sdFlag = true;
+    var params = {
+      skip: 0,
+      limit: limite,
+      sort: sectionCfg.ofertas_embaralhar ? "random" : "recent",
+      somente_promocao: sdFlag === true
+    };
+    if (sectionCfg.ofertas_cliente_ids && sectionCfg.ofertas_cliente_ids.length) {
+      var parsedCa = sectionCfg.ofertas_cliente_ids.map(function (id) {
+        var n = parseInt(id, 10);
+        return isNaN(n) ? null : n;
+      }).filter(function (n) { return n != null && n > 0; });
+      if (parsedCa.length) {
+        params.cliente_ids = parsedCa;
+      }
+    }
+    /* Com filtro de tenants no marketing, não misturar com loja_slug: a interseção zera o resultado. */
+    var temFiltroCa = sectionCfg.ofertas_cliente_ids && sectionCfg.ofertas_cliente_ids.length > 0;
+    if (lojaSlugContext && !temFiltroCa) params.loja_slug = lojaSlugContext;
+    Vitrine.getAnuncios(params)
+      .then(function (data) {
+        var promos = (data && data.items) ? data.items : [];
+        if (promos.length === 0) {
+          if (sectionCfg.ativo === false) {
+            ofertasSection.style.display = "none";
+            syncOfertasColunaShell();
+            return;
+          }
+          ofertasGrid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0 py-2">Nenhum produto para esta vitrine no momento (verifique filtros de tenant, desconto e anúncios publicados).</p></div>';
+          ofertasSection.style.display = "";
+          syncOfertasColunaShell();
+          return;
+        }
+        ofertasGrid.innerHTML = "";
+        ofertasSection.style.display = "";
+        syncOfertasColunaShell();
+        promos.forEach(function (item) {
+          appendCardToGrid(ofertasGrid, item, "col-6 col-md-4 col-lg-3");
+        });
+        featherReplace();
+      })
+      .catch(function () {
+        if (sectionCfg.ativo === false) {
+          ofertasSection.style.display = "none";
+          syncOfertasColunaShell();
+          return;
+        }
+        ofertasGrid.innerHTML = '<div class="col-12"><p class="text-muted small mb-0 py-2">Não foi possível carregar as ofertas. Atualize a página.</p></div>';
+        ofertasSection.style.display = "";
+        syncOfertasColunaShell();
+      });
+  }
+
+  function loadOfertasFromMarketing(m) {
+    var ofertasSection = document.getElementById("loja-ofertas");
+    var ofertasGrid = document.getElementById("loja-ofertas-grid");
+    if (!ofertasSection || !ofertasGrid) return;
+    var cfg = m && m.config ? m.config : {};
+    if (cfg.ativo === false) {
+      ofertasSection.style.display = "none";
+      syncOfertasColunaShell();
+      return;
+    }
+    ofertasSection.style.display = "";
+    syncOfertasColunaShell();
+    ofertasGrid.innerHTML = "";
+    var headH2 = ofertasSection.querySelector(".loja-section-head h2");
+    var headSub = ofertasSection.querySelector(".loja-section-subtitle");
+    if (headH2) headH2.textContent = (cfg.titulo_ofertas_semana != null && String(cfg.titulo_ofertas_semana).trim() !== "") ? String(cfg.titulo_ofertas_semana) : "";
+    if (headSub) headSub.textContent = (cfg.subtitulo_ofertas_semana != null && String(cfg.subtitulo_ofertas_semana).trim() !== "") ? String(cfg.subtitulo_ofertas_semana) : "";
+    var items = (m && m.ofertas_semana) ? m.ofertas_semana : [];
+    if (items.length === 0) {
+      loadOfertasFromAnunciosPromocao(cfg);
+      return;
+    }
+    items.forEach(function (entry) {
+      if (entry.tipo_card === "livre") {
+        var col = document.createElement("div");
+        col.className = "col-6 col-md-4 col-lg-3";
+        col.innerHTML = renderLivreCardHtml(entry);
+        ofertasGrid.appendChild(col);
+      } else if (entry.tipo_card === "anuncio" && entry.anuncio) {
+        appendCardToGrid(ofertasGrid, entry.anuncio, "col-6 col-md-4 col-lg-3");
+      }
+    });
+    if (ofertasGrid.children.length === 0) {
+      loadOfertasFromAnunciosPromocao(cfg);
+      return;
+    }
+    featherReplace();
+  }
+
+  function hideMarketingFaixaEOfertas() {
+    var fs = document.getElementById("loja-faixa-destaques");
+    var os = document.getElementById("loja-ofertas");
+    if (fs) fs.style.display = "none";
+    if (os) os.style.display = "none";
+    syncOfertasColunaShell();
+  }
+
+  function runMarketingHomeAndList() {
+    function runInitialLoad() {
+      if (window.__lojaOmitTodosProdutos) return;
+      load(false);
+    }
+    if (buscaAtiva) {
+      runInitialLoad();
+      return;
+    }
+    /* Listagem “Todos os produtos” em paralelo ao marketing — antes ficava o grid vazio até a API de marketing, parecendo “outro layout” */
+    runInitialLoad();
+    if (typeof Vitrine.getMarketingVitrineHome !== "function") {
+      loadFaixaDestaquesFallback(destaqueDefaultsCfg());
+      loadOfertasFromAnunciosPromocao({ ativo: true, ofertas_somente_desconto: true });
+      return;
+    }
+    Vitrine.getMarketingVitrineHome()
+      .then(function (m) {
+        if (m && m.config && m.config.ativo === false) {
+          hideMarketingFaixaEOfertas();
+        } else {
+          loadFaixaFromMarketing(m);
+          loadOfertasFromMarketing(m);
+        }
+        if (m && m.config && m.config.mostrar_todos_produtos === false) {
+          var tsec = document.getElementById("loja-todos-produtos");
+          if (tsec) tsec.style.display = "none";
+          window.__lojaOmitTodosProdutos = true;
+          var cAn = document.getElementById("loja-anuncios");
+          if (cAn) cAn.innerHTML = "";
+          var lmw = document.getElementById("loja-load-more");
+          if (lmw) lmw.style.display = "none";
+        }
+      })
+      .catch(function () {
+        loadFaixaDestaquesFallback(destaqueDefaultsCfg());
+        loadOfertasFromAnunciosPromocao({ ativo: true, ofertas_somente_desconto: true });
+      });
+  }
+
+  function featherReplace() {
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+  }
+
+  document.addEventListener("click", function (ev) {
+    var btn = ev.target && ev.target.closest ? ev.target.closest('[data-action="add-cart-card"]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var anuncioId = Number(btn.getAttribute("data-anuncio-id") || 0);
+    var lojaId = Number(btn.getAttribute("data-loja-id") || 0);
+    if (!anuncioId || !lojaId) return;
+    var titulo = btn.getAttribute("data-titulo") || "";
+    var preco = Number(btn.getAttribute("data-preco") || 0);
+    var slugLoja = btn.getAttribute("data-slug-loja") || null;
+    var nomeLoja = btn.getAttribute("data-nome-loja") || null;
+    var imagemUrl = btn.getAttribute("data-imagem-url") || null;
+    window.Vitrine.addToCart({
+      anuncio_id: anuncioId,
+      titulo: titulo,
+      preco: preco,
+      quantidade: 1,
+      loja_id: lojaId,
+      slug_loja: slugLoja,
+      nome_loja: nomeLoja,
+      imagem_url: imagemUrl,
+    });
+    window.VitrineUpdateCartBadge();
+    btn.classList.add("is-added");
+    setTimeout(function () {
+      btn.classList.remove("is-added");
+    }, 900);
+  });
+
+  var selectedCategoryId = {{ categoria_id | default(none) | tojson }};
+  var categoriasState = [];
+  var categoriasList = document.getElementById("loja-categorias-list");
+  var CATEGORIAS_ORDEM_PREFERENCIAL = [
+    "informatica",
+    "eletronicos",
+    "games",
+    "alimentos e bebidas",
+    "automotivo",
+    "beleza e cuidados pessoais"
+  ];
+
+  function normalizarCategoriaNome(nome) {
+    return String(nome || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, " ");
+  }
+
+  function nomeCategoriaDisplay(categoria) {
+    var nome = categoria && categoria.nome ? String(categoria.nome) : "";
+    var normalizado = normalizarCategoriaNome(nome);
+    if (normalizado === "computadores e informatica") return "Informatica";
+    return nome;
+  }
+
+  function ordenarCategoriasPreferenciais(lista) {
+    if (!Array.isArray(lista) || lista.length === 0) return [];
+    var ordemIndex = {};
+    CATEGORIAS_ORDEM_PREFERENCIAL.forEach(function (nome, idx) {
+      ordemIndex[nome] = idx;
+    });
+    return lista.slice().sort(function (a, b) {
+      var na = normalizarCategoriaNome(a && a.nome);
+      var nb = normalizarCategoriaNome(b && b.nome);
+      if (na === "computadores e informatica") na = "informatica";
+      if (nb === "computadores e informatica") nb = "informatica";
+      var ia = Object.prototype.hasOwnProperty.call(ordemIndex, na) ? ordemIndex[na] : 999;
+      var ib = Object.prototype.hasOwnProperty.call(ordemIndex, nb) ? ordemIndex[nb] : 999;
+      if (ia !== ib) return ia - ib;
+      return String(a && a.nome || "").localeCompare(String(b && b.nome || ""), "pt-BR");
+    });
+  }
+
+  function scrollToTodosProdutos() {
+    var alvo = document.getElementById("loja-todos-produtos");
+    if (!alvo) return;
+    var header = document.querySelector(".loja-header");
+    var headerOffset = header ? Math.round(header.getBoundingClientRect().height) : 0;
+    var extraOffset = 16;
+    var offsetTotal = Math.max(0, headerOffset + extraOffset);
+    alvo.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (offsetTotal > 0) {
+      window.setTimeout(function () {
+        window.scrollBy({ top: -offsetTotal, behavior: "smooth" });
+      }, 20);
+    }
+  }
+
+  function scrollToTodosProdutosStable() {
+    scrollToTodosProdutos();
+    window.setTimeout(scrollToTodosProdutos, 120);
+    window.setTimeout(scrollToTodosProdutos, 260);
+  }
+
+  function renderCategorias() {
+    if (!categoriasList) return;
+    categoriasList.innerHTML = "";
+    var allBtn = document.createElement("button");
+    allBtn.type = "button";
+    allBtn.className = "loja-categoria-chip" + (selectedCategoryId == null ? " is-active" : "");
+    allBtn.setAttribute("data-categoria-id", "");
+    allBtn.textContent = "Categorias";
+    categoriasList.appendChild(allBtn);
+
+    categoriasState.forEach(function (c) {
+      var id = c && c.id != null ? Number(c.id) : null;
+      if (!id) return;
+      var nome = Vitrine.escapeHtml(nomeCategoriaDisplay(c) || "");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "loja-categoria-chip" + (selectedCategoryId === id ? " is-active" : "");
+      btn.setAttribute("data-categoria-id", String(id));
+      btn.textContent = nome;
+      categoriasList.appendChild(btn);
+    });
+    featherReplace();
+  }
+
+  function bindCategoriasEvents() {
+    if (!categoriasList) return;
+    categoriasList.addEventListener("click", function (ev) {
+      var el = ev.target && ev.target.closest ? ev.target.closest(".loja-categoria-chip") : null;
+      if (!el) return;
+      var raw = el.getAttribute("data-categoria-id");
+      selectedCategoryId = raw ? Number(raw) : null;
+      renderCategorias();
+      scrollToTodosProdutosStable();
+      load(false, { scrollAfterLoad: true });
+    });
+    var prev = document.getElementById("loja-cat-prev");
+    var next = document.getElementById("loja-cat-next");
+    function stepSize() {
+      var first = categoriasList.querySelector(".loja-categoria-chip");
+      if (!first) return 280;
+      return Math.max(220, Math.round(first.getBoundingClientRect().width * 2.2));
+    }
+    function updateNavState() {
+      if (!prev || !next) return;
+      var max = categoriasList.scrollWidth - categoriasList.clientWidth;
+      var left = categoriasList.scrollLeft;
+      prev.disabled = left <= 2;
+      next.disabled = left >= (max - 2);
+    }
+    if (prev) prev.addEventListener("click", function () {
+      categoriasList.scrollBy({ left: -stepSize(), behavior: "smooth" });
+    });
+    if (next) next.addEventListener("click", function () {
+      categoriasList.scrollBy({ left: stepSize(), behavior: "smooth" });
+    });
+    categoriasList.addEventListener("scroll", updateNavState, { passive: true });
+    window.addEventListener("resize", updateNavState);
+    updateNavState();
+  }
+
+  // --- loadCategorias ---
+  if (categoriasList) {
+    Vitrine.getCategorias()
+      .then(function (list) {
+        if (!list || !Array.isArray(list)) return;
+        categoriasState = ordenarCategoriasPreferenciais(list);
+        renderCategorias();
+        bindCategoriasEvents();
+      })
+      .catch(function () { /* mantém a seção visível mesmo em erro (evita flicker ao atualizar) */ });
+  }
+
+  // --- Hero carrossel (desktop): auto-rotate, prev/next, dots, swipe. Mobile: estático (só CSS + slide ativo do HTML; sem JS). ---
+  (function initHeroCarousel() {
+    if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
+      return;
+    }
+    var carousel = document.getElementById("loja-hero-carousel");
+    var track = carousel && carousel.querySelector(".loja-hero-carousel-track");
+    var slides = track && track.querySelectorAll(".loja-hero-slide");
+    var prevBtn = document.getElementById("loja-hero-carousel-prev");
+    var nextBtn = document.getElementById("loja-hero-carousel-next");
+    var dotsContainer = document.getElementById("loja-hero-carousel-dots");
+    var dots = dotsContainer && dotsContainer.querySelectorAll(".loja-hero-carousel-dot");
+    if (!slides || slides.length === 0) return;
+
+    var total = slides.length;
+    var current = 0;
+    var intervalMs = 6000;
+    var timer = null;
+    var isPaused = false;
+
+    function goTo(index) {
+      index = (index + total) % total;
+      current = index;
+      for (var i = 0; i < slides.length; i++) {
+        slides[i].classList.toggle("loja-hero-slide-active", i === index);
+      }
+      if (dots) {
+        for (var d = 0; d < dots.length; d++) {
+          dots[d].classList.toggle("loja-hero-carousel-dot-active", d === index);
+          dots[d].setAttribute("aria-selected", d === index);
+        }
+      }
+      if (track) track.style.transform = "translateX(-" + (index * (100 / total)) + "%)";
+    }
+
+    function next() {
+      goTo(current + 1);
+      resetTimer();
+    }
+
+    function prev() {
+      goTo(current - 1);
+      resetTimer();
+    }
+
+    function resetTimer() {
+      if (timer) clearInterval(timer);
+      if (!isPaused) timer = setInterval(next, intervalMs);
+    }
+
+    function pause() {
+      isPaused = true;
+      if (timer) clearInterval(timer);
+      timer = null;
+    }
+
+    function resume() {
+      isPaused = false;
+      resetTimer();
+    }
+
+    if (prevBtn) prevBtn.addEventListener("click", function () { prev(); });
+    if (nextBtn) nextBtn.addEventListener("click", function () { next(); });
+
+    if (dots) {
+      for (var d = 0; d < dots.length; d++) {
+        (function (idx) {
+          dots[idx].addEventListener("click", function () { goTo(idx); resetTimer(); });
+        })(d);
+      }
+    }
+
+    if (carousel) {
+      carousel.addEventListener("mouseenter", pause);
+      carousel.addEventListener("mouseleave", resume);
+      carousel.addEventListener("focusin", pause);
+      carousel.addEventListener("focusout", resume);
+    }
+
+    // Swipe (mobile)
+    var touchStartX = 0;
+    var touchEndX = 0;
+    if (track) {
+      track.addEventListener("touchstart", function (e) {
+        touchStartX = e.changedTouches ? e.changedTouches[0].screenX : e.screenX;
+      }, { passive: true });
+      track.addEventListener("touchend", function (e) {
+        touchEndX = e.changedTouches ? e.changedTouches[0].screenX : e.screenX;
+        var diff = touchStartX - touchEndX;
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) next();
+          else prev();
+        }
+      }, { passive: true });
+    }
+
+    goTo(0);
+    resetTimer();
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+  })();
+
+  // --- Hero: título em uma linha — reduz font-size até o texto caber (sem cortar com …); ellipsis só abaixo do mínimo ---
+  (function initHeroTituloUmaLinha() {
+    var h = document.getElementById("loja-hero-h1");
+    if (!h || !h.classList.contains("loja-hero-h1-uma-linha")) return;
+
+    var minRem = 0.7;
+    var resizeTimer = null;
+
+    function apply() {
+      if (!h || !h.classList.contains("loja-hero-h1-uma-linha")) return;
+      h.style.fontSize = "";
+      h.style.textOverflow = "";
+      h.style.overflow = "";
+      h.style.whiteSpace = "nowrap";
+      var w = h.clientWidth;
+      if (w <= 0) return;
+
+      var cs = window.getComputedStyle(h);
+      var maxPx = parseFloat(cs.fontSize);
+      if (!maxPx || maxPx !== maxPx) return;
+      var rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      var maxRem = maxPx / rootPx;
+      if (maxRem <= minRem) {
+        h.style.fontSize = minRem + "rem";
+        h.style.overflow = "hidden";
+        h.style.textOverflow = h.scrollWidth > w ? "ellipsis" : "";
+        return;
+      }
+
+      if (h.scrollWidth <= w) {
+        return;
+      }
+
+      h.style.overflow = "hidden";
+      h.style.textOverflow = "clip";
+      var lo = minRem;
+      var hi = maxRem;
+      var i;
+      for (i = 0; i < 22; i++) {
+        var mid = (lo + hi) / 2;
+        h.style.fontSize = mid + "rem";
+        if (h.scrollWidth <= w) {
+          lo = mid;
+        } else {
+          hi = mid;
+        }
+      }
+      h.style.fontSize = lo + "rem";
+      while (h.scrollWidth > w && lo > minRem + 1e-6) {
+        lo = Math.max(minRem, lo - 0.03125);
+        h.style.fontSize = lo + "rem";
+      }
+      if (h.scrollWidth > w) {
+        h.style.fontSize = minRem + "rem";
+        if (h.scrollWidth > w) {
+          h.style.textOverflow = "ellipsis";
+        }
+      }
+      if (h.style.textOverflow === "ellipsis") {
+        h.style.overflow = "hidden";
+      } else {
+        h.style.overflow = "visible";
+        h.style.textOverflow = "";
+      }
+    }
+
+    function schedule() {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        requestAnimationFrame(apply);
+      }, 120);
+    }
+
+    function runAfterLayout() {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(apply);
+      });
+    }
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(runAfterLayout).catch(runAfterLayout);
+    } else {
+      runAfterLayout();
+    }
+    window.addEventListener("resize", schedule);
+  })();
+
+  // --- Marketing vitrine (destaques + ofertas + listagem principal) ---
+  // runMarketingHomeAndList é chamado após a definição de load() (ver final do script).
+
+  // --- loadEmAlta ---
+  var emAltaSection = document.getElementById("loja-em-alta-section");
+  var emAltaGrid = document.getElementById("loja-em-alta-grid");
+  if (emAltaSection && emAltaGrid) {
+    Vitrine.getAnuncios({ skip: 0, limit: 12, sort: "recent", loja_slug: lojaSlugContext })
+      .then(function (data) {
+        var items = data.items || [];
+        if (items.length === 0) {
+          emAltaSection.style.display = "none";
+          return;
+        }
+        items.slice(0, 8).forEach(function (item) {
+          appendCardToGrid(emAltaGrid, item, "loja-faixa-slide", { social: true });
+        });
+        featherReplace();
+        initEmAltaNav();
+      })
+      .catch(function () {
+        if (emAltaSection) emAltaSection.style.display = "none";
+      });
+  }
+
+  // --- Lojas em destaque: esconder seção se grid vazio (até haver API de lojas) ---
+  (function () {
+    var lojasSection = document.querySelector(".loja-lojas-destaque");
+    var lojasGrid = document.getElementById("loja-lojas-grid");
+    if (lojasSection && lojasGrid && lojasGrid.children.length === 0) {
+      lojasSection.style.display = "none";
+    }
+  })();
+
+  // --- Listagem principal ---
+  var heroSection = document.getElementById("loja-produto-heroi");
+  var heroGrid = document.getElementById("loja-produto-heroi-grid");
+  var container = document.getElementById("loja-anuncios");
+  var loadMoreWrap = document.getElementById("loja-load-more");
+  var btnMore = document.getElementById("loja-btn-more");
+  var emptyEl = document.getElementById("loja-empty");
+  var errorEl = document.getElementById("loja-error");
+
+  var categoriaId = {{ categoria_id | default(none) | tojson }};
+  if (selectedCategoryId == null && categoriaId != null) selectedCategoryId = categoriaId;
+  var buscaQ = (function () { var p = new URLSearchParams(window.location.search); return p.get("q") || ""; })();
+  var headerInput = document.getElementById("loja-header-busca-q");
+  if (headerInput && buscaQ) headerInput.value = buscaQ;
+  var sort = "recent";
+  var skip = 0;
+  /** Índice global na listagem principal (herói a cada 6: posições 5,11,…). */
+  var globalCardIndex = 0;
+  var limit = 24;
+  var total = 0;
+  var loading = false;
+
+  function hideError() {
+    if (errorEl) errorEl.style.display = "none";
+    var msgEl = document.getElementById("loja-error-msg");
+    if (msgEl) msgEl.textContent = "";
+  }
+
+  function showError(msg) {
+    var msgEl = document.getElementById("loja-error-msg");
+    if (msgEl) msgEl.textContent = msg;
+    if (errorEl) errorEl.style.display = "block";
+  }
+
+  function appendItems(items) {
+    if (!container) return;
+    function getColumnsForViewport() {
+      if (window.matchMedia && window.matchMedia("(min-width: 992px)").matches) return 4;
+      if (window.matchMedia && window.matchMedia("(min-width: 768px)").matches) return 3;
+      return 2;
+    }
+    items.forEach(function (item) {
+      var cols = getColumnsForViewport();
+      /* Mantém o destaque sempre na mesma coluna da grade (2ª coluna). */
+      var featured = (globalCardIndex % cols === 1);
+      var heroXl = false;
+      var wrapperClass = "col-6 col-md-4 col-lg-3" + (heroXl ? " produto-wrap--hero-xl" : "");
+      appendCardToGrid(container, item, wrapperClass, { featured: featured, heroXl: heroXl });
+      globalCardIndex += 1;
+    });
+  }
+
+  function loadProdutoHeroi() {
+    if (!heroSection || !heroGrid || typeof Vitrine.getAnuncios !== "function") return;
+    var params = { skip: 0, limit: 4, sort: "random" };
+    if (lojaSlugContext) params.loja_slug = lojaSlugContext;
+    Vitrine.getAnuncios(params)
+      .then(function (data) {
+        var items = (data && data.items) ? data.items : [];
+        if (!items.length) {
+          heroSection.style.display = "none";
+          return;
+        }
+        heroGrid.innerHTML = "";
+        items.slice(0, 4).forEach(function (item) {
+          appendCardToGrid(heroGrid, item, "loja-heroi-produto-slot", { social: true });
+        });
+        heroSection.style.display = "";
+        featherReplace();
+      })
+      .catch(function () {
+        heroSection.style.display = "none";
+      });
+  }
+
+  function load(append, options) {
+    if (loading || !container) return;
+    if (!append && window.__lojaOmitTodosProdutos) return;
+    options = options || {};
+    loading = true;
+    hideError();
+    if (!append) {
+      container.innerHTML = "";
+      skip = 0;
+      globalCardIndex = 0;
+    }
+    var params = { skip: skip, limit: limit, sort: sort };
+    if (selectedCategoryId != null) params.categoria_id = selectedCategoryId;
+    if (lojaSlugContext) params.loja_slug = lojaSlugContext;
+    if (buscaQ) params.q = buscaQ;
+    /* sem filtros extras nesta faixa (apenas categoria + busca + ordenação) */
+
+    Vitrine.getAnuncios(params)
+      .then(function (data) {
+        if (window.__lojaOmitTodosProdutos && !append) {
+          return;
+        }
+        var items = data.items || [];
+        total = data.total != null ? data.total : 0;
+        if (!append && items.length === 0) {
+          if (emptyEl) emptyEl.style.display = "block";
+        } else {
+          if (emptyEl) emptyEl.style.display = "none";
+          appendItems(items);
+          featherReplace();
+        }
+        skip += items.length;
+        if (loadMoreWrap) {
+          loadMoreWrap.style.display = skip < total ? "block" : "none";
+        }
+      })
+      .catch(function (err) {
+        if (!append) showError(err.message || "Erro ao carregar produtos. Tente novamente.");
+      })
+      .finally(function () {
+        loading = false;
+        if (options.scrollAfterLoad) {
+          requestAnimationFrame(function () {
+            scrollToTodosProdutosStable();
+          });
+        }
+      });
+  }
+
+  if (btnMore) btnMore.addEventListener("click", function () { load(true); });
+
+  var sortEl = document.getElementById("loja-sort");
+  var sortProxOpt = document.getElementById("loja-sort-proximidade");
+  function updateSortProximidadeState() {
+    var geo = (typeof Vitrine !== 'undefined' && Vitrine.getGeoLocation) ? Vitrine.getGeoLocation() : null;
+    var hasGeo = geo && (geo.lat != null || geo.cidade);
+    if (sortProxOpt) sortProxOpt.disabled = !hasGeo;
+  }
+  updateSortProximidadeState();
+
+  if (sortEl) {
+    sortEl.addEventListener("change", function () {
+      sort = sortEl.value || "recent";
+      load(false);
+    });
+  }
+
+  /* --- Seção "Perto de você" --- */
+  var pertoSection = document.getElementById("loja-perto-voce");
+  var pertoGrid = document.getElementById("loja-perto-voce-grid");
+
+  function loadPertoDeVoce() {
+    if (!pertoSection || !pertoGrid) return;
+    var geo = Vitrine.getGeoLocation ? Vitrine.getGeoLocation() : null;
+    var temCoords = geo && geo.lat != null && geo.lng != null;
+    var loader;
+    if (!temCoords) {
+      // Sem coordenadas precisas (CEP+número ou GPS), nao da pra ordenar por rota real.
+      // Mantém comportamento legado: lista por proximidade textual de cidade.
+      if (!geo || (geo.lat == null && !geo.cidade)) {
+        pertoSection.style.display = "none";
+        return;
+      }
+      loader = function () {
+        var params = { skip: 0, limit: 12, sort: "proximidade" };
+        if (geo.lat != null) { params.lat = geo.lat; params.lng = geo.lng; }
+        if (geo.cidade) params.geo_cidade = geo.cidade;
+        if (geo.uf) params.geo_uf = geo.uf;
+        return Vitrine.getAnuncios(params);
+      };
+    } else {
+      loader = function () {
+        return Vitrine.getAnunciosPertoDeVoce({ limit: 12, pool: 40 });
+      };
+    }
+    loader()
+      .then(function(data) {
+        var items = (data && data.items) ? data.items : [];
+        if (!items.length) { pertoSection.style.display = "none"; return; }
+        pertoGrid.innerHTML = "";
+        items.forEach(function(item) {
+          appendCardToGrid(pertoGrid, item, "loja-faixa-slide", {});
+        });
+        pertoSection.style.display = "";
+        var subEl = document.getElementById("loja-perto-voce-sub");
+        if (subEl) {
+          if (temCoords) {
+            subEl.textContent = "Produtos diversos, ordenados pela distância de carro até cada loja.";
+          } else if (geo.cidade) {
+            subEl.textContent = "Mostrando produtos de lojas próximas a " + geo.cidade + (geo.uf ? "/" + geo.uf : "") + ".";
+          }
+        }
+        featherReplace();
+        (function bindPertoNav() {
+          var prevBtn = document.getElementById("loja-perto-prev");
+          var nextBtn = document.getElementById("loja-perto-next");
+          if (!pertoGrid || !prevBtn || !nextBtn) return;
+          function getPertoStep() {
+            var first = pertoGrid.querySelector(".loja-faixa-slide") || pertoGrid.firstElementChild;
+            if (!first) return 200;
+            var w = first.getBoundingClientRect().width || 180;
+            var st = window.getComputedStyle(pertoGrid);
+            var g = parseFloat(st.columnGap || st.gap || "12");
+            if (isNaN(g)) g = 12;
+            return Math.round(w + g);
+          }
+          if (pertoGrid._pertoNavBound) return;
+          pertoGrid._pertoNavBound = true;
+          prevBtn.addEventListener("click", function () {
+            pertoGrid.scrollBy({ left: -getPertoStep(), behavior: "smooth" });
+          });
+          nextBtn.addEventListener("click", function () {
+            pertoGrid.scrollBy({ left: getPertoStep(), behavior: "smooth" });
+          });
+        })();
+      })
+      .catch(function() { pertoSection.style.display = "none"; });
+  }
+
+  /* --- Faixa pós-busca: lojas próximas que vendem o produto buscado --- */
+  var buscaProximasSection = document.getElementById("loja-busca-proximas");
+  var buscaProximasGrid = document.getElementById("loja-busca-proximas-grid");
+
+  function loadBuscaProximas() {
+    if (!buscaProximasSection || !buscaProximasGrid || !buscaAtiva || !buscaTermo) return;
+    if (typeof Vitrine.getAnunciosProximosPorBusca !== "function") return;
+    var geo = Vitrine.getGeoLocation ? Vitrine.getGeoLocation() : null;
+    if (!geo || geo.lat == null || geo.lng == null) {
+      buscaProximasSection.style.display = "none";
+      return;
+    }
+    Vitrine.getAnunciosProximosPorBusca({ q: buscaTermo, limit: 12 })
+      .then(function (data) {
+        var items = (data && data.items) ? data.items : [];
+        if (!items.length) { buscaProximasSection.style.display = "none"; return; }
+        buscaProximasGrid.innerHTML = "";
+        items.forEach(function (item) {
+          appendCardToGrid(buscaProximasGrid, item, "loja-faixa-slide", {});
+        });
+        buscaProximasSection.style.display = "";
+        featherReplace();
+        (function bindNav() {
+          var prev = document.getElementById("loja-busca-proximas-prev");
+          var next = document.getElementById("loja-busca-proximas-next");
+          if (!prev || !next || buscaProximasGrid._nav) return;
+          buscaProximasGrid._nav = true;
+          function step() {
+            var first = buscaProximasGrid.querySelector(".loja-faixa-slide") || buscaProximasGrid.firstElementChild;
+            var w = first ? (first.getBoundingClientRect().width || 180) : 180;
+            var st = window.getComputedStyle(buscaProximasGrid);
+            var g = parseFloat(st.columnGap || st.gap || "12");
+            if (isNaN(g)) g = 12;
+            return Math.round(w + g);
+          }
+          prev.addEventListener("click", function () { buscaProximasGrid.scrollBy({ left: -step(), behavior: "smooth" }); });
+          next.addEventListener("click", function () { buscaProximasGrid.scrollBy({ left: step(), behavior: "smooth" }); });
+        })();
+      })
+      .catch(function () { buscaProximasSection.style.display = "none"; });
+  }
+
+  /* Callback global: quando localização muda, recarrega dados */
+  window._geoOnChange = function() {
+    updateSortProximidadeState();
+    loadPertoDeVoce();
+    loadBuscaProximas();
+    load(false);
+  };
+
+  loadProdutoHeroi();
+  loadPertoDeVoce();
+  loadBuscaProximas();
+  runMarketingHomeAndList();
+})();
+</script>
+{% endblock %}

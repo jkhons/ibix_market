@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="Cadastro de influencer - Programa de Influencers Ibix">
+	<meta name="author" content="Ibix">
+
+	<link rel="shortcut icon" href="/static/img/icons/icon-48x48.png" />
+	<title>Quero ser Influencer | Ibix</title>
+
+	<link href="/static/css/dashboard.css" rel="stylesheet">
+	<link href="/static/css/certipeso.css" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+
+<body>
+	<main class="d-flex w-100">
+		<div class="container d-flex flex-column">
+			<div class="row min-vh-100 py-4">
+				<div class="col-sm-10 col-md-9 col-lg-8 col-xl-7 mx-auto d-table">
+					<div class="d-table-cell align-middle">
+						<div class="text-center mt-2 mb-3">
+							<h1 class="h2">Quero ser Influencer</h1>
+							<p class="lead">Ganhe dinheiro divulgando o Ibix. Cadastre-se gratuitamente.</p>
+						</div>
+
+						<div class="card">
+							<div class="card-body">
+								<div class="m-sm-3">
+									<div id="alert-area"></div>
+									<form id="cadastro-form">
+										<h6 class="mb-2">Seus dados</h6>
+										<div class="mb-2">
+											<label class="form-label">Nome completo</label>
+											<input class="form-control" type="text" name="nome" id="nome" placeholder="Seu nome completo" required />
+										</div>
+										<div class="mb-2">
+											<label class="form-label">E-mail</label>
+											<input class="form-control" type="email" name="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
+										</div>
+										<div class="row">
+											<div class="col-md-6 mb-2">
+												<label class="form-label">Crie uma senha</label>
+												<input class="form-control" type="password" name="password" id="password" placeholder="Min. 6 caracteres" required autocomplete="new-password" />
+											</div>
+											<div class="col-md-6 mb-2">
+												<label class="form-label">Confirme a senha</label>
+												<input class="form-control" type="password" name="confirm_password" id="confirm_password" placeholder="Repita a senha" required autocomplete="new-password" />
+											</div>
+										</div>
+										<div class="row">
+											<div class="col-md-6 mb-2">
+												<label class="form-label">WhatsApp</label>
+												<input class="form-control" type="text" name="telefone" id="telefone" placeholder="(11) 99999-9999" autocomplete="tel" />
+											</div>
+											<div class="col-md-3 mb-2">
+												<label class="form-label">Cidade</label>
+												<input class="form-control" type="text" name="cidade" id="cidade" placeholder="Sua cidade" />
+											</div>
+											<div class="col-md-3 mb-2">
+												<label class="form-label">UF</label>
+												<input class="form-control" type="text" name="estado" id="estado" placeholder="SP" maxlength="2" style="text-transform:uppercase" />
+											</div>
+										</div>
+
+										<hr class="my-3">
+										<h6 class="mb-2">Sobre voce</h6>
+
+										<div class="mb-2">
+											<label class="form-label">Qual sua area?</label>
+											<select class="form-control" name="nicho" id="nicho">
+												<option value="">Selecione...</option>
+												<option value="automotivo">Automotivo</option>
+												<option value="moda">Moda e Vestuario</option>
+												<option value="tecnologia">Tecnologia</option>
+												<option value="gastronomia">Gastronomia</option>
+												<option value="fitness">Fitness e Saude</option>
+												<option value="beleza">Beleza e Cosmeticos</option>
+												<option value="casa">Casa e Decoracao</option>
+												<option value="pets">Pets</option>
+												<option value="educacao">Educacao</option>
+												<option value="entretenimento">Entretenimento</option>
+												<option value="outro">Outro</option>
+											</select>
+										</div>
+
+										<div class="row">
+											<div class="col-md-6 col-lg-3 mb-2">
+												<label class="form-label">Facebook</label>
+												<input class="form-control" type="text" id="rs_facebook" placeholder="Pagina ou perfil" />
+											</div>
+											<div class="col-md-6 col-lg-3 mb-2">
+												<label class="form-label">Instagram</label>
+												<input class="form-control" type="text" id="rs_instagram" placeholder="@seuuser" />
+											</div>
+											<div class="col-md-6 col-lg-3 mb-2">
+												<label class="form-label">TikTok</label>
+												<input class="form-control" type="text" id="rs_tiktok" placeholder="@seuuser" />
+											</div>
+											<div class="col-md-6 col-lg-3 mb-2">
+												<label class="form-label">YouTube</label>
+												<input class="form-control" type="text" id="rs_youtube" placeholder="Canal ou @" />
+											</div>
+										</div>
+
+										<div class="mb-2">
+											<label class="form-label">Como voce quer divulgar?</label>
+											<div class="form-check">
+												<input class="form-check-input" type="radio" name="tipo_atuacao" id="ta_propaganda" value="propaganda">
+												<label class="form-check-label" for="ta_propaganda">Fazendo posts e stories</label>
+											</div>
+											<div class="form-check">
+												<input class="form-check-input" type="radio" name="tipo_atuacao" id="ta_cupom" value="cupom">
+												<label class="form-check-label" for="ta_cupom">Compartilhando cupom de desconto</label>
+											</div>
+											<div class="form-check">
+												<input class="form-check-input" type="radio" name="tipo_atuacao" id="ta_live" value="live">
+												<label class="form-check-label" for="ta_live">Vendendo ao vivo ou com link proprio</label>
+											</div>
+											<div class="form-check">
+												<input class="form-check-input" type="radio" name="tipo_atuacao" id="ta_todos" value="todos" checked>
+												<label class="form-check-label" for="ta_todos">Todas as formas</label>
+											</div>
+										</div>
+
+										<div class="mb-3">
+											<label class="form-label">Fale um pouco sobre voce</label>
+											<textarea class="form-control" name="bio" id="bio" rows="3" placeholder="Conte sobre sua experiencia, audiencia e o que te motiva..." maxlength="2000"></textarea>
+										</div>
+
+										<div class="d-grid gap-2 mt-3">
+											<button type="submit" class="btn btn-lg btn-primary" id="btn-cadastro">
+												<span class="btn-text">Quero ser Influencer</span>
+												<span class="btn-loading d-none">
+													<span class="spinner-border spinner-border-sm me-2"></span>
+													Enviando...
+												</span>
+											</button>
+										</div>
+									</form>
+								</div>
+							</div>
+						</div>
+						<div class="text-center mt-3 mb-3">
+							Ja tem conta? <a href="/login">Entrar</a>
+							<span class="mx-2">|</span>
+							<a href="/cadastro-representante">Quero ser Representante</a>
+							<span class="mx-2">|</span>
+							<a href="/representantes">Saiba mais sobre o programa</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+
+	<script src="/static/js/dashboard.js"></script>
+	<script>
+	(function() {
+		var form = document.getElementById('cadastro-form');
+		var alertArea = document.getElementById('alert-area');
+		var btn = document.getElementById('btn-cadastro');
+
+		function showAlert(type, msg) {
+			var text = (msg && String(msg).trim()) ? String(msg).trim() : 'Erro ao cadastrar. Tente novamente.';
+			alertArea.innerHTML = '<div class="alert alert-' + type + ' alert-dismissible fade show" role="alert">' + text + ' <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button></div>';
+			alertArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+		}
+
+		function setLoading(loading) {
+			btn.disabled = loading;
+			btn.querySelector('.btn-text').classList.toggle('d-none', loading);
+			btn.querySelector('.btn-loading').classList.toggle('d-none', !loading);
+		}
+
+		form.addEventListener('submit', function(e) {
+			e.preventDefault();
+			var pwd = document.getElementById('password').value;
+			var conf = document.getElementById('confirm_password').value;
+			if (pwd !== conf) { showAlert('danger', 'As senhas nao coincidem.'); return; }
+			if (pwd.length < 6) { showAlert('danger', 'A senha deve ter pelo menos 6 caracteres.'); return; }
+
+			setLoading(true);
+			alertArea.innerHTML = '';
+
+			var redes = {};
+			var fb = document.getElementById('rs_facebook').value.trim();
+			var ig = document.getElementById('rs_instagram').value.trim();
+			var tt = document.getElementById('rs_tiktok').value.trim();
+			var yt = document.getElementById('rs_youtube').value.trim();
+			if (fb) redes.facebook = fb;
+			if (ig) redes.instagram = ig;
+			if (tt) redes.tiktok = tt;
+			if (yt) redes.youtube = yt;
+
+			var tipoEl = document.querySelector('input[name="tipo_atuacao"]:checked');
+
+			var payload = {
+				nome: document.getElementById('nome').value.trim(),
+				email: document.getElementById('email').value.trim(),
+				password: pwd,
+				confirm_password: conf,
+				telefone: document.getElementById('telefone').value.trim() || null,
+				cidade: document.getElementById('cidade').value.trim() || null,
+				estado: (document.getElementById('estado').value.trim() || '').toUpperCase() || null,
+				nicho: document.getElementById('nicho').value || null,
+				redes_sociais: Object.keys(redes).length ? JSON.stringify(redes) : null,
+				tipo_atuacao: tipoEl ? tipoEl.value : 'todos',
+				bio: document.getElementById('bio').value.trim() || null
+			};
+
+			fetch('/api/v1/auth/register/influencer', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			})
+			.then(function(r) {
+				if (r.ok) return r.json();
+				return r.json()
+					.catch(function() { return {}; })
+					.then(function(d) {
+						var msg = 'Erro ao cadastrar. Verifique se o e-mail ja nao esta em uso.';
+						if (d && d.detail !== undefined && d.detail !== null) {
+							if (typeof d.detail === 'string') msg = d.detail;
+							else if (Array.isArray(d.detail) && d.detail.length) msg = d.detail.map(function(x) { return x.msg || ''; }).filter(Boolean).join(' ');
+							else if (typeof d.detail === 'object' && d.detail.msg) msg = d.detail.msg;
+							else msg = String(d.detail);
+						}
+						throw new Error(msg);
+					});
+			})
+			.then(function(data) {
+				window.location.href = '/cadastro-influencer/sucesso';
+			})
+			.catch(function(err) {
+				showAlert('danger', (err && err.message) ? err.message : 'Erro ao cadastrar.');
+			})
+			.finally(function() {
+				setLoading(false);
+			});
+		});
+	})();
+	</script>
+</body>
+
+</html>

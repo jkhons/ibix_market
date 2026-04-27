@@ -1,0 +1,479 @@
+zabbix_export:
+  version: '7.2'
+  template_groups:
+    - uuid: 846977d1dfed4968bc5f8bdb363285bc
+      name: 'Templates/Applications'
+  templates:
+    - uuid: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
+      template: 'Template Ibix Custom'
+      name: 'Template Ibix Custom'
+      description: |
+        Monitoramento customizado para o servidor Ibix (www.ibix.com.br).
+        Inclui: latência de endpoints, segurança, brute-force, serviços, performance.
+      groups:
+        - name: 'Templates/Applications'
+      items:
+        # =====================================================================
+        # ENDPOINTS — Latência (ms)
+        # =====================================================================
+        - uuid: e001000000000000000000000000e001
+          name: 'Ibix: Latência Homepage'
+          key: 'ibix.endpoint.homepage'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: ms
+          tags:
+            - tag: component
+              value: endpoint
+            - tag: endpoint
+              value: homepage
+        - uuid: e002000000000000000000000000e002
+          name: 'Ibix: Latência API Categorias'
+          key: 'ibix.endpoint.api.categorias'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: ms
+          tags:
+            - tag: component
+              value: api
+        - uuid: e003000000000000000000000000e003
+          name: 'Ibix: Latência API Anúncios'
+          key: 'ibix.endpoint.api.anuncios'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: ms
+          tags:
+            - tag: component
+              value: api
+        - uuid: e004000000000000000000000000e004
+          name: 'Ibix: Latência API Marketing'
+          key: 'ibix.endpoint.api.marketing'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: ms
+          tags:
+            - tag: component
+              value: api
+        - uuid: e005000000000000000000000000e005
+          name: 'Ibix: Latência Login Page'
+          key: 'ibix.endpoint.login'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: ms
+          tags:
+            - tag: component
+              value: endpoint
+        - uuid: e006000000000000000000000000e006
+          name: 'Ibix: Latência Loja Login'
+          key: 'ibix.endpoint.loja.login'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: ms
+          tags:
+            - tag: component
+              value: endpoint
+
+        # =====================================================================
+        # SEGURANÇA
+        # =====================================================================
+        - uuid: s001000000000000000000000000s001
+          name: 'Ibix: SSH Failures (5min)'
+          key: 'ibix.security.ssh_failures_5m'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: security
+            - tag: security
+              value: ssh
+        - uuid: s002000000000000000000000000s002
+          name: 'Ibix: Nginx 429 Rate Limit (5min)'
+          key: 'ibix.security.nginx_429_5m'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: security
+            - tag: security
+              value: rate-limit
+        - uuid: s003000000000000000000000000s003
+          name: 'Ibix: Nginx 403 Forbidden (5min)'
+          key: 'ibix.security.nginx_403_5m'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: security
+        - uuid: s004000000000000000000000000s004
+          name: 'Ibix: Nginx 5xx Errors (5min)'
+          key: 'ibix.security.nginx_5xx_5m'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: security
+            - tag: security
+              value: errors
+        - uuid: s005000000000000000000000000s005
+          name: 'Ibix: App Errors (5min)'
+          key: 'ibix.security.app_errors_5m'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: security
+        - uuid: s006000000000000000000000000s006
+          name: 'Ibix: Brute Force Score'
+          key: 'ibix.security.bruteforce_score'
+          delay: '60s'
+          value_type: UNSIGNED
+          description: 'Score ponderado: SSH*3 + 429*2 + 403*1. 0=normal, >20=warning, >50=high'
+          tags:
+            - tag: component
+              value: security
+            - tag: security
+              value: brute-force
+
+        # =====================================================================
+        # SERVIÇOS (1=ativo, 0=inativo)
+        # =====================================================================
+        - uuid: v001000000000000000000000000v001
+          name: 'Ibix: Serviço Nginx'
+          key: 'ibix.service.nginx'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: service
+          valuemap:
+            name: 'Service state'
+        - uuid: v002000000000000000000000000v002
+          name: 'Ibix: Serviço Gunicorn'
+          key: 'ibix.service.gunicorn'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: service
+          valuemap:
+            name: 'Service state'
+        - uuid: v003000000000000000000000000v003
+          name: 'Ibix: Serviço Celery'
+          key: 'ibix.service.celery'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: service
+          valuemap:
+            name: 'Service state'
+        - uuid: v004000000000000000000000000v004
+          name: 'Ibix: Serviço PostgreSQL'
+          key: 'ibix.service.postgres'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: service
+          valuemap:
+            name: 'Service state'
+        - uuid: v005000000000000000000000000v005
+          name: 'Ibix: Serviço Redis'
+          key: 'ibix.service.redis'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: service
+          valuemap:
+            name: 'Service state'
+
+        # =====================================================================
+        # PERFORMANCE
+        # =====================================================================
+        - uuid: p001000000000000000000000000p001
+          name: 'Ibix: Gunicorn Workers Total'
+          key: 'ibix.perf.gunicorn_workers'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p002000000000000000000000000p002
+          name: 'Ibix: Gunicorn Workers Busy'
+          key: 'ibix.perf.gunicorn_workers_busy'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p003000000000000000000000000p003
+          name: 'Ibix: Nginx Active Connections'
+          key: 'ibix.perf.nginx_connections'
+          delay: '30s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p004000000000000000000000000p004
+          name: 'Ibix: Nginx Requests/sec'
+          key: 'ibix.perf.nginx_rps'
+          delay: '30s'
+          value_type: UNSIGNED
+          units: rps
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p005000000000000000000000000p005
+          name: 'Ibix: Redis Memory (MB)'
+          key: 'ibix.perf.redis_memory_mb'
+          delay: '60s'
+          value_type: UNSIGNED
+          units: MB
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p006000000000000000000000000p006
+          name: 'Ibix: Redis Connected Clients'
+          key: 'ibix.perf.redis_clients'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p007000000000000000000000000p007
+          name: 'Ibix: PostgreSQL Active Connections'
+          key: 'ibix.perf.pg_connections'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: performance
+        - uuid: p008000000000000000000000000p008
+          name: 'Ibix: Celery Active Tasks'
+          key: 'ibix.perf.celery_active_tasks'
+          delay: '60s'
+          value_type: UNSIGNED
+          tags:
+            - tag: component
+              value: performance
+
+      # =====================================================================
+      # TRIGGERS
+      # =====================================================================
+      triggers:
+        # --- Serviços ---
+        - uuid: t001000000000000000000000000t001
+          expression: 'last(/Template Ibix Custom/ibix.service.nginx)=0'
+          name: 'Ibix: Nginx está PARADO'
+          priority: DISASTER
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: t002000000000000000000000000t002
+          expression: 'last(/Template Ibix Custom/ibix.service.gunicorn)=0'
+          name: 'Ibix: Gunicorn (FastAPI) está PARADO'
+          priority: DISASTER
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: t003000000000000000000000000t003
+          expression: 'last(/Template Ibix Custom/ibix.service.celery)=0'
+          name: 'Ibix: Celery Worker está PARADO'
+          priority: HIGH
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: t004000000000000000000000000t004
+          expression: 'last(/Template Ibix Custom/ibix.service.postgres)=0'
+          name: 'Ibix: PostgreSQL está PARADO'
+          priority: DISASTER
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: t005000000000000000000000000t005
+          expression: 'last(/Template Ibix Custom/ibix.service.redis)=0'
+          name: 'Ibix: Redis está PARADO'
+          priority: HIGH
+          tags:
+            - tag: scope
+              value: availability
+
+        # --- Endpoints lentos ---
+        - uuid: t010000000000000000000000000t010
+          expression: 'last(/Template Ibix Custom/ibix.endpoint.homepage)>3000'
+          name: 'Ibix: Homepage lenta (>{ITEM.LASTVALUE}ms)'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: performance
+        - uuid: t011000000000000000000000000t011
+          expression: 'last(/Template Ibix Custom/ibix.endpoint.homepage)>8000'
+          name: 'Ibix: Homepage CRÍTICA (>{ITEM.LASTVALUE}ms)'
+          priority: HIGH
+          dependencies:
+            - name: 'Ibix: Homepage lenta (>{ITEM.LASTVALUE}ms)'
+              expression: 'last(/Template Ibix Custom/ibix.endpoint.homepage)>3000'
+          tags:
+            - tag: scope
+              value: performance
+        - uuid: t012000000000000000000000000t012
+          expression: 'last(/Template Ibix Custom/ibix.endpoint.homepage)=-1'
+          name: 'Ibix: Homepage FORA DO AR'
+          priority: DISASTER
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: t013000000000000000000000000t013
+          expression: 'last(/Template Ibix Custom/ibix.endpoint.api.categorias)>2000'
+          name: 'Ibix: API Categorias lenta (>{ITEM.LASTVALUE}ms)'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: performance
+        - uuid: t014000000000000000000000000t014
+          expression: 'last(/Template Ibix Custom/ibix.endpoint.api.anuncios)>2000'
+          name: 'Ibix: API Anúncios lenta (>{ITEM.LASTVALUE}ms)'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: performance
+
+        # --- Segurança ---
+        - uuid: t020000000000000000000000000t020
+          expression: 'last(/Template Ibix Custom/ibix.security.ssh_failures_5m)>10'
+          name: 'Ibix: Brute force SSH detectado ({ITEM.LASTVALUE} falhas em 5min)'
+          priority: HIGH
+          tags:
+            - tag: scope
+              value: security
+        - uuid: t021000000000000000000000000t021
+          expression: 'last(/Template Ibix Custom/ibix.security.nginx_429_5m)>50'
+          name: 'Ibix: Rate limiting alto ({ITEM.LASTVALUE} hits em 5min)'
+          priority: WARNING
+          description: 'Muitas requisições sendo bloqueadas — possível ataque ou bot.'
+          tags:
+            - tag: scope
+              value: security
+        - uuid: t022000000000000000000000000t022
+          expression: 'last(/Template Ibix Custom/ibix.security.nginx_5xx_5m)>5'
+          name: 'Ibix: Erros 5xx no Nginx ({ITEM.LASTVALUE} em 5min)'
+          priority: HIGH
+          tags:
+            - tag: scope
+              value: availability
+        - uuid: t023000000000000000000000000t023
+          expression: 'last(/Template Ibix Custom/ibix.security.bruteforce_score)>20'
+          name: 'Ibix: Tentativa de invasão detectada (score={ITEM.LASTVALUE})'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: security
+        - uuid: t024000000000000000000000000t024
+          expression: 'last(/Template Ibix Custom/ibix.security.bruteforce_score)>50'
+          name: 'Ibix: ATAQUE em andamento (score={ITEM.LASTVALUE})'
+          priority: HIGH
+          dependencies:
+            - name: 'Ibix: Tentativa de invasão detectada (score={ITEM.LASTVALUE})'
+              expression: 'last(/Template Ibix Custom/ibix.security.bruteforce_score)>20'
+          tags:
+            - tag: scope
+              value: security
+
+        # --- Performance ---
+        - uuid: t030000000000000000000000000t030
+          expression: 'last(/Template Ibix Custom/ibix.perf.nginx_connections)>500'
+          name: 'Ibix: Nginx com muitas conexões ({ITEM.LASTVALUE})'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: performance
+        - uuid: t031000000000000000000000000t031
+          expression: 'last(/Template Ibix Custom/ibix.perf.pg_connections)>80'
+          name: 'Ibix: PostgreSQL com muitas conexões ({ITEM.LASTVALUE})'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: performance
+        - uuid: t032000000000000000000000000t032
+          expression: 'last(/Template Ibix Custom/ibix.perf.redis_memory_mb)>500'
+          name: 'Ibix: Redis usando muita memória ({ITEM.LASTVALUE}MB)'
+          priority: WARNING
+          tags:
+            - tag: scope
+              value: performance
+
+      # =====================================================================
+      # VALUE MAPS
+      # =====================================================================
+      valuemaps:
+        - uuid: vm01000000000000000000000000vm01
+          name: 'Service state'
+          mappings:
+            - value: '0'
+              newvalue: Down
+            - value: '1'
+              newvalue: Up
+
+      # =====================================================================
+      # DASHBOARDS
+      # =====================================================================
+      dashboards:
+        - uuid: d001000000000000000000000000d001
+          name: 'Ibix Overview'
+          auto_start: 'YES'
+          pages:
+            - name: 'Visão Geral'
+              widgets:
+                - type: problems
+                  name: 'Problemas Ativos'
+                  width: '24'
+                  height: '5'
+                - type: item
+                  name: 'Homepage Latency'
+                  width: '6'
+                  height: '3'
+                  x: '0'
+                  'y': '5'
+                  fields:
+                    - type: ITEM
+                      name: itemid
+                      value:
+                        host: 'Template Ibix Custom'
+                        key: ibix.endpoint.homepage
+                - type: item
+                  name: 'API Anúncios Latency'
+                  width: '6'
+                  height: '3'
+                  x: '6'
+                  'y': '5'
+                  fields:
+                    - type: ITEM
+                      name: itemid
+                      value:
+                        host: 'Template Ibix Custom'
+                        key: ibix.endpoint.api.anuncios
+                - type: item
+                  name: 'Brute Force Score'
+                  width: '6'
+                  height: '3'
+                  x: '12'
+                  'y': '5'
+                  fields:
+                    - type: ITEM
+                      name: itemid
+                      value:
+                        host: 'Template Ibix Custom'
+                        key: ibix.security.bruteforce_score
+                - type: item
+                  name: 'Nginx Connections'
+                  width: '6'
+                  height: '3'
+                  x: '18'
+                  'y': '5'
+                  fields:
+                    - type: ITEM
+                      name: itemid
+                      value:
+                        host: 'Template Ibix Custom'
+                        key: ibix.perf.nginx_connections

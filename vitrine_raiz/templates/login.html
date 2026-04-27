@@ -1,0 +1,57 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Entrar{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-5">
+    <h1 class="h4 mb-3">Entrar</h1>
+    <form id="loja-login-form">
+      <div class="mb-3">
+        <label for="email" class="form-label">E-mail</label>
+        <input type="email" class="form-control" id="loja-login-email" name="email" required>
+      </div>
+      <div class="mb-3">
+        <label for="senha" class="form-label">Senha</label>
+        <input type="password" class="form-control" id="loja-login-senha" name="senha" required>
+      </div>
+      <div id="loja-login-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+      <button type="submit" class="btn btn-primary">Entrar</button>
+      <a href="/loja/cadastro" class="btn btn-link">Criar conta</a>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("loja-login-form");
+  var errorEl = document.getElementById("loja-login-error");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+    var email = document.getElementById("loja-login-email").value.trim();
+    var senha = document.getElementById("loja-login-senha").value;
+    if (!email || !senha) {
+      errorEl.textContent = "Preencha e-mail e senha.";
+      errorEl.style.display = "block";
+      return;
+    }
+    window.Vitrine.postLogin(email, senha)
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) {
+          var msg = d.detail;
+          if (Array.isArray(msg)) msg = msg.map(function (x) { return x.msg || (typeof x === "string" ? x : ""); }).join("; ");
+          throw new Error(msg || "E-mail ou senha inválidos");
+        });
+        window.location.href = "/loja/minha-conta";
+      })
+      .catch(function (err) {
+        errorEl.textContent = err.message || "Erro ao entrar.";
+        errorEl.style.display = "block";
+      });
+  });
+})();
+</script>
+{% endblock %}

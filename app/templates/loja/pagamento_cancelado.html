@@ -1,0 +1,122 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Pagamento não concluído{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title text-warning">Pagamento não concluído</h1>
+    <p class="loja-auth-subtitle mb-3">O pagamento foi cancelado ou não foi finalizado. Você pode tentar novamente.</p>
+    {% set pedido_id = request.query_params.get('pedido') %}
+    {% set session_uuid = request.query_params.get('session') %}
+    {% if session_uuid %}
+    <p class="text-muted small mb-2">Este cancelamento está ligado a um checkout com vários pedidos (uma sessão). Use <strong>Pagar todos os pedidos</strong> para gerar um único link com o valor total. <strong>Pagar só este pedido</strong> cobra apenas o pedido #{{ pedido_id }}. Para montar o carrinho de novo, use Voltar ao carrinho.</p>
+    {% endif %}
+    {% if pedido_id %}
+    <p class="mb-3"><strong>Pedido #{{ pedido_id }}</strong></p>
+    <div class="mb-3 text-start" style="max-width:320px;">
+      <label for="loja-cancelado-payment-method" class="form-label small mb-1">Forma de pagamento</label>
+      <select id="loja-cancelado-payment-method" class="form-select form-select-sm">
+        <option value="pix">PIX</option>
+        <option value="credit_card">Cartão de crédito</option>
+        <option value="boleto">Boleto</option>
+      </select>
+    </div>
+    <div id="loja-cancelado-guest-fields" class="mb-3 text-start" style="max-width:320px;">
+      <label for="loja-cancelado-email" class="form-label small mb-1">E-mail do pedido</label>
+      <input type="email" class="form-control form-control-sm mb-2" id="loja-cancelado-email" name="loja_cancelado_email" autocomplete="email" placeholder="O mesmo usado no checkout">
+      <label for="loja-cancelado-numero-pedido" class="form-label small mb-1">Número do pedido</label>
+      <input type="text" class="form-control form-control-sm" id="loja-cancelado-numero-pedido" name="loja_cancelado_numero" autocomplete="off" placeholder="Ex.: 12-34567">
+      <p class="text-muted small mt-2 mb-0">Obrigatório se você não estiver logado na loja.</p>
+    </div>
+    <div class="loja-auth-actions d-flex flex-wrap gap-2">
+      {% if session_uuid %}
+      <button type="button" class="btn btn-primary" id="loja-tentar-sessao" data-session-uuid="{{ session_uuid }}">Pagar todos os pedidos</button>
+      <button type="button" class="btn btn-outline-primary" id="loja-tentar-novamente" data-pedido-id="{{ pedido_id }}">Pagar só este pedido</button>
+      {% else %}
+      <button type="button" class="btn btn-primary" id="loja-tentar-novamente" data-pedido-id="{{ pedido_id }}">Pagar agora</button>
+      {% endif %}
+      <a href="/loja/carrinho" class="btn btn-outline-secondary">Voltar ao carrinho</a>
+      <a href="/" class="btn btn-outline-primary">Voltar à loja</a>
+    </div>
+    <p class="text-muted small mt-3 mb-0" id="loja-tentar-msg"></p>
+    {% else %}
+    <div class="loja-auth-actions d-flex flex-wrap gap-2">
+      <a href="/loja/carrinho" class="btn btn-primary">Ir ao carrinho</a>
+      <a href="/" class="btn btn-outline-secondary">Voltar à loja</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% if pedido_id %}
+<script>
+(function () {
+  var msg = document.getElementById("loja-tentar-msg");
+  var selPm = document.getElementById("loja-cancelado-payment-method");
+  var guestWrap = document.getElementById("loja-cancelado-guest-fields");
+  function buildBody() {
+    var pm = (selPm && selPm.value) ? selPm.value : "pix";
+    var emailEl = document.getElementById("loja-cancelado-email");
+    var numEl = document.getElementById("loja-cancelado-numero-pedido");
+    var email = emailEl ? String(emailEl.value || "").trim().toLowerCase() : "";
+    var num = numEl ? String(numEl.value || "").trim() : "";
+    var body = { payment_method: pm };
+    if (email) body.email = email;
+    if (num) body.numero_pedido = num;
+    return body;
+  }
+  function reenableButtons() {
+    var b1 = document.getElementById("loja-tentar-novamente");
+    var b2 = document.getElementById("loja-tentar-sessao");
+    if (b1) b1.disabled = false;
+    if (b2) b2.disabled = false;
+  }
+  function postNovaTentativa(url, activeBtn) {
+    if (activeBtn) activeBtn.disabled = true;
+    if (msg) msg.textContent = "Redirecionando...";
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildBody()),
+      credentials: "same-origin",
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.detail && !data.redirect_url && !data.qr_code && !data.copy_paste_code) {
+          if (msg) msg.textContent = typeof data.detail === "string" ? data.detail : "Erro ao gerar link de pagamento.";
+          reenableButtons();
+          return;
+        }
+        if (window.Vitrine && window.Vitrine.handlePagamentoResponse && window.Vitrine.handlePagamentoResponse(data)) {
+          return;
+        }
+        if (msg) msg.textContent = (data && data.detail) ? data.detail : "Erro ao gerar link de pagamento.";
+        reenableButtons();
+      })
+      .catch(function () {
+        if (msg) msg.textContent = "Erro ao solicitar novo pagamento.";
+        reenableButtons();
+      });
+  }
+  if (guestWrap && window.Vitrine && window.Vitrine.getMinhaConta) {
+    window.Vitrine.getMinhaConta().then(function () {
+      guestWrap.style.display = "none";
+    }).catch(function () {});
+  }
+  var btnPedido = document.getElementById("loja-tentar-novamente");
+  if (btnPedido) {
+    btnPedido.addEventListener("click", function () {
+      postNovaTentativa("/api/v1/loja/pedidos/" + btnPedido.getAttribute("data-pedido-id") + "/nova-tentativa-pagamento", btnPedido);
+    });
+  }
+  var btnSessao = document.getElementById("loja-tentar-sessao");
+  if (btnSessao) {
+    btnSessao.addEventListener("click", function () {
+      var u = encodeURIComponent(btnSessao.getAttribute("data-session-uuid") || "");
+      postNovaTentativa("/api/v1/loja/checkout-sessao/" + u + "/nova-tentativa-pagamento", btnSessao);
+    });
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

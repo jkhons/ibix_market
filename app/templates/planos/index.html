@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Planos | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle"><strong>Seu Plano</strong></h1>
+    </div>
+
+    <div id="loading" class="text-muted small">Carregando...</div>
+
+    <div id="content" class="d-none">
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="card border h-100">
+                    <div class="card-body text-center">
+                        <div class="text-muted small">Status da assinatura</div>
+                        <div class="fs-5 fw-bold mt-1" id="statusSub">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border h-100">
+                    <div class="card-body text-center">
+                        <div class="text-muted small">PDVs contratados</div>
+                        <div class="fs-5 fw-bold mt-1"><span id="pdvsUsados">0</span> / <span id="pdvsMax">0</span></div>
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar" id="pdvsBar" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border h-100">
+                    <div class="card-body text-center">
+                        <div class="text-muted small">Valor mensal</div>
+                        <div class="fs-5 fw-bold text-primary mt-1" id="valorMensal">R$ 0,00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header"><strong>Preços de referência</strong></div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                            <div>
+                                <div class="fw-bold">Assinatura base</div>
+                                <div class="text-muted small">Inclui 1 PDV/caixa</div>
+                            </div>
+                            <div class="fs-5 fw-bold text-primary" id="precoBase">R$ 0/mês</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                            <div>
+                                <div class="fw-bold">PDV adicional</div>
+                                <div class="text-muted small">Por cada caixa extra</div>
+                            </div>
+                            <div class="fs-5 fw-bold text-success" id="precoAdicional">+ R$ 0/mês</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3 text-muted small">
+                    <strong>Exemplos:</strong>
+                    1 PDV = <span id="ex1">R$ 0</span> &middot;
+                    2 PDVs = <span id="ex2">R$ 0</span> &middot;
+                    3 PDVs = <span id="ex3">R$ 0</span> &middot;
+                    5 PDVs = <span id="ex5">R$ 0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/financeiro/assinatura" class="btn btn-primary">
+                <i data-feather="credit-card" style="width:16px;height:16px;"></i>
+                Ir para Assinatura
+            </a>
+            <button class="btn btn-outline-warning d-none" id="btnAddPdvs">
+                <i data-feather="plus-circle" style="width:16px;height:16px;"></i>
+                Adicionar PDVs
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/) || document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function authH() {
+        return { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json' };
+    }
+    function fmt(c) { return 'R$ ' + (c / 100).toFixed(2); }
+    function fmtInt(c) { return 'R$ ' + (c / 100).toFixed(0); }
+
+    var statusMap = {
+        'trial': 'Trial (teste grátis)',
+        'ativa': 'Ativa',
+        'inadimplente': 'Inadimplente',
+        'bloqueada': 'Bloqueada',
+        'cancelada': 'Cancelada',
+        'none': 'Sem assinatura'
+    };
+
+    /* Preço vigente: mesma origem que /admin/billing/preco (billing_config). */
+    Promise.all([
+        fetch('/api/v1/billing/my-subscription', { headers: authH() }).then(function(r) { return r.ok ? r.json() : null; }),
+        fetch('/api/v1/billing/meus-limites', { headers: authH() }).then(function(r) { return r.ok ? r.json() : null; }),
+        fetch('/api/v1/billing/preco-vigente', { headers: authH() }).then(function(r) { return r.ok ? r.json() : null; })
+    ]).then(function(results) {
+        var sub = results[0];
+        var limites = results[1];
+        var preco = results[2];
+
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('content').classList.remove('d-none');
+
+        if (sub) {
+            document.getElementById('statusSub').textContent = statusMap[sub.status] || sub.status;
+        }
+        if (limites) {
+            document.getElementById('pdvsUsados').textContent = limites.pdvs_usados;
+            document.getElementById('pdvsMax').textContent = limites.max_pdvs;
+            var pct = limites.max_pdvs > 0 ? Math.min(100, Math.round(limites.pdvs_usados / limites.max_pdvs * 100)) : 0;
+            var bar = document.getElementById('pdvsBar');
+            bar.style.width = pct + '%';
+            bar.className = 'progress-bar' + (pct >= 100 ? ' bg-danger' : pct >= 80 ? ' bg-warning' : '');
+            document.getElementById('valorMensal').textContent = limites.valor_exibicao || 'R$ 0,00';
+            if (!limites.pode_criar_pdv) {
+                document.getElementById('btnAddPdvs').classList.remove('d-none');
+            }
+        }
+        if (preco) {
+            var base = preco.valor_base_centavos;
+            var adic = preco.valor_pdv_adicional_centavos;
+            document.getElementById('precoBase').textContent = fmtInt(base) + '/mês';
+            document.getElementById('precoAdicional').textContent = '+ ' + fmtInt(adic) + '/mês';
+            document.getElementById('ex1').textContent = fmtInt(base);
+            document.getElementById('ex2').textContent = fmtInt(base + adic);
+            document.getElementById('ex3').textContent = fmtInt(base + 2 * adic);
+            document.getElementById('ex5').textContent = fmtInt(base + 4 * adic);
+        }
+
+        if (typeof feather !== 'undefined') feather.replace();
+    }).catch(function() {
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('content').classList.remove('d-none');
+    });
+})();
+</script>
+{% endblock %}

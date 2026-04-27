@@ -1,0 +1,612 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de Empresa Fiscal - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Container para alertas -->
+    <div id="alert-container" class="mb-3"></div>
+    
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Gestão de Empresa Fiscal</h1>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">Lista de Empresas Fiscais</h5>
+                        </div>
+                        <div class="col-auto">
+                            {% if user_permissions and 'fiscal.empresa.criar' in user_permissions %}
+                            <button type="button" class="btn btn-primary" onclick="abrirModalEmpresa()">
+                                <i class="align-middle me-1" data-feather="plus"></i> Nova Empresa
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="filtroRazaoSocial" placeholder="Buscar por razão social...">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="text" class="form-control" id="filtroCNPJ" placeholder="Buscar por CNPJ...">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="filtroAtivo">
+                                <option value="">Todas</option>
+                                <option value="true" selected>Ativas</option>
+                                <option value="false">Inativas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="filtroAmbiente" title="Filtrar por ambiente SEFAZ" data-param="opcoes_ambiente">
+                                <option value="">Todos ambientes</option>
+                            </select>
+                        </div>
+                        {% if user_permissions and 'fiscal.empresa.ver_cliente' in user_permissions %}
+                        <div class="col-md-2">
+                            <select class="form-select" id="filtroCliente">
+                                <option value="">Todos os clientes</option>
+                            </select>
+                        </div>
+                        {% endif %}
+                        <div class="col-md-1">
+                            <button type="button" class="btn btn-secondary w-100" onclick="empresaFiscalManager.aplicarFiltros()">
+                                <i class="align-middle me-1" data-feather="search"></i> Filtrar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de Empresas -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    {% if user_permissions and 'fiscal.empresa.ver_cliente' in user_permissions %}
+                                    <th>Cliente</th>
+                                    {% endif %}
+                                    <th>Razão Social</th>
+                                    <th>Nome Fantasia</th>
+                                    <th>CNPJ</th>
+                                    <th>Cidade/UF</th>
+                                    <th title="Regra obrigatória: todas as emissões NF-e/NFC-e seguem o ambiente configurado na empresa (Homologação = testes; Produção = emissão real).">Ambiente <i class="align-middle" data-feather="info" style="width: 14px; height: 14px;"></i></th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaEmpresas">
+                                <tr>
+                                    <td colspan="{{ 9 if (user_permissions and 'fiscal.empresa.ver_cliente' in user_permissions) else 8 }}" class="text-center">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Carregando...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Empresa Fiscal -->
+<div id="modalEmpresa" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow-y: auto;">
+        <div style="padding: 25px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;" id="modalEmpresaTitulo">Nova Empresa Fiscal</h5>
+            <button onclick="fecharModalEmpresa()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 25px;">
+            <form id="formEmpresa">
+                <input type="hidden" id="empresa_id" name="id">
+                
+                {% if user_permissions and 'fiscal.empresa.ver_cliente' in user_permissions %}
+                <!-- Vínculo: cadastro na plataforma ao qual esta Empresa Fiscal pertence (visível apenas Admin/Superadmin) -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Vínculo na plataforma</h6>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Cliente *</label>
+                            <select id="cliente_id" name="cliente_id" required
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Selecione o cadastro ao qual esta empresa fiscal pertence...</option>
+                            </select>
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                                <strong>Cliente</strong> = cadastro da sua empresa na plataforma ao qual esta Empresa Fiscal pertence (quem emite as notas é a Empresa Fiscal — os dados que você preenche abaixo). Se você é Cliente Administrador, escolha o cadastro da sua empresa. <strong>Subcliente</strong> (em emissão de notas) é o destinatário da NF — o cliente final que receberá o serviço.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <input type="hidden" id="cliente_id" name="cliente_id">
+                {% endif %}
+                
+                <!-- Dados Principais -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Dados Principais</h6>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Razão Social *</label>
+                            <input type="text" id="razao_social" name="razao_social" required 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Nome Fantasia</label>
+                            <input type="text" id="nome_fantasia" name="nome_fantasia" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CNPJ *</label>
+                            <input type="text" id="cnpj" name="cnpj" required 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Inscrição Estadual</label>
+                            <input type="text" id="ie" name="ie" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Inscrição Municipal</label>
+                            <input type="text" id="im" name="im" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CNAE Principal</label>
+                            <input type="text" id="cnae" name="cnae" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Regime Tributário (CRT)</label>
+                            <select id="crt" name="crt" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Selecione...</option>
+                                <option value="1">1 - Simples Nacional (Simples)</option>
+                                <option value="2">2 - Simples Nacional - Excesso de Sublimite</option>
+                                <option value="3">3 - Regime Normal</option>
+                            </select>
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">Se sua empresa é do Simples, escolha a opção 1 ou 2.</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Endereço -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Endereço</h6>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CEP</label>
+                            <input type="text" id="cep" name="cep" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Endereço</label>
+                            <input type="text" id="endereco" name="endereco" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Número</label>
+                            <input type="text" id="numero" name="numero" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Complemento</label>
+                            <input type="text" id="complemento" name="complemento" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Bairro</label>
+                            <input type="text" id="bairro" name="bairro" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Cidade</label>
+                            <input type="text" id="cidade" name="cidade" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">UF</label>
+                            <select id="uf" name="uf" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Selecione...</option>
+                                <option value="AC">AC</option>
+                                <option value="AL">AL</option>
+                                <option value="AP">AP</option>
+                                <option value="AM">AM</option>
+                                <option value="BA">BA</option>
+                                <option value="CE">CE</option>
+                                <option value="DF">DF</option>
+                                <option value="ES">ES</option>
+                                <option value="GO">GO</option>
+                                <option value="MA">MA</option>
+                                <option value="MT">MT</option>
+                                <option value="MS">MS</option>
+                                <option value="MG">MG</option>
+                                <option value="PA">PA</option>
+                                <option value="PB">PB</option>
+                                <option value="PR">PR</option>
+                                <option value="PE">PE</option>
+                                <option value="PI">PI</option>
+                                <option value="RJ">RJ</option>
+                                <option value="RN">RN</option>
+                                <option value="RS">RS</option>
+                                <option value="RO">RO</option>
+                                <option value="RR">RR</option>
+                                <option value="SC">SC</option>
+                                <option value="SP">SP</option>
+                                <option value="SE">SE</option>
+                                <option value="TO">TO</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Código IBGE do município (NF-e)</label>
+                            <input type="number" id="municipio_ibge" name="municipio_ibge" min="0" placeholder="Ex: 3550308"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">Obrigatório para emissão de NF-e. Consulte o código em <a href="https://www.ibge.gov.br/explica/codigos-dos-municipios.php" target="_blank" rel="noopener">IBGE</a> (7 dígitos).</small>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">UF de Emissão</label>
+                            <select id="uf_emissao" name="uf_emissao" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Selecione...</option>
+                                <option value="AC">AC</option>
+                                <option value="AL">AL</option>
+                                <option value="AP">AP</option>
+                                <option value="AM">AM</option>
+                                <option value="BA">BA</option>
+                                <option value="CE">CE</option>
+                                <option value="DF">DF</option>
+                                <option value="ES">ES</option>
+                                <option value="GO">GO</option>
+                                <option value="MA">MA</option>
+                                <option value="MT">MT</option>
+                                <option value="MS">MS</option>
+                                <option value="MG">MG</option>
+                                <option value="PA">PA</option>
+                                <option value="PB">PB</option>
+                                <option value="PR">PR</option>
+                                <option value="PE">PE</option>
+                                <option value="PI">PI</option>
+                                <option value="RJ">RJ</option>
+                                <option value="RN">RN</option>
+                                <option value="RS">RS</option>
+                                <option value="RO">RO</option>
+                                <option value="RR">RR</option>
+                                <option value="SC">SC</option>
+                                <option value="SP">SP</option>
+                                <option value="SE">SE</option>
+                                <option value="TO">TO</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Contato -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Contato</h6>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Telefone</label>
+                            <input type="text" id="telefone" name="telefone" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Email</label>
+                            <input type="email" id="email" name="email" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Provedor fiscal (NF-e local ou gateway externo) -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Provedor fiscal (NF-e)</h6>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Provedor</label>
+                            <select id="provedor_fiscal" name="provedor_fiscal" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Stub / Gateway (externo)</option>
+                                <option value="local">Local (SEFAZ direto)</option>
+                            </select>
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">Local = emissão NF-e direto na SEFAZ com certificado A1 desta empresa.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ambiente — REGRA CENTRAL: obrigatoriamente da Empresa Fiscal -->
+                <div style="margin-bottom: 20px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; border-left: 4px solid #0d6efd;">
+                    <h6 style="margin-bottom: 10px; font-weight: bold; color: #0d6efd;">Ambiente SEFAZ (regra obrigatória)</h6>
+                    <p class="text-muted small mb-2" style="margin-bottom: 10px !important;">
+                        Todas as emissões NF-e/NFC-e desta empresa seguem obrigatoriamente esta configuração. Define o webservice usado (homologação = testes; produção = emissão real).
+                    </p>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #333;">Ambiente</label>
+                            <select id="ambiente" name="ambiente" required
+                                    style="width: 100%; padding: 8px; border: 1px solid #0d6efd; border-radius: 4px; font-weight: 500;"
+                                    data-param="opcoes_ambiente">
+                                <option value="">Carregando...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Status</label>
+                            <select id="ativo" name="ativo" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="true">Ativa</option>
+                                <option value="false">Inativa</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Configuração NFC-e (modelo 65) -->
+                <div style="margin-bottom: 20px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px;">
+                    <h6 style="margin-bottom: 10px; font-weight: bold; color: #333;">Configuração NFC-e (modelo 65)</h6>
+                    <p class="text-muted small mb-3" style="font-size: 12px;">
+                        Obrigatório apenas para NFC-e (modelo 65). Não utilizado para NF-e (modelo 55).
+                    </p>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
+                        <input type="checkbox" id="nfce_habilitado" name="nfce_habilitado" value="true"
+                               style="width: 18px; height: 18px; min-width: 18px; min-height: 18px; margin: 0; cursor: pointer; accent-color: #0d6efd;">
+                        <label for="nfce_habilitado" style="margin: 0; cursor: pointer; font-weight: 500;">Habilitar emissão NFC-e</label>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">ID CSC</label>
+                            <input type="text" id="nfce_csc_id" name="nfce_csc_id" placeholder="000001"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Token CSC</label>
+                            <input type="text" id="nfce_csc_token" name="nfce_csc_token" placeholder="Token fornecido pela SEFAZ"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Logo do emissor (certificados de calibração) -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Logo do emissor (certificados)</h6>
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Anexar logo</label>
+                            <input type="file" id="logo_file" name="logo_file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                                Selecione uma imagem (PNG, JPG, GIF ou WebP). O logo será salvo em /static/uploads/empresa_logos/ e usado no cabeçalho dos certificados e na nota fiscal.
+                            </small>
+                            <div id="logo_preview_container" style="margin-top: 10px; display: none;">
+                                <img id="logo_preview" src="" alt="Preview" style="max-height: 50px; max-width: 120px; object-fit: contain;">
+                            </div>
+                            <div id="logo_visualizar_wrap" style="margin-top: 8px; display: none;">
+                                <a id="btn_visualizar_logo" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm">
+                                    <i class="align-middle me-1" data-feather="image"></i> Visualizar logo
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Certificado Digital -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Certificado Digital A1</h6>
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Certificado (.pfx/.p12)</label>
+                            <input type="file" id="certificado_file" name="certificado_file" accept=".pfx,.p12" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">
+                                Selecione o arquivo do certificado digital (.pfx ou .p12)
+                            </small>
+                            <div id="certificado_nome_arquivo" style="margin-top: 5px; color: #28a745; font-size: 12px; display: none;">
+                                <i class="align-middle" data-feather="check-circle" style="width: 14px; height: 14px;"></i>
+                                <span id="certificado_nome_texto"></span>
+                            </div>
+                            <input type="hidden" id="certificado_a1_path" name="certificado_a1_path">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Validade do certificado</label>
+                            <input type="date" id="certificado_validade" name="certificado_validade"
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+                                   title="Preenchido ao enviar o .pfx ou informe manualmente e salve">
+                            <small style="display: block; margin-top: 5px; color: #666; font-size: 12px;">Preenchido ao enviar o .pfx; se não tiver sido preenchido, informe a data de validade e salve.</small>
+                        </div>
+                    </div>
+                    <div style="margin-top: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Senha do Certificado</label>
+                        <input type="password" id="senha_certificado" name="senha_certificado" 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                </div>
+                
+                <!-- Configurações NFS-e -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Configurações NFS-e</h6>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CNAE Serviços</label>
+                            <input type="text" id="cnae_servicos" name="cnae_servicos" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Código Serviço Municipal</label>
+                            <input type="text" id="codigo_servico_municipal" name="codigo_servico_municipal" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Alíquota ISS (%)</label>
+                            <input type="number" id="aliquota_iss" name="aliquota_iss" step="0.01" min="0" max="100" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Configurações SAT/MFe -->
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Configurações SAT/MFe</h6>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Tipo de Equipamento</label>
+                            <select id="tipo_equipamento_sat" name="tipo_equipamento_sat" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="">Selecione...</option>
+                                <option value="SAT">SAT</option>
+                                <option value="MFe">MFe</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Número de Série</label>
+                            <input type="text" id="numero_serie_sat" name="numero_serie_sat" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Código de Ativação</label>
+                            <input type="text" id="codigo_ativacao_sat" name="codigo_ativacao_sat" 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                </div>
+                {% if user_role == 'Superadministrador' %}
+                <div style="margin-bottom: 20px;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">
+                        <i class="align-middle me-1" data-feather="dollar-sign" style="width:16px;height:16px;"></i>
+                        Modo de Recebimento
+                    </h6>
+                    <small style="display:block;margin-bottom:10px;color:#666;">
+                        Define quem recebe o valor das vendas. <strong>Direto</strong>: CA recebe na própria conta (via gateway conectado em Recebíveis). <strong>Plataforma</strong>: plataforma recebe e repassa ao CA.
+                    </small>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display:block;margin-bottom:5px;font-weight:bold;color:#555;">Modo *</label>
+                            <select id="modo_recebimento" name="modo_recebimento" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                                <option value="plataforma">Plataforma (recebe e repassa)</option>
+                                <option value="direto">Direto (CA recebe na própria conta)</option>
+                            </select>
+                        </div>
+                        <div id="bloco_taxa_percentual">
+                            <label style="display:block;margin-bottom:5px;font-weight:bold;color:#555;">Taxa % da Plataforma</label>
+                            <input type="number" step="0.01" min="0" max="100" id="taxa_plataforma_percentual" name="taxa_plataforma_percentual" placeholder="Ex: 5.00" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                        </div>
+                        <div id="bloco_taxa_fixa">
+                            <label style="display:block;margin-bottom:5px;font-weight:bold;color:#555;">Taxa Fixa (R$) por transação</label>
+                            <input type="number" step="0.01" min="0" id="taxa_plataforma_valor_fixo" name="taxa_plataforma_valor_fixo" placeholder="Ex: 2.50" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                        </div>
+                    </div>
+                    <div id="bloco_gateway_plataforma" style="display:none;margin-top:12px;">
+                        <label style="display:block;margin-bottom:5px;font-weight:bold;color:#555;">Gateway (modo plataforma)</label>
+                        <small style="display:block;margin-bottom:8px;color:#666;">Conta da plataforma usada quando o CA está em modo Plataforma (credenciais em Admin > Billing).</small>
+                        <select id="gateway_plataforma" name="gateway_plataforma" style="width:100%;max-width:420px;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                            <option value="mercadopago">Mercado Pago</option>
+                            <option value="pagbank">PagBank</option>
+                            <option value="pagarme">Pagar.me</option>
+                        </select>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" onclick="fecharModalEmpresa()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btnSalvarEmpresa" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                        Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div id="modalConfirmacao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 400px;">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Confirmar Exclusão</h5>
+            <button onclick="fecharModalConfirmacao()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <p style="margin-bottom: 10px;">Tem certeza que deseja excluir esta empresa?</p>
+            <p style="color: #dc3545; font-size: 14px; margin: 0;">Esta ação não pode ser desfeita.</p>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn btn-secondary" onclick="fecharModalConfirmacao()">
+                <i class="align-middle me-1" data-feather="x"></i> Cancelar
+            </button>
+            <button type="button" id="btnConfirmarExclusao" class="btn btn-danger" onclick="if(window.empresaFiscalManager) window.empresaFiscalManager.confirmarExclusao();">
+                <i class="align-middle me-1" data-feather="trash-2"></i> Excluir
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/empresa_fiscal.js?v=1.1"></script>
+<script>
+// Permissão para visualizar campo Cliente (apenas Administrador e Superadministrador)
+window.permiteVerClienteEmpresaFiscal = {{ 'true' if user_permissions and 'fiscal.empresa.ver_cliente' in user_permissions else 'false' }};
+// Permissão para excluir empresa fiscal (apenas Administrador e Superadministrador)
+window.canDeleteEmpresa = {{ 'true' if user_permissions and 'fiscal.empresa.excluir' in user_permissions else 'false' }};
+
+// Funções para controlar modais
+function fecharModalEmpresa() {
+    const modal = document.getElementById('modalEmpresa');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    if (window.empresaFiscalManager) {
+        window.empresaFiscalManager.limparFormulario();
+    }
+}
+
+function fecharModalConfirmacao() {
+    const modal = document.getElementById('modalConfirmacao');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function abrirModalEmpresa() {
+    const modal = document.getElementById('modalEmpresa');
+    const titulo = document.getElementById('modalEmpresaTitulo');
+    
+    if (modal) {
+        modal.style.display = 'block';
+    }
+    if (titulo) {
+        titulo.textContent = 'Nova Empresa Fiscal';
+    }
+    if (window.empresaFiscalManager) {
+        window.empresaFiscalManager.limparFormulario();
+        window.empresaFiscalManager.definirClientePadraoSeNecessario();
+    }
+}
+
+function abrirModalConfirmacao() {
+    const modal = document.getElementById('modalConfirmacao');
+    if (modal) {
+        modal.style.display = 'block';
+        if (typeof feather !== 'undefined' && feather && feather.replace) {
+            feather.replace();
+        }
+    }
+}
+</script>
+{% endblock %}
+

@@ -1,0 +1,159 @@
+{# Origem: criada no plano tabelas_tipo_e_categoria_material_estoque. Referência de layout: mesmo padrão do módulo Estoque (meu_negocio/estoque/index.html) e estrutura listagem+modal de contratos/tipos_contratos.html. Modal conforme MAPA_DE_REGRAS: CSS inline, id modalCategoriaCustom, sem Bootstrap; fechar/abrir expostos em window. #}
+{% extends "base.html" %}
+{% block title %}Categorias de Material | Estoque | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Categorias de Material</strong></h1>
+            </div>
+            <div class="col-auto">
+                <a href="/negocio/estoque" class="btn btn-outline-secondary me-2"><i data-feather="arrow-left" style="width: 18px; height: 18px;"></i> Voltar ao Estoque</a>
+                <button class="btn btn-primary" onclick="abrirModalCategoria()"><i data-feather="plus" style="width: 18px; height: 18px;"></i> Nova Categoria</button>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr><th>Código</th><th>Nome</th><th>Ícone</th><th>Ativo</th><th>Ações</th></tr>
+                    </thead>
+                    <tbody id="tabela-categorias">
+                        <tr><td colspan="5" class="text-center text-muted">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Nova/Editar Categoria (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap) -->
+<div id="modalCategoriaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modalCategoriaTitulo" style="margin: 0; font-size: 1.5rem; font-weight: 700;">Nova Categoria</h3>
+            <button type="button" onclick="window.fecharModalCategoria()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="categoria_id_modal" value="">
+            <div class="mb-3">
+                <label for="categoria_codigo" class="form-label">Código *</label>
+                <input type="text" class="form-control" id="categoria_codigo" placeholder="Ex: PADARIA" required>
+            </div>
+            <div class="mb-3">
+                <label for="categoria_nome" class="form-label">Nome *</label>
+                <input type="text" class="form-control" id="categoria_nome" placeholder="Ex: Padaria" required>
+            </div>
+            <div class="mb-3">
+                <label for="categoria_descricao" class="form-label">Descrição</label>
+                <textarea class="form-control" id="categoria_descricao" rows="2"></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="categoria_icone" class="form-label">Ícone (imagem)</label>
+                <input type="text" class="form-control" id="categoria_icone" placeholder="Ex: /static/icones/categorias/bebidas.png">
+                <small class="text-muted">Use URL/caminho da imagem (PNG, SVG, JPG, WEBP). Ex.: <code>/static/icones/categorias/padaria.png</code></small>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="categoria_ativo" checked>
+                <label class="form-check-label" for="categoria_ativo">Ativo</label>
+            </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="window.fecharModalCategoria()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="salvarCategoria()">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function getToken() {
+    const c = document.cookie.split(';').find(x => x.trim().startsWith('pdv_solumatica_token=') || x.trim().startsWith('pdv_automscale_token='));
+    return c ? decodeURIComponent(c.split('=').slice(1).join('=').trim()) : null;
+}
+function fetchApi(url, opts) {
+    const t = getToken();
+    return fetch(url, { credentials: 'include', headers: { 'Accept': 'application/json', ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(opts && opts.headers || {}) }, ...(opts || {}) });
+}
+function abrirModalCategoriaCustom() {
+    const modal = document.getElementById('modalCategoriaCustom');
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+}
+function fecharModalCategoria() {
+    const modal = document.getElementById('modalCategoriaCustom');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+window.fecharModalCategoria = fecharModalCategoria;
+window.abrirModalCategoria = abrirModalCategoria;
+
+document.addEventListener('DOMContentLoaded', function() {
+    carregarCategorias();
+    const modal = document.getElementById('modalCategoriaCustom');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) fecharModalCategoria();
+        });
+    }
+});
+function carregarCategorias() {
+    const tbody = document.getElementById('tabela-categorias');
+    fetchApi('/api/v1/material-categorias/?limit=500').then(r => r.json()).then(data => {
+        if (!Array.isArray(data)) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar</td></tr>'; return; }
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhuma categoria cadastrada</td></tr>'; return; }
+        tbody.innerHTML = data.map(c => '<tr><td><strong>' + (c.codigo || '').replace(/</g,'&lt;') + '</strong></td><td>' + (c.nome || '').replace(/</g,'&lt;') + '</td><td>' + ((c.icone || '').replace(/</g,'&lt;') || '-') + '</td><td><span class="badge ' + (c.ativo ? 'bg-success' : 'bg-secondary') + '">' + (c.ativo ? 'Sim' : 'Não') + '</span></td><td><button class="btn btn-sm btn-outline-primary" onclick="editarCategoria(' + c.id + ')">Editar</button></td></tr>').join('');
+        if (typeof feather !== 'undefined') feather.replace();
+    }).catch(() => { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Erro ao carregar</td></tr>'; });
+}
+function abrirModalCategoria() {
+    document.getElementById('categoria_id_modal').value = '';
+    document.getElementById('modalCategoriaTitulo').textContent = 'Nova Categoria';
+    document.getElementById('categoria_codigo').value = '';
+    document.getElementById('categoria_nome').value = '';
+    document.getElementById('categoria_descricao').value = '';
+    document.getElementById('categoria_icone').value = '';
+    document.getElementById('categoria_ativo').checked = true;
+    document.getElementById('categoria_codigo').disabled = false;
+    abrirModalCategoriaCustom();
+}
+function editarCategoria(id) {
+    fetchApi('/api/v1/material-categorias/' + id).then(r => r.json()).then(c => {
+        document.getElementById('categoria_id_modal').value = c.id;
+        document.getElementById('modalCategoriaTitulo').textContent = 'Editar Categoria';
+        document.getElementById('categoria_codigo').value = c.codigo || '';
+        document.getElementById('categoria_nome').value = c.nome || '';
+        document.getElementById('categoria_descricao').value = c.descricao || '';
+        document.getElementById('categoria_icone').value = c.icone || '';
+        document.getElementById('categoria_ativo').checked = c.ativo !== false;
+        document.getElementById('categoria_codigo').disabled = true;
+        abrirModalCategoriaCustom();
+    }).catch(() => alert('Erro ao carregar categoria'));
+}
+function salvarCategoria() {
+    const id = document.getElementById('categoria_id_modal').value.trim();
+    const codigo = document.getElementById('categoria_codigo').value.trim().toUpperCase();
+    const nome = document.getElementById('categoria_nome').value.trim();
+    if (!codigo || !nome) { alert('Preencha código e nome'); return; }
+    const payload = {
+        codigo: codigo,
+        nome: nome,
+        descricao: document.getElementById('categoria_descricao').value.trim() || null,
+        icone: document.getElementById('categoria_icone').value.trim() || null,
+        ativo: document.getElementById('categoria_ativo').checked
+    };
+    const url = id ? '/api/v1/material-categorias/' + id : '/api/v1/material-categorias/';
+    const method = id ? 'PATCH' : 'POST';
+    fetchApi(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => {
+        if (r.ok) { fecharModalCategoria(); carregarCategorias(); alert('Salvo com sucesso!'); }
+        else return r.json().then(e => { throw new Error(e.detail || 'Erro ao salvar'); });
+    }).catch(e => alert(e.message || 'Erro ao salvar'));
+}
+</script>
+{% endblock %}

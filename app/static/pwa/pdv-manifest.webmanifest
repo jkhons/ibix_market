@@ -1,0 +1,24 @@
+{
+  "name": "PDV Ibix",
+  "short_name": "PDV",
+  "description": "Frente de caixa do PDV Ibix para operação rápida em balcão.",
+  "start_url": "/negocio/venda/pdv?source=pwa",
+  "scope": "/negocio/venda/pdv",
+  "display": "standalone",
+  "background_color": "#f3f6fb",
+  "theme_color": "#1f2e43",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/static/img/icons/icon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/img/icons/iconcertipeso.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}

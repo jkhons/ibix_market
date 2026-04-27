@@ -1,0 +1,331 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Carrinho{% endblock %}
+
+{% block content %}
+<div class="loja-carrinho-page">
+  <h1 class="loja-page-title">Carrinho</h1>
+  <p class="loja-page-subtitle">Revise seus itens antes de finalizar o pedido</p>
+
+  <div id="loja-carrinho-multi-loja" class="alert alert-warning" style="display: none;" role="alert">
+    Há itens de mais de uma loja no carrinho. O checkout é feito por loja. Remova itens ou finalize um pedido por vez.
+  </div>
+
+  <div id="loja-carrinho-empty" class="loja-carrinho-empty-card" style="display: none;">
+    <i data-feather="shopping-cart" class="loja-carrinho-empty-icon" aria-hidden="true"></i>
+    <h2 class="loja-carrinho-empty-title">Seu carrinho está vazio</h2>
+    <p class="loja-carrinho-empty-text">Adicione produtos para continuar sua compra.</p>
+    <a href="/" class="btn btn-primary btn-lg">Continuar comprando</a>
+  </div>
+
+  <div class="loja-carrinho-layout" id="loja-carrinho-layout" style="display: none;">
+    <section class="loja-carrinho-itens">
+      <div class="loja-carrinho-toolbar d-flex justify-content-end mb-2">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="loja-carrinho-limpar">Limpar carrinho</button>
+      </div>
+      <div id="loja-carrinho-list"></div>
+    </section>
+    <aside class="loja-carrinho-resumo">
+      <h2>Resumo do pedido</h2>
+      <div class="loja-resumo-linha">
+        <span>Subtotal</span>
+        <strong id="loja-carrinho-subtotal">R$ 0,00</strong>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small mb-1">Calcule o frete (CEP)</label>
+        <div class="input-group input-group-sm">
+          <input type="text" class="form-control" id="carrinho-cep" maxlength="9" placeholder="00000-000">
+          <button class="btn btn-outline-secondary" type="button" id="carrinho-cep-btn">Calcular</button>
+        </div>
+        <span id="carrinho-cep-status" class="small text-muted"></span>
+      </div>
+      <div id="loja-carrinho-frete-wrap"></div>
+      <div class="loja-resumo-total">
+        <span>Total</span>
+        <strong id="loja-carrinho-total">R$ 0,00</strong>
+      </div>
+      <a href="/loja/checkout" class="btn btn-primary btn-lg w-100" id="loja-carrinho-checkout">Ir ao checkout</a>
+      <p class="loja-resumo-trust">Compra segura • Finalização rápida</p>
+    </aside>
+  </div>
+</div>
+
+<!-- Modal: complete seu cadastro (vitrine/carrinho) -->
+<div id="modalCarrinhoEndereco" class="loja-modal-endereco" role="dialog" aria-modal="true" aria-labelledby="modalCarrinhoEnderecoTitulo" style="display: none;">
+  <div class="loja-modal-endereco-backdrop"></div>
+  <div class="loja-modal-endereco-content">
+    <div class="loja-modal-endereco-header">
+      <h2 id="modalCarrinhoEnderecoTitulo" class="loja-modal-endereco-title">Complete seu cadastro</h2>
+      <button type="button" class="loja-modal-endereco-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="loja-modal-endereco-body">
+      <p>Que tal completar seu cadastro? Adicione um endereço de entrega e aproveite um checkout mais rápido nas suas próximas compras.</p>
+    </div>
+    <div class="loja-modal-endereco-footer">
+      <button type="button" class="btn btn-outline-secondary" id="modalCarrinhoEnderecoDepois">Depois</button>
+      <a href="/loja/minha-conta#loja-conta-enderecos-wrap" class="btn btn-primary" id="modalCarrinhoEnderecoAdicionar">Adicionar endereço</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var listEl = document.getElementById("loja-carrinho-list");
+  var emptyEl = document.getElementById("loja-carrinho-empty");
+  var layoutEl = document.getElementById("loja-carrinho-layout");
+  var totalEl = document.getElementById("loja-carrinho-total");
+  var subtotalEl = document.getElementById("loja-carrinho-subtotal");
+  var multiLojaEl = document.getElementById("loja-carrinho-multi-loja");
+
+  if (!listEl || !emptyEl || !layoutEl) return;
+  if (typeof window.Vitrine === "undefined") {
+    emptyEl.style.display = "block";
+    layoutEl.style.display = "none";
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+    return;
+  }
+
+  function thumbSrc(item) {
+    var url = item.imagem_url || null;
+    if (url) return url;
+    return (window.Vitrine && window.Vitrine.PLACEHOLDER_IMG) ? window.Vitrine.PLACEHOLDER_IMG : "";
+  }
+
+  function render() {
+    var cart = window.Vitrine.getCart();
+    var items = cart.items || [];
+    if (items.length === 0) {
+      listEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      layoutEl.style.display = "none";
+      multiLojaEl.style.display = "none";
+      if (typeof feather !== "undefined" && feather.replace) feather.replace();
+      return;
+    }
+    emptyEl.style.display = "none";
+    layoutEl.style.display = "";
+
+    var lojaIds = {};
+    items.forEach(function (i) {
+      lojaIds[i.loja_id] = true;
+    });
+    var numLojas = Object.keys(lojaIds).length;
+    multiLojaEl.style.display = numLojas > 1 ? "block" : "none";
+
+    var total = 0;
+    var html = "";
+    items.forEach(function (item) {
+      var subtotalItem = (item.preco || 0) * (item.quantidade || 0);
+      total += subtotalItem;
+      var src = thumbSrc(item);
+      var safeSrc = (src && src.indexOf("data:") === 0) ? src : (src ? window.Vitrine.escapeHtml(src) : "");
+      var imgTag = safeSrc ? '<img src="' + safeSrc + '" alt="">' : '<img src="" alt="">';
+      html +=
+        '<div class="loja-carrinho-item" data-anuncio-id="' + item.anuncio_id + '">' +
+          '<div class="loja-carrinho-thumb">' + imgTag + '</div>' +
+          '<div class="loja-carrinho-info">' +
+            '<h3><a href="' + window.Vitrine.produtoUrl(item.titulo, item.anuncio_id) + '">' + window.Vitrine.escapeHtml(item.titulo || "") + '</a></h3>' +
+            '<p>Qtd: ' + (item.quantidade || 1) + '</p>' +
+          '</div>' +
+          '<div class="loja-carrinho-acoes">' +
+            '<span class="loja-carrinho-preco">' + window.Vitrine.formatPreco(subtotalItem) + '</span>' +
+            '<input type="number" min="1" class="form-control form-control-sm loja-carrinho-qty" value="' + (item.quantidade || 1) + '" data-anuncio-id="' + item.anuncio_id + '" aria-label="Quantidade">' +
+            '<button type="button" class="btn btn-sm btn-outline-danger" data-anuncio-id="' + item.anuncio_id + '" aria-label="Remover">Remover</button>' +
+          '</div>' +
+        '</div>';
+    });
+    listEl.innerHTML = html;
+
+    if (subtotalEl) subtotalEl.textContent = window.Vitrine.formatPreco(total);
+    fetchCartFrete(items, total);
+
+    listEl.querySelectorAll("input.loja-carrinho-qty").forEach(function (input) {
+      input.addEventListener("change", function () {
+        var id = parseInt(input.getAttribute("data-anuncio-id"), 10);
+        var q = parseInt(input.value, 10);
+        window.Vitrine.setCartItemQty(id, isNaN(q) || q < 1 ? 0 : q);
+        window.VitrineUpdateCartBadge();
+        render();
+      });
+    });
+    listEl.querySelectorAll("button[data-anuncio-id]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = parseInt(btn.getAttribute("data-anuncio-id"), 10);
+        window.Vitrine.setCartItemQty(id, 0);
+        window.VitrineUpdateCartBadge();
+        render();
+      });
+    });
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+
+    if (typeof window.LOJA_CONSUMIDOR_ID !== "undefined" && window.LOJA_CONSUMIDOR_ID != null && items.length > 0 && !window._carrinhoEnderecosFetched) {
+      window._carrinhoEnderecosFetched = true;
+      fetch("/api/v1/loja/minha-conta/enderecos", { credentials: "same-origin" })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .catch(function () { return []; })
+        .then(function (enderecos) {
+          if (!Array.isArray(enderecos)) return;
+          if (enderecos.length === 0 && !window._modalCarrinhoEnderecoShown) {
+            window._modalCarrinhoEnderecoShown = true;
+            var modal = document.getElementById("modalCarrinhoEndereco");
+            if (modal) modal.style.display = "flex";
+            return;
+          }
+          if (enderecos.length > 0 && !_carrinhoCepPreenchidoDoCadastro) {
+            _carrinhoCepPreenchidoDoCadastro = true;
+            var end = enderecos.find(function (e) { return e.principal; }) || enderecos[0];
+            var cepRaw = (end.cep || "").replace(/\D/g, "");
+            var cidade = end.cidade || null;
+            var uf = (end.uf || "").trim().toUpperCase() || null;
+            if (cepRaw.length === 8 || (cidade && uf)) {
+              var cepInput = document.getElementById("carrinho-cep");
+              var statusEl = document.getElementById("carrinho-cep-status");
+              if (cepRaw.length === 8) {
+                if (cepInput) cepInput.value = cepRaw.slice(0, 5) + "-" + cepRaw.slice(5);
+              }
+              if (cidade && uf) {
+                _carrinhoCidade = cidade;
+                _carrinhoUf = uf;
+                if (statusEl) statusEl.textContent = cidade + " - " + uf;
+              } else if (cepRaw.length === 8) {
+                if (statusEl) statusEl.textContent = "Buscando...";
+                fetch("https://viacep.com.br/ws/" + cepRaw + "/json/", { credentials: "omit" })
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    if (!data || data.erro) { if (statusEl) statusEl.textContent = ""; return; }
+                    _carrinhoCidade = data.localidade || null;
+                    _carrinhoUf = data.uf || null;
+                    if (statusEl) statusEl.textContent = (_carrinhoCidade || "") + (_carrinhoCidade && _carrinhoUf ? " - " : "") + (_carrinhoUf || "");
+                    render();
+                  })
+                  .catch(function () { if (statusEl) statusEl.textContent = ""; });
+              }
+              if (cidade && uf) render();
+            }
+          }
+        });
+    }
+  }
+
+  var _carrinhoCidade = null;
+  var _carrinhoUf = null;
+  var _carrinhoCepPreenchidoDoCadastro = false;
+
+  function fetchCartFrete(items, subtotalProdutos) {
+    var lojaIds = {};
+    items.forEach(function(i) { lojaIds[i.loja_id] = (lojaIds[i.loja_id] || 0) + (i.preco || 0) * (i.quantidade || 1); });
+    var freteWrap = document.getElementById("loja-carrinho-frete-wrap");
+    if (!freteWrap) return;
+    var keys = Object.keys(lojaIds);
+    if (keys.length === 0) { freteWrap.innerHTML = ""; totalEl.textContent = window.Vitrine.formatPreco(subtotalProdutos); return; }
+    var totalFrete = 0;
+    var htmlParts = [];
+    var done = 0;
+    var temNaoEntregamos = false;
+    keys.forEach(function(lid) {
+      var url = "/api/v1/loja/" + lid + "/frete";
+      if (_carrinhoCidade && _carrinhoUf) {
+        url += "?cidade=" + encodeURIComponent(_carrinhoCidade) + "&uf=" + encodeURIComponent(_carrinhoUf);
+      }
+      fetch(url)
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+          var frete = 0;
+          var label = "Sem frete";
+          if (data) {
+            var fmt = data.formato_frete || "sem_frete";
+            if (fmt === "gratis") { label = "Grátis"; }
+            else             if (fmt === "taxa_fixa" || fmt === "plataforma") {
+              if (data.entrega_disponivel === false) {
+                label = "_NAO_ENTREGAMOS_";
+              } else if (typeof data.taxa_entrega_cidade !== "undefined") {
+                var taxaCidade = parseFloat(data.taxa_entrega_cidade) || 0;
+                var gratisApos = parseFloat(data.entrega_gratis_apos) || 0;
+                if (gratisApos > 0 && lojaIds[lid] >= gratisApos) { label = "Grátis"; }
+                else { frete = taxaCidade; label = taxaCidade > 0 ? window.Vitrine.formatPreco(taxaCidade) : "Grátis"; }
+                if (data.prazo_dias) label += " (" + data.prazo_dias + " dias)";
+              } else {
+                var taxa = parseFloat(data.taxa_entrega_fixa) || 0;
+                var gratisApos2 = parseFloat(data.entrega_gratis_apos) || 0;
+                if (gratisApos2 > 0 && lojaIds[lid] >= gratisApos2) { label = "Grátis"; }
+                else if (_carrinhoCidade) { frete = taxa; label = taxa > 0 ? window.Vitrine.formatPreco(taxa) : "Grátis"; }
+                else { label = "Informe o CEP"; }
+              }
+            } else { label = "Apenas retirada"; }
+          }
+          totalFrete += frete;
+          if (label === "_NAO_ENTREGAMOS_") {
+            temNaoEntregamos = true;
+            if (keys.length > 1) { htmlParts.push('<div class="loja-resumo-linha small"><span>Frete loja #' + lid + '</span><strong>Não disponível</strong></div>'); }
+            else { htmlParts.push('<div class="loja-resumo-linha"><span>Frete</span><strong>Não disponível</strong></div>'); }
+          } else {
+            if (keys.length > 1) { htmlParts.push('<div class="loja-resumo-linha small"><span>Frete loja #' + lid + '</span><strong>' + label + '</strong></div>'); }
+            else { htmlParts.push('<div class="loja-resumo-linha"><span>Frete</span><strong>' + label + '</strong></div>'); }
+          }
+          done++;
+          if (done === keys.length) {
+            var html = htmlParts.join("");
+            if (temNaoEntregamos) {
+              html += '<div class="mt-2 mb-2"><span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 0.5em 0.9em;">Ops :(, ainda não entregamos para sua cidade.</span></div>';
+            }
+            freteWrap.innerHTML = html;
+            totalEl.textContent = window.Vitrine.formatPreco(subtotalProdutos + totalFrete);
+          }
+        })
+        .catch(function() { done++; if (done === keys.length) { freteWrap.innerHTML = ""; totalEl.textContent = window.Vitrine.formatPreco(subtotalProdutos); } });
+    });
+  }
+
+  function buscarCepCarrinho() {
+    var cepInput = document.getElementById("carrinho-cep");
+    var statusEl = document.getElementById("carrinho-cep-status");
+    if (!cepInput) return;
+    var cep = cepInput.value.replace(/\D/g, "");
+    if (cep.length !== 8) { statusEl.textContent = "CEP inválido"; return; }
+    statusEl.textContent = "Buscando...";
+    fetch("https://viacep.com.br/ws/" + cep + "/json/", {credentials: "omit"})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.erro) { statusEl.textContent = "CEP não encontrado"; return; }
+        _carrinhoCidade = data.localidade || null;
+        _carrinhoUf = data.uf || null;
+        statusEl.textContent = data.localidade + " - " + data.uf;
+        render();
+      })
+      .catch(function() { statusEl.textContent = "Erro ao buscar CEP"; });
+  }
+
+  var btnLimpar = document.getElementById("loja-carrinho-limpar");
+  if (btnLimpar) {
+    btnLimpar.addEventListener("click", function () {
+      if (!window.confirm("Remover todos os itens do carrinho?")) return;
+      window.Vitrine.clearCart();
+      window.VitrineUpdateCartBadge();
+      render();
+    });
+  }
+
+  var cepBtn = document.getElementById("carrinho-cep-btn");
+  if (cepBtn) cepBtn.addEventListener("click", buscarCepCarrinho);
+  var cepInput = document.getElementById("carrinho-cep");
+  if (cepInput) cepInput.addEventListener("keypress", function(e) { if (e.key === "Enter") { e.preventDefault(); buscarCepCarrinho(); } });
+
+  var modalCarrinhoEndereco = document.getElementById("modalCarrinhoEndereco");
+  function closeModalCarrinhoEndereco() {
+    if (modalCarrinhoEndereco) modalCarrinhoEndereco.style.display = "none";
+  }
+  if (modalCarrinhoEndereco) {
+    var bd = modalCarrinhoEndereco.querySelector(".loja-modal-endereco-backdrop");
+    var cb = modalCarrinhoEndereco.querySelector(".loja-modal-endereco-close");
+    if (bd) bd.addEventListener("click", closeModalCarrinhoEndereco);
+    if (cb) cb.addEventListener("click", closeModalCarrinhoEndereco);
+  }
+  var btnDepois = document.getElementById("modalCarrinhoEnderecoDepois");
+  if (btnDepois) btnDepois.addEventListener("click", closeModalCarrinhoEndereco);
+
+  render();
+})();
+</script>
+{% endblock %}

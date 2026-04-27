@@ -1,0 +1,377 @@
+{% extends "base.html" %}
+
+{% block title %}Influencers e Marketing | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h1 class="h3 d-inline align-middle">Influencers e Marketing</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="recalcularScores()"><i data-feather="bar-chart-2" style="width:14px;height:14px"></i> Recalcular Scores</button>
+        </div>
+    </div>
+
+    <!-- Cards resumo -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3">
+                <h6 class="text-muted small mb-1">Total Influencers</h6>
+                <h3 class="mb-0" id="card-total">-</h3>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3">
+                <h6 class="text-muted small mb-1">Pendentes</h6>
+                <h3 class="mb-0 text-warning" id="card-pendentes">-</h3>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3">
+                <h6 class="text-muted small mb-1">Campanhas Ativas</h6>
+                <h3 class="mb-0 text-success" id="card-campanhas">-</h3>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3">
+                <h6 class="text-muted small mb-1">Vendas (total)</h6>
+                <h3 class="mb-0 text-primary" id="card-vendas">-</h3>
+            </div></div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tab-influencers">Influencers</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tab-campanhas">Campanhas</a></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Tab Influencers -->
+        <div class="tab-pane fade show active" id="tab-influencers">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <strong>Lista de Influencers</strong>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <select class="form-select form-select-sm" id="filtro-status" style="width:auto">
+                            <option value="">Todos os status</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="teste">Teste</option>
+                            <option value="aprovado">Aprovado</option>
+                            <option value="parceiro">Parceiro</option>
+                            <option value="bloqueado">Bloqueado</option>
+                        </select>
+                        <select class="form-select form-select-sm" id="filtro-tipo" style="width:auto">
+                            <option value="">Todos os tipos</option>
+                            <option value="influencer">Influencer</option>
+                            <option value="representante">Representante</option>
+                        </select>
+                        <input type="text" class="form-control form-control-sm" id="filtro-cidade" placeholder="Cidade..." style="width:120px">
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="loadInf" class="text-muted small">Carregando...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover d-none" id="tblInf">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Tipo</th>
+                                    <th>Status</th>
+                                    <th>Nicho</th>
+                                    <th>Cidade</th>
+                                    <th>Score</th>
+                                    <th>Email</th>
+                                    <th class="text-end">Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyInf"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Formulario inline: Alterar Status -->
+                    <div id="form-status" class="d-none border rounded p-3 mt-3 bg-light">
+                        <h6 class="fw-bold mb-2">Alterar Status do Influencer</h6>
+                        <div id="form-status-alert"></div>
+                        <input type="hidden" id="ms-id">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-auto">
+                                <label class="form-label small mb-1">Influencer</label>
+                                <input type="text" class="form-control form-control-sm" id="ms-nome" readonly style="width:180px;background:#e9ecef">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-1">Novo status</label>
+                                <select class="form-control form-control-sm" id="ms-status" style="width:140px">
+                                    <option value="pendente">Pendente</option>
+                                    <option value="teste">Teste</option>
+                                    <option value="aprovado">Aprovado</option>
+                                    <option value="parceiro">Parceiro</option>
+                                    <option value="bloqueado">Bloqueado</option>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label class="form-label small mb-1">Motivo (opcional)</label>
+                                <input class="form-control form-control-sm" type="text" id="ms-motivo" placeholder="Motivo da alteracao...">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary btn-sm" onclick="salvarStatus()">Salvar</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="fecharFormStatus()">Cancelar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Campanhas -->
+        <div class="tab-pane fade" id="tab-campanhas">
+            <div class="card">
+                <div class="card-header">
+                    <strong>Campanhas</strong>
+                </div>
+                <div class="card-body">
+                    <div id="loadCamp" class="text-muted small">Carregando...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover d-none" id="tblCamp">
+                            <thead>
+                                <tr>
+                                    <th>Titulo</th>
+                                    <th>Influencer</th>
+                                    <th>Tipo</th>
+                                    <th>Status</th>
+                                    <th>Cupom</th>
+                                    <th>Teste</th>
+                                    <th>Criado em</th>
+                                    <th class="text-end">Acoes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyCamp"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- Formulario inline: Nova Campanha -->
+                    <div class="border rounded p-3 mt-3 bg-light" id="form-campanha">
+                        <h6 class="fw-bold mb-2">Criar Nova Campanha</h6>
+                        <div id="form-campanha-alert"></div>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">Influencer</label>
+                                <select class="form-control form-control-sm" id="mc-divulgador">
+                                    <option value="">Carregando...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small mb-1">Titulo</label>
+                                <input class="form-control form-control-sm" type="text" id="mc-titulo" placeholder="Nome da campanha">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">Tipo</label>
+                                <select class="form-control form-control-sm" id="mc-tipo">
+                                    <option value="propaganda">Propaganda</option>
+                                    <option value="cupom">Cupom de desconto</option>
+                                    <option value="live">Live / Link</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1">Pagamento</label>
+                                <select class="form-control form-control-sm" id="mc-modelo">
+                                    <option value="comissao">Comissao</option>
+                                    <option value="fixo">Fixo</option>
+                                    <option value="hibrido">Hibrido</option>
+                                </select>
+                            </div>
+                            <div class="col-auto d-flex align-items-center gap-2">
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="mc-teste">
+                                    <label class="form-check-label small" for="mc-teste">Teste</label>
+                                </div>
+                                <button class="btn btn-primary btn-sm" onclick="salvarCampanha()">Criar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var F = window.authenticatedFetch || fetch;
+    var statusBadge = {
+        pendente: 'warning', teste: 'info', aprovado: 'success', parceiro: 'primary', bloqueado: 'danger',
+        rascunho: 'secondary', ativa: 'success', pausada: 'warning', finalizada: 'dark', cancelada: 'danger'
+    };
+
+    function badge(st) { return '<span class="badge bg-' + (statusBadge[st]||'secondary') + '">' + (st||'-') + '</span>'; }
+    function fmt(d) { if (!d) return '-'; return new Date(d).toLocaleDateString('pt-BR'); }
+
+    function inlineAlert(containerId, msg, type) {
+        var el = document.getElementById(containerId);
+        if (!el) return;
+        el.innerHTML = '<div class="alert alert-' + (type||'info') + ' alert-dismissible fade show py-1 px-2 small mb-2">' + msg + '<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert"></button></div>';
+        el.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+
+    function carregarInfluencers() {
+        var qs = [];
+        var st = document.getElementById('filtro-status').value;
+        var tp = document.getElementById('filtro-tipo').value;
+        var ci = document.getElementById('filtro-cidade').value.trim();
+        if (st) qs.push('status=' + st);
+        if (tp) qs.push('tipo=' + tp);
+        if (ci) qs.push('cidade=' + ci);
+        var url = '/api/v1/influencers' + (qs.length ? '?' + qs.join('&') : '');
+        F(url).then(function(r){return r.json()}).then(function(data){
+            document.getElementById('loadInf').classList.add('d-none');
+            document.getElementById('tblInf').classList.remove('d-none');
+            var tbody = document.getElementById('tbodyInf');
+            tbody.innerHTML = '';
+            var pendentes = 0;
+            data.forEach(function(d){
+                if (d.status === 'pendente') pendentes++;
+                var nomeEsc = (d.nome||'').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+                tbody.innerHTML += '<tr>'
+                    + '<td>' + (d.nome||'') + '</td>'
+                    + '<td>' + (d.tipo||'-') + '</td>'
+                    + '<td>' + badge(d.status) + '</td>'
+                    + '<td>' + (d.nicho||'-') + '</td>'
+                    + '<td>' + (d.cidade||'-') + '</td>'
+                    + '<td>' + (d.score_performance||0) + '</td>'
+                    + '<td>' + (d.email||'-') + '</td>'
+                    + '<td class="text-end">'
+                    + '<button class="btn btn-outline-primary btn-sm me-1" onclick="abrirStatus('+d.id+',\''+( d.status||'')+'\',\''+nomeEsc+'\')">Status</button>'
+                    + '<a href="/api/v1/influencers/'+d.id+'/metricas" target="_blank" class="btn btn-outline-info btn-sm">Metricas</a>'
+                    + '</td></tr>';
+            });
+            document.getElementById('card-total').textContent = data.length;
+            document.getElementById('card-pendentes').textContent = pendentes;
+        });
+    }
+
+    function carregarCampanhas() {
+        F('/api/v1/influencers/campanhas').then(function(r){return r.json()}).then(function(data){
+            document.getElementById('loadCamp').classList.add('d-none');
+            document.getElementById('tblCamp').classList.remove('d-none');
+            var tbody = document.getElementById('tbodyCamp');
+            tbody.innerHTML = '';
+            var ativas = 0;
+            data.forEach(function(c){
+                if (c.status === 'ativa') ativas++;
+                tbody.innerHTML += '<tr>'
+                    + '<td>' + (c.titulo||'') + '</td>'
+                    + '<td>' + (c.influencer_nome||'-') + '</td>'
+                    + '<td>' + (c.tipo||'-') + '</td>'
+                    + '<td>' + badge(c.status) + '</td>'
+                    + '<td>' + (c.cupom_codigo||'-') + '</td>'
+                    + '<td>' + (c.is_teste ? 'Sim' : '-') + '</td>'
+                    + '<td>' + fmt(c.created_at) + '</td>'
+                    + '<td class="text-end">'
+                    + '<a href="/api/v1/influencers/campanhas/'+c.id+'/metricas" target="_blank" class="btn btn-outline-info btn-sm">Metricas</a>'
+                    + '</td></tr>';
+            });
+            document.getElementById('card-campanhas').textContent = ativas;
+        });
+    }
+
+    function carregarSelectInfluencers() {
+        F('/api/v1/influencers?tipo=influencer').then(function(r){return r.json()}).then(function(data){
+            var sel = document.getElementById('mc-divulgador');
+            sel.innerHTML = '<option value="">Selecione o influencer...</option>';
+            data.forEach(function(d){
+                sel.innerHTML += '<option value="'+d.id+'">' + d.nome + ' (' + (d.status||'') + ')</option>';
+            });
+        });
+    }
+
+    window.abrirStatus = function(id, current, nome) {
+        document.getElementById('ms-id').value = id;
+        document.getElementById('ms-status').value = current || 'pendente';
+        document.getElementById('ms-motivo').value = '';
+        document.getElementById('ms-nome').value = nome || '';
+        document.getElementById('form-status-alert').innerHTML = '';
+        var formEl = document.getElementById('form-status');
+        formEl.classList.remove('d-none');
+        formEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+    };
+
+    window.fecharFormStatus = function() {
+        document.getElementById('form-status').classList.add('d-none');
+    };
+
+    window.salvarStatus = function() {
+        var id = document.getElementById('ms-id').value;
+        var st = document.getElementById('ms-status').value;
+        var motivo = document.getElementById('ms-motivo').value.trim();
+        F('/api/v1/influencers/' + id + '/status', {
+            method: 'PATCH',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({status: st, motivo: motivo || null})
+        }).then(function(r){
+            if (!r.ok) return r.json().then(function(d){ throw new Error(d.detail||'Erro'); });
+            return r.json();
+        }).then(function(){
+            inlineAlert('form-status-alert', 'Status alterado com sucesso!', 'success');
+            carregarInfluencers();
+            setTimeout(function(){ document.getElementById('form-status').classList.add('d-none'); }, 1500);
+        }).catch(function(e){
+            inlineAlert('form-status-alert', e.message, 'danger');
+        });
+    };
+
+    window.salvarCampanha = function() {
+        var divId = document.getElementById('mc-divulgador').value;
+        if (!divId) { inlineAlert('form-campanha-alert', 'Selecione um influencer.', 'warning'); return; }
+        var titulo = document.getElementById('mc-titulo').value.trim();
+        if (!titulo) { inlineAlert('form-campanha-alert', 'Informe o titulo da campanha.', 'warning'); return; }
+        var payload = {
+            divulgador_id: parseInt(divId),
+            titulo: titulo,
+            tipo: document.getElementById('mc-tipo').value,
+            modelo_pagamento: document.getElementById('mc-modelo').value,
+            is_teste: document.getElementById('mc-teste').checked
+        };
+        F('/api/v1/influencers/campanhas', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+        }).then(function(r){
+            if (!r.ok) return r.json().then(function(d){ throw new Error(d.detail||'Erro'); });
+            return r.json();
+        }).then(function(){
+            inlineAlert('form-campanha-alert', 'Campanha criada com sucesso!', 'success');
+            document.getElementById('mc-titulo').value = '';
+            document.getElementById('mc-divulgador').value = '';
+            document.getElementById('mc-teste').checked = false;
+            carregarCampanhas();
+        }).catch(function(e){
+            inlineAlert('form-campanha-alert', e.message, 'danger');
+        });
+    };
+
+    window.recalcularScores = function() {
+        F('/api/v1/influencers/recalcular-scores', {method:'POST'}).then(function(r){return r.json()}).then(function(d){
+            inlineAlert('form-campanha-alert', d.detail || 'Scores recalculados.', 'success');
+            carregarInfluencers();
+        }).catch(function(e){
+            inlineAlert('form-campanha-alert', 'Erro: ' + e.message, 'danger');
+        });
+    };
+
+    document.getElementById('filtro-status').addEventListener('change', carregarInfluencers);
+    document.getElementById('filtro-tipo').addEventListener('change', carregarInfluencers);
+    var cidadeTimer;
+    document.getElementById('filtro-cidade').addEventListener('input', function(){
+        clearTimeout(cidadeTimer);
+        cidadeTimer = setTimeout(carregarInfluencers, 500);
+    });
+
+    carregarInfluencers();
+    carregarCampanhas();
+    carregarSelectInfluencers();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Minha conta{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Minha conta</h1>
+<div id="loja-conta-unauth" class="alert alert-info" style="display: none;">
+    <a href="/loja/login">Entrar</a> para ver e editar seus dados.
+</div>
+<div id="loja-conta-form-wrap" style="display: none;">
+  <form id="loja-conta-form">
+    <div class="mb-3">
+      <label for="loja-conta-nome" class="form-label">Nome</label>
+      <input type="text" class="form-control" id="loja-conta-nome" name="nome">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">E-mail</label>
+      <input type="text" class="form-control" id="loja-conta-email" disabled>
+    </div>
+    <div class="mb-3">
+      <label for="loja-conta-telefone" class="form-label">Telefone</label>
+      <input type="text" class="form-control" id="loja-conta-telefone" name="telefone">
+    </div>
+    <div class="mb-3">
+      <label for="loja-conta-documento" class="form-label">CPF/CNPJ</label>
+      <input type="text" class="form-control" id="loja-conta-documento" name="documento">
+    </div>
+    <div id="loja-conta-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+    <button type="submit" class="btn btn-primary">Salvar</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var unauth = document.getElementById("loja-conta-unauth");
+  var formWrap = document.getElementById("loja-conta-form-wrap");
+  var form = document.getElementById("loja-conta-form");
+  var errorEl = document.getElementById("loja-conta-error");
+
+  window.Vitrine.getMinhaConta()
+    .then(function (conta) {
+      unauth.style.display = "none";
+      formWrap.style.display = "block";
+      document.getElementById("loja-conta-nome").value = conta.nome || "";
+      document.getElementById("loja-conta-email").value = conta.email || "";
+      document.getElementById("loja-conta-telefone").value = conta.telefone || "";
+      document.getElementById("loja-conta-documento").value = conta.documento || "";
+    })
+    .catch(function () {
+      unauth.style.display = "block";
+      formWrap.style.display = "none";
+    });
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+    var data = {
+      nome: document.getElementById("loja-conta-nome").value.trim(),
+      telefone: (document.getElementById("loja-conta-telefone").value || "").trim() || null,
+      documento: (document.getElementById("loja-conta-documento").value || "").trim() || null,
+    };
+    window.Vitrine.putMinhaConta(data)
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail || "Falha ao salvar"); });
+        errorEl.style.display = "none";
+        var success = document.createElement("div");
+        success.className = "alert alert-success mt-2";
+        success.textContent = "Dados salvos.";
+        form.appendChild(success);
+        setTimeout(function () { success.remove(); }, 3000);
+      })
+      .catch(function (err) {
+        errorEl.textContent = err.message || "Erro ao salvar.";
+        errorEl.style.display = "block";
+      });
+  });
+})();
+</script>
+{% endblock %}

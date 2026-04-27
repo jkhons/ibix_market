@@ -1,0 +1,446 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Minha conta{% endblock %}
+
+{% block content %}
+<div class="loja-account-page">
+  <div class="loja-account-header">
+    <h1 class="loja-page-title">Minha conta</h1>
+    <p class="loja-page-subtitle">
+      Gerencie seus dados de acesso e informações pessoais.
+    </p>
+  </div>
+
+  <div id="loja-conta-unauth" class="loja-account-empty" style="display: none;">
+    <div class="loja-account-empty-card">
+      <h2>Entre para acessar sua conta</h2>
+      <p>Faça login para visualizar e editar seus dados.</p>
+      <a href="/loja/login" class="btn btn-primary">Entrar</a>
+    </div>
+  </div>
+
+  <div id="loja-conta-form-wrap" style="display: none;">
+    <div class="loja-account-card">
+      <form id="loja-conta-form">
+        <div class="row g-3">
+          <div class="col-12">
+            <label for="loja-conta-nome" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="loja-conta-nome" name="nome">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">E-mail</label>
+            <input type="text" class="form-control loja-input-readonly" id="loja-conta-email" disabled>
+          </div>
+
+          <div class="col-md-6">
+            <label for="loja-conta-telefone" class="form-label">Telefone</label>
+            <input type="text" class="form-control" id="loja-conta-telefone" name="telefone">
+          </div>
+
+          <div class="col-md-6">
+            <label for="loja-conta-documento" class="form-label">CPF/CNPJ</label>
+            <input type="text" class="form-control" id="loja-conta-documento" name="documento">
+          </div>
+
+          <div class="col-12">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="loja-conta-aceite-marketing" name="aceite_marketing">
+              <label class="form-check-label" for="loja-conta-aceite-marketing">
+                Aceito receber ofertas e novidades por e-mail (LGPD)
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div id="loja-conta-error" class="alert alert-danger mt-3" style="display: none;" role="alert"></div>
+
+        <div class="loja-account-actions">
+          <button type="submit" class="btn btn-primary">Salvar alterações</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Seção Meus endereços -->
+    <div class="loja-account-card mt-4" id="loja-conta-enderecos-wrap">
+      <h2 class="loja-account-card-title">Meus endereços</h2>
+      <p class="text-muted small mb-3">Cadastre endereços para agilizar suas compras com entrega.</p>
+      <div id="loja-conta-enderecos-list" class="mb-3"></div>
+      <div id="loja-conta-endereco-form" class="loja-conta-endereco-form">
+        <h3 class="h6 mb-3">Adicionar endereço</h3>
+        <div class="row g-2 mb-2">
+          <div class="col-5">
+            <label class="form-label">CEP</label>
+            <input type="text" class="form-control" id="loja-conta-endereco-cep" maxlength="9" placeholder="00000-000">
+          </div>
+          <div class="col-7 d-flex align-items-end">
+            <span id="loja-conta-endereco-cep-status" class="small text-muted"></span>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Logradouro</label>
+          <input type="text" class="form-control" id="loja-conta-endereco-logradouro" readonly>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-4">
+            <label class="form-label">Número</label>
+            <input type="text" class="form-control" id="loja-conta-endereco-numero">
+          </div>
+          <div class="col-8">
+            <label class="form-label">Complemento</label>
+            <input type="text" class="form-control" id="loja-conta-endereco-complemento">
+          </div>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-5">
+            <label class="form-label">Bairro</label>
+            <input type="text" class="form-control" id="loja-conta-endereco-bairro" readonly>
+          </div>
+          <div class="col-5">
+            <label class="form-label">Cidade</label>
+            <input type="text" class="form-control" id="loja-conta-endereco-cidade" readonly>
+          </div>
+          <div class="col-2">
+            <label class="form-label">UF</label>
+            <input type="text" class="form-control" id="loja-conta-endereco-uf" maxlength="2" readonly>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Apelido (opcional)</label>
+          <input type="text" class="form-control" id="loja-conta-endereco-apelido" placeholder="Ex: Casa, Trabalho">
+        </div>
+        <div class="form-check mb-3">
+          <input type="checkbox" class="form-check-input" id="loja-conta-endereco-principal">
+          <label class="form-check-label" for="loja-conta-endereco-principal">Usar como endereço principal</label>
+        </div>
+        <div id="loja-conta-endereco-error" class="alert alert-danger mb-2" style="display: none;"></div>
+        <button type="button" class="btn btn-primary" id="loja-conta-endereco-btn">Adicionar endereço</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: complete seu cadastro -->
+<div id="modalMinhaContaEndereco" class="loja-modal-endereco" role="dialog" aria-modal="true" aria-labelledby="modalMinhaContaEnderecoTitulo" style="display: none;">
+  <div class="loja-modal-endereco-backdrop"></div>
+  <div class="loja-modal-endereco-content">
+    <div class="loja-modal-endereco-header">
+      <h2 id="modalMinhaContaEnderecoTitulo" class="loja-modal-endereco-title">Complete seu cadastro</h2>
+      <button type="button" class="loja-modal-endereco-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="loja-modal-endereco-body">
+      <p>Que tal completar seu cadastro? Adicione um endereço de entrega e aproveite um checkout mais rápido nas suas próximas compras.</p>
+    </div>
+    <div class="loja-modal-endereco-footer">
+      <button type="button" class="btn btn-outline-secondary" id="modalMinhaContaEnderecoDepois">Depois</button>
+      <button type="button" class="btn btn-primary" id="modalMinhaContaEnderecoAdicionar">Adicionar endereço</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var unauth = document.getElementById("loja-conta-unauth");
+  var formWrap = document.getElementById("loja-conta-form-wrap");
+  var form = document.getElementById("loja-conta-form");
+  var errorEl = document.getElementById("loja-conta-error");
+  var enderecosWrap = document.getElementById("loja-conta-enderecos-wrap");
+  var modalEndereco = document.getElementById("modalMinhaContaEndereco");
+
+  function fetchEnderecos() {
+    return window.Vitrine.getMinhaContaEnderecos();
+  }
+
+  /** Monta o body do POST de endereço a partir do formulário, ou null se nada a gravar. */
+  function montarBodyEnderecoDoForm() {
+    var cep = (document.getElementById("loja-conta-endereco-cep").value || "").trim().replace(/\D/g, "");
+    var logradouro = (document.getElementById("loja-conta-endereco-logradouro").value || "").trim();
+    var numero = (document.getElementById("loja-conta-endereco-numero").value || "").trim();
+    var complemento = (document.getElementById("loja-conta-endereco-complemento").value || "").trim();
+    var bairro = (document.getElementById("loja-conta-endereco-bairro").value || "").trim();
+    var cidade = (document.getElementById("loja-conta-endereco-cidade").value || "").trim();
+    var uf = (document.getElementById("loja-conta-endereco-uf").value || "").trim();
+    var apelido = (document.getElementById("loja-conta-endereco-apelido").value || "").trim() || null;
+    var principal = document.getElementById("loja-conta-endereco-principal").checked;
+    var temIntent = cep.length > 0 || !!logradouro || !!numero;
+    if (!temIntent) return null;
+    if (!logradouro || !numero || !cidade || !uf) return { incompleto: true };
+    return {
+      body: {
+        cep: cep.length === 8 ? cep.slice(0, 5) + "-" + cep.slice(5) : cep,
+        logradouro: logradouro,
+        numero: numero,
+        complemento: complemento || null,
+        bairro: bairro || null,
+        cidade: cidade,
+        uf: uf.toUpperCase(),
+        apelido: apelido,
+        principal: principal,
+      },
+    };
+  }
+
+  function renderEnderecosList(enderecos) {
+    var listEl = document.getElementById("loja-conta-enderecos-list");
+    if (!listEl) return;
+    if (!Array.isArray(enderecos) || enderecos.length === 0) {
+      listEl.innerHTML = '<p class="text-muted small">Nenhum endereço cadastrado.</p>';
+      return;
+    }
+    var html = enderecos.map(function (e) {
+      var partes = [];
+      if (e.logradouro) partes.push(e.logradouro + (e.numero ? ", " + e.numero : ""));
+      if (e.complemento) partes.push(e.complemento);
+      if (e.bairro) partes.push(e.bairro);
+      if (e.cidade || e.uf) partes.push((e.cidade || "") + (e.cidade && e.uf ? " - " : "") + (e.uf || ""));
+      if (e.cep) partes.push("CEP " + e.cep);
+      var txt = partes.join(", ") || "Endereço";
+      var principal = e.principal ? ' <span class="badge bg-secondary">Principal</span>' : "";
+      var esc = typeof window.Vitrine !== "undefined" && window.Vitrine.escapeHtml ? window.Vitrine.escapeHtml : function (s) { return String(s == null ? "" : s); };
+      var linhaAntes = "";
+      if (e.apelido) linhaAntes += "<strong>" + esc(e.apelido) + "</strong>";
+      linhaAntes += principal;
+      if (e.apelido || principal) linhaAntes += "<br>";
+      var corpo = '<div class="loja-conta-endereco-item-body">' + linhaAntes + esc(txt) + "</div>";
+      var eid = Number(e.id);
+      var btnExcluir =
+        eid > 0
+          ? '<button type="button" class="btn btn-sm btn-outline-danger loja-conta-endereco-excluir" data-endereco-id="' +
+            eid +
+            '" aria-label="Excluir endereço">Excluir</button>'
+          : "";
+      return '<div class="loja-conta-endereco-item loja-conta-endereco-item--row">' + corpo + btnExcluir + "</div>";
+    }).join("");
+    listEl.innerHTML = html;
+  }
+
+  function limparFormEndereco() {
+    ["cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf", "apelido"].forEach(function (suf) {
+      var el = document.getElementById("loja-conta-endereco-" + suf);
+      if (el && el.type !== "checkbox") el.value = "";
+    });
+    var principalEl = document.getElementById("loja-conta-endereco-principal");
+    if (principalEl) principalEl.checked = false;
+    var statusEl = document.getElementById("loja-conta-endereco-cep-status");
+    if (statusEl) statusEl.textContent = "";
+  }
+
+  function adicionarEndereco() {
+    var cep = (document.getElementById("loja-conta-endereco-cep").value || "").trim().replace(/\D/g, "");
+    var logradouro = (document.getElementById("loja-conta-endereco-logradouro").value || "").trim();
+    var numero = (document.getElementById("loja-conta-endereco-numero").value || "").trim();
+    var complemento = (document.getElementById("loja-conta-endereco-complemento").value || "").trim();
+    var bairro = (document.getElementById("loja-conta-endereco-bairro").value || "").trim();
+    var cidade = (document.getElementById("loja-conta-endereco-cidade").value || "").trim();
+    var uf = (document.getElementById("loja-conta-endereco-uf").value || "").trim();
+    var apelido = (document.getElementById("loja-conta-endereco-apelido").value || "").trim() || null;
+    var principal = document.getElementById("loja-conta-endereco-principal").checked;
+    var errorEl = document.getElementById("loja-conta-endereco-error");
+    errorEl.style.display = "none";
+    if (!logradouro || !numero || !cidade || !uf) {
+      errorEl.textContent = "Preencha CEP, número, e busque o endereço pelo CEP.";
+      errorEl.style.display = "block";
+      return;
+    }
+    var body = { cep: cep.length === 8 ? cep.slice(0, 5) + "-" + cep.slice(5) : cep, logradouro: logradouro, numero: numero, complemento: complemento || null, bairro: bairro || null, cidade: cidade, uf: uf.toUpperCase(), apelido: apelido, principal: principal };
+    window.Vitrine.postMinhaContaEndereco(body)
+      .then(function () {
+        limparFormEndereco();
+        return fetchEnderecos();
+      })
+      .then(function (list) {
+        renderEnderecosList(list);
+        if (modalEndereco) modalEndereco.style.display = "none";
+      })
+      .catch(function (err) {
+        errorEl.textContent = err.message || "Erro ao salvar endereço.";
+        errorEl.style.display = "block";
+      });
+  }
+
+  window.Vitrine.getMinhaConta()
+    .then(function (conta) {
+      unauth.style.display = "none";
+      formWrap.style.display = "block";
+      document.getElementById("loja-conta-nome").value = conta.nome || "";
+      document.getElementById("loja-conta-email").value = conta.email || "";
+      document.getElementById("loja-conta-telefone").value = conta.telefone || "";
+      document.getElementById("loja-conta-documento").value = conta.documento || "";
+      var aceiteEl = document.getElementById("loja-conta-aceite-marketing");
+      if (aceiteEl) aceiteEl.checked = !!conta.aceite_marketing;
+      return fetchEnderecos()
+        .then(function (enderecos) {
+          renderEnderecosList(enderecos);
+          if (Array.isArray(enderecos) && enderecos.length === 0 && modalEndereco) {
+            modalEndereco.style.display = "flex";
+          }
+          if (window.location.hash === "#loja-conta-enderecos-wrap") {
+            var el = document.getElementById("loja-conta-enderecos-wrap");
+            if (el) el.scrollIntoView({ behavior: "smooth" });
+          }
+        })
+        .catch(function (err) {
+          var listEl = document.getElementById("loja-conta-enderecos-list");
+          var msg = err && err.message ? err.message : "Erro ao carregar endereços";
+          if (listEl) {
+            listEl.innerHTML =
+              '<p class="text-danger small">' +
+              (window.Vitrine.escapeHtml ? window.Vitrine.escapeHtml(msg) : msg) +
+              "</p>";
+          }
+        });
+    })
+    .catch(function () {
+      unauth.style.display = "block";
+      formWrap.style.display = "none";
+    });
+
+  document.getElementById("loja-conta-endereco-cep").addEventListener("blur", function () {
+    var cep = this.value.replace(/\D/g, "");
+    var statusEl = document.getElementById("loja-conta-endereco-cep-status");
+    if (cep.length !== 8) { statusEl.textContent = ""; return; }
+    statusEl.textContent = "Buscando...";
+    fetch("https://viacep.com.br/ws/" + cep + "/json/", { credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.erro) { statusEl.textContent = "CEP não encontrado"; return; }
+        statusEl.textContent = "";
+        document.getElementById("loja-conta-endereco-logradouro").value = data.logradouro || "";
+        document.getElementById("loja-conta-endereco-bairro").value = data.bairro || "";
+        document.getElementById("loja-conta-endereco-cidade").value = data.localidade || "";
+        document.getElementById("loja-conta-endereco-uf").value = data.uf || "";
+      })
+      .catch(function () { statusEl.textContent = "Erro ao buscar CEP"; });
+  });
+
+  document.getElementById("loja-conta-endereco-btn").addEventListener("click", adicionarEndereco);
+
+  if (enderecosWrap) {
+    enderecosWrap.addEventListener("click", function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest(".loja-conta-endereco-excluir") : null;
+      if (!btn || btn.disabled) return;
+      var id = btn.getAttribute("data-endereco-id");
+      if (!id) return;
+      if (!window.confirm("Remover este endereço da sua conta?")) return;
+      var addrErr = document.getElementById("loja-conta-endereco-error");
+      if (addrErr) {
+        addrErr.style.display = "none";
+        addrErr.textContent = "";
+      }
+      btn.disabled = true;
+      window.Vitrine.deleteMinhaContaEndereco(id)
+        .then(function () {
+          return fetchEnderecos();
+        })
+        .then(function (list) {
+          renderEnderecosList(list);
+          if (modalEndereco && Array.isArray(list) && list.length === 0) {
+            modalEndereco.style.display = "flex";
+          }
+        })
+        .catch(function (err) {
+          if (addrErr) {
+            addrErr.textContent = err.message || "Erro ao excluir endereço.";
+            addrErr.style.display = "block";
+          }
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
+    });
+  }
+
+  if (modalEndereco) {
+    var backdrop = modalEndereco.querySelector(".loja-modal-endereco-backdrop");
+    var closeBtn = modalEndereco.querySelector(".loja-modal-endereco-close");
+    var btnDepois = document.getElementById("modalMinhaContaEnderecoDepois");
+    var btnAdicionar = document.getElementById("modalMinhaContaEnderecoAdicionar");
+    function fecharModal() { modalEndereco.style.display = "none"; }
+    if (backdrop) backdrop.addEventListener("click", fecharModal);
+    if (closeBtn) closeBtn.addEventListener("click", fecharModal);
+    if (btnDepois) btnDepois.addEventListener("click", fecharModal);
+    if (btnAdicionar) btnAdicionar.addEventListener("click", function () {
+      fecharModal();
+      var wrap = document.getElementById("loja-conta-enderecos-wrap");
+      if (wrap) wrap.scrollIntoView({ behavior: "smooth" });
+    });
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+
+    var aceiteEl = document.getElementById("loja-conta-aceite-marketing");
+    var data = {
+      nome: document.getElementById("loja-conta-nome").value.trim(),
+      telefone: (document.getElementById("loja-conta-telefone").value || "").trim() || null,
+      documento: (document.getElementById("loja-conta-documento").value || "").trim() || null,
+      aceite_marketing: aceiteEl ? aceiteEl.checked : undefined
+    };
+
+    var addrErrEl = document.getElementById("loja-conta-endereco-error");
+    if (addrErrEl) {
+      addrErrEl.style.display = "none";
+      addrErrEl.textContent = "";
+    }
+
+    var enderecoPack = montarBodyEnderecoDoForm();
+    if (enderecoPack && enderecoPack.incompleto) {
+      if (addrErrEl) {
+        addrErrEl.textContent =
+          "Para gravar o endereço na mesma ação, preencha CEP (busque pelo blur), número e demais campos obrigatórios, ou use o botão «Adicionar endereço».";
+        addrErrEl.style.display = "block";
+      }
+    }
+
+    window.Vitrine.putMinhaConta(data)
+      .then(function (r) {
+        if (!r.ok) {
+          return r.json().then(function (d) {
+            throw new Error(d.detail || "Falha ao salvar");
+          });
+        }
+        if (enderecoPack && enderecoPack.incompleto) {
+          return Promise.resolve();
+        }
+        if (enderecoPack && enderecoPack.body) {
+          return window.Vitrine.postMinhaContaEndereco(enderecoPack.body).then(function () {
+            limparFormEndereco();
+          });
+        }
+        return Promise.resolve();
+      })
+      .then(function () {
+        return fetchEnderecos()
+          .then(function (list) {
+            renderEnderecosList(list);
+          })
+          .catch(function () {
+            /* lista já pode estar desatualizada; perfil/endereço gravados */
+          });
+      })
+      .then(function () {
+        errorEl.style.display = "none";
+
+        var success = document.createElement("div");
+        success.className = "alert alert-success mt-3";
+        success.textContent =
+          enderecoPack && enderecoPack.body
+            ? "Dados e endereço salvos com sucesso."
+            : "Dados salvos com sucesso.";
+        form.appendChild(success);
+
+        setTimeout(function () {
+          success.remove();
+        }, 3000);
+      })
+      .catch(function (err) {
+        errorEl.textContent = err.message || "Erro ao salvar.";
+        errorEl.style.display = "block";
+      });
+  });
+})();
+</script>
+{% endblock %}

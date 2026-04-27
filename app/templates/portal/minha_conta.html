@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Portal - Minha Conta | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h1 class="h3 mb-4">Minha Conta</h1>
+    <p class="text-muted">Dados do perfil e alteração de senha.</p>
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <p><strong>Nome:</strong> {{ user_name or '-' }}</p>
+            <p><strong>E-mail:</strong> {{ user_email or '-' }}</p>
+            <p class="mb-0"><a href="/auth/alterar-senha" class="btn btn-primary">Alterar senha</a></p>
+        </div>
+    </div>
+</div>
+{% endblock %}

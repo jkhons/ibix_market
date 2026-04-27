@@ -1,0 +1,240 @@
+{# 
+  REFERÊNCIA DO CERTILOG - Editor de Template Form Builder
+  Este arquivo é uma cópia de referência do sistema Certilog.
+  Não deve ser usado diretamente no PDV Ibix.
+  Adaptar conforme necessário para implementação futura.
+#}
+{% extends "base.html" %}
+
+{% block title %}Editor de Template - Form Builder{% endblock %}
+
+{% block page_title %}Editor de Template{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <div>
+            <a href="/manutencao/templates" class="btn btn-outline-secondary btn-sm me-2" title="Voltar para listagem de templates">
+                <i class="align-middle me-1" data-feather="arrow-left"></i>
+                Voltar
+            </a>
+            <h1 class="h3 d-inline align-middle" id="templateNomeTitulo">Novo Template</h1>
+            <span class="badge bg-secondary ms-2" id="templateStatusBadge">Rascunho</span>
+        </div>
+        <div>
+            <button type="button" class="btn btn-secondary" onclick="salvarRascunho()">
+                <i class="align-middle me-1" data-feather="save"></i>
+                Salvar Rascunho
+            </button>
+            <button type="button" class="btn btn-success" onclick="publicarTemplate()">
+                <i class="align-middle me-1" data-feather="check"></i>
+                Publicar
+            </button>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Painel Lateral Esquerdo - Propriedades e Blocos -->
+        <div class="col-md-3">
+            <!-- Painel de Propriedades (no topo) -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="propriedades-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="prop-campo-tab" data-bs-toggle="tab" data-bs-target="#prop-campo" type="button">Campo</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="prop-regras-tab" data-bs-toggle="tab" data-bs-target="#prop-regras" type="button">Regras</button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <div class="tab-content" id="propriedades-tab-content">
+                        <div class="tab-pane fade show active" id="prop-campo" role="tabpanel">
+                            <div id="painel-propriedades">
+                                <p class="text-muted small">Selecione um campo para editar suas propriedades</p>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="prop-regras" role="tabpanel">
+                            <div id="painel-regras-status">
+                                <h6>Regras por Status</h6>
+                                <p class="text-muted small mb-3">Configure obrigatoriedade, visibilidade e editabilidade por status da OS</p>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="abrirConfigRegrasStatus()">
+                                    <i data-feather="settings"></i> Configurar Regras por Status
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Blocos Disponíveis (embaixo) -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Blocos Disponíveis</h5>
+                </div>
+                <div class="card-body" style="max-height: calc(100vh - 350px); overflow-y: auto;">
+                    <ul class="nav nav-tabs mb-2" id="blocos-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="blocos-basicos-tab" data-bs-toggle="tab" data-bs-target="#blocos-basicos" type="button">Básicos</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="blocos-cmms-tab" data-bs-toggle="tab" data-bs-target="#blocos-cmms" type="button">CMMS</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="blocos-especiais-tab" data-bs-toggle="tab" data-bs-target="#blocos-especiais" type="button">Especiais</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content" id="blocos-tab-content">
+                        <div class="tab-pane fade show active" id="blocos-basicos" role="tabpanel">
+                            <div class="list-group" id="lista-blocos-basicos">
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="text">
+                                    <i data-feather="type"></i> Campo de Texto
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="number">
+                                    <i data-feather="hash"></i> Campo Numérico
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="date">
+                                    <i data-feather="calendar"></i> Campo de Data
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="hora">
+                                    <i data-feather="clock"></i> Campo de Hora
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="datetime">
+                                    <i data-feather="calendar"></i> Data + Hora
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="boolean">
+                                    <i data-feather="toggle-left"></i> Booleano (Sim/Não)
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="select">
+                                    <i data-feather="list"></i> Select (Dropdown)
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="checkbox">
+                                    <i data-feather="check-square"></i> Checkbox
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="texto_informativo">
+                                    <i data-feather="info"></i> Texto Informativo
+                                    <small class="d-block text-muted">Read-only</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="blocos-cmms" role="tabpanel">
+                            <div class="list-group" id="lista-blocos-cmms">
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="apontamento_horas">
+                                    <i data-feather="clock"></i> Apontamento de Horas
+                                    <small class="d-block text-muted">Tabela especializada por técnico</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="materiais_pecas">
+                                    <i data-feather="package"></i> Materiais/Peças
+                                    <small class="d-block text-muted">Integração com cadastro</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="equipamentos">
+                                    <i data-feather="tool"></i> Equipamentos
+                                    <small class="d-block text-muted">Referência ao cadastro</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="ativos">
+                                    <i data-feather="layers"></i> Ativos
+                                    <small class="d-block text-muted">Lista ativos da unidade para seleção</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="status_final">
+                                    <i data-feather="flag"></i> Status Final do Serviço
+                                    <small class="d-block text-muted">Concluído/Andamento/Paliativo</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="seguranca_operacional">
+                                    <i data-feather="shield"></i> Segurança Operacional
+                                    <small class="d-block text-muted">Equipamento seguro? (Sim/Não)</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="qsa">
+                                    <i data-feather="check-circle"></i> QSA (C/NC)
+                                    <small class="d-block text-muted">Qualidade e Segurança de Alimentos</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="solicitante">
+                                    <i data-feather="user"></i> Solicitante
+                                    <small class="d-block text-muted">Informações do solicitante que abriu a OS</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="descricao_solicitante">
+                                    <i data-feather="file-text"></i> Descrição do Solicitante
+                                    <small class="d-block text-muted">Campo de texto para descrição do problema</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="descricao_tecnico">
+                                    <i data-feather="edit-3"></i> Descrição do Técnico
+                                    <small class="d-block text-muted">Campo para técnico descrever ocorrências durante atendimento</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="blocos-especiais" role="tabpanel">
+                            <div class="list-group" id="lista-blocos-especiais">
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="checklist">
+                                    <i data-feather="check-square"></i> Checklist
+                                    <small class="d-block text-muted">C/NC/NA com observações</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="tabela">
+                                    <i data-feather="grid"></i> Tabela Repetível
+                                    <small class="d-block text-muted">Arraste para adicionar</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="upload">
+                                    <i data-feather="upload"></i> Upload de Arquivo
+                                    <small class="d-block text-muted">Fotos/PDFs</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="texto_informativo">
+                                    <i data-feather="info"></i> Texto Informativo
+                                    <small class="d-block text-muted">Read-only</small>
+                                </div>
+                                <div class="list-group-item list-group-item-action" draggable="true" data-tipo="cabecalho_os" title="Bloco institucional/documental (logo, unidade, códigos, revisão, OS). Preenchimento automático.">
+                                    <i data-feather="file-text"></i> Cabeçalho da OS
+                                    <small class="d-block text-muted">Bloco institucional/documental. Preenchimento automático.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h6>Catálogo de Blocos</h6>
+                    <div id="catalogo-blocos">
+                        <p class="text-muted small">Carregando catálogo...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Área Central - Editor (maior agora) -->
+        <div class="col-md-9">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Estrutura do Formulário</h5>
+                </div>
+                <div class="card-body">
+                    <div id="editor-formulario" class="form-builder-editor">
+                        <p class="text-muted text-center py-4">
+                            <i data-feather="move"></i><br>
+                            Arraste blocos da lateral para construir o formulário
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/form_builder.css">
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/form_builder_editor.js"></script>
+<script>
+// Inicializar editor (código movido para form_builder_editor.js)
+// O código de inicialização está no final de form_builder_editor.js
+</script>
+{% endblock %}

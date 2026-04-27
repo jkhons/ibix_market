@@ -1,0 +1,58 @@
+# =============================================================================
+# Ibix Monitor — Configuração
+# =============================================================================
+# Copie este arquivo para o servidor monitor e ajuste conforme necessário.
+# Defina IBIX_MONITOR_CONFIG=/caminho/monitor_config.yaml no ambiente.
+# =============================================================================
+
+# --- Alvo -------------------------------------------------------------------
+target:
+  base_url: "https://www.ibix.com.br"
+  timeout_seconds: 15
+
+# --- Thresholds --------------------------------------------------------------
+thresholds:
+  slow_ms: 3000
+  critical_ms: 8000
+  ssl_warn_days: 14
+
+# --- Saída -------------------------------------------------------------------
+output:
+  log_dir: "/var/log/ibix-monitor"
+  retention_days: 30
+
+# --- Alertas -----------------------------------------------------------------
+# Webhook (Slack, Discord, Teams, Telegram bot, etc.)
+alerts:
+  webhook_url: ""
+  # Email (SMTP)
+  email_to: ""
+  email_from: ""
+  smtp_host: ""
+  smtp_port: 587
+  smtp_user: ""
+  smtp_pass: ""
+
+# --- Rate limit test ---------------------------------------------------------
+rate_limit_test:
+  attempts: 8
+
+# --- Endpoints customizados (opcional) ---------------------------------------
+# Se omitido, usa a lista padrão embutida no script.
+# Formato:
+#   /caminho:
+#     name: "Nome legível"
+#     method: GET
+#     expect_status: 200
+#     follow_redirects: true
+#
+# Exemplo:
+# endpoints:
+#   /:
+#     name: "Homepage"
+#     method: GET
+#     expect_status: 200
+#   /api/v1/loja/categorias?ativa=true:
+#     name: "API Categorias"
+#     method: GET
+#     expect_status: 200

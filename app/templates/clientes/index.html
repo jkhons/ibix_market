@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}Gestão de Clientes - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Container para alertas -->
+    <div id="alert-container" class="mb-3"></div>
+    
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Gestão de Clientes</h1>
+    </div>
+
+    <!-- Cliente padrão do PDV (contexto CA) -->
+    <div class="row mb-3" id="card-pdv-cliente-padrao">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-body py-3">
+                    <div class="row align-items-center">
+                        <div class="col-auto">
+                            <label for="pdvClientePadraoId" class="form-label mb-0 me-2">
+                                <i class="align-middle me-1" data-feather="shopping-bag"></i>
+                                Cliente padrão do PDV
+                            </label>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="pdvClientePadraoId">
+                                <option value="">Nenhum (selecionar na hora da venda)</option>
+                            </select>
+                            <small class="text-muted">Será pré-preenchido no PDV ao abrir a tela de vendas.</small>
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-outline-primary" id="btnSalvarPdvClientePadrao">
+                                <i class="align-middle me-1" data-feather="save"></i> Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">Lista de Clientes</h5>
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-primary" onclick="abrirModalCliente()">
+                                <i class="align-middle me-1" data-feather="plus"></i> Novo Cliente
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="filtroNome" placeholder="Buscar por nome...">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="filtroCNPJ" placeholder="Buscar por CNPJ...">
+                        </div>
+                        <div class="col-md-2">
+                            <input type="text" class="form-control" id="filtroCidade" placeholder="Cidade...">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="filtroUF">
+                                <option value="">Todas as UFs</option>
+                                <option value="AC">AC</option>
+                                <option value="AL">AL</option>
+                                <option value="AP">AP</option>
+                                <option value="AM">AM</option>
+                                <option value="BA">BA</option>
+                                <option value="CE">CE</option>
+                                <option value="DF">DF</option>
+                                <option value="ES">ES</option>
+                                <option value="GO">GO</option>
+                                <option value="MA">MA</option>
+                                <option value="MT">MT</option>
+                                <option value="MS">MS</option>
+                                <option value="MG">MG</option>
+                                <option value="PA">PA</option>
+                                <option value="PB">PB</option>
+                                <option value="PR">PR</option>
+                                <option value="PE">PE</option>
+                                <option value="PI">PI</option>
+                                <option value="RJ">RJ</option>
+                                <option value="RN">RN</option>
+                                <option value="RS">RS</option>
+                                <option value="RO">RO</option>
+                                <option value="RR">RR</option>
+                                <option value="SC">SC</option>
+                                <option value="SP">SP</option>
+                                <option value="SE">SE</option>
+                                <option value="TO">TO</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-secondary w-100" onclick="aplicarFiltros()">
+                                <i class="align-middle me-1" data-feather="search"></i> Filtrar
+                            </button>
+                        </div>
+                    </div>
+                    {% if user_role in ['Superadministrador', 'Administrador'] %}
+                    <div class="row mb-2">
+                        <div class="col-md-4">
+                            <label for="filtroTipoCliente" class="form-label small text-muted">Tipo de cliente</label>
+                            <select class="form-select" id="filtroTipoCliente">
+                                <option value="">Todos</option>
+                                <option value="true">Apenas Empresas Fiscais (Clientes)</option>
+                                <option value="false">Apenas Subclientes</option>
+                            </select>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Tabela de Clientes -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>CNPJ/CPF</th>
+                                    <th>Cidade/UF</th>
+                                    <th>Contato</th>
+                                    <th>Telefone</th>
+                                    <th>Email</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaClientes">
+                                <!-- Dados serão carregados via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginação -->
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-0" id="infoPagina">
+                                Mostrando 0 de 0 clientes
+                            </p>
+                        </div>
+                        <div class="col-md-6 pagination-container">
+                            <nav aria-label="Navegação de páginas">
+                                <ul class="pagination pagination-sm mb-0" id="paginacao">
+                                    <!-- Paginação será gerada via JavaScript -->
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cliente - CORRIGIDO SEM HERANÇA -->
+<div id="modalCliente" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 1200px; max-height: 95vh; overflow-y: auto;">
+        <div style="padding: 25px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;" id="modalClienteLabel">Novo Cliente</h5>
+            <button onclick="fecharModalCliente()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="modalClienteAlertContainer" style="padding: 0 25px; margin-top: 12px;"></div>
+        <div style="padding: 25px;">
+        <form id="formCliente">
+            <!-- Abas: Pessoa Jurídica (CNPJ) / Pessoa Física (CPF) -->
+            <div style="margin-bottom: 16px;">
+                <div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid #dee2e6;">
+                    <button type="button" id="tabPJ" role="tab" aria-selected="true" data-tab="pj" onclick="window.tabClientePJ && window.tabClientePJ()"
+                            style="padding: 10px 16px; border: none; border-bottom: 2px solid #0d6efd; background: none; font-weight: 600; color: #0d6efd; cursor: pointer;">
+                        Pessoa Jurídica (CNPJ)
+                    </button>
+                    <button type="button" id="tabPF" role="tab" aria-selected="false" data-tab="pf" onclick="window.tabClientePF && window.tabClientePF()"
+                            style="padding: 10px 16px; border: none; border-bottom: 2px solid transparent; background: none; color: #6c757d; cursor: pointer;">
+                        Pessoa Física (CPF)
+                    </button>
+                </div>
+            </div>
+            <!-- Dados Principais -->
+            <div style="margin-bottom: 20px;">
+                <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Dados Principais</h6>
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Nome/Razão Social *</label>
+                        <input type="text" id="nome" name="nome" required 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div id="blocoCnpj" data-tab-block="pj">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CNPJ *</label>
+                        <input type="text" id="cnpj" name="cnpj" placeholder="00.000.000/0000-00"
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div id="blocoCpf" data-tab-block="pf" style="display: none;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CPF *</label>
+                        <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00"
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Endereço -->
+            <div style="margin-bottom: 20px;">
+                <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Endereço</h6>
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">CEP</label>
+                        <input type="text" id="cep" name="cep" placeholder="00000-000"
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Endereço *</label>
+                        <input type="text" id="endereco" name="endereco" required 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Cidade *</label>
+                        <input type="text" id="cidade" name="cidade" required 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">UF *</label>
+                        <select id="uf" name="uf" required 
+                                style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                            <option value="">Selecione...</option>
+                            <option value="AC">AC</option>
+                            <option value="AL">AL</option>
+                            <option value="AP">AP</option>
+                            <option value="AM">AM</option>
+                            <option value="BA">BA</option>
+                            <option value="CE">CE</option>
+                            <option value="DF">DF</option>
+                            <option value="ES">ES</option>
+                            <option value="GO">GO</option>
+                            <option value="MA">MA</option>
+                            <option value="MT">MT</option>
+                            <option value="MS">MS</option>
+                            <option value="MG">MG</option>
+                            <option value="PA">PA</option>
+                            <option value="PB">PB</option>
+                            <option value="PR">PR</option>
+                            <option value="PE">PE</option>
+                            <option value="PI">PI</option>
+                            <option value="RJ">RJ</option>
+                            <option value="RN">RN</option>
+                            <option value="RS">RS</option>
+                            <option value="RO">RO</option>
+                            <option value="RR">RR</option>
+                            <option value="SC">SC</option>
+                            <option value="SP">SP</option>
+                            <option value="SE">SE</option>
+                            <option value="TO">TO</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Contato *</label>
+                        <input type="text" id="contato" name="contato" required 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Contato -->
+            <div style="margin-bottom: 20px;">
+                <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Contato</h6>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Telefone *</label>
+                        <input type="text" id="telefone" name="telefone" required 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Email *</label>
+                        <input type="email" id="email" name="email" required 
+                               style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                    </div>
+                </div>
+            </div>
+        </form>
+        </div>
+        <div style="padding: 25px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="fecharModalCliente()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Cancelar
+            </button>
+            <button type="submit" form="formCliente" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Salvar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação - CORRIGIDO SEM HERANÇA -->
+<div id="modalConfirmacao" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 400px;">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Confirmar Exclusão</h5>
+            <button onclick="fecharModalConfirmacao()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <p style="margin-bottom: 10px;">Tem certeza que deseja excluir este cliente?</p>
+            <p style="color: #dc3545; font-size: 14px; margin: 0;">Esta ação não pode ser desfeita.</p>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="fecharModalConfirmacao()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Cancelar
+            </button>
+            <button id="btnConfirmarExclusao" style="padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Excluir
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Criar Usuário Cliente -->
+<div id="modalUsuarioCliente" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 9999;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 600px; max-height: 95vh; overflow-y: auto;">
+        <div style="padding: 25px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;" id="modalUsuarioClienteTitulo">Criar Usuário</h5>
+            <button onclick="fecharModalUsuarioCliente()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div id="modalUsuarioClienteAlertContainer" style="padding: 0 25px; margin-top: 12px;"></div>
+        <div style="padding: 25px;">
+            <form id="formUsuarioCliente">
+                <input type="hidden" id="cliente_id_usuario" name="cliente_id">
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Nome Completo *</label>
+                    <input type="text" id="usuario_nome" name="nome" required 
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Email *</label>
+                    <input type="email" id="usuario_email" name="email" required 
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Senha *</label>
+                    <input type="password" id="usuario_senha" name="senha" required minlength="6"
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555;">Confirmar Senha *</label>
+                    <input type="password" id="usuario_confirmar_senha" name="confirmar_senha" required minlength="6"
+                           style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                
+                <!-- Informações do Cliente (somente leitura) -->
+                <div style="margin-top: 25px; padding: 15px; background-color: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;">
+                    <h6 style="margin-bottom: 15px; font-weight: bold; color: #333;">Cliente Vinculado</h6>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 12px;">Nome do Cliente</label>
+                            <input type="text" id="cliente_nome_display" readonly 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #e9ecef; cursor: not-allowed;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 12px;">CNPJ/CPF</label>
+                            <input type="text" id="cliente_cnpj_display" readonly 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #e9ecef; cursor: not-allowed;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 12px;">Email do Cliente</label>
+                            <input type="email" id="cliente_email_display" readonly 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #e9ecef; cursor: not-allowed;">
+                        </div>
+                        <div>
+                            <label style="display: block; margin-bottom: 5px; font-weight: bold; color: #555; font-size: 12px;">Contato</label>
+                            <input type="text" id="cliente_contato_display" readonly 
+                                   style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #e9ecef; cursor: not-allowed;">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div style="padding: 25px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="fecharModalUsuarioCliente()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Cancelar
+            </button>
+            <button type="button" onclick="criarUsuarioClienteSubmit(event)" style="padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Criar Usuário
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/clientes.js?v=1.2"></script>
+<script>
+// Funções para controlar modais corrigidos
+function fecharModalCliente() {
+    const alertContainer = document.getElementById('modalClienteAlertContainer');
+    if (alertContainer) { alertContainer.innerHTML = ''; alertContainer.style.display = 'none'; }
+    if (window.clientesManager && typeof window.clientesManager.limparFormulario === 'function') {
+        window.clientesManager.limparFormulario();
+    }
+    document.getElementById('modalCliente').style.display = 'none';
+}
+
+function fecharModalConfirmacao() {
+    document.getElementById('modalConfirmacao').style.display = 'none';
+}
+
+// Abrir modal cliente
+function abrirModalCliente() {
+    document.getElementById('modalCliente').style.display = 'block';
+}
+
+// Abrir modal confirmação
+function abrirModalConfirmacao() {
+    document.getElementById('modalConfirmacao').style.display = 'block';
+}
+
+// Funções para modal de usuário cliente
+function fecharModalUsuarioCliente() {
+    const alertContainer = document.getElementById('modalUsuarioClienteAlertContainer');
+    if (alertContainer) { alertContainer.innerHTML = ''; alertContainer.style.display = 'none'; }
+    document.getElementById('modalUsuarioCliente').style.display = 'none';
+    document.getElementById('formUsuarioCliente').reset();
+    // Limpar campos de display do cliente
+    document.getElementById('cliente_nome_display').value = '';
+    document.getElementById('cliente_cnpj_display').value = '';
+    document.getElementById('cliente_email_display').value = '';
+    document.getElementById('cliente_contato_display').value = '';
+}
+
+async function abrirModalUsuarioCliente(clienteId, clienteNome) {
+    // Preencher ID do cliente
+    document.getElementById('cliente_id_usuario').value = clienteId;
+    document.getElementById('modalUsuarioClienteTitulo').textContent = `Criar Usuário - ${clienteNome}`;
+    
+    // Limpar campos do formulário primeiro
+    document.getElementById('usuario_nome').value = '';
+    document.getElementById('usuario_email').value = '';
+    document.getElementById('usuario_senha').value = '';
+    document.getElementById('usuario_confirmar_senha').value = '';
+    document.getElementById('usuario_email').placeholder = '';
+    
+    // Preencher nome do cliente no display (valor inicial)
+    document.getElementById('cliente_nome_display').value = clienteNome || '';
+    document.getElementById('cliente_cnpj_display').value = '';
+    document.getElementById('cliente_email_display').value = '';
+    document.getElementById('cliente_contato_display').value = '';
+    
+    // Exibir modal primeiro
+    document.getElementById('modalUsuarioCliente').style.display = 'block';
+    
+    // Buscar dados completos do cliente via API
+    try {
+        if (window.clientesManager) {
+            const token = window.clientesManager.getToken();
+            if (token) {
+                const response = await fetch(`/api/v1/clientes/${clienteId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const cliente = await response.json();
+                    
+                    // Preencher campos de display com dados do cliente
+                    document.getElementById('cliente_nome_display').value = cliente.nome || '';
+                    document.getElementById('cliente_cnpj_display').value = cliente.cnpj || cliente.cpf || '';
+                    document.getElementById('cliente_email_display').value = cliente.email || '';
+                    document.getElementById('cliente_contato_display').value = cliente.contato || '';
+                } else {
+                    console.error('Erro ao buscar dados do cliente:', response.statusText);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Erro ao buscar dados do cliente:', error);
+        // Continuar mesmo se houver erro - pelo menos o nome já está preenchido
+    }
+}
+</script>
+{% endblock %} 

@@ -1,0 +1,14 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Obrigado{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-2">Obrigado pela compra!</h1>
+<p class="mb-2">Seu pedido foi recebido e a loja já foi notificada.</p>
+{% if request.query_params.get('pedido_id') %}
+<p class="mb-2"><strong>Número do pedido: {{ request.query_params.get('pedido_id') }}</strong></p>
+<p class="text-muted small mb-3">Guarde este número para consultas. Se você tiver uma conta, pode ver o pedido em Meus pedidos.</p>
+{% endif %}
+<a href="/loja/meus-pedidos" class="btn btn-outline-primary me-2">Meus pedidos</a>
+<a href="/" class="btn btn-primary">Voltar à loja</a>
+{% endblock %}

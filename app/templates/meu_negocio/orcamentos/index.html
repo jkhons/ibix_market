@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Orçamentos | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    .badge-status { font-size: 0.75rem; }
+    .badge-rascunho { background: #6c757d; }
+    .badge-emitido { background: #0dcaf0; color: #000; }
+    .badge-aprovado { background: #0d6efd; }
+    .badge-convertido { background: #198754; }
+    .badge-expirado { background: #dc3545; }
+    .badge-rejeitado { background: #dc3545; }
+    .badge-cancelado { background: #212529; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Orçamentos</strong></h1>
+            </div>
+            <div class="col-auto">
+                <a href="/negocio/relatorio-conversao-orcamentos" class="btn btn-outline-secondary me-2">
+                    <i data-feather="bar-chart-2" style="width: 18px; height: 18px;"></i>
+                    Relatório de conversão
+                </a>
+                <a href="/negocio/orcamentos/novo" class="btn btn-primary" id="btn-novo-orcamento">
+                    <i data-feather="plus" style="width: 18px; height: 18px;"></i>
+                    Novo orçamento
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="filtro-status">
+                        <option value="">Todos</option>
+                        <option value="rascunho">Rascunho</option>
+                        <option value="emitido">Emitido</option>
+                        <option value="aprovado">Aprovado</option>
+                        <option value="convertido">Convertido</option>
+                        <option value="expirado">Expirado</option>
+                        <option value="cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary" id="btn-filtrar">
+                        <i data-feather="search"></i> Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="orcamentos-listagem" class="table-responsive">
+                <p class="text-muted mb-0 p-3">Carregando orçamentos...</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    function getToken() {
+        const cookies = document.cookie.split(';');
+        for (let c of cookies) {
+            const [name, val] = c.trim().split('=');
+            if (name === 'pdv_solumatica_token' || name === 'pdv_automscale_token') return val || null;
+        }
+        return null;
+    }
+    function badgeClass(s) {
+        const m = { rascunho: 'badge-rascunho', emitido: 'badge-emitido', aprovado: 'badge-aprovado', convertido: 'badge-convertido', expirado: 'badge-expirado', rejeitado: 'badge-rejeitado', cancelado: 'badge-cancelado' };
+        return 'badge ' + (m[s] || 'bg-secondary') + ' badge-status';
+    }
+    function fmtDate(d) {
+        if (!d) return '-';
+        const x = new Date(d);
+        return isNaN(x.getTime()) ? d : x.toLocaleDateString('pt-BR');
+    }
+    function fmtMoney(v) {
+        if (v == null) return '-';
+        return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    }
+    async function carregar() {
+        const status = document.getElementById('filtro-status').value;
+        let url = '/api/v1/orcamentos?skip=0&limit=200';
+        if (status) url += '&status=' + encodeURIComponent(status);
+        const res = await fetch(url, { credentials: 'include', headers: { 'Accept': 'application/json' } });
+        if (!res.ok) { document.getElementById('orcamentos-listagem').innerHTML = '<p class="text-danger p-3">Erro ao carregar orçamentos.</p>'; return; }
+        const data = await res.json();
+        const list = data.orcamentos || [];
+        if (list.length === 0) {
+            document.getElementById('orcamentos-listagem').innerHTML = '<p class="text-muted p-3">Nenhum orçamento encontrado.</p>';
+            return;
+        }
+        let html = '<table class="table table-striped table-hover mb-0"><thead><tr><th>Número</th><th>Validade</th><th>Status</th><th>Total</th><th>Criado</th><th>Ações</th></tr></thead><tbody>';
+        list.forEach(function(o) {
+            var acoes = '<a href="/api/v1/orcamentos/' + o.id + '/pdf" target="_blank" class="btn btn-sm btn-outline-secondary me-1">PDF</a>';
+            if (o.status === 'rascunho') acoes += ' <a href="/negocio/orcamentos/' + o.id + '/editar" class="btn btn-sm btn-outline-primary">Editar</a>';
+            html += '<tr><td>' + (o.numero_orcamento || '') + '</td><td>' + fmtDate(o.data_validade) + '</td><td><span class="' + badgeClass(o.status) + '">' + (o.status || '') + '</span></td><td>' + fmtMoney(o.total) + '</td><td>' + fmtDate(o.created_at) + '</td><td>' + acoes + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        document.getElementById('orcamentos-listagem').innerHTML = html;
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+    document.getElementById('btn-filtrar').addEventListener('click', carregar);
+    document.getElementById('filtro-status').addEventListener('change', carregar);
+    document.addEventListener('DOMContentLoaded', function() {
+        carregar();
+        if (typeof feather !== 'undefined') feather.replace();
+    });
+})();
+</script>
+{% endblock %}

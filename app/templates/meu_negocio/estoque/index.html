@@ -1,0 +1,2197 @@
+{% extends "base.html" %}
+
+{% block title %}Estoque | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Garantir que o dropdown Cadastro fique visível (evitar corte por overflow/z-index) */
+    .btn-group.me-2 .dropdown-menu { z-index: 1050; }
+    .mb-3.row { overflow: visible; }
+    .estoque-header-actions { overflow: visible; }
+    .container-fluid.p-0 .mb-3:first-of-type { overflow: visible; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <input type="hidden" id="estoque_cliente_id" value="{{ estoque_cliente_id or '' }}">
+    <input type="hidden" id="estoque_modo_global" value="{{ 'true' if estoque_modo_global else 'false' }}">
+    {% if is_superadmin_estoque %}
+    <div class="card mb-3 border-info">
+        <div class="card-body py-2">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <span class="fw-bold text-info"><i data-feather="shield" style="width:18px;height:18px;"></i> Superadmin</span>
+                <div class="d-flex align-items-center gap-2">
+                    <label for="superadmin_loja_select" class="form-label mb-0 small">Estabelecimento:</label>
+                    <select id="superadmin_loja_select" class="form-select form-select-sm" style="min-width:250px;max-width:400px;" onchange="trocarLojaSuperadmin(this.value)">
+                        <option value="todos" {% if estoque_modo_global %}selected{% endif %}>Todas as lojas (catálogo global)</option>
+                        {% for loja in estoque_lojas %}
+                        <option value="{{ loja.id }}" {% if estoque_cliente_id == loja.id %}selected{% endif %}>{{ loja.nome }} (ID {{ loja.id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if estoque_modo_global %}
+                <span class="badge bg-info text-dark">Modo global — stats desativados</span>
+                {% elif estoque_cliente_nome %}
+                <span class="badge bg-success">{{ estoque_cliente_nome }}</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">Nenhuma empresa fiscal encontrada — selecione uma loja acima</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    <!-- Cabeçalho -->
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Estoque</strong></h1>
+            </div>
+            <div class="col-auto estoque-header-actions">
+                <a href="/negocio/entrada-nfe" class="btn btn-outline-primary me-2">
+                    <i data-feather="file-text" style="width: 18px; height: 18px;"></i>
+                    Entrada de Notas NFe
+                </a>
+                <button class="btn btn-success" onclick="abrirModalEntradaProduto()">
+                    <i data-feather="arrow-down-circle" style="width: 18px; height: 18px;"></i>
+                    Entrada de Produtos
+                </button>
+                <div class="btn-group me-2">
+                    <button type="button" id="dropdownToggleCadastro" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">
+                        <i data-feather="plus-circle" style="width: 18px; height: 18px;"></i>
+                        Cadastro
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" href="/negocio/estoque/tipos-material">
+                                <i data-feather="package" style="width: 16px; height: 16px;" class="me-2"></i>
+                                Tipo de Material
+                            </a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item w-100 text-start" id="btnCadastroProduto">
+                                <i data-feather="box" style="width: 16px; height: 16px;" class="me-2"></i>
+                                Produto
+                            </button>
+                        </li>
+                        {% if user_role == "Superadministrador" %}
+                        <li>
+                            <a class="dropdown-item" href="/negocio/estoque/categorias">
+                                <i data-feather="tag" style="width: 16px; height: 16px;" class="me-2"></i>
+                                Categoria
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
+                <button class="btn btn-secondary" onclick="exportarEstoque()">
+                    <i data-feather="download" style="width: 18px; height: 18px;"></i>
+                    Exportar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Total de Produtos</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-primary">
+                                <i data-feather="package"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="total-produtos">0</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Valor Total</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-success">
+                                <i data-feather="dollar-sign"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="valor-total">R$ 0,00</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Estoque Baixo</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-warning">
+                                <i data-feather="alert-triangle"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="estoque-baixo">0</h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Categorias</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-info">
+                                <i data-feather="tag"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="total-categorias">0</h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="align-middle me-2" data-feather="filter"></i>
+                        Filtros
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2">
+                            <label for="filtro-busca" class="form-label">Buscar</label>
+                            <input type="text" class="form-control" id="filtro-busca" placeholder="Código, nome ou descrição">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filtro-categoria" class="form-label">Categoria</label>
+                            <select class="form-select" id="filtro-categoria">
+                                <option value="">Todas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filtro-tipo-material" class="form-label">Tipo Material</label>
+                            <select class="form-select" id="filtro-tipo-material">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filtro-status" class="form-label">Status</label>
+                            <select class="form-select" id="filtro-status">
+                                <option value="">Todos</option>
+                                <option value="true">Ativo</option>
+                                <option value="false">Inativo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label for="filtro-alertas" class="form-label">Alertas</label>
+                            <select class="form-select" id="filtro-alertas">
+                                <option value="">Todos</option>
+                                <option value="true">Estoque Baixo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filtro-rastreio" class="form-label">Rastreio NFe</label>
+                            <select class="form-select" id="filtro-rastreio">
+                                <option value="">Todos</option>
+                                <option value="com_entrada_nfe">Com entrada NFe</option>
+                            </select>
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">&nbsp;</label>
+                            <button class="btn btn-primary w-100" onclick="aplicarFiltros()">
+                                <i data-feather="search"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela/Grid de Produtos -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h5 class="card-title mb-0">
+                        <i class="align-middle me-2" data-feather="grid"></i>
+                        Produtos em Estoque
+                    </h5>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" id="btnViewLista" class="btn btn-outline-primary active" onclick="trocarVisualizacaoEstoque('lista')" title="Visualização em lista">
+                                <i data-feather="list" style="width: 18px; height: 18px;"></i>
+                            </button>
+                            <button type="button" id="btnViewMiniatura" class="btn btn-outline-secondary" onclick="trocarVisualizacaoEstoque('miniatura')" title="Visualização em miniatura (com imagens)">
+                                <i data-feather="grid" style="width: 18px; height: 18px;"></i>
+                            </button>
+                        </div>
+                        <div class="vr d-none d-md-block"></div>
+                        <a href="/negocio/estoque/pendencias" id="btnAlertaPendencias" class="btn btn-sm d-flex align-items-center gap-1 px-2 py-1" style="display: none; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b; color: #92400e; box-shadow: 0 1px 2px rgba(245,158,11,0.25);" title="Preparar produtos para o marketplace">
+                            <i data-feather="alert-circle" style="width: 16px; height: 16px;"></i>
+                            <span id="badgeAlertaPendencias" class="fw-bold" style="font-size: 0.95rem;">0</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- View Lista (padrão) -->
+                    <div id="view-lista" class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th id="th-loja-global" style="display:none;">Loja</th>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Categoria</th>
+                                    <th>Tipo</th>
+                                    <th>Quantidade</th>
+                                    <th>Valor Unit.</th>
+                                    <th>Valor Total</th>
+                                    <th>Entrada NFe</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabela-produtos">
+                                <tr>
+                                    <td colspan="11" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Carregando...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- View Miniatura (grid com imagens) -->
+                    <div id="view-miniatura" style="display: none;" class="p-3">
+                        <div id="grid-produtos" class="row g-3">
+                            <!-- Cards de produtos serão renderizados aqui -->
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <nav aria-label="Navegação da tabela">
+                        <ul class="pagination pagination-sm mb-0" id="paginacao">
+                            <!-- Paginação será inserida aqui via JavaScript -->
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Novo Produto - conforme MAPA_SISTEMA (inline, sem Bootstrap) -->
+<div id="modalNovoProdutoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modalProdutoTitulo" style="margin: 0; font-size: 1.5rem; font-weight: 700;">Novo Produto</h3>
+            <button onclick="fecharModalProduto()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <form id="formNovoProduto">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="codigo" class="form-label">Código *</label>
+                            <input type="text" class="form-control" id="codigo" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">Nome *</label>
+                            <input type="text" class="form-control" id="nome" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="categoria_id" class="form-label">Categoria *</label>
+                            <select class="form-select" id="categoria_id" required>
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="tipo_material_id" class="form-label">Tipo de Material *</label>
+                            <select class="form-select" id="tipo_material_id" required>
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="descricao" class="form-label">Descrição</label>
+                    <textarea class="form-control" id="descricao" rows="3"></textarea>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="quantidade_atual" class="form-label">Quantidade Atual *</label>
+                            <input type="number" class="form-control" id="quantidade_atual" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="quantidade_minima" class="form-label">Quantidade Mínima</label>
+                            <input type="number" class="form-control" id="quantidade_minima" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="unidade_medida" class="form-label">Unidade</label>
+                            <input type="text" class="form-control" id="unidade_medida" placeholder="UN">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="valor_custo" class="form-label">Valor de Custo</label>
+                            <input type="number" class="form-control" id="valor_custo" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="valor_venda" class="form-label">Valor de Venda</label>
+                            <input type="number" class="form-control" id="valor_venda" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="ncm" class="form-label">NCM <small class="text-muted">(obrigatório para NF-e)</small></label>
+                            <input type="text" class="form-control" id="ncm" placeholder="Ex: 84715000" maxlength="10">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="cfop_padrao" class="form-label">CFOP padrão</label>
+                            <input type="text" class="form-control" id="cfop_padrao" placeholder="Ex: 5102" maxlength="10">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="referencia" class="form-label">Referência</label>
+                            <input type="text" class="form-control" id="referencia" placeholder="Código de referência" maxlength="100">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="codigo_barras" class="form-label">Código de barras (GTIN)</label>
+                            <input type="text" class="form-control" id="codigo_barras" placeholder="8, 12, 13 ou 14 dígitos (EAN/GTIN)" maxlength="14" inputmode="numeric" pattern="[0-9]*">
+                            <small class="text-muted">Usado na NF-e e na conciliação da Entrada de NFe.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="cest" class="form-label">CEST</label>
+                            <input type="text" class="form-control" id="cest" placeholder="Ex: 1234567" maxlength="10">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="extipi" class="form-label">EX TIPI</label>
+                            <input type="text" class="form-control" id="extipi" placeholder="Ex: 00" maxlength="5">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label for="origem_mercadoria" class="form-label">Origem (0-8)</label>
+                            <input type="number" class="form-control" id="origem_mercadoria" placeholder="0" min="0" max="8" step="1">
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Imagens e mídias do produto</label>
+                    <input type="hidden" id="produto_id_modal" value="">
+                    <p class="text-muted small mb-2">Máx. 12 imagens (5 MB cada), 2 vídeos (80 MB cada) e 3 links YouTube. A primeira mídia é a de destaque na vitrine e PDV. Cole (Ctrl+V) imagens ou use "Selecionar arquivos".</p>
+                    <input type="file" id="midias_unificado_file" accept="image/*,video/mp4,video/webm,video/quicktime" multiple style="display: none;">
+                    <div class="d-flex gap-2 mb-2 flex-wrap">
+                        <div id="midias_unificado_area" class="border border-2 border-dashed rounded p-3 text-center flex-grow-1" style="min-height: 100px; cursor: text; background: #f8f9fa; min-width: 180px;" tabindex="0" title="Cole imagens com Ctrl+V ou use o botão Selecionar arquivos">
+                            <i data-feather="upload" style="width: 28px; height: 28px; color: #6c757d;"></i>
+                            <p class="mb-0 mt-1 text-muted small">Arraste e solte ou cole (Ctrl+V)</p>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSelecionarMidias" title="Selecionar imagens/vídeos do computador">
+                                <i data-feather="paperclip" style="width: 16px; height: 16px;"></i> Selecionar arquivos
+                            </button>
+                            <input type="text" id="imagem_url_input" class="form-control form-control-sm" placeholder="Link da imagem (https://...)" style="min-width: 230px;">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="adicionarImagemUrl()" title="Adicionar imagem por link">
+                                <i data-feather="link" style="width: 16px; height: 16px;"></i>
+                            </button>
+                            <input type="text" id="youtube_url_input" class="form-control form-control-sm" placeholder="Link YouTube (ex: youtube.com/watch?v=...)" style="min-width: 200px;">
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="adicionarYoutubeUrl()" title="Adicionar link do YouTube">
+                                <i data-feather="video" style="width: 18px; height: 18px;"></i> Adicionar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnBuscarImagemGoogle" onclick="buscarImagemGoogleExternaProduto();" title="Abrir Google Imagens com a descrição/nome do produto">
+                            <i data-feather="search" style="width: 18px; height: 18px;"></i> Buscar no Google
+                        </button>
+                        <span class="text-muted small">Abre uma nova aba com resultados no Google Imagens.</span>
+                    </div>
+                    <div id="midias_unificado_list" class="d-flex flex-wrap gap-2 mt-2">
+                        <!-- Lista de mídias (imagens, vídeos, YouTube) -->
+                    </div>
+                </div>
+            </form>
+            <!-- Histórico de movimentações (exibido apenas ao visualizar) -->
+            <div id="modalProdutoMovimentacoes" style="display: none; margin-top: 24px; padding-top: 20px; border-top: 1px solid #dee2e6;">
+                <h6 class="mb-2"><i data-feather="activity" style="width: 18px; height: 18px; vertical-align: text-bottom;"></i> Histórico de movimentações</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped mb-0">
+                        <thead><tr><th>Data</th><th>Tipo</th><th>Quantidade</th><th>Valor unit.</th><th>Observação</th></tr></thead>
+                        <tbody id="modalProdutoMovimentacoesBody"></tbody>
+                    </table>
+                </div>
+                <p id="modalProdutoMovimentacoesVazio" class="text-muted small mb-0 mt-2" style="display: none;">Nenhuma movimentação registrada.</p>
+            </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 12px;">
+            <button id="btnCancelarModalProduto" onclick="fecharModalProduto()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button id="btnSalvarProduto" onclick="salvarProdutoModal()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white;">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: resultados da busca de imagens (Google Custom Search), acima do modal de produto -->
+<div id="modalGoogleImagensBusca" onclick="if(event.target===this) fecharModalGoogleImagensBusca();" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.55); z-index: 10001;">
+    <div onclick="event.stopPropagation();" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 720px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700;">Imagens encontradas</h3>
+                <p id="modalGoogleCotaInfo" class="mb-0 mt-1 small" style="opacity: 0.95;"></p>
+            </div>
+            <button type="button" onclick="fecharModalGoogleImagensBusca();" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 28px; line-height: 1; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div id="modalGoogleBuscaToolbar" class="p-3 border-bottom bg-light" style="display: none;">
+            <label class="form-label small mb-1">Termo base (nome do produto)</label>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+                <input type="text" class="form-control form-control-sm flex-grow-1" id="modalGoogleTermoInput" placeholder="Nome para buscar" style="min-width: 200px;">
+                <button type="button" class="btn btn-sm btn-primary" id="btnBuscarGoogleNovamente">Buscar</button>
+            </div>
+            <p id="modalGoogleQueryEfetiva" class="small text-muted mb-0 mt-2"></p>
+        </div>
+        <div id="modalGoogleImagensLoading" class="p-4 text-center" style="display: none;">
+            <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Carregando...</span></div>
+            <p class="mt-2 mb-0 text-muted">Buscando imagens...</p>
+        </div>
+        <div id="modalGoogleImagensGrid" class="p-3 d-flex flex-wrap gap-2 justify-content-start" style="display: none;"></div>
+        <div id="modalGoogleImagensErro" class="alert alert-danger m-3 mb-0" style="display: none;"></div>
+        <div id="modalGoogleImagensFooter" class="p-3 border-top d-flex justify-content-end gap-2 align-items-center" style="display: none;">
+            <button type="button" class="btn btn-success btn-sm" id="btnAdicionarGoogleSelecionadas">Adicionar selecionadas</button>
+        </div>
+        <div class="p-3 pt-0 text-muted small">Marque as miniaturas e use &quot;Adicionar selecionadas&quot;, ou marque uma e adicione. O download é feito pelo servidor.</div>
+    </div>
+</div>
+
+<!-- Modal para Entrada de Produtos - conforme MAPA_SISTEMA (inline, sem Bootstrap) -->
+<div id="modalEntradaProdutoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Entrada de Produtos</h3>
+            <button onclick="fecharModalEntradaProduto()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <form id="formEntradaProduto">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="mb-3">
+                            <label for="produto_entrada" class="form-label">Produto *</label>
+                            <input type="text" class="form-control" id="produto_entrada_input" 
+                                   placeholder="Digite para buscar o produto..." 
+                                   list="produto_entrada_list" 
+                                   autocomplete="off"
+                                   required>
+                            <datalist id="produto_entrada_list"></datalist>
+                            <input type="hidden" id="produto_entrada" required>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="quantidade_entrada" class="form-label">Quantidade *</label>
+                            <input type="number" class="form-control" id="quantidade_entrada" step="0.01" min="0.01" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="valor_unitario_entrada" class="form-label">Valor Unitário</label>
+                            <input type="number" class="form-control" id="valor_unitario_entrada" step="0.01" min="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="data_entrada" class="form-label">Data de Entrada *</label>
+                            <input type="date" class="form-control" id="data_entrada" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="lote_entrada" class="form-label">Lote</label>
+                            <input type="text" class="form-control" id="lote_entrada">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="fabricante_entrada" class="form-label">Fabricante</label>
+                            <input type="text" class="form-control" id="fabricante_entrada">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="fornecedor_entrada" class="form-label">Fornecedor</label>
+                            <input type="text" class="form-control" id="fornecedor_entrada" list="fornecedores_datalist" placeholder="Selecione ou digite...">
+                            <datalist id="fornecedores_datalist"></datalist>
+                            <small class="text-muted">Gerencie fornecedores em <a href="/negocio/fornecedores" target="_blank">Cadastro de Fornecedores</a></small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="observacoes_entrada" class="form-label">Observações</label>
+                    <textarea class="form-control" id="observacoes_entrada" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 12px;">
+            <button onclick="fecharModalEntradaProduto()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button onclick="registrarEntradaProduto()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: linear-gradient(135deg, #27ae60 0%, #229954 100%); color: white;">Registrar Entrada</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação - conforme MAPA_SISTEMA (inline, sem Bootstrap) -->
+<div id="modalConfirmacaoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 400px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">Confirmar Exclusão</h3>
+            <button onclick="fecharModalConfirmacaoEstoque()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 24px; line-height: 1; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 24px;">
+            <p style="margin: 0 0 8px 0;">Tem certeza que deseja excluir este produto?</p>
+            <p style="margin: 0; color: #dc3545; font-size: 0.9rem;">Esta ação não pode ser desfeita.</p>
+        </div>
+        <div style="background: #f8f9fa; padding: 16px 24px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 12px;">
+            <button onclick="fecharModalConfirmacaoEstoque()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button id="btnConfirmarExclusaoEstoque" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #dc3545; color: white;">Excluir</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let produtosData = [];
+/** Mapa produto_cliente_id -> { numero, serie, chave, data } da última entrada NFe (para rastreio na tela) */
+let rastreioNfeMap = {};
+/** Visualização: 'lista' (padrão) ou 'miniatura' */
+let viewModeEstoque = localStorage.getItem('estoque_view_mode') || 'lista';
+let filtros = {
+    busca: '',
+    categoria_id: '',
+    tipo_material_id: '',
+    status: '',
+    alertas: '',
+    rastreio: '',
+    sem_imagem: false,
+    sem_tipo: false,
+    sem_categoria: false,
+    skip: 0,
+    limit: 20
+};
+/** Stats de produtos (pendências de vitrine) - preenchidos via API */
+let statsProdutos = { sem_imagem: 0, sem_tipo: 0, sem_categoria: 0, sem_preco_venda: 0, sem_descricao: 0 };
+/** Listas para selects e exibição (preenchidas ao carregar) */
+let categoriasList = [];
+let tiposMaterialList = [];
+
+function getTokenEstoque() {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+        const parts = cookies[i].trim().split('=');
+        const name = parts[0];
+        const value = parts.slice(1).join('=').trim();
+        if (name === 'pdv_solumatica_token' || name === 'pdv_automscale_token') return value || null;
+    }
+    return null;
+}
+
+function fetchEstoque(url, opts) {
+    const token = getTokenEstoque();
+    return fetch(url, {
+        credentials: 'include',
+        headers: {
+            'Accept': 'application/json',
+            ...(opts && opts.headers || {}),
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+        },
+        ...(opts || {}),
+    });
+}
+
+function getEstoqueClienteId() {
+    var el = document.getElementById('estoque_cliente_id');
+    return el && el.value ? el.value.trim() : '';
+}
+
+function isModoGlobal() {
+    var el = document.getElementById('estoque_modo_global');
+    return el && el.value === 'true';
+}
+
+function trocarLojaSuperadmin(valor) {
+    var url = '/negocio/estoque?cliente_id=' + encodeURIComponent(valor);
+    window.location.href = url;
+}
+
+// Fechar dropdown Cadastro (evita ficar aberto ao abrir modal; Bootstrap 5)
+function fecharDropdownCadastro() {
+    var toggle = document.getElementById('dropdownToggleCadastro');
+    if (toggle && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+        var inst = bootstrap.Dropdown.getInstance(toggle);
+        if (inst) inst.hide();
+    }
+}
+
+// Inicializar dropdown Cadastro e botão Produto (evitar race com dashboard/certipeso e garantir cliques)
+function initDropdownCadastroEstoque() {
+    var toggle = document.getElementById('dropdownToggleCadastro');
+    var btnProduto = document.getElementById('btnCadastroProduto');
+    if (toggle && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+        try {
+            var inst = bootstrap.Dropdown.getInstance(toggle);
+            if (inst) inst.dispose();
+            new bootstrap.Dropdown(toggle);
+        } catch (e) { /* silencioso */ }
+    }
+    if (btnProduto && !btnProduto._cadastroBound) {
+        btnProduto._cadastroBound = true;
+        btnProduto.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            abrirModalNovoProduto();
+        });
+    }
+}
+
+// Carregar dados iniciais (produtos do estabelecimento = mesma base da Entrada NFe)
+document.addEventListener('DOMContentLoaded', function() {
+    trocarVisualizacaoEstoque(viewModeEstoque);
+    var cid = getEstoqueClienteId();
+    Promise.all([
+        fetchEstoque('/api/v1/material-categorias/?limit=500').then(function(r) { return r.ok ? r.json() : []; }).then(function(arr) { categoriasList = arr || []; preencherSelectCategorias(); }),
+        fetchEstoque('/api/v1/tipo-material/?limit=500').then(function(r) { return r.ok ? r.json() : []; }).then(function(arr) { tiposMaterialList = arr || []; preencherSelectTiposMaterial(); })
+    ]).catch(function() {});
+    if (cid) {
+        fetchEstoque('/api/v1/fornecedores-cliente/?cliente_id=' + encodeURIComponent(cid) + '&ativo=true')
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(arr) {
+                var dl = document.getElementById('fornecedores_datalist');
+                if (dl && Array.isArray(arr)) {
+                    dl.innerHTML = arr.map(function(f) {
+                        var cnpj = f.cnpj ? ' (' + f.cnpj + ')' : '';
+                        return '<option value="' + (f.nome || '').replace(/"/g, '&quot;') + cnpj.replace(/"/g, '&quot;') + '">';
+                    }).join('');
+                }
+            }).catch(function() {});
+    }
+    var global = isModoGlobal();
+    if (global) {
+        document.getElementById('th-loja-global').style.display = '';
+    }
+    if (!cid && !global) {
+        document.getElementById('total-produtos').textContent = '0';
+        document.getElementById('valor-total').textContent = formatarMoeda(0);
+        document.getElementById('estoque-baixo').textContent = '0';
+        document.getElementById('total-categorias').textContent = '0';
+        var colSpan = global ? 11 : 11;
+        document.getElementById('tabela-produtos').innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center text-muted">Nenhum estabelecimento definido. Selecione uma loja no seletor acima ou verifique o vínculo da empresa fiscal.</td></tr>';
+    } else {
+        carregarProdutos();
+    }
+    // Inicializar dropdown Cadastro uma única vez (evita conflito por init duplicado)
+    initDropdownCadastroEstoque();
+    var bGoogleNova = document.getElementById('btnBuscarGoogleNovamente');
+    if (bGoogleNova) bGoogleNova.addEventListener('click', function(e) { e.preventDefault(); executarBuscaGoogleImagensNoModal(); });
+    var bGoogleSel = document.getElementById('btnAdicionarGoogleSelecionadas');
+    if (bGoogleSel) bGoogleSel.addEventListener('click', function(e) { e.preventDefault(); adicionarImagensGoogleSelecionadas(); });
+});
+function preencherSelectCategorias() {
+    var selFiltro = document.getElementById('filtro-categoria');
+    var selModal = document.getElementById('categoria_id');
+    if (selFiltro) {
+        selFiltro.innerHTML = '<option value="">Todas</option>' + (categoriasList.map(function(c) { return '<option value="' + c.id + '">' + (c.nome || c.codigo || '').replace(/</g, '&lt;') + '</option>'; }).join(''));
+    }
+    if (selModal) {
+        selModal.innerHTML = '<option value="">Selecione...</option>' + (categoriasList.map(function(c) { return '<option value="' + c.id + '">' + (c.nome || c.codigo || '').replace(/</g, '&lt;') + '</option>'; }).join(''));
+    }
+}
+function preencherSelectTiposMaterial() {
+    var selFiltro = document.getElementById('filtro-tipo-material');
+    var selModal = document.getElementById('tipo_material_id');
+    if (selFiltro) {
+        selFiltro.innerHTML = '<option value="">Todos</option>' + (tiposMaterialList.map(function(t) { return '<option value="' + t.id + '">' + (t.nome || t.codigo || '').replace(/</g, '&lt;') + '</option>'; }).join(''));
+    }
+    if (selModal) {
+        selModal.innerHTML = '<option value="">Selecione...</option>' + (tiposMaterialList.map(function(t) { return '<option value="' + t.id + '">' + (t.nome || t.codigo || '').replace(/</g, '&lt;') + '</option>'; }).join(''));
+    }
+}
+
+// Carregar stats e atualizar botão Alerta (mostra só se houver pendências)
+function carregarStatsProdutos() {
+    var cid = getEstoqueClienteId();
+    if (!cid || isModoGlobal()) return;
+    fetchEstoque('/api/v1/produtos-cliente/stats?cliente_id=' + encodeURIComponent(cid)).then(function(r) {
+        if (r.ok) return r.json();
+        return { sem_imagem: 0, sem_tipo: 0, sem_categoria: 0, sem_preco_venda: 0, sem_descricao: 0 };
+    }).then(function(data) {
+        statsProdutos = data || statsProdutos;
+        var total = (statsProdutos.sem_imagem || 0) + (statsProdutos.sem_tipo || 0) + (statsProdutos.sem_categoria || 0)
+            + (statsProdutos.sem_preco_venda || 0) + (statsProdutos.sem_descricao || 0);
+        var btnAlerta = document.getElementById('btnAlertaPendencias');
+        var badgeAlerta = document.getElementById('badgeAlertaPendencias');
+        if (btnAlerta && badgeAlerta) {
+            badgeAlerta.textContent = total;
+            btnAlerta.style.display = total > 0 ? 'inline-flex' : 'none';
+        }
+    }).catch(function() {});
+}
+
+// Estatísticas: total da API; valor e alertas da lista carregada (produtos_cliente)
+function atualizarEstatisticasFromData(totalFromApi) {
+    var total = totalFromApi != null ? totalFromApi : produtosData.length;
+    var valorTotal = 0;
+    var estoqueBaixo = 0;
+    for (var i = 0; i < produtosData.length; i++) {
+        var p = produtosData[i];
+        var qtd = parseFloat(p.quantidade_atual) || 0;
+        var custo = parseFloat(p.valor_custo) || 0;
+        valorTotal += qtd * custo;
+        var min = p.quantidade_minima != null ? parseFloat(p.quantidade_minima) : null;
+        if (min != null && qtd <= min) estoqueBaixo++;
+    }
+    document.getElementById('total-produtos').textContent = total;
+    document.getElementById('valor-total').textContent = formatarMoeda(valorTotal);
+    document.getElementById('estoque-baixo').textContent = estoqueBaixo;
+    var catDistinct = {};
+    for (var i = 0; i < produtosData.length; i++) {
+        var cid = produtosData[i].categoria_id;
+        if (cid != null) catDistinct[cid] = true;
+    }
+    document.getElementById('total-categorias').textContent = Object.keys(catDistinct).length;
+}
+
+// Carregar produtos (API produtos-cliente = mesma base da Entrada NFe) e mapa de rastreio NFe
+async function carregarProdutos() {
+    var cid = getEstoqueClienteId();
+    var global = isModoGlobal();
+    var tbody = document.getElementById('tabela-produtos');
+    var colSpan = global ? 11 : 11;
+    if (!cid && !global) {
+        tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center text-muted">Nenhum estabelecimento definido.</td></tr>';
+        return;
+    }
+    try {
+        var params = new URLSearchParams();
+        if (cid) params.set('cliente_id', cid);
+        params.set('limit', global ? '100' : '500');
+        params.set('skip', String(filtros.skip || 0));
+        if (filtros.busca) params.set('busca', filtros.busca);
+        if (filtros.status === 'true') params.set('ativo', 'true');
+        if (filtros.status === 'false') params.set('ativo', 'false');
+        if (filtros.categoria_id) params.set('categoria_id', filtros.categoria_id);
+        if (filtros.tipo_material_id) params.set('tipo_material_id', filtros.tipo_material_id);
+        if (filtros.sem_imagem) params.set('sem_imagem', 'true');
+        if (filtros.sem_tipo) params.set('sem_tipo', 'true');
+        if (filtros.sem_categoria) params.set('sem_categoria', 'true');
+        var fetches = [fetchEstoque('/api/v1/produtos-cliente/?' + params.toString())];
+        if (cid) {
+            fetches.push(fetchEstoque('/api/v1/movimentacoes-estoque/ultima-entrada-nfe-por-produto?cliente_id=' + encodeURIComponent(cid)));
+        }
+        var results = await Promise.all(fetches);
+        var response = results[0];
+        var rastreioResponse = results[1] || null;
+        if (!response.ok) {
+            if (response.status === 401) { window.location.href = '/login'; return; }
+            var err = await response.json().catch(function() { return {}; });
+            tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center text-danger">' + (err.detail || 'Erro ao carregar dados') + '</td></tr>';
+            return;
+        }
+        var data = await response.json();
+        produtosData = data.items || [];
+        rastreioNfeMap = {};
+        if (rastreioResponse && rastreioResponse.ok) {
+            rastreioNfeMap = (await rastreioResponse.json()) || {};
+        }
+        atualizarEstatisticasFromData(data.total != null ? data.total : produtosData.length);
+        atualizarTabela();
+        if (!global && cid) {
+            carregarStatsProdutos();
+        }
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center text-danger">Erro ao carregar dados</td></tr>';
+    }
+}
+
+
+// Trocar entre visualização lista e miniatura
+function trocarVisualizacaoEstoque(mode) {
+    viewModeEstoque = mode;
+    localStorage.setItem('estoque_view_mode', mode);
+    var viewLista = document.getElementById('view-lista');
+    var viewMiniatura = document.getElementById('view-miniatura');
+    var btnLista = document.getElementById('btnViewLista');
+    var btnMiniatura = document.getElementById('btnViewMiniatura');
+    if (mode === 'lista') {
+        viewLista.style.display = '';
+        viewMiniatura.style.display = 'none';
+        if (btnLista) { btnLista.classList.add('active'); btnLista.classList.add('btn-primary'); btnLista.classList.remove('btn-outline-primary'); }
+        if (btnMiniatura) { btnMiniatura.classList.remove('active'); btnMiniatura.classList.remove('btn-primary'); btnMiniatura.classList.add('btn-outline-secondary'); }
+    } else {
+        viewLista.style.display = 'none';
+        viewMiniatura.style.display = 'block';
+        if (btnLista) { btnLista.classList.remove('active'); btnLista.classList.remove('btn-primary'); btnLista.classList.add('btn-outline-primary'); }
+        if (btnMiniatura) { btnMiniatura.classList.add('active'); btnMiniatura.classList.add('btn-primary'); btnMiniatura.classList.remove('btn-outline-secondary'); }
+        atualizarGridMiniatura();
+    }
+    if (typeof feather !== 'undefined') feather.replace();
+}
+
+// Obter URL da imagem principal do produto (foto_peca ou primeira mídia imagem)
+function getImagemProdutoUrl(produto) {
+    if (produto.foto_peca) {
+        var url = produto.foto_peca.startsWith('/') ? produto.foto_peca : '/static/' + produto.foto_peca;
+        return url + (url.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+    }
+    var midias = produto.midias;
+    if (midias && Array.isArray(midias)) {
+        for (var i = 0; i < midias.length; i++) {
+            var m = midias[i];
+            if ((m.tipo || '').toLowerCase() === 'imagem' && m.url) {
+                var u = m.url.startsWith('/') ? m.url : '/static/' + m.url;
+                return u + (u.indexOf('?') >= 0 ? '&' : '?') + 't=' + Date.now();
+            }
+        }
+    }
+    return null;
+}
+
+// Renderizar grid de produtos em miniatura (com imagens)
+function atualizarGridMiniatura() {
+    var container = document.getElementById('grid-produtos');
+    if (!container) return;
+    var lista = produtosData;
+    if (filtros.rastreio === 'com_entrada_nfe') {
+        lista = produtosData.filter(function(p) { return rastreioNfeMap[String(p.id)]; });
+    }
+    if (lista.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted py-5">Nenhum produto encontrado</div>';
+        return;
+    }
+    var qtdMin = function(p) { return p.quantidade_minima != null ? parseFloat(p.quantidade_minima) : null; };
+    var qtdAtual = function(p) { return parseFloat(p.quantidade_atual) || 0; };
+    container.innerHTML = lista.map(function(produto) {
+        var qtd = qtdAtual(produto);
+        var min = qtdMin(produto);
+        var alerta = min != null && qtd <= min ? ' border-warning' : '';
+        var custo = parseFloat(produto.valor_custo) || 0;
+        var totalLinha = custo * qtd;
+        var rastreio = rastreioNfeMap[String(produto.id)];
+        var entradaNfeBadge = rastreio && (rastreio.numero || rastreio.chave)
+            ? '<span class="badge bg-primary" title="' + (rastreio.chave || rastreio.numero || '').replace(/"/g, '&quot;') + '">NFe ' + (rastreio.numero || (rastreio.chave ? rastreio.chave.slice(-8) : '—')) + '</span>'
+            : '<span class="badge bg-secondary">—</span>';
+        var catNome = (categoriasList.find(function(c) { return c.id == produto.categoria_id; }) || {}).nome || produto.categoria || '—';
+        var tipoNome = (tiposMaterialList.find(function(t) { return t.id == produto.tipo_material_id; }) || {}).nome || produto.tipo_material || '—';
+        var imgUrl = getImagemProdutoUrl(produto);
+        var imgHtml = imgUrl
+            ? '<img src="' + imgUrl.replace(/"/g, '&quot;') + '" alt="" class="card-img-top" style="height: 140px; object-fit: cover;">'
+            : '<div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height: 140px;"><i data-feather="image" style="width: 48px; height: 48px; color: #dee2e6;"></i></div>';
+        return '<div class="col-6 col-md-4 col-lg-3 col-xl-2">' +
+            '<div class="card h-100' + alerta + '">' +
+            imgHtml +
+            '<div class="card-body p-2">' +
+            '<div class="small text-muted">' + (produto.codigo || '').replace(/</g, '&lt;') + '</div>' +
+            '<h6 class="card-title mb-1 text-truncate" title="' + (produto.nome || '').replace(/"/g, '&quot;') + '">' + (produto.nome || '').replace(/</g, '&lt;') + '</h6>' +
+            '<div class="small"><span class="' + (min != null && qtd <= min ? 'text-warning fw-bold' : '') + '">' + qtd + ' ' + (produto.unidade_medida || 'UN') + '</span> · ' + formatarMoeda(custo) + '</div>' +
+            '<div class="mt-1">' + entradaNfeBadge + ' <span class="badge ' + (produto.ativo ? 'bg-success' : 'bg-danger') + '">' + (produto.ativo ? 'Ativo' : 'Inativo') + '</span></div>' +
+            '<div class="mt-2 d-flex gap-1 flex-wrap">' +
+            '<a href="#" class="btn btn-sm btn-outline-secondary p-1" onclick="visualizarProduto(' + produto.id + '); return false;" title="Visualizar"><i data-feather="eye" style="width: 14px; height: 14px;"></i></a> ' +
+            '<button class="btn btn-sm btn-outline-primary p-1" onclick="editarProduto(' + produto.id + ')" title="Editar"><i data-feather="edit-2" style="width: 14px; height: 14px;"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-danger p-1" onclick="excluirProduto(' + produto.id + ')" title="Excluir"><i data-feather="trash-2" style="width: 14px; height: 14px;"></i></button>' +
+            '</div></div></div></div>';
+    }).join('');
+    if (typeof feather !== 'undefined') feather.replace();
+}
+
+// Atualizar tabela (produtos_cliente + coluna Entrada NFe para rastreio)
+function atualizarTabela() {
+    var tbody = document.getElementById('tabela-produtos');
+    var global = isModoGlobal();
+    var colSpan = global ? 11 : 11;
+    var lista = produtosData;
+    if (filtros.rastreio === 'com_entrada_nfe') {
+        lista = produtosData.filter(function(p) { return rastreioNfeMap[String(p.id)]; });
+    }
+    if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="' + colSpan + '" class="text-center">Nenhum produto encontrado</td></tr>';
+        return;
+    }
+    var qtdMin = function(p) { return p.quantidade_minima != null ? parseFloat(p.quantidade_minima) : null; };
+    var qtdAtual = function(p) { return parseFloat(p.quantidade_atual) || 0; };
+    tbody.innerHTML = lista.map(function(produto) {
+        var qtd = qtdAtual(produto);
+        var min = qtdMin(produto);
+        var alerta = min != null && qtd <= min ? ' text-warning' : '';
+        var custo = parseFloat(produto.valor_custo) || 0;
+        var totalLinha = custo * qtd;
+        var rastreio = rastreioNfeMap[String(produto.id)];
+        var entradaNfeHtml = rastreio && (rastreio.numero || rastreio.chave)
+            ? '<span class="badge bg-primary" title="' + (rastreio.chave || rastreio.numero || '').replace(/"/g, '&quot;') + '">NFe ' + (rastreio.numero || (rastreio.chave ? rastreio.chave.slice(-8) : '—')) + '</span>'
+            : '<span class="badge bg-secondary">—</span>';
+        var catNome = (categoriasList.find(function(c) { return c.id == produto.categoria_id; }) || {}).nome || produto.categoria || '—';
+        var tipoNome = (tiposMaterialList.find(function(t) { return t.id == produto.tipo_material_id; }) || {}).nome || produto.tipo_material || '—';
+        var lojaCol = global ? '<td><span class="badge bg-dark">' + (produto.cliente_nome || ('ID ' + produto.cliente_id)).replace(/</g, '&lt;') + '</span></td>' : '';
+        return '<tr>' +
+            lojaCol +
+            '<td><strong>' + (produto.codigo || '').replace(/</g, '&lt;') + '</strong></td>' +
+            '<td>' + (produto.nome || '').replace(/</g, '&lt;') + '</td>' +
+            '<td><span class="badge bg-secondary">' + (catNome + '').substring(0, 30).replace(/</g, '&lt;') + '</span></td>' +
+            '<td><span class="badge bg-info">' + (tipoNome + '').replace(/</g, '&lt;') + '</span></td>' +
+            '<td><span class="' + alerta + '">' + qtd + ' ' + (produto.unidade_medida || 'UN') + '</span></td>' +
+            '<td>' + formatarMoeda(custo) + '</td>' +
+            '<td>' + formatarMoeda(totalLinha) + '</td>' +
+            '<td>' + entradaNfeHtml + '</td>' +
+            '<td><span class="badge ' + (produto.ativo ? 'bg-success' : 'bg-danger') + '">' + (produto.ativo ? 'Ativo' : 'Inativo') + '</span></td>' +
+            '<td><a href="#" class="btn btn-sm btn-outline-secondary" onclick="visualizarProduto(' + produto.id + '); return false;" title="Visualizar"><i data-feather="eye"></i></a> ' +
+            '<button class="btn btn-sm btn-outline-primary" onclick="editarProduto(' + produto.id + ')" title="Editar"><i data-feather="edit-2"></i></button> ' +
+            '<button class="btn btn-sm btn-outline-danger" onclick="excluirProduto(' + produto.id + ')" title="Excluir"><i data-feather="trash-2"></i></button></td>' +
+            '</tr>';
+    }).join('');
+    if (typeof feather !== 'undefined') feather.replace();
+    if (viewModeEstoque === 'miniatura') atualizarGridMiniatura();
+}
+
+// Aplicar filtros
+function aplicarFiltros() {
+    filtros.busca = document.getElementById('filtro-busca').value;
+    filtros.categoria_id = document.getElementById('filtro-categoria').value;
+    filtros.tipo_material_id = document.getElementById('filtro-tipo-material').value;
+    filtros.status = document.getElementById('filtro-status').value;
+    filtros.alertas = document.getElementById('filtro-alertas').value;
+    filtros.rastreio = document.getElementById('filtro-rastreio').value;
+    filtros.skip = 0;
+
+    carregarProdutos();
+}
+
+// Lista unificada de mídias: [{ tipo: "imagem"|"video"|"youtube", url?, file?, base64? }]
+let unifiedMidias = [];
+let modalProdutoPermiteRemoverMidia = false;
+var MAX_IMAGE_BYTES_UI = 5 * 1024 * 1024;
+var MAX_VIDEO_BYTES_UI = 80 * 1024 * 1024;
+var MAX_IMAGENS_UI = 12;
+var MAX_VIDEOS_UI = 2;
+var MAX_YOUTUBE_UI = 3;
+
+function fileToDataUrl(file) {
+    return new Promise(function(resolve, reject) {
+        var r = new FileReader();
+        r.onload = function() { resolve(r.result); };
+        r.onerror = reject;
+        r.readAsDataURL(file);
+    });
+}
+
+function buildMidiasPayloadForSave(produtoAtual, firstImgUsed, filesUploaded) {
+    var currentMidias = (produtoAtual.midias && Array.isArray(produtoAtual.midias)) ? produtoAtual.midias : [];
+    var uploadedUrls = [];
+    if (filesUploaded && filesUploaded.length > 0) {
+        uploadedUrls = currentMidias.slice(-filesUploaded.length).map(function(m) { return m && m.url ? m.url : null; }).filter(Boolean);
+    }
+    var urlIndex = 0;
+    var out = [];
+    for (var i = 0; i < unifiedMidias.length; i++) {
+        var m = unifiedMidias[i];
+        var tipo = (m.tipo || 'imagem').toLowerCase();
+        var url = null;
+        if (m.url && !m.file && !m.base64) {
+            url = /^https?:\/\//i.test(m.url) ? m.url : (m.url.startsWith('uploads/') ? m.url : 'uploads/produtos/' + (m.url.replace(/^\/static\//, '').replace(/^.*?uploads\/produtos\//, '')));
+        } else if (m.file && uploadedUrls[urlIndex] !== undefined) {
+            url = uploadedUrls[urlIndex++];
+        } else if (m === firstImgUsed && produtoAtual.foto_peca) {
+            url = produtoAtual.foto_peca.startsWith('uploads/') ? produtoAtual.foto_peca : 'uploads/produtos/' + produtoAtual.foto_peca.replace(/^.*?uploads\/produtos\//, '');
+        }
+        if (url) out.push({ tipo: tipo === 'video' || tipo === 'youtube' ? tipo : 'imagem', url: url });
+    }
+    var seen = {};
+    var deduped = [];
+    for (var j = 0; j < out.length; j++) {
+        var it = out[j];
+        if (!it || !it.url) continue;
+        var key = String((it.tipo || 'imagem').toLowerCase()) + '|' + String(it.url).trim();
+        if (seen[key]) continue;
+        seen[key] = true;
+        deduped.push(it);
+    }
+    return deduped;
+}
+
+function extrairYoutubeEmbedUrl(input) {
+    var s = (input || '').trim();
+    if (!s) return null;
+    var m = s.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+    return m ? 'https://www.youtube.com/embed/' + m[1] : null;
+}
+
+// Abrir modal novo produto (garante categorias/tipos carregados antes de exibir)
+async function abrirModalNovoProduto() {
+    fecharDropdownCadastro();
+    if (!categoriasList.length || !tiposMaterialList.length) {
+        try {
+            var cat = fetchEstoque('/api/v1/material-categorias/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
+            var tip = fetchEstoque('/api/v1/tipo-material/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
+            var res = await Promise.all([cat, tip]);
+            categoriasList = res[0] || [];
+            tiposMaterialList = res[1] || [];
+        } catch (e) { /* silencioso */ }
+    }
+    preencherSelectCategorias();
+    preencherSelectTiposMaterial();
+    document.getElementById('formNovoProduto').reset();
+    document.getElementById('produto_id_modal').value = '';
+    document.getElementById('modalProdutoTitulo').textContent = 'Novo Produto';
+    document.getElementById('btnSalvarProduto').onclick = function() { salvarProdutoModal(); };
+    document.getElementById('formNovoProduto').querySelectorAll('input, select, textarea').forEach(function(el) { el.disabled = false; });
+    document.getElementById('btnSalvarProduto').style.display = '';
+    document.getElementById('btnCancelarModalProduto').textContent = 'Cancelar';
+    document.getElementById('modalProdutoMovimentacoes').style.display = 'none';
+    unifiedMidias = [];
+    modalProdutoPermiteRemoverMidia = false;
+    renderUnifiedMidias();
+    document.getElementById('youtube_url_input').value = '';
+    var inpImagemUrl = document.getElementById('imagem_url_input');
+    if (inpImagemUrl) inpImagemUrl.value = '';
+    const modal = document.getElementById('modalNovoProdutoCustom');
+    if (modal) { modal.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+    if (typeof feather !== 'undefined') feather.replace();
+}
+
+// Fechar modal produto (reabilita formulário e botões se estiver em modo visualização)
+function fecharModalProduto() {
+    const modal = document.getElementById('modalNovoProdutoCustom');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+    var form = document.getElementById('formNovoProduto');
+    if (form) {
+        form.querySelectorAll('input, select, textarea').forEach(function(el) { el.disabled = false; });
+    }
+    var btnSalvar = document.getElementById('btnSalvarProduto');
+    if (btnSalvar) btnSalvar.style.display = '';
+    var btnCancelar = document.getElementById('btnCancelarModalProduto');
+    if (btnCancelar) btnCancelar.textContent = 'Cancelar';
+    document.getElementById('modalProdutoMovimentacoes').style.display = 'none';
+}
+
+// Visualizar produto (modal somente leitura)
+async function visualizarProduto(id) {
+    if (!getToken()) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
+    if (!categoriasList.length || !tiposMaterialList.length) {
+        var cat = fetchEstoque('/api/v1/material-categorias/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
+        var tip = fetchEstoque('/api/v1/tipo-material/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
+        var res = await Promise.all([cat, tip]);
+        categoriasList = res[0] || [];
+        tiposMaterialList = res[1] || [];
+        preencherSelectCategorias();
+        preencherSelectTiposMaterial();
+    }
+    try {
+        var response = await fetchEstoque('/api/v1/produtos-cliente/' + id);
+        if (!response.ok) throw new Error('Produto não encontrado');
+        var produto = await response.json();
+        document.getElementById('modalProdutoTitulo').textContent = 'Visualizar Produto';
+        document.getElementById('produto_id_modal').value = '';
+        document.getElementById('codigo').value = produto.codigo || '';
+        document.getElementById('nome').value = produto.nome || '';
+        document.getElementById('categoria_id').value = produto.categoria_id != null ? produto.categoria_id : '';
+        document.getElementById('tipo_material_id').value = produto.tipo_material_id != null ? produto.tipo_material_id : '';
+        document.getElementById('descricao').value = produto.descricao || '';
+        document.getElementById('quantidade_atual').value = produto.quantidade_atual != null ? produto.quantidade_atual : '';
+        document.getElementById('quantidade_minima').value = produto.quantidade_minima != null ? produto.quantidade_minima : '';
+        document.getElementById('unidade_medida').value = produto.unidade_medida || 'UN';
+        document.getElementById('valor_custo').value = (produto.valor_custo != null && produto.valor_custo !== '') ? produto.valor_custo : '';
+        document.getElementById('valor_venda').value = (produto.valor_venda != null && produto.valor_venda !== '') ? produto.valor_venda : '';
+        document.getElementById('ncm').value = produto.ncm || '';
+        document.getElementById('cfop_padrao').value = produto.cfop_padrao || '';
+        document.getElementById('referencia').value = produto.referencia || '';
+        document.getElementById('codigo_barras').value = produto.codigo_barras || '';
+        document.getElementById('cest').value = produto.cest || '';
+        document.getElementById('extipi').value = produto.extipi || '';
+        document.getElementById('origem_mercadoria').value = (produto.origem_mercadoria != null && produto.origem_mercadoria >= 0 && produto.origem_mercadoria <= 8) ? produto.origem_mercadoria : '';
+        unifiedMidias = buildUnifiedMidiasFromProduto(produto);
+        modalProdutoPermiteRemoverMidia = false;
+        renderUnifiedMidias();
+        document.getElementById('formNovoProduto').querySelectorAll('input, select, textarea').forEach(function(el) { el.disabled = true; });
+        document.getElementById('btnSalvarProduto').style.display = 'none';
+        document.getElementById('btnCancelarModalProduto').textContent = 'Fechar';
+        document.getElementById('modalProdutoMovimentacoes').style.display = 'block';
+        carregarMovimentacoesProduto(id);
+        document.getElementById('modalNovoProdutoCustom').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        if (typeof feather !== 'undefined') feather.replace();
+    } catch (err) {
+        console.error('Erro ao carregar produto:', err);
+        alert('Erro ao carregar produto: ' + (err.message || 'Tente novamente.'));
+    }
+}
+
+// Carregar e exibir movimentações do produto no modal (usado ao visualizar)
+function carregarMovimentacoesProduto(produtoClienteId) {
+    var tbody = document.getElementById('modalProdutoMovimentacoesBody');
+    var blocoVazio = document.getElementById('modalProdutoMovimentacoesVazio');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Carregando...</td></tr>';
+    blocoVazio.style.display = 'none';
+    fetchEstoque('/api/v1/movimentacoes-estoque/?produto_cliente_id=' + produtoClienteId + '&limit=50').then(function(r) {
+        return r.ok ? r.json() : { items: [] };
+    }).then(function(data) {
+        var items = data.items || [];
+        if (items.length === 0) {
+            tbody.innerHTML = '';
+            blocoVazio.style.display = 'block';
+            return;
+        }
+        blocoVazio.style.display = 'none';
+        tbody.innerHTML = items.map(function(m) {
+            var dataStr = m.created_at ? new Date(m.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+            var tipo = (m.tipo || '').toLowerCase();
+            var tipoBadge = tipo === 'entrada' ? 'bg-success' : (tipo === 'saida' ? 'bg-danger' : 'bg-secondary');
+            var qtd = m.quantidade != null ? Number(m.quantidade) : '—';
+            var valor = m.valor_unitario != null ? formatarMoeda(Number(m.valor_unitario)) : '—';
+            var obs = (m.observacao || '—').replace(/</g, '&lt;').substring(0, 60);
+            return '<tr><td>' + dataStr + '</td><td><span class="badge ' + tipoBadge + '">' + (m.tipo || '') + '</span></td><td>' + qtd + '</td><td>' + valor + '</td><td>' + obs + '</td></tr>';
+        }).join('');
+        if (typeof feather !== 'undefined') feather.replace();
+    }).catch(function() {
+        tbody.innerHTML = '';
+        blocoVazio.style.display = 'block';
+    });
+}
+
+function buildUnifiedMidiasFromProduto(produto) {
+    var out = [];
+    var fotoUrl = produto.foto_peca && String(produto.foto_peca).trim();
+    if (fotoUrl) {
+        var u = fotoUrl.startsWith('uploads/') ? fotoUrl : (fotoUrl.startsWith('/') ? fotoUrl : 'uploads/produtos/' + fotoUrl.replace(/^.*?uploads\/produtos\//, ''));
+        out.push({ tipo: 'imagem', url: u });
+    }
+    var midias = produto.midias;
+    if (midias && Array.isArray(midias)) {
+        midias.forEach(function(m) {
+            if (m && m.url) {
+                var t = (m.tipo || 'imagem').toLowerCase();
+                var url = m.url.startsWith('http') ? m.url : (m.url.startsWith('uploads/') ? m.url : 'uploads/produtos/' + m.url.replace(/^.*?uploads\/produtos\//, ''));
+                out.push({ tipo: t === 'video' || t === 'youtube' ? t : 'imagem', url: url });
+            }
+        });
+    }
+    return out;
+}
+
+function adicionarYoutubeUrl() {
+    var inp = document.getElementById('youtube_url_input');
+    var url = extrairYoutubeEmbedUrl(inp ? inp.value : '');
+    if (!url) {
+        alert('Informe um link válido do YouTube (ex: youtube.com/watch?v=... ou youtu.be/...)');
+        return;
+    }
+    var n = unifiedMidias.filter(function(m) { return m.tipo === 'youtube'; }).length;
+    if (n >= MAX_YOUTUBE_UI) {
+        alert('Máximo de ' + MAX_YOUTUBE_UI + ' links do YouTube.');
+        return;
+    }
+    unifiedMidias.push({ tipo: 'youtube', url: url });
+    if (inp) inp.value = '';
+    renderUnifiedMidias();
+}
+
+function adicionarImagemUrl() {
+    var inp = document.getElementById('imagem_url_input');
+    var raw = inp ? String(inp.value || '').trim() : '';
+    if (!raw) { alert('Informe o link da imagem.'); return; }
+    if (!/^https?:\/\//i.test(raw)) { alert('Informe uma URL válida iniciando com http:// ou https://'); return; }
+    var jaExiste = unifiedMidias.some(function(m) {
+        return (m.tipo || '').toLowerCase() === 'imagem' && m.url && String(m.url).trim().toLowerCase() === raw.toLowerCase();
+    });
+    if (jaExiste) { alert('Esse link já foi adicionado.'); return; }
+    var nImg = unifiedMidias.filter(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; }).length;
+    if (nImg >= MAX_IMAGENS_UI) { alert('Máximo de ' + MAX_IMAGENS_UI + ' imagens.'); return; }
+    unifiedMidias.push({ tipo: 'imagem', url: raw });
+    if (inp) inp.value = '';
+    renderUnifiedMidias();
+}
+
+function hasExternalImageUrls(midias) {
+    return (midias || []).some(function(m) {
+        return (m.tipo || '').toLowerCase() === 'imagem' && m.url && /^https?:\/\//i.test(m.url);
+    });
+}
+
+async function importarImagensUrlExternas(produtoId) {
+    var indicesExternas = [];
+    for (var i = 0; i < unifiedMidias.length; i++) {
+        var midia = unifiedMidias[i];
+        if ((midia.tipo || '').toLowerCase() === 'imagem' && midia.url && /^https?:\/\//i.test(midia.url)) {
+            indicesExternas.push(i);
+        }
+    }
+    if (!indicesExternas.length) return null;
+    var produtoAtual = null;
+    var importedByExternal = {};
+    for (var j = 0; j < indicesExternas.length; j++) {
+        var idx = indicesExternas[j];
+        var urlExterna = unifiedMidias[idx].url;
+        if (importedByExternal[urlExterna]) {
+            unifiedMidias[idx].url = importedByExternal[urlExterna];
+            continue;
+        }
+        var resp = await fetchEstoque('/api/v1/produtos-cliente/' + produtoId + '/midias/import-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: urlExterna })
+        });
+        var data = await resp.json().catch(function() { return {}; });
+        if (!resp.ok) throw new Error(data.detail || 'Falha ao importar imagem por link.');
+        var midiasResp = Array.isArray(data.midias) ? data.midias : [];
+        var ultimaImagemInterna = null;
+        for (var k = midiasResp.length - 1; k >= 0; k--) {
+            var mk = midiasResp[k];
+            if (mk && (mk.tipo || '').toLowerCase() === 'imagem' && mk.url && !/^https?:\/\//i.test(mk.url)) {
+                ultimaImagemInterna = mk.url;
+                break;
+            }
+        }
+        if (!ultimaImagemInterna) throw new Error('Imagem importada, mas URL interna não foi retornada pelo servidor.');
+        unifiedMidias[idx].url = ultimaImagemInterna;
+        importedByExternal[urlExterna] = ultimaImagemInterna;
+        produtoAtual = data;
+    }
+    return produtoAtual;
+}
+
+// Salvar produto (novo ou edição conforme produto_id_modal)
+function salvarProdutoModal() {
+    const id = document.getElementById('produto_id_modal').value.trim();
+    if (id) salvarEdicaoProduto();
+    else salvarNovoProduto();
+}
+
+// Abrir/fechar modal confirmação (conforme MAPA_SISTEMA)
+function abrirModalConfirmacaoEstoque() {
+    const modal = document.getElementById('modalConfirmacaoCustom');
+    if (modal) { modal.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+}
+function fecharModalConfirmacaoEstoque() {
+    const modal = document.getElementById('modalConfirmacaoCustom');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+}
+
+// Função para obter token do cookie (POST/PATCH/DELETE)
+function getToken() {
+    return getTokenEstoque();
+}
+
+// Variável global para armazenar o ID do produto a ser excluído
+let produtoIdParaExcluir = null;
+
+// Excluir produto
+function excluirProduto(id) {
+    produtoIdParaExcluir = id;
+    abrirModalConfirmacaoEstoque();
+}
+
+// Confirmar exclusão de produto (API produtos-cliente)
+async function confirmarExclusaoProduto() {
+    if (!produtoIdParaExcluir) {
+        alert('Erro: ID do produto não encontrado');
+        return;
+    }
+    try {
+        if (!getToken()) {
+            alert('Token não encontrado. Faça login novamente.');
+            window.location.href = '/login';
+            return;
+        }
+        var response = await fetchEstoque('/api/v1/produtos-cliente/' + produtoIdParaExcluir, { method: 'DELETE' });
+        if (!response.ok) {
+            var error = await response.json().catch(function() { return {}; });
+            throw new Error(error.detail || 'Erro ao excluir produto');
+        }
+        alert('Produto excluído com sucesso!');
+        fecharModalConfirmacaoEstoque();
+        carregarProdutos();
+        produtoIdParaExcluir = null;
+    } catch (error) {
+        console.error('Erro ao excluir produto:', error);
+        alert('Erro ao excluir produto: ' + error.message);
+    }
+}
+
+// Salvar novo produto (API produtos-cliente = mesmo catálogo da Entrada NFe)
+async function salvarNovoProduto() {
+    var cid = getEstoqueClienteId();
+    if (!cid) {
+        alert('Estabelecimento não definido. Não é possível cadastrar produto.');
+        return;
+    }
+    var btnSalvar = document.getElementById('btnSalvarProduto');
+    try {
+        var form = document.getElementById('formNovoProduto');
+        if (!form.checkValidity()) { form.reportValidity(); return; }
+        if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+        var dadosProduto = {
+            cliente_id: parseInt(cid, 10),
+            codigo: document.getElementById('codigo').value.trim(),
+            nome: document.getElementById('nome').value.trim(),
+            descricao: (document.getElementById('descricao').value || '').trim() || null,
+            categoria_id: (function() { var v = document.getElementById('categoria_id').value; return v ? parseInt(v, 10) : null; })(),
+            tipo_material_id: (function() { var v = document.getElementById('tipo_material_id').value; return v ? parseInt(v, 10) : null; })(),
+            ncm: (document.getElementById('ncm').value || '').trim() || null,
+            cfop_padrao: (document.getElementById('cfop_padrao').value || '').trim() || null,
+            referencia: (document.getElementById('referencia').value || '').trim() || null,
+            codigo_barras: (document.getElementById('codigo_barras').value || '').trim() || null,
+            cest: (document.getElementById('cest').value || '').trim() || null,
+            extipi: (document.getElementById('extipi').value || '').trim() || null,
+            origem_mercadoria: (function() { var v = document.getElementById('origem_mercadoria').value; if (v === '') return null; var n = parseInt(v, 10); return (n >= 0 && n <= 8) ? n : null; })(),
+            unidade_medida: (document.getElementById('unidade_medida').value || 'UN').trim(),
+            valor_custo: document.getElementById('valor_custo').value ? parseFloat(document.getElementById('valor_custo').value) : null,
+            valor_venda: document.getElementById('valor_venda').value ? parseFloat(document.getElementById('valor_venda').value) : null,
+            quantidade_minima: document.getElementById('quantidade_minima').value ? parseFloat(document.getElementById('quantidade_minima').value) : null,
+            quantidade_atual: parseFloat(document.getElementById('quantidade_atual').value) || 0,
+            ativo: true
+        };
+        var firstImg = unifiedMidias.find(function(m) { return (m.tipo || '').toLowerCase() === 'imagem' && (m.file || m.base64); });
+        if (firstImg) {
+            if (firstImg.base64) {
+                dadosProduto.foto_peca_base64 = firstImg.base64;
+            } else if (firstImg.file) {
+                dadosProduto.foto_peca_base64 = await fileToDataUrl(firstImg.file);
+            }
+        }
+        var token = getToken();
+        if (!token) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
+        var response = await fetchEstoque('/api/v1/produtos-cliente/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dadosProduto)
+        });
+        var result = await response.json().catch(function() { return {}; });
+        if (response.ok) {
+            var newId = result.id;
+            var produtoAtual = result;
+            var filesToUpload = unifiedMidias.filter(function(m) { return m.file && m !== firstImg; });
+            if (filesToUpload.length > 0 && newId) {
+                if (btnSalvar) btnSalvar.textContent = 'Enviando mídias...';
+                var fd = new FormData();
+                filesToUpload.forEach(function(m) { fd.append('files', m.file); });
+                try {
+                    var midiasResp = await fetchEstoque('/api/v1/produtos-cliente/' + newId + '/midias', { method: 'POST', body: fd });
+                    if (midiasResp.ok) {
+                        produtoAtual = await midiasResp.json().catch(function() { return result; });
+                    } else {
+                        var errMidias = await midiasResp.json().catch(function() { return {}; });
+                        alert('Produto salvo, mas algumas mídias não foram enviadas: ' + (errMidias.detail || midiasResp.status));
+                    }
+                } catch (e) { console.error('Erro ao enviar mídias:', e); }
+            }
+            if (newId) {
+                if (btnSalvar) btnSalvar.textContent = 'Importando links...';
+                var importadoNovo = await importarImagensUrlExternas(newId);
+                if (importadoNovo) produtoAtual = importadoNovo;
+            }
+            var midiasForPatch = buildMidiasPayloadForSave(produtoAtual, firstImg, filesToUpload);
+            if (midiasForPatch.length > 0) {
+                await fetchEstoque('/api/v1/produtos-cliente/' + newId, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        midias: midiasForPatch,
+                        foto_peca: (midiasForPatch.find(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; }) || {}).url || null
+                    })
+                });
+            }
+            fecharModalProduto();
+            form.reset();
+            unifiedMidias = [];
+            renderUnifiedMidias();
+            alert('Produto cadastrado com sucesso!');
+            carregarProdutos();
+        } else {
+            alert('Erro ao cadastrar produto: ' + (result.detail || result.message || 'Erro desconhecido'));
+        }
+    } catch (error) {
+        console.error('Erro ao salvar novo produto:', error);
+        alert('Erro interno ao tentar cadastrar produto.');
+    }
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = 'Salvar'; }
+}
+
+// Editar produto: abrir modal com dados do produto (API produtos-cliente)
+async function editarProduto(id) {
+    if (!getToken()) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
+    try {
+        if (!categoriasList.length || !tiposMaterialList.length) {
+            var cat = fetchEstoque('/api/v1/material-categorias/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
+            var tip = fetchEstoque('/api/v1/tipo-material/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
+            var res = await Promise.all([cat, tip]);
+            categoriasList = res[0] || [];
+            tiposMaterialList = res[1] || [];
+            preencherSelectCategorias();
+            preencherSelectTiposMaterial();
+        }
+        var response = await fetchEstoque('/api/v1/produtos-cliente/' + id);
+        if (!response.ok) throw new Error('Produto não encontrado');
+        var produto = await response.json();
+        document.getElementById('produto_id_modal').value = produto.id;
+        document.getElementById('modalProdutoTitulo').textContent = 'Editar Produto';
+        modalProdutoPermiteRemoverMidia = true;
+        document.getElementById('btnSalvarProduto').onclick = function() { salvarProdutoModal(); };
+        document.getElementById('codigo').value = produto.codigo || '';
+        document.getElementById('nome').value = produto.nome || '';
+        document.getElementById('categoria_id').value = produto.categoria_id != null ? produto.categoria_id : '';
+        document.getElementById('tipo_material_id').value = produto.tipo_material_id != null ? produto.tipo_material_id : '';
+        document.getElementById('descricao').value = produto.descricao || '';
+        document.getElementById('quantidade_atual').value = produto.quantidade_atual != null ? produto.quantidade_atual : '';
+        document.getElementById('quantidade_minima').value = produto.quantidade_minima != null ? produto.quantidade_minima : '';
+        document.getElementById('unidade_medida').value = produto.unidade_medida || 'UN';
+        document.getElementById('valor_custo').value = (produto.valor_custo != null && produto.valor_custo !== '') ? produto.valor_custo : '';
+        document.getElementById('valor_venda').value = (produto.valor_venda != null && produto.valor_venda !== '') ? produto.valor_venda : '';
+        document.getElementById('ncm').value = produto.ncm || '';
+        document.getElementById('cfop_padrao').value = produto.cfop_padrao || '';
+        document.getElementById('referencia').value = produto.referencia || '';
+        document.getElementById('codigo_barras').value = produto.codigo_barras || '';
+        document.getElementById('cest').value = produto.cest || '';
+        document.getElementById('extipi').value = produto.extipi || '';
+        document.getElementById('origem_mercadoria').value = (produto.origem_mercadoria != null && produto.origem_mercadoria >= 0 && produto.origem_mercadoria <= 8) ? produto.origem_mercadoria : '';
+        unifiedMidias = buildUnifiedMidiasFromProduto(produto);
+        renderUnifiedMidias();
+        var inpImagemUrlEdicao = document.getElementById('imagem_url_input');
+        if (inpImagemUrlEdicao) inpImagemUrlEdicao.value = '';
+        document.getElementById('formNovoProduto').querySelectorAll('input, select, textarea').forEach(function(el) { el.disabled = false; });
+        document.getElementById('btnSalvarProduto').style.display = '';
+        document.getElementById('btnCancelarModalProduto').textContent = 'Cancelar';
+        document.getElementById('modalProdutoMovimentacoes').style.display = 'none';
+        document.getElementById('modalNovoProdutoCustom').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        if (typeof feather !== 'undefined') feather.replace();
+    } catch (err) {
+        console.error('Erro ao carregar produto:', err);
+        alert('Erro ao carregar produto: ' + (err.message || 'Tente novamente.'));
+    }
+}
+
+function midiaDisplayUrl(m) {
+    if (m.url && /^https?:\/\//i.test(m.url)) return m.url;
+    return m.url ? (m.url.startsWith('/') ? m.url : '/static/' + m.url) : '';
+}
+
+function renderUnifiedMidias() {
+    var container = document.getElementById('midias_unificado_list');
+    if (!container) return;
+    container.innerHTML = '';
+    var pid = document.getElementById('produto_id_modal').value;
+    var canEdit = modalProdutoPermiteRemoverMidia || (unifiedMidias.some(function(m) { return m.file || m.base64; }) && !pid);
+    for (var i = 0; i < unifiedMidias.length; i++) {
+        var m = unifiedMidias[i];
+        var div = document.createElement('div');
+        div.className = 'position-relative d-flex flex-column align-items-center';
+        div.style.width = '90px';
+        var btnRemove = canEdit ? '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-0 p-0" style="width:20px;height:20px;font-size:11px;z-index:2;" data-remove-idx="' + i + '" aria-label="Remover">&times;</button>' : '';
+        var btnsOrdem = (canEdit && unifiedMidias.length > 1) ? '<div class="d-flex gap-0 mt-1" style="font-size:10px;">' +
+            (i > 0 ? '<button type="button" class="btn btn-outline-secondary btn-sm p-0 px-1" data-move="' + i + ',-1" title="Subir">↑</button>' : '') +
+            (i < unifiedMidias.length - 1 ? '<button type="button" class="btn btn-outline-secondary btn-sm p-0 px-1" data-move="' + i + ',1" title="Descer">↓</button>' : '') +
+            '</div>' : '';
+        var tipo = (m.tipo || 'imagem').toLowerCase();
+        if (tipo === 'youtube') {
+            var yurl = m.url || '';
+            var vidMatch = yurl.match(/(?:embed\/|v=|\/)([a-zA-Z0-9_-]{11})(?:$|[?&/])/);
+            var vidId = vidMatch ? vidMatch[1] : '';
+            div.innerHTML = '<div class="position-relative border rounded overflow-hidden" style="width:80px;height:60px;background:#000;">' +
+                '<img src="https://img.youtube.com/vi/' + vidId + '/default.jpg" style="width:100%;height:100%;object-fit:cover;" alt="YouTube">' +
+                '<span class="badge bg-danger position-absolute bottom-0 start-0 m-1" style="font-size:9px;">YT</span>' +
+                btnRemove + '</div>' + btnsOrdem;
+        } else if (tipo === 'video') {
+            var vurl = m.file ? URL.createObjectURL(m.file) : midiaDisplayUrl(m);
+            div.innerHTML = '<div class="position-relative">' +
+                '<video src="' + vurl + '" style="width:80px;height:60px;object-fit:cover;border-radius:6px;" class="border"></video>' +
+                '<span class="badge bg-secondary position-absolute bottom-0 start-0 m-1" style="font-size:9px;">vídeo</span>' +
+                btnRemove + '</div>' + btnsOrdem;
+        } else {
+            var imgSrc = m.file ? URL.createObjectURL(m.file) : (m.base64 || midiaDisplayUrl(m));
+            div.innerHTML = '<div class="position-relative">' +
+                '<img src="' + imgSrc + '" alt="" style="width:80px;height:60px;object-fit:cover;border-radius:6px;" class="border">' +
+                btnRemove + '</div>' + btnsOrdem;
+        }
+        container.appendChild(div);
+    }
+    container.querySelectorAll('[data-remove-idx]').forEach(function(btn) {
+        btn.addEventListener('click', function(ev) { ev.preventDefault(); var idx = parseInt(btn.getAttribute('data-remove-idx'), 10); removerUnifiedMidia(idx); });
+    });
+    container.querySelectorAll('[data-move]').forEach(function(btn) {
+        btn.addEventListener('click', function(ev) {
+            ev.preventDefault();
+            var parts = btn.getAttribute('data-move').split(',');
+            moverUnifiedMidia(parseInt(parts[0], 10), parseInt(parts[1], 10));
+        });
+    });
+    if (typeof feather !== 'undefined') feather.replace();
+}
+
+function removerUnifiedMidia(idx) {
+    unifiedMidias.splice(idx, 1);
+    renderUnifiedMidias();
+    var pid = document.getElementById('produto_id_modal').value;
+    if (pid && !hasExternalImageUrls(unifiedMidias) && unifiedMidias.every(function(m) { return m.url && !m.file && !m.base64; })) {
+        persisteUnifiedMidiasNoBackend(pid);
+    }
+}
+
+function moverUnifiedMidia(idx, dir) {
+    var newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= unifiedMidias.length) return;
+    var tmp = unifiedMidias[idx];
+    unifiedMidias[idx] = unifiedMidias[newIdx];
+    unifiedMidias[newIdx] = tmp;
+    renderUnifiedMidias();
+    var pid = document.getElementById('produto_id_modal').value;
+    if (pid && !hasExternalImageUrls(unifiedMidias) && unifiedMidias.every(function(m) { return m.url && !m.file && !m.base64; })) {
+        persisteUnifiedMidiasNoBackend(pid);
+    }
+}
+
+function persisteUnifiedMidiasNoBackend(produtoId) {
+    if (!getToken()) return;
+    var midiasPayload = unifiedMidias.map(function(m) { return { tipo: m.tipo, url: m.url }; });
+    var firstImg = unifiedMidias.find(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; });
+    var fotoPeca = firstImg ? firstImg.url : null;
+    fetchEstoque('/api/v1/produtos-cliente/' + produtoId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ midias: midiasPayload, foto_peca: fotoPeca })
+    }).then(function(r) {
+        if (!r.ok) console.warn('Erro ao persistir mídias');
+    }).catch(function() {});
+}
+
+// Salvar edição de produto (API produtos-cliente)
+async function salvarEdicaoProduto() {
+    var id = document.getElementById('produto_id_modal').value.trim();
+    if (!id) return;
+    var form = document.getElementById('formNovoProduto');
+    if (!form.checkValidity()) { form.reportValidity(); return; }
+    if (!getToken()) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
+    var btnSalvar = document.getElementById('btnSalvarProduto');
+    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
+    var payload = {
+        codigo: document.getElementById('codigo').value.trim(),
+        nome: document.getElementById('nome').value.trim(),
+        descricao: document.getElementById('descricao').value.trim() || null,
+        quantidade_atual: parseFloat(document.getElementById('quantidade_atual').value) || 0,
+        quantidade_minima: document.getElementById('quantidade_minima').value ? parseFloat(document.getElementById('quantidade_minima').value) : null,
+        unidade_medida: document.getElementById('unidade_medida').value.trim() || 'UN',
+        valor_custo: document.getElementById('valor_custo').value ? parseFloat(document.getElementById('valor_custo').value) : null,
+        valor_venda: document.getElementById('valor_venda').value ? parseFloat(document.getElementById('valor_venda').value) : null,
+        ncm: document.getElementById('ncm').value.trim() || null,
+        cfop_padrao: document.getElementById('cfop_padrao').value.trim() || null,
+        referencia: document.getElementById('referencia').value.trim() || null,
+        codigo_barras: (document.getElementById('codigo_barras').value || '').trim() || null,
+        cest: document.getElementById('cest').value.trim() || null,
+        extipi: document.getElementById('extipi').value.trim() || null,
+        origem_mercadoria: (function() { var v = document.getElementById('origem_mercadoria').value; if (v === '') return null; var n = parseInt(v, 10); return (n >= 0 && n <= 8) ? n : null; })(),
+        categoria_id: (function() { var v = document.getElementById('categoria_id').value; return v ? parseInt(v, 10) : null; })(),
+        tipo_material_id: (function() { var v = document.getElementById('tipo_material_id').value; return v ? parseInt(v, 10) : null; })()
+    };
+    var firstImg = unifiedMidias.find(function(m) { return (m.tipo || '').toLowerCase() === 'imagem' && (m.file || m.base64); });
+    if (firstImg) {
+        if (firstImg.base64) payload.foto_peca_base64 = firstImg.base64;
+        else if (firstImg.file) payload.foto_peca_base64 = await fileToDataUrl(firstImg.file);
+    }
+    try {
+        var response = await fetchEstoque('/api/v1/produtos-cliente/' + id, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        var result = await response.json().catch(function() { return {}; });
+        if (response.ok) {
+            var filesToUpload = unifiedMidias.filter(function(m) { return m.file && m !== firstImg; });
+            var produtoAtual = result;
+            if (filesToUpload.length > 0 && id) {
+                if (btnSalvar) btnSalvar.textContent = 'Enviando mídias...';
+                var fd = new FormData();
+                filesToUpload.forEach(function(m) { fd.append('files', m.file); });
+                try {
+                    var midiasResp = await fetchEstoque('/api/v1/produtos-cliente/' + id + '/midias', { method: 'POST', body: fd });
+                    if (midiasResp.ok) produtoAtual = await midiasResp.json().catch(function() { return result; });
+                    else {
+                        var errMidias = await midiasResp.json().catch(function() { return {}; });
+                        alert('Produto atualizado, mas algumas mídias não foram enviadas: ' + (errMidias.detail || midiasResp.status));
+                    }
+                } catch (e) { console.error('Erro ao enviar mídias:', e); }
+            }
+            if (id) {
+                if (btnSalvar) btnSalvar.textContent = 'Importando links...';
+                var importadoEdicao = await importarImagensUrlExternas(id);
+                if (importadoEdicao) produtoAtual = importadoEdicao;
+            }
+            var midiasForPatch = buildMidiasPayloadForSave(produtoAtual, firstImg, filesToUpload);
+            if (midiasForPatch.length > 0) {
+                var firstImgUrl = (midiasForPatch.find(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; }) || {}).url || null;
+                await fetchEstoque('/api/v1/produtos-cliente/' + id, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ midias: midiasForPatch, foto_peca: firstImgUrl })
+                });
+            }
+            fecharModalProduto();
+            form.reset();
+            document.getElementById('produto_id_modal').value = '';
+            unifiedMidias = [];
+            renderUnifiedMidias();
+            alert('Produto atualizado com sucesso!');
+            carregarProdutos();
+        } else {
+            var msg = result.detail || result.message || 'Erro desconhecido';
+            if (Array.isArray(msg)) msg = msg.map(function(m) { return m.msg || m.loc || JSON.stringify(m); }).join('; ');
+            else if (typeof msg !== 'string') msg = String(msg);
+            alert('Erro ao atualizar: ' + msg);
+        }
+    } catch (err) {
+        console.error('Erro ao atualizar produto:', err);
+        alert('Erro ao atualizar produto.');
+    }
+    if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.textContent = 'Salvar'; }
+}
+
+/** Resultados da última busca Google (índice → item) */
+var googleImagensBuscaItems = [];
+
+function fecharModalGoogleImagensBusca() {
+    var m = document.getElementById('modalGoogleImagensBusca');
+    if (m) m.style.display = 'none';
+    var prodModal = document.getElementById('modalNovoProdutoCustom');
+    if (prodModal && prodModal.style.display === 'block') {
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function _setModalGoogleCotaInfo(text) {
+    var el = document.getElementById('modalGoogleCotaInfo');
+    if (el) el.textContent = text || '';
+}
+
+function executarBuscaGoogleImagensNoModal() {
+    var nomeEl = document.getElementById('nome');
+    if (nomeEl && nomeEl.disabled) return;
+    var termoInp = document.getElementById('modalGoogleTermoInput');
+    var q = termoInp && termoInp.value ? termoInp.value.trim() : '';
+    if (!q) {
+        alert('Informe o termo da busca.');
+        return;
+    }
+    var loading = document.getElementById('modalGoogleImagensLoading');
+    var grid = document.getElementById('modalGoogleImagensGrid');
+    var errEl = document.getElementById('modalGoogleImagensErro');
+    var footer = document.getElementById('modalGoogleImagensFooter');
+    var qPrev = document.getElementById('modalGoogleQueryEfetiva');
+    var toolbar = document.getElementById('modalGoogleBuscaToolbar');
+    if (!loading || !grid || !errEl) return;
+    grid.style.display = 'none';
+    grid.innerHTML = '';
+    if (footer) footer.style.display = 'none';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    loading.style.display = 'block';
+    if (qPrev) qPrev.textContent = '';
+    googleImagensBuscaItems = [];
+
+    fetchEstoque('/api/v1/integracoes/google-custom-search-imagens?q=' + encodeURIComponent(q) + '&num=10')
+        .then(function(r) {
+            return r.json().then(function(j) { return { ok: r.ok, status: r.status, j: j }; });
+        })
+        .then(function(res) {
+            loading.style.display = 'none';
+            if (!res.ok) {
+                var detail = (res.j && res.j.detail) ? res.j.detail : 'Erro na busca';
+                if (typeof detail !== 'string') detail = JSON.stringify(detail);
+                if (res.status === 503 && detail.indexOf('Google Custom Search não configurado') !== -1) {
+                    detail += ' Crie no Google Cloud uma Chave de API (formato típico AIza…) com a API Custom Search ativada. Superadmin: configurar em /admin/integracoes/google-custom-search ou variável GOOGLE_CUSTOM_SEARCH_API_KEY no servidor.';
+                }
+                errEl.textContent = detail;
+                errEl.style.display = 'block';
+                return;
+            }
+            var items = (res.j && res.j.items) ? res.j.items : [];
+            googleImagensBuscaItems = items;
+            if (res.j && res.j.query_efetiva && qPrev) {
+                qPrev.textContent = 'Query enviada ao Google: ' + res.j.query_efetiva;
+            }
+            if (!items.length) {
+                errEl.textContent = 'Nenhuma imagem encontrada. Ajuste o termo de busca.';
+                errEl.style.display = 'block';
+                return;
+            }
+            items.forEach(function(it, idx) {
+                if (!it.link) return;
+                var thumb = it.thumbnail || it.link;
+                var wrap = document.createElement('div');
+                wrap.className = 'position-relative border rounded';
+                wrap.style.width = '104px';
+                wrap.style.height = '104px';
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'form-check-input position-absolute';
+                cb.style.top = '4px';
+                cb.style.left = '4px';
+                cb.style.zIndex = '2';
+                cb.setAttribute('data-google-idx', String(idx));
+                var img = document.createElement('img');
+                img.alt = '';
+                img.style.width = '100%';
+                img.style.height = '100%';
+                img.style.objectFit = 'cover';
+                img.style.cursor = 'pointer';
+                img.src = thumb;
+                img.onerror = function() { img.src = it.link; };
+                img.addEventListener('click', function(ev) {
+                    ev.preventDefault();
+                    cb.checked = !cb.checked;
+                });
+                wrap.appendChild(cb);
+                wrap.appendChild(img);
+                grid.appendChild(wrap);
+            });
+            grid.style.display = 'flex';
+            if (footer) footer.style.display = 'flex';
+            if (toolbar) toolbar.style.display = 'block';
+        })
+        .catch(function(e) {
+            loading.style.display = 'none';
+            errEl.textContent = (e && e.message) ? e.message : 'Erro ao buscar imagens.';
+            errEl.style.display = 'block';
+        });
+}
+
+function abrirBuscaGoogleImagensProduto() {
+    var nomeEl = document.getElementById('nome');
+    if (nomeEl && nomeEl.disabled) return;
+    var q = nomeEl && nomeEl.value ? nomeEl.value.trim() : '';
+    if (!q) {
+        alert('Preencha o nome do produto para buscar imagens.');
+        return;
+    }
+    var modal = document.getElementById('modalGoogleImagensBusca');
+    var termoInp = document.getElementById('modalGoogleTermoInput');
+    var loading = document.getElementById('modalGoogleImagensLoading');
+    var grid = document.getElementById('modalGoogleImagensGrid');
+    var errEl = document.getElementById('modalGoogleImagensErro');
+    var footer = document.getElementById('modalGoogleImagensFooter');
+    var toolbar = document.getElementById('modalGoogleBuscaToolbar');
+    if (!modal || !loading || !grid || !errEl) return;
+    if (termoInp) termoInp.value = q;
+    if (toolbar) toolbar.style.display = 'block';
+    grid.style.display = 'none';
+    grid.innerHTML = '';
+    if (footer) footer.style.display = 'none';
+    errEl.style.display = 'none';
+    errEl.textContent = '';
+    loading.style.display = 'block';
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    _setModalGoogleCotaInfo('');
+    googleImagensBuscaItems = [];
+
+    fetchEstoque('/api/v1/integracoes/google-custom-search-imagens/cota')
+        .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, j: j }; }); })
+        .then(function(c) {
+            if (c.ok && c.j && c.j.aplica_cota) {
+                if (c.j.limite_diario === 0) {
+                    loading.style.display = 'none';
+                    _setModalGoogleCotaInfo('Cota: busca não liberada para o estabelecimento.');
+                    errEl.textContent = 'Busca de imagens não liberada para este estabelecimento. Solicite ao administrador da plataforma.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                if (c.j.restante !== null && c.j.restante <= 0) {
+                    loading.style.display = 'none';
+                    _setModalGoogleCotaInfo('Cota diária esgotada.');
+                    errEl.textContent = 'Cota diária de buscas de imagens esgotada. Tente amanhã ou solicite liberação.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                _setModalGoogleCotaInfo('Cota hoje: ' + (c.j.uso_hoje != null ? c.j.uso_hoje : '?') + ' / ' + c.j.limite_diario + ' (restante: ' + c.j.restante + ')');
+            } else {
+                _setModalGoogleCotaInfo('');
+            }
+            executarBuscaGoogleImagensNoModal();
+        })
+        .catch(function() {
+            _setModalGoogleCotaInfo('');
+            executarBuscaGoogleImagensNoModal();
+        });
+}
+
+async function _fetchGoogleImagemParaMidias(url) {
+    var r = await fetchEstoque('/api/v1/integracoes/google-custom-search-imagens/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+    });
+    var j = await r.json().catch(function() { return {}; });
+    if (!r.ok) {
+        var d = j.detail || j.message || 'Erro ao baixar imagem';
+        if (typeof d !== 'string') d = JSON.stringify(d);
+        throw new Error(d);
+    }
+    if (!j.data_url) throw new Error('Resposta inválida do servidor.');
+    unifiedMidias.push({ tipo: 'imagem', base64: j.data_url });
+}
+
+function buscarImagemGoogleExternaProduto() {
+    var descricaoEl = document.getElementById('descricao');
+    var nomeEl = document.getElementById('nome');
+    var termo = (descricaoEl && descricaoEl.value ? descricaoEl.value.trim() : '');
+    if (!termo) termo = (nomeEl && nomeEl.value ? nomeEl.value.trim() : '');
+    if (!termo) {
+        alert('Preencha Descrição ou Nome para buscar no Google.');
+        return;
+    }
+    var url = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(termo);
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+async function adicionarImagensGoogleSelecionadas() {
+    var grid = document.getElementById('modalGoogleImagensGrid');
+    if (!grid) return;
+    var checks = grid.querySelectorAll('input[type="checkbox"][data-google-idx]:checked');
+    var indices = [];
+    checks.forEach(function(cb) { indices.push(parseInt(cb.getAttribute('data-google-idx'), 10)); });
+    if (!indices.length) {
+        alert('Selecione ao menos uma imagem.');
+        return;
+    }
+    var vagas = MAX_IMAGENS_UI - unifiedMidias.filter(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; }).length;
+    if (vagas <= 0) {
+        alert('Máximo de ' + MAX_IMAGENS_UI + ' imagens.');
+        return;
+    }
+    if (indices.length > vagas) {
+        if (!confirm('Só cabem mais ' + vagas + ' imagem(ns). Adicionar as primeiras ' + vagas + ' da seleção?')) return;
+        indices = indices.slice(0, vagas);
+    }
+    var btn = document.getElementById('btnAdicionarGoogleSelecionadas');
+    if (btn) { btn.disabled = true; btn.textContent = 'Baixando...'; }
+    try {
+        for (var i = 0; i < indices.length; i++) {
+            var it = googleImagensBuscaItems[indices[i]];
+            if (!it || !it.link) continue;
+            await _fetchGoogleImagemParaMidias(it.link);
+        }
+        fecharModalGoogleImagensBusca();
+        renderUnifiedMidias();
+        if (typeof feather !== 'undefined') feather.replace();
+    } catch (err) {
+        console.error(err);
+        alert(err.message || 'Erro ao baixar imagens.');
+        renderUnifiedMidias();
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Adicionar selecionadas'; }
+}
+
+// Exportar estoque
+function exportarEstoque() {
+    alert('Funcionalidade em desenvolvimento');
+}
+
+// Formatar moeda
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(valor);
+}
+
+// ===== FUNÇÕES DE ENTRADA DE PRODUTOS =====
+
+// Binding do botão confirmar exclusão
+document.addEventListener('DOMContentLoaded', function() {
+    const btnConfirmar = document.getElementById('btnConfirmarExclusaoEstoque');
+    if (btnConfirmar) {
+        btnConfirmar.addEventListener('click', confirmarExclusaoProduto);
+    }
+    var midiasArea = document.getElementById('midias_unificado_area');
+    var midiasFile = document.getElementById('midias_unificado_file');
+    var btnSelecionarMidias = document.getElementById('btnSelecionarMidias');
+    function getClipboardImageFiles(e) {
+        var files = [];
+        var clip = e && e.clipboardData ? e.clipboardData : null;
+        if (!clip) return files;
+        var items = clip.items ? clip.items : [];
+        for (var i = 0; i < items.length; i++) {
+            var it = items[i];
+            if (it && it.type && it.type.indexOf('image') !== -1 && typeof it.getAsFile === 'function') {
+                var fItem = it.getAsFile();
+                if (fItem) files.push(fItem);
+            }
+        }
+        if (files.length) return files;
+        var rawFiles = clip.files ? clip.files : [];
+        for (var j = 0; j < rawFiles.length; j++) {
+            var f = rawFiles[j];
+            if (f && f.type && f.type.indexOf('image') !== -1) files.push(f);
+        }
+        return files;
+    }
+    function processarColagemMidias(e) {
+        var imageFiles = getClipboardImageFiles(e);
+        if (!imageFiles.length) return;
+        e.preventDefault();
+        var nImg = unifiedMidias.filter(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; }).length;
+        var added = 0;
+        for (var i = 0; i < imageFiles.length; i++) {
+            var f = imageFiles[i];
+            if (!f) continue;
+            if (f.size > MAX_IMAGE_BYTES_UI) {
+                alert('Uma imagem colada excede 5 MB e foi ignorada.');
+                continue;
+            }
+            if (nImg >= MAX_IMAGENS_UI) break;
+            unifiedMidias.push({ tipo: 'imagem', file: f });
+            nImg++;
+            added++;
+        }
+        if (added > 0) {
+            renderUnifiedMidias();
+        } else if (nImg >= MAX_IMAGENS_UI) {
+            alert('Máximo de ' + MAX_IMAGENS_UI + ' imagens.');
+        }
+    }
+    if (midiasArea && midiasFile) {
+        if (btnSelecionarMidias) {
+            btnSelecionarMidias.addEventListener('click', function() { midiasFile.click(); });
+        }
+        midiasArea.addEventListener('click', function() { midiasArea.focus(); });
+        midiasFile.addEventListener('change', function() {
+            if (this.files && this.files.length) {
+                var nImg = unifiedMidias.filter(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; }).length;
+                var nVid = unifiedMidias.filter(function(m) { return (m.tipo || '').toLowerCase() === 'video'; }).length;
+                for (var i = 0; i < this.files.length; i++) {
+                    var f = this.files[i];
+                    var isVideo = f.type && f.type.indexOf('video') !== -1;
+                    if (isVideo) {
+                        if (f.size > MAX_VIDEO_BYTES_UI) { alert('O vídeo "' + (f.name || '') + '" excede 80 MB.'); continue; }
+                        if (nVid >= MAX_VIDEOS_UI) { alert('Máximo de ' + MAX_VIDEOS_UI + ' vídeos.'); continue; }
+                        unifiedMidias.push({ tipo: 'video', file: f });
+                        nVid++;
+                    } else {
+                        if (f.size > MAX_IMAGE_BYTES_UI) { alert('A imagem "' + (f.name || '') + '" excede 5 MB.'); continue; }
+                        if (nImg >= MAX_IMAGENS_UI) { alert('Máximo de ' + MAX_IMAGENS_UI + ' imagens.'); continue; }
+                        unifiedMidias.push({ tipo: 'imagem', file: f });
+                        nImg++;
+                    }
+                }
+                renderUnifiedMidias();
+            }
+            this.value = '';
+        });
+        midiasArea.addEventListener('paste', processarColagemMidias);
+        document.addEventListener('paste', function(e) {
+            if (e.defaultPrevented) return;
+            var modalProduto = document.getElementById('modalNovoProdutoCustom');
+            if (!modalProduto || modalProduto.style.display !== 'block') return;
+            var target = e.target;
+            var tag = target && target.tagName ? target.tagName.toLowerCase() : '';
+            var isTypingField = tag === 'input' || tag === 'textarea' || (target && target.isContentEditable);
+            if (isTypingField && target !== midiasArea) return;
+            processarColagemMidias(e);
+        });
+    }
+});
+
+// Abrir modal entrada de produto
+function abrirModalEntradaProduto() {
+    document.getElementById('formEntradaProduto').reset();
+    preencherSelectProdutos();
+    document.getElementById('data_entrada').value = new Date().toISOString().split('T')[0];
+    const modal = document.getElementById('modalEntradaProdutoCustom');
+    if (modal) { modal.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+}
+
+// Fechar modal entrada de produto
+function fecharModalEntradaProduto() {
+    const modal = document.getElementById('modalEntradaProdutoCustom');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+}
+
+// Preencher datalist de produtos (API produtos-cliente)
+async function preencherSelectProdutos() {
+    var cid = getEstoqueClienteId();
+    if (!cid) return;
+    try {
+        var response = await fetchEstoque('/api/v1/produtos-cliente/?cliente_id=' + encodeURIComponent(cid) + '&limit=1000&ativo=true');
+        var data = response.ok ? await response.json().catch(function() { return {}; }) : {};
+        var datalist = document.getElementById('produto_entrada_list');
+        if (datalist) datalist.innerHTML = '';
+        if (data && data.items && data.items.length) {
+            data.items.forEach(function(produto) {
+                var option = document.createElement('option');
+                option.value = (produto.codigo || '') + ' - ' + (produto.nome || '');
+                option.setAttribute('data-id', produto.id);
+                option.setAttribute('data-nome', produto.nome || '');
+                option.setAttribute('data-codigo', produto.codigo || '');
+                option.setAttribute('data-valor', produto.valor_custo != null ? produto.valor_custo : '');
+                if (datalist) datalist.appendChild(option);
+            });
+        }
+        var inp = document.getElementById('produto_entrada_input');
+        if (inp && !inp._boundBlur) {
+            inp._boundBlur = true;
+            inp.addEventListener('blur', verificarProdutoSelecionado);
+        }
+    } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+    }
+}
+
+// Verificar e carregar informações do produto selecionado
+function verificarProdutoSelecionado() {
+    const input = document.getElementById('produto_entrada_input');
+    const datalist = document.getElementById('produto_entrada_list');
+    const hiddenInput = document.getElementById('produto_entrada');
+    
+    const valorBusca = input.value;
+    let produtoEncontrado = null;
+    
+    // Procurar na lista de produtos carregados
+    for (let option of datalist.options) {
+        if (option.value === valorBusca) {
+            produtoEncontrado = {
+                id: option.getAttribute('data-id'),
+                nome: option.getAttribute('data-nome'),
+                codigo: option.getAttribute('data-codigo'),
+                fabricante: option.getAttribute('data-fabricante'),
+                fornecedor: option.getAttribute('data-fornecedor'),
+                valor_custo: option.getAttribute('data-valor')
+            };
+            break;
+        }
+    }
+    
+    if (produtoEncontrado) {
+        // Preencher campo hidden com ID
+        hiddenInput.value = produtoEncontrado.id;
+        
+        // Carregar informações adicionais
+        if (produtoEncontrado.fabricante) {
+            document.getElementById('fabricante_entrada').value = produtoEncontrado.fabricante;
+        }
+        if (produtoEncontrado.fornecedor) {
+            document.getElementById('fornecedor_entrada').value = produtoEncontrado.fornecedor;
+        }
+        if (produtoEncontrado.valor_custo) {
+            document.getElementById('valor_unitario_entrada').value = produtoEncontrado.valor_custo;
+        }
+    } else {
+        // Limpar se não encontrou
+        hiddenInput.value = '';
+        document.getElementById('fabricante_entrada').value = '';
+        document.getElementById('fornecedor_entrada').value = '';
+        document.getElementById('valor_unitario_entrada').value = '';
+    }
+}
+
+// Registrar entrada de produto
+async function registrarEntradaProduto() {
+    try {
+        const produtoId = document.getElementById('produto_entrada').value;
+        const quantidade = parseFloat(document.getElementById('quantidade_entrada').value);
+        const valorUnitario = parseFloat(document.getElementById('valor_unitario_entrada').value) || null;
+        const dataEntrada = document.getElementById('data_entrada').value;
+        const lote = document.getElementById('lote_entrada').value.trim();
+        const fabricante = document.getElementById('fabricante_entrada').value.trim();
+        const fornecedor = document.getElementById('fornecedor_entrada').value.trim();
+        const observacoes = document.getElementById('observacoes_entrada').value.trim();
+        
+        if (!produtoId || !quantidade || !dataEntrada) {
+            alert('Preencha os campos obrigatórios');
+            return;
+        }
+        
+        // Buscar produto atual
+        const produto = produtosData.find(p => p.id == produtoId);
+        if (!produto) {
+            alert('Produto não encontrado');
+            return;
+        }
+        
+        var novaQtd = (parseFloat(produto.quantidade_atual) || 0) + quantidade;
+        var novosDados = {
+            quantidade_atual: novaQtd,
+            valor_custo: valorUnitario || produto.valor_custo || null
+        };
+        var response = await fetchEstoque('/api/v1/produtos-cliente/' + produtoId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(novosDados)
+        });
+        if (!response.ok) {
+            var errorData = await response.json().catch(function() { return {}; });
+            throw new Error(errorData.detail || 'Erro ao registrar entrada');
+        }
+        fecharModalEntradaProduto();
+        alert('Entrada registrada com sucesso!');
+        carregarProdutos();
+        
+    } catch (error) {
+        console.error('Erro ao registrar entrada:', error);
+        alert('Erro ao registrar entrada: ' + error.message);
+    }
+}
+
+</script>
+{% endblock %}

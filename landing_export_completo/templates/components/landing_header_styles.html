@@ -1,0 +1,88 @@
+{# Estilos do cabeçalho compartilhado (landing + representantes). Incluir dentro de <style> ou como partial no <head>. #}
+:root {
+  --cp-primary: var(--certipeso-primary);
+  --cp-secondary: var(--certipeso-secondary);
+}
+.cp-navbar {
+  border-bottom: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+}
+.cp-navbar .container {
+  min-height: 80px;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.cp-navbar .cp-brand,
+.cp-navbar nav,
+.cp-navbar .cp-nav-btns {
+  flex-shrink: 0;
+  align-self: center;
+}
+.cp-brand {
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: var(--cp-primary);
+  text-decoration: none;
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cp-brand img {
+  height: 64px;
+  width: auto;
+  max-width: none;
+  vertical-align: middle;
+  object-fit: contain;
+}
+.cp-navbar nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+.cp-nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  color: #374151;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1rem;
+}
+.cp-nav-link:hover { color: var(--cp-primary); }
+.cp-btn-login {
+  background: linear-gradient(180deg, #2c3e50, #34495e);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px !important;
+  color: #fff !important;
+  font-weight: 600;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  box-shadow: 0 1px 3px rgba(44, 62, 80, 0.25);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+.cp-btn-login:hover {
+  background: linear-gradient(180deg, #34495e, #2c3e50);
+  color: #fff !important;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.35);
+  transform: translateY(-1px);
+}
+.cp-btn-login:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(44, 62, 80, 0.2);
+}
+.cp-nav-btns {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.cp-nav-btns .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}

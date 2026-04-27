@@ -1,0 +1,25 @@
+{# Cabeçalho compartilhado da landing e página Representantes. Usa _base para assets. show_representante_btn|default(true) exibe o botão Representante (false na página representantes). #}
+<header class="cp-navbar">
+  <div class="container py-3 d-flex align-items-center justify-content-between gap-3">
+    <a class="cp-brand" href="/">
+      <img src="{{ _base }}/static/img/landing/logoSfundo.png" alt="Ibix" style="height: 64px; width: auto;" fetchpriority="high" />
+      <span>Ibix</span>
+    </a>
+
+    <nav class="d-none d-md-flex align-items-center gap-4">
+      <a class="cp-nav-link" href="/">Início</a>
+      <a class="cp-nav-link" href="/#contato">Fale conosco</a>
+      <a class="cp-nav-link" href="/#sobre">Sobre nós</a>
+    </nav>
+
+    <div class="cp-nav-btns">
+      {% if show_representante_btn|default(true) %}
+      <a class="btn btn-outline-secondary" href="/representantes">Representante</a>
+      {% else %}
+      <span class="cp-nav-btns-placeholder" aria-hidden="true"></span>
+      {% endif %}
+      <a class="btn cp-btn-login" href="/login">Login</a>
+      <a class="btn btn-primary" href="/cadastro">Cadastrar</a>
+    </div>
+  </div>
+</header>

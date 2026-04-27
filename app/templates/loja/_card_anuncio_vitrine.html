@@ -1,0 +1,63 @@
+{# Card de produto (anúncio) — alinhado ao JS renderCardHtml em loja/index.html #}
+{% set a = item %}
+{% set imgs = a.imagens if a.imagens is defined and a.imagens else [] %}
+{% if imgs is string %}
+  {% set imgs = [] %}
+{% endif %}
+{% set og = (a.og_image_url|string|trim) if a.og_image_url is defined and a.og_image_url else '' %}
+{% set img_gal = imgs[0] if imgs|length > 0 else '' %}
+{% set img0 = og if og else img_gal %}
+{% set img_cart = img_gal if img_gal else og %}
+{% set po = (a.preco_original | float) if a.preco_original is not none else 0 %}
+{% set pp = (a.preco_promocional | float) if a.preco_promocional is not none else 0 %}
+{% set desconto = 0 %}
+{% if po > 0 and pp > 0 and pp < po %}
+  {% set desconto = ((po - pp) / po * 100) | round | int %}
+{% endif %}
+{% set tem_promo = a.preco_promocional is not none and pp > 0 %}
+{% set preco_efetivo = pp if tem_promo else po %}
+{% set loja_id = a.loja_id if a.loja_id is not none else '' %}
+<div class="loja-card">
+  <a href="/loja/produto/{{ (a.titulo or 'produto')|slugify }}-{{ a.id }}" class="loja-card-link">
+    <div class="loja-card-img-wrap">
+      {% if desconto > 0 %}
+      {% if desconto < 10 %}<span class="loja-card-badge loja-card-badge--low">-{{ desconto }}%</span>
+      {% elif desconto < 40 %}<span class="loja-card-badge loja-card-badge--mid">-{{ desconto }}%</span>
+      {% else %}<span class="loja-card-badge loja-card-badge--high">-{{ desconto }}%</span>
+      {% endif %}
+      {% endif %}
+      {% if a.frete_gratis %}<span class="loja-card-badge-frete">Frete grátis</span>{% endif %}
+      <img src="{{ img0|e }}" alt="{{ (a.titulo or '')|e }}" loading="lazy" onerror="this.style.background='#eee';this.src='';">
+    </div>
+    <div class="loja-card-body">
+      <h3 class="loja-card-title">{{ (a.titulo or '')|e }}</h3>
+      {% if a.nome_loja or a.cidade_loja %}
+      <p class="loja-card-loja">
+        {% if a.nome_loja %}{{ a.nome_loja|e }}{% endif %}
+        {% if a.cidade_loja %}{% if a.nome_loja %} · {% endif %}{{ a.cidade_loja|e }}{% if a.uf_loja %}/{{ a.uf_loja|e }}{% endif %}{% endif %}
+        {% if a.distancia_km is defined and a.distancia_km is not none %}<span class="loja-card-geo-badge" style="display:inline-block;font-size:.72rem;color:#5C6E4A;background:#e8f5e9;border-radius:6px;padding:1px 6px;margin-left:4px;">~{{ a.distancia_km }} km</span>{% endif %}
+      </p>
+      {% endif %}
+      <div class="produto-tags-wrap" aria-hidden="true" style="min-height: 20px;">
+        {% if a.estoque_atual is defined and (a.estoque_atual|int) > 0 and (a.estoque_atual|int) <= 5 %}
+          <span class="produto-tag--urgente">⚡ Saindo rápido</span>
+        {% endif %}
+        {% if desconto >= 30 %}
+          <span class="produto-tag--oferta">🔥 Oferta forte</span>
+        {% endif %}
+      </div>
+      <div class="loja-card-price-row">
+        <div class="loja-card-price-block">
+          {% if tem_promo %}<span class="loja-card-price-old">R$ {{ '%.2f'|format(po)|replace('.', ',') }}</span>{% endif %}
+          <span class="loja-card-price">R$ {{ '%.2f'|format(preco_efetivo)|replace('.', ',') }}</span>
+          {% if tem_promo %}<span class="produto-btn-detalhes" aria-hidden="true">Ver oferta</span>{% endif %}
+        </div>
+        {% if loja_id and a.id %}
+        <button type="button" class="loja-card-cart-btn" data-action="add-cart-card" data-anuncio-id="{{ a.id }}" data-loja-id="{{ loja_id }}" data-titulo="{{ (a.titulo or '')|e }}" data-imagem-url="{{ img_cart|e }}" data-preco="{{ preco_efetivo }}" data-slug-loja="{{ (a.slug_loja or '')|e }}" data-nome-loja="{{ (a.nome_loja or '')|e }}" aria-label="Adicionar ao carrinho">
+          <i data-feather="shopping-cart"></i>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+</div>

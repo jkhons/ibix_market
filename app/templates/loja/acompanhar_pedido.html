@@ -1,0 +1,295 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Acompanhar pedido{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title">Acompanhar pedido</h1>
+    {% if pedido_acompanhar is defined and pedido_acompanhar %}
+    {# Consumidor logado: pedido renderizado no servidor #}
+    <div id="resultado-pedido" class="mt-4">
+      <hr>
+      <h2 class="h5">Pedido <span id="res-numero">{{ pedido_acompanhar.numero_pedido }}</span></h2>
+      <p class="mb-1"><strong>Status:</strong> <span id="res-status-pedido">{{ pedido_acompanhar.status_pedido or '-' }}</span></p>
+      <p class="mb-1"><strong>Pagamento:</strong> <span id="res-status-pagamento">{{ pedido_acompanhar.status_pagamento or '-' }}</span></p>
+      <p class="mb-1"><strong>Entrega:</strong> <span id="res-status-entrega">{{ pedido_acompanhar.status_entrega or '-' }}</span></p>
+      <p class="mb-1"><strong>Total:</strong> R$ <span id="res-total">{{ "%.2f"|format(pedido_acompanhar.total) }}</span></p>
+      <p class="text-muted small mb-2"><span id="res-data">{% if pedido_acompanhar.created_at %}Data: {{ pedido_acompanhar.created_at.replace('T', ' ')[:19] }}{% endif %}</span></p>
+      <div id="res-pagar-agora-wrap" style="display: none;" class="mt-2">
+        <div class="mb-2">
+          <label for="loja-acompanhar-payment-method" class="form-label small">Forma de pagamento</label>
+          <select id="loja-acompanhar-payment-method" class="form-select form-select-sm">
+            <option value="pix">PIX</option>
+            <option value="credit_card">Cartão de crédito</option>
+            <option value="boleto">Boleto</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary" id="res-pagar-agora">Pagar agora</button>
+      </div>
+      <p class="text-muted small mt-2 mb-0" id="res-pagar-agora-msg"></p>
+      <div class="card mt-3" id="res-timeline-card">
+        <div class="card-header py-2"><strong>Linha do tempo</strong></div>
+        <div class="card-body py-2">
+          <ul class="list-unstyled mb-0" id="res-timeline">
+            {% for ev in (pedido_acompanhar.timeline or []) %}
+            <li class="py-2 border-bottom border-light"><span class="fw-medium">{{ ev.status_label or ev.status_codigo or ev.tipo_evento }}</span><br><span class="text-muted small">{% if ev.created_at %}{{ ev.created_at[:16].replace('T', ' ') }}{% endif %}</span></li>
+            {% endfor %}
+          </ul>
+          {% if not pedido_acompanhar.timeline or pedido_acompanhar.timeline|length == 0 %}
+          <p class="text-muted small mb-0" id="res-timeline-msg">Nenhum evento registrado.</p>
+          {% endif %}
+        </div>
+      </div>
+      <h3 class="h6 mt-3">Itens</h3>
+      <ul id="res-itens" class="list-unstyled">
+        {% for item in (pedido_acompanhar.itens or []) %}
+        <li>{{ item.quantidade }}x {{ item.nome or 'Item' }} — R$ {{ "%.2f"|format(item.subtotal or 0) }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <script>
+    (function () {
+      var pedido = {{ pedido_acompanhar | tojson }};
+      var wrap = document.getElementById("res-pagar-agora-wrap");
+      var btn = document.getElementById("res-pagar-agora");
+      var msg = document.getElementById("res-pagar-agora-msg");
+      var sel = document.getElementById("loja-acompanhar-payment-method");
+      if (!wrap || !btn || !pedido || !pedido.id) return;
+      var canShow = (typeof window.Vitrine !== "undefined" && window.Vitrine.canShowPagarAgora)
+        ? window.Vitrine.canShowPagarAgora(pedido.status_pagamento)
+        : false;
+      if (canShow) {
+        wrap.style.display = "block";
+        wrap.dataset.pedidoId = String(pedido.id);
+      }
+      btn.addEventListener("click", function () {
+        var pm = sel ? sel.value : "pix";
+        btn.disabled = true;
+        if (msg) msg.textContent = "Redirecionando...";
+        fetch("/api/v1/loja/pedidos/" + pedido.id + "/nova-tentativa-pagamento", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payment_method: pm }),
+          credentials: "same-origin",
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.detail && !data.redirect_url && !data.qr_code && !data.copy_paste_code) {
+              if (msg) msg.textContent = data.detail;
+              btn.disabled = false;
+              return;
+            }
+            if (window.Vitrine && window.Vitrine.handlePagamentoResponse && window.Vitrine.handlePagamentoResponse(data)) {
+              return;
+            }
+            if (msg) msg.textContent = (data && data.detail) ? data.detail : "Erro ao gerar link.";
+            btn.disabled = false;
+          })
+          .catch(function () {
+            if (msg) msg.textContent = "Erro ao solicitar pagamento.";
+            btn.disabled = false;
+          });
+      });
+    })();
+    </script>
+    <p class="mt-3"><a href="/loja/acompanhar-pedido" class="small">Consultar outro pedido</a></p>
+    {% else %}
+    <p class="loja-auth-subtitle" id="subtitle-logado" style="display: none;">Carregando...</p>
+    <p class="loja-auth-subtitle" id="subtitle-visitante">Informe o número do pedido e o e-mail usado na compra.</p>
+    <form id="form-consultar" class="needs-validation" novalidate>
+      <div class="mb-3">
+        <label for="numero_pedido" class="form-label">Número do pedido *</label>
+        <input type="text" class="form-control" id="numero_pedido" name="numero_pedido" required placeholder="Ex: 5-123">
+      </div>
+      <div class="mb-3">
+        <label for="email" class="form-label">E-mail *</label>
+        <input type="email" class="form-control" id="email" name="email" required placeholder="E-mail do comprador">
+      </div>
+      <div id="msg-erro" class="alert alert-danger" style="display: none;"></div>
+      <div class="loja-auth-actions">
+        <button type="submit" class="btn btn-primary">Consultar</button>
+      </div>
+    </form>
+    <div id="resultado-pedido" style="display: none;" class="mt-4">
+      <hr>
+      <h2 class="h5">Pedido <span id="res-numero"></span></h2>
+      <p class="mb-1"><strong>Status:</strong> <span id="res-status-pedido"></span></p>
+      <p class="mb-1"><strong>Pagamento:</strong> <span id="res-status-pagamento"></span></p>
+      <p class="mb-1"><strong>Entrega:</strong> <span id="res-status-entrega"></span></p>
+      <p class="mb-1"><strong>Total:</strong> R$ <span id="res-total"></span></p>
+      <p class="text-muted small mb-2"><span id="res-data"></span></p>
+      <div id="res-pagar-agora-wrap" style="display: none;" class="mt-2">
+        <div class="mb-2">
+          <label for="loja-acompanhar-payment-method" class="form-label small">Forma de pagamento</label>
+          <select id="loja-acompanhar-payment-method" class="form-select form-select-sm">
+            <option value="pix">PIX</option>
+            <option value="credit_card">Cartão de crédito</option>
+            <option value="boleto">Boleto</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-primary" id="res-pagar-agora">Pagar agora</button>
+      </div>
+      <p class="text-muted small mt-2 mb-0" id="res-pagar-agora-msg"></p>
+      <div class="card mt-3" id="res-timeline-card">
+        <div class="card-header py-2"><strong>Linha do tempo</strong></div>
+        <div class="card-body py-2">
+          <ul class="list-unstyled mb-0" id="res-timeline"></ul>
+          <p class="text-muted small mb-0" id="res-timeline-msg">Nenhum evento registrado.</p>
+        </div>
+      </div>
+      <h3 class="h6 mt-3">Itens</h3>
+      <ul id="res-itens" class="list-unstyled"></ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% if not (pedido_acompanhar is defined and pedido_acompanhar) %}
+<script>
+(function () {
+  var form = document.getElementById("form-consultar");
+  var msgErro = document.getElementById("msg-erro");
+  var resultado = document.getElementById("resultado-pedido");
+  var subtitleLogado = document.getElementById("subtitle-logado");
+  var subtitleVisitante = document.getElementById("subtitle-visitante");
+
+  function renderizarPedido(data) {
+    document.getElementById("res-numero").textContent = data.numero_pedido;
+    document.getElementById("res-status-pedido").textContent = data.status_pedido || "-";
+    var labelPagamento = (typeof window.Vitrine !== "undefined" && window.Vitrine.statusPagamentoLabel)
+      ? window.Vitrine.statusPagamentoLabel(data.status_pagamento)
+      : (data.status_pagamento || "-");
+    document.getElementById("res-status-pagamento").textContent = labelPagamento;
+    document.getElementById("res-status-entrega").textContent = data.status_entrega || "-";
+    document.getElementById("res-total").textContent = typeof data.total === "number" ? data.total.toFixed(2) : data.total;
+    document.getElementById("res-data").textContent = data.created_at ? "Data: " + data.created_at.replace("T", " ").slice(0, 19) : "";
+    var ul = document.getElementById("res-itens");
+    ul.innerHTML = "";
+    (data.itens || []).forEach(function (item) {
+      var li = document.createElement("li");
+      li.textContent = (item.quantidade || 0) + "x " + (item.nome || "Item") + " — R$ " + (item.subtotal != null ? Number(item.subtotal).toFixed(2) : "0,00");
+      ul.appendChild(li);
+    });
+    var timelineUl = document.getElementById("res-timeline");
+    var timelineMsg = document.getElementById("res-timeline-msg");
+    var timelineCard = document.getElementById("res-timeline-card");
+    var eventos = data.timeline || [];
+    if (timelineUl && timelineCard) {
+      if (eventos.length === 0) {
+        timelineMsg.style.display = "block";
+        timelineUl.innerHTML = "";
+      } else {
+        timelineMsg.style.display = "none";
+        timelineUl.innerHTML = "";
+        eventos.forEach(function (ev) {
+          var li = document.createElement("li");
+          li.className = "py-2 border-bottom border-light";
+          var label = ev.status_label || ev.status_codigo || ev.tipo_evento || "";
+          var dt = ev.created_at ? new Date(ev.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
+          var esc = (typeof window.Vitrine !== "undefined" && window.Vitrine.escapeHtml) ? window.Vitrine.escapeHtml : function (s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); };
+          li.innerHTML = "<span class=\"fw-medium\">" + esc(label || ev.tipo_evento) + "</span><br><span class=\"text-muted small\">" + esc(dt) + "</span>";
+          timelineUl.appendChild(li);
+        });
+      }
+    }
+    var btnPagar = document.getElementById("res-pagar-agora-wrap");
+    if (btnPagar) {
+      var canShow = (typeof window.Vitrine !== "undefined" && window.Vitrine.canShowPagarAgora)
+        ? window.Vitrine.canShowPagarAgora(data.status_pagamento)
+        : false;
+      if (canShow && data.id) {
+        btnPagar.style.display = "block";
+        btnPagar.dataset.pedidoId = data.id;
+      } else {
+        btnPagar.style.display = "none";
+      }
+    }
+    resultado.style.display = "block";
+  }
+
+  var numeroUrl = new URLSearchParams(window.location.search).get("numero_pedido");
+  if (numeroUrl && typeof window.Vitrine !== "undefined" && window.Vitrine.getMeuPedido) {
+    window.Vitrine.getMeuPedido(numeroUrl)
+      .then(function (data) {
+        subtitleLogado.style.display = "none";
+        form.style.display = "none";
+        renderizarPedido(data);
+      })
+      .catch(function (err) {
+        subtitleLogado.textContent = "Informe o número do pedido e o e-mail usado na compra.";
+        subtitleLogado.style.display = "block";
+        form.style.display = "block";
+        if (document.getElementById("numero_pedido")) document.getElementById("numero_pedido").value = numeroUrl || "";
+      });
+  } else {
+    subtitleLogado.style.display = "none";
+    subtitleVisitante.style.display = "block";
+    form.style.display = "block";
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    msgErro.style.display = "none";
+    resultado.style.display = "none";
+    var numero = document.getElementById("numero_pedido").value.trim();
+    var email = document.getElementById("email").value.trim();
+    if (!numero || !email) {
+      msgErro.textContent = "Preencha número do pedido e e-mail.";
+      msgErro.style.display = "block";
+      return;
+    }
+    fetch("/api/v1/loja/pedido/consultar?numero_pedido=" + encodeURIComponent(numero) + "&email=" + encodeURIComponent(email))
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail || "Pedido não encontrado"); });
+        return r.json();
+      })
+      .then(function (data) {
+        renderizarPedido(data);
+      })
+      .catch(function (err) {
+        msgErro.textContent = err.message || "Não foi possível consultar o pedido.";
+        msgErro.style.display = "block";
+      });
+  });
+  var qs = new URLSearchParams(window.location.search);
+  if (qs.get("numero_pedido")) document.getElementById("numero_pedido").value = qs.get("numero_pedido");
+  if (qs.get("email")) document.getElementById("email").value = qs.get("email");
+  if (qs.get("numero_pedido") && qs.get("email") && form.style.display !== "none") form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+
+  document.getElementById("res-pagar-agora").addEventListener("click", function () {
+    var wrap = document.getElementById("res-pagar-agora-wrap");
+    var msg = document.getElementById("res-pagar-agora-msg");
+    var id = wrap && wrap.dataset.pedidoId;
+    if (!id) return;
+    this.disabled = true;
+    if (msg) msg.textContent = "Redirecionando...";
+    var selPm = document.getElementById("loja-acompanhar-payment-method");
+    var pmRetry = (selPm && selPm.value) ? selPm.value : "pix";
+    fetch("/api/v1/loja/pedidos/" + id + "/nova-tentativa-pagamento", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payment_method: pmRetry }),
+      credentials: "same-origin",
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data && data.detail && !data.redirect_url && !data.qr_code && !data.copy_paste_code) {
+          if (msg) msg.textContent = data.detail;
+          document.getElementById("res-pagar-agora").disabled = false;
+          return;
+        }
+        if (window.Vitrine && window.Vitrine.handlePagamentoResponse && window.Vitrine.handlePagamentoResponse(data)) {
+          return;
+        }
+        if (msg) msg.textContent = (data && data.detail) ? data.detail : "Erro ao gerar link.";
+        document.getElementById("res-pagar-agora").disabled = false;
+      })
+      .catch(function () {
+        if (msg) msg.textContent = "Erro ao solicitar pagamento.";
+        document.getElementById("res-pagar-agora").disabled = false;
+      });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

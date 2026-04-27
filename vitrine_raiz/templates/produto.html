@@ -1,0 +1,230 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Produto{% endblock %}
+
+{% block content %}
+<div id="loja-produto-detalhe" class="loja-produto">
+    <p class="text-muted">Carregando...</p>
+</div>
+<div id="loja-produto-error" class="loja-error-box" style="display: none;" role="alert">
+    <p class="mb-2" id="loja-produto-error-msg"></p>
+    <a href="/" class="btn btn-sm btn-outline-primary">Voltar à loja</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var anuncioId = {{ anuncio_id | tojson }};
+  var container = document.getElementById("loja-produto-detalhe");
+  var errorEl = document.getElementById("loja-produto-error");
+
+  function hideError() {
+    errorEl.style.display = "none";
+    var msgEl = document.getElementById("loja-produto-error-msg");
+    if (msgEl) msgEl.textContent = "";
+  }
+
+  function showError(msg) {
+    var msgEl = document.getElementById("loja-produto-error-msg");
+    if (msgEl) msgEl.textContent = msg;
+    errorEl.style.display = "block";
+    container.innerHTML = "";
+  }
+
+  function addToCart(anuncio, quantidade) {
+    var loja = anuncio.loja || {};
+    var lojaId = loja && (loja.id != null) ? loja.id : null;
+    if (lojaId == null) {
+      if (typeof alert !== "undefined") alert("Não foi possível adicionar: dados da loja indisponíveis.");
+      return;
+    }
+    var qty = Math.max(1, parseInt(quantidade, 10) || 1);
+    window.Vitrine.addToCart({
+      anuncio_id: anuncio.id,
+      titulo: anuncio.titulo,
+      preco: window.Vitrine.precoEfetivo(anuncio),
+      quantidade: qty,
+      loja_id: lojaId,
+      slug_loja: loja.slug,
+      nome_loja: loja.nome_loja,
+      imagem_url: window.Vitrine.imagemCarrinhoAnuncio(anuncio),
+    });
+    window.VitrineUpdateCartBadge();
+  }
+
+  function addToCartClick(anuncio, goToCart) {
+    var qtyEl = document.getElementById("loja-produto-qty");
+    var qty = qtyEl ? (parseInt(qtyEl.value, 10) || 1) : 1;
+    addToCart(anuncio, qty);
+    if (goToCart) {
+      window.location.href = "/loja/carrinho";
+      return;
+    }
+    var btn = document.getElementById("loja-btn-add-cart");
+    if (btn) {
+      var orig = btn.innerHTML;
+      btn.innerHTML = '<i data-feather="check" style="width:1.1em;height:1.1em;vertical-align:-0.2em"></i> Adicionado!';
+      if (typeof feather !== "undefined" && feather.replace) feather.replace();
+      btn.classList.add("btn-success");
+      btn.classList.remove("btn-primary");
+      setTimeout(function () {
+        btn.innerHTML = orig;
+        if (typeof feather !== "undefined" && feather.replace) feather.replace();
+        btn.classList.remove("btn-success");
+        btn.classList.add("btn-primary");
+      }, 1800);
+    }
+  }
+
+  function renderAnuncio(anuncio) {
+    hideError();
+    var preco = window.Vitrine.formatPreco(window.Vitrine.precoEfetivo(anuncio));
+    var temPromo = anuncio.preco_promocional != null && anuncio.preco_promocional > 0;
+    var precoOriginalHtml = temPromo
+      ? '<span class="loja-price-old">' + window.Vitrine.formatPreco(anuncio.preco_original) + "</span>"
+      : "";
+    var imagens = window.Vitrine.ensureImagensArray(anuncio.imagens);
+    var imgPrincipal = window.Vitrine.imagemPrincipalAnuncio(anuncio) || window.Vitrine.PLACEHOLDER_IMG;
+    var thumbsHtml = "";
+    if (imagens.length > 1) {
+      thumbsHtml = imagens.map(function (url, i) {
+        var active = i === 0 ? " active" : "";
+        return '<button type="button" class="loja-produto-thumb' + active + '" data-src="' + window.Vitrine.escapeHtml(url) + '" aria-label="Ver imagem ' + (i + 1) + '"><img src="' + window.Vitrine.escapeHtml(url) + '" alt=""></button>';
+      }).join("");
+    }
+    var lojaHtml = "";
+    if (anuncio.loja && anuncio.loja.nome_loja) {
+      lojaHtml = '<p class="loja-produto-seller">Vendido por <span>' + window.Vitrine.escapeHtml(anuncio.loja.nome_loja) + "</span></p>";
+    }
+    var caracteristicasHtml = "";
+    if (anuncio.atributos && anuncio.atributos.trim()) {
+      try {
+        var arr = JSON.parse(anuncio.atributos);
+        if (Array.isArray(arr) && arr.length > 0) {
+          var rows = arr.map(function (item) {
+            var n = (item && item.nome) ? window.Vitrine.escapeHtml(String(item.nome)) : "";
+            var v = (item && item.valor) ? window.Vitrine.escapeHtml(String(item.valor)) : "";
+            return "<tr><td class=\"loja-spec-name\">" + n + "</td><td>" + v + "</td></tr>";
+          }).join("");
+          caracteristicasHtml =
+            '<div class="loja-produto-desc loja-caracteristicas">' +
+              "<h3>Características do produto</h3>" +
+              '<table class="loja-spec-table"><tbody>' + rows + "</tbody></table>" +
+            "</div>";
+        }
+      } catch (e) {}
+    }
+    var descHtml = "";
+    if (anuncio.descricao && anuncio.descricao.trim()) {
+      descHtml =
+        '<div class="loja-produto-desc">' +
+          "<h3>Descrição do produto</h3>" +
+          '<div class="loja-produto-desc-content">' + window.Vitrine.escapeHtml(anuncio.descricao).replace(/\n/g, "<br>") + "</div>" +
+        "</div>";
+    }
+    container.innerHTML =
+      '<nav class="loja-breadcrumb" aria-label="Navegação">' +
+        '<a href="/">Início</a><span>›</span><span>' + window.Vitrine.escapeHtml(anuncio.titulo || "Produto") + "</span>" +
+      "</nav>" +
+      '<div class="row">' +
+        '<div class="col-md-5 col-lg-4 mb-4 mb-md-0">' +
+          '<div class="loja-produto-gallery">' +
+            '<div class="loja-produto-img-main">' +
+              '<img src="' + window.Vitrine.escapeHtml(imgPrincipal) + '" alt="" id="loja-produto-img-main" onerror="this.style.background=\'#eee\'">' +
+            "</div>" +
+            (thumbsHtml ? '<div class="loja-produto-thumbs" role="tablist">' + thumbsHtml + "</div>" : "") +
+          "</div>" +
+        "</div>" +
+        '<div class="col-md-7 col-lg-5">' +
+          '<div class="loja-buy-box">' +
+            "<h1 class=\"loja-produto-title\">" + window.Vitrine.escapeHtml(anuncio.titulo || "") + "</h1>" +
+            lojaHtml +
+            '<div class="loja-price-block">' +
+              '<span class="loja-price-current">' + preco + "</span>" + precoOriginalHtml +
+              '<p class="loja-price-label">À vista no PIX e cartão</p>' +
+            "</div>" +
+            '<div class="loja-qty-row">' +
+              '<label for="loja-produto-qty">Quantidade:</label>' +
+              '<input type="number" id="loja-produto-qty" class="form-control form-control-sm loja-qty-input" min="1" max="99" value="1" aria-label="Quantidade">' +
+            "</div>" +
+            '<div class="loja-cta-row loja-cta-row--produto">' +
+              '<button type="button" class="btn btn-primary btn-lg loja-btn-buy-now-primary" id="loja-btn-buy-now">Comprar agora</button>' +
+              '<button type="button" class="btn btn-outline-primary btn-lg loja-btn-add-cart" id="loja-btn-add-cart"><i data-feather="shopping-cart" style="width:1.1em;height:1.1em;vertical-align:-0.2em"></i> Adicionar ao carrinho</button>' +
+            "</div>" +
+            '<div class="loja-share-row" role="group" aria-label="Compartilhar produto">' +
+              '<span class="loja-share-label">Compartilhar</span>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--copy" id="loja-btn-share-copy" aria-label="Copiar link do produto" title="Copiar link"><i data-feather="link"></i></button>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--facebook" id="loja-btn-share-fb" aria-label="Compartilhar no Facebook" title="Facebook"><i data-feather="facebook"></i></button>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--instagram" id="loja-btn-share-ig" aria-label="Compartilhar no Instagram" title="Instagram"><i data-feather="instagram"></i></button>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--whatsapp" id="loja-btn-share-wa" aria-label="Enviar link no WhatsApp" title="WhatsApp">' +
+                '<svg class="loja-share-svg-wa" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.718 2.006-1.413.248-.695.248-1.29.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.881 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>' +
+              "</button>" +
+            "</div>" +
+            '<div class="loja-trust">' +
+              '<span class="loja-trust-item"><i data-feather="shield"></i> Compra segura</span>' +
+              '<span class="loja-trust-item"><i data-feather="truck"></i> Entrega para todo o Brasil</span>' +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+      "</div>" +
+      caracteristicasHtml +
+      descHtml;
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+
+    var pageUrlClean = window.Vitrine.produtoPublicPageUrl();
+    var pageUrlShare = window.Vitrine.vitrineUrlComUtmCompartilhamento(pageUrlClean);
+    var shareText = window.Vitrine.buildProductShareText(anuncio, pageUrlShare);
+    var btnCopy = document.getElementById("loja-btn-share-copy");
+    if (btnCopy) btnCopy.addEventListener("click", function () { window.Vitrine.copyProductLink(pageUrlShare); });
+    var btnFb = document.getElementById("loja-btn-share-fb");
+    if (btnFb) btnFb.addEventListener("click", function () { window.Vitrine.openFacebookShareProduct(pageUrlShare); });
+    var btnWa = document.getElementById("loja-btn-share-wa");
+    if (btnWa) btnWa.addEventListener("click", function () { window.Vitrine.openWhatsAppShareProduct(shareText); });
+    var btnIg = document.getElementById("loja-btn-share-ig");
+    if (btnIg) btnIg.addEventListener("click", function () { window.Vitrine.openInstagramShareProduct({ text: shareText, imageUrl: imgPrincipal }); });
+
+    document.getElementById("loja-btn-add-cart").addEventListener("click", function () {
+      addToCartClick(anuncio, false);
+    });
+    var btnBuyNow = document.getElementById("loja-btn-buy-now");
+    if (btnBuyNow) {
+      btnBuyNow.addEventListener("click", function (e) {
+        e.preventDefault();
+        addToCartClick(anuncio, true);
+      });
+    }
+    var qtyInput = document.getElementById("loja-produto-qty");
+    if (qtyInput) {
+      qtyInput.addEventListener("change", function () {
+        var v = parseInt(this.value, 10);
+        if (isNaN(v) || v < 1) this.value = 1;
+        else if (v > 99) this.value = 99;
+      });
+    }
+    var mainImg = document.getElementById("loja-produto-img-main");
+    container.querySelectorAll(".loja-produto-thumb").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var src = this.getAttribute("data-src");
+        if (src && mainImg) mainImg.src = src;
+        container.querySelectorAll(".loja-produto-thumb").forEach(function (b) { b.classList.remove("active"); });
+        this.classList.add("active");
+      });
+    });
+    document.title = (anuncio.titulo || "Produto") + " | Ibix";
+  }
+
+  function loadProduto() {
+    hideError();
+    container.innerHTML = "<p class=\"text-muted\">Carregando...</p>";
+    window.Vitrine.getAnuncio(anuncioId)
+      .then(renderAnuncio)
+      .catch(function (err) {
+        showError(err.message || "Produto não encontrado.");
+      });
+  }
+
+  loadProduto();
+})();
+</script>
+{% endblock %}

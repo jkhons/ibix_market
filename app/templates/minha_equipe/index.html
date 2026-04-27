@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Minha equipe | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div id="alert-minha-equipe" class="mb-3"></div>
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Minha equipe</h1>
+    </div>
+
+    <div class="border border-top-0 p-3 bg-white">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Técnicos da equipe</h5>
+            <button type="button" class="btn btn-primary btn-sm" id="btnVincularTecnico">
+                <i class="align-middle me-1" data-feather="user-plus"></i> Vincular técnico
+            </button>
+        </div>
+        <div id="lista-tecnicos"></div>
+    </div>
+</div>
+
+<!-- Modal vincular técnico (padrão PDV Ibix: CSS inline) -->
+<div id="modalVincularTecnicoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;" onclick="if(event.target===this)fecharModalVincularTecnico();">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; width: 95%; max-width: 450px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(180deg, #2c3e50, #34495e); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 1.25rem; font-weight: 600;">Vincular técnico</h5>
+            <button type="button" onclick="fecharModalVincularTecnico()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 40px; height: 40px; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 20px;">
+            <p class="text-muted small mb-2">Se o técnico já existir no sistema, informe apenas o email. Para cadastrar novo técnico, preencha nome, email e senha.</p>
+            <div class="mb-2">
+                <label class="form-label">Nome</label>
+                <input type="text" class="form-control" id="inputTecnicoNome" placeholder="Nome do técnico">
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Email <span class="text-danger">*</span></label>
+                <input type="email" class="form-control" id="inputTecnicoEmail" placeholder="email@exemplo.com" required>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Senha (para novo cadastro)</label>
+                <input type="password" class="form-control" id="inputTecnicoSenha" placeholder="Mín. 6 caracteres">
+            </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 15px 20px; border-top: 1px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn btn-secondary" onclick="fecharModalVincularTecnico()">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btnConfirmarVincularTecnico">Vincular</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/minha-equipe.js"></script>
+{% endblock %}

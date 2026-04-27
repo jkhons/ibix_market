@@ -1,0 +1,1456 @@
+{% extends "base.html" %}
+
+{% block title %}Minha Loja | Marketplace | Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle"><strong>Minha loja</strong></h1>
+    </div>
+
+    <input type="hidden" id="minha_loja_cliente_id" value="{{ minha_loja_cliente_id or '' }}">
+
+    <div id="msg-sem-estabelecimento" class="alert alert-warning py-2" style="display: none;">
+        Nenhum estabelecimento em contexto. Faça login no PDV com estabelecimento selecionado para ver pedidos e extrato.
+    </div>
+
+    <div id="msg-sem-loja" class="alert alert-info py-2" style="display: none;">
+        <p class="mb-2">Você ainda não ativou sua loja. Clique no botão abaixo para ativar e começar a publicar produtos e receber pedidos.</p>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-ativar-loja">
+            <i data-feather="plus-circle"></i> Ativar minha loja
+        </button>
+        <p class="mb-0 mt-2 small text-muted" id="msg-ativar-loja"></p>
+    </div>
+
+    {% if user_role == 'Superadministrador' %}
+    <!-- Referência de APIs (apenas Superadministrador) -->
+    <p class="mb-2 small"><button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="collapse" data-bs-target="#card-ref-api" aria-expanded="false">Mostrar referência de APIs</button></p>
+    <div class="card mb-3 collapse" id="card-ref-api">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <span class="small text-muted">Referência para desenvolvedores (APIs marketplace)</span>
+            <button type="button" class="btn btn-sm btn-link p-0" data-bs-toggle="collapse" data-bs-target="#card-ref-api" aria-expanded="false">Ocultar</button>
+        </div>
+        <div class="card-body py-2 small">
+            <ul class="mb-0">
+                <li>GET /api/v1/marketplace/loja?cliente_id — obter loja</li>
+                <li>POST /api/v1/marketplace/loja — ativar/criar loja</li>
+                <li>GET /api/v1/marketplace/anuncios?loja_id — listar anúncios</li>
+                <li>POST /api/v1/marketplace/anuncios — publicar produto</li>
+                <li>POST /api/v1/marketplace/sync/estoque?loja_id — sincronizar estoque</li>
+                <li>GET /api/v1/marketplace/loja/{id}/pedidos — pedidos</li>
+                <li>PATCH /api/v1/marketplace/pedidos/{id} — atualizar status</li>
+                <li>GET /api/v1/marketplace/loja/{id}/extrato — extrato</li>
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Dados da loja (edição pela interface) — oculto por padrão, toggle expande/colapsa -->
+    <div id="wrap-dados-loja">
+        <p class="mb-2 small"><button type="button" class="btn btn-link btn-sm p-0" data-bs-toggle="collapse" data-bs-target="#card-dados-loja" aria-expanded="false">Mostrar Dados da loja</button></p>
+        <div class="card mb-3 collapse" id="card-dados-loja">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Dados da loja</h5>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-salvar-loja">Salvar</button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2" id="msg-dados-loja"></p>
+            <div class="row g-2">
+                <div class="col-12">
+                    <label class="form-label small">Status da loja na vitrine</label>
+                    <select class="form-select form-select-sm w-auto" id="loja-status" title="Ativo: sua loja e anúncios aparecem na página inicial (/). Pendente: loja oculta.">
+                        <option value="ativo">Ativo — visível na vitrine</option>
+                        <option value="pendente">Pendente — oculta na vitrine</option>
+                    </select>
+                    <span class="small text-muted ms-2" id="loja-status-badge"></span>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">Nome da loja</label>
+                    <input type="text" class="form-control form-control-sm" id="loja-nome" placeholder="Nome da loja">
+                    <p class="form-text text-muted small mb-0" id="hint-loja-nome">Nome exibido na vitrine. Se o campo estiver vazio ao carregar, preenchemos com o nome cadastrado do estabelecimento.</p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">Slug (URL)</label>
+                    <input type="text" class="form-control form-control-sm" id="loja-slug" placeholder="minha-loja">
+                    <p class="form-text text-muted small mb-0">Apenas letras minúsculas, números e hífens. A página pública da loja fica em <code>/{slug}</code>.</p>
+                    <p class="small text-muted mb-0 mt-1" id="loja-slug-preview">URL pública: —</p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small">Nome fantasia (opcional, vitrine)</label>
+                    <input type="text" class="form-control form-control-sm" id="loja-nome-fantasia" maxlength="80" placeholder="Como a loja aparece na vitrine pública" autocomplete="organization" aria-describedby="hint-loja-nome-fantasia loja-nome-fantasia-count">
+                    <p class="form-text text-muted small mb-0" id="hint-loja-nome-fantasia">Nome usado no título (H1) do hero da página pública <code>/{slug}</code>. Máximo 80 caracteres. Se estiver vazio, usamos o nome da loja ou o cadastro do estabelecimento.</p>
+                    <p class="form-text small mb-0 text-muted" id="loja-nome-fantasia-count" aria-live="polite"></p>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="loja-vitrine-hero-titulo-uma-linha" value="1">
+                        <label class="form-check-label small" for="loja-vitrine-hero-titulo-uma-linha">Hero: título em uma linha (fonte adapta ao espaço)</label>
+                    </div>
+                    <p class="form-text text-muted small mb-0">Quando ativo, o título do hero em <code>/{slug}</code> permanece em <strong>uma linha</strong>: a fonte <strong>reduz automaticamente</strong> até o texto caber (texto completo visível). Reticências só se ainda não couber no tamanho mínimo. O layout do card não muda.</p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small">Descrição curta (opcional, vitrine)</label>
+                    <textarea class="form-control form-control-sm" id="loja-descricao-curta" rows="2" maxlength="320" placeholder="Resumo para listagens e snippets"></textarea>
+                    <p class="form-text text-muted small mb-0">Até 320 caracteres; usado em cards e metadados quando configurado.</p>
+                </div>
+                <div class="col-12">
+                    <label class="form-label small">Descrição longa (vitrine)</label>
+                    <textarea class="form-control form-control-sm" id="loja-descricao" rows="4" maxlength="1200" placeholder="Texto do hero e da página da loja"></textarea>
+                    <p class="form-text text-muted small mb-0" id="hint-loja-desc-longa">Texto principal do hero e da página pública; máximo 1200 caracteres. Pode repetir informações do cadastro com foco no cliente.</p>
+                    <p class="form-text small mb-0 text-muted" id="loja-descricao-count" aria-live="polite"></p>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Categoria principal (SEO)</label>
+                    <input type="text" class="form-control form-control-sm" id="loja-categoria-principal" placeholder="autopecas">
+                    <p class="form-text text-muted small mb-0">Slug da categoria (ex.: <code>autopecas</code>). Junta com cidade para a URL local abaixo.</p>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Cidade (SEO)</label>
+                    <input type="text" class="form-control form-control-sm" id="loja-cidade-seo" placeholder="lencois-paulista">
+                    <p class="form-text text-muted small mb-0" id="hint-loja-cidade-seo">Slug da cidade (ex.: Lençóis Paulista → <code>lencois-paulista</code>). Se vazio ao carregar, sugerimos a partir da cidade do cadastro. Junto com a categoria, alimenta título, H1 e a URL pública <code>/categoria/…</code> indexada no Google.</p>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Estado (UF)</label>
+                    <input type="text" class="form-control form-control-sm" id="loja-estado-seo" placeholder="sp" maxlength="2">
+                    <p class="form-text text-muted small mb-0" id="hint-loja-estado-seo">Duas letras (ex.: <code>sp</code>). Se vazio, sugerimos a UF do cadastro. Usada em <code>areaServed</code> nos dados estruturados da página da loja.</p>
+                </div>
+                <div class="col-12">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-aplicar-sugestoes-cadastro">Preencher campos vazios com dados do cadastro</button>
+                    <p class="form-text text-muted small mb-0 mt-1" id="hint-sugestoes-resumo"></p>
+                </div>
+                <div class="col-12">
+                    <p class="small text-muted mb-0" id="loja-categoria-cidade-preview">URL local (categoria/cidade): —</p>
+                    <a class="small" id="loja-categoria-cidade-link" href="#" target="_blank" rel="noopener" style="display:none;">Abrir página local pública</a>
+                    <p class="small text-muted mb-0 mt-1">Na página pública da loja, o Google lê endereço e telefone do <strong>cadastro do estabelecimento</strong> (dados estruturados Schema.org <code>Store</code>); os slugs acima reforçam cidade e categoria no título e na URL <code>/categoria/…</code>.</p>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">Logo da loja</label>
+                    <div class="d-flex align-items-start gap-2">
+                        <div class="border rounded p-2 bg-light" id="loja-logo-preview" style="min-width: 64px; min-height: 64px; max-width: 120px;">
+                            <img id="loja-logo-img" src="" alt="Logo" class="img-fluid" style="max-height: 100px; display: none;">
+                            <span id="loja-logo-placeholder" class="text-muted small d-block text-center">Sem logo</span>
+                        </div>
+                        <div>
+                            <input type="file" id="loja-logo-file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="form-control form-control-sm">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="loja-logo-remover" style="display: none;">Remover</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small">Banner da loja</label>
+                    <div class="d-flex align-items-start gap-2">
+                        <div class="border rounded p-2 bg-light flex-grow-1" id="loja-banner-preview" style="min-height: 80px; max-height: 120px; overflow: hidden;">
+                            <img id="loja-banner-img" src="" alt="Banner" class="img-fluid w-100" style="max-height: 100px; object-fit: cover; display: none;">
+                            <span id="loja-banner-placeholder" class="text-muted small d-block text-center">Sem banner</span>
+                        </div>
+                        <div>
+                            <input type="file" id="loja-banner-file" accept="image/png,image/jpeg,image/jpg,image/gif,image/webp" class="form-control form-control-sm">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="loja-banner-remover" style="display: none;">Remover</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Tipo de entrega</label>
+                    <select class="form-select form-select-sm" id="loja-tipo-entrega">
+                        <option value="retirada">Retirada</option>
+                        <option value="entrega">Entrega</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                  <label for="loja-formato-frete" class="form-label small d-flex align-items-center gap-1">
+                    Formato de frete
+                    <button type="button" class="btn btn-link btn-sm p-0 text-secondary" data-bs-toggle="collapse" data-bs-target="#entrega-frete-helper" aria-expanded="false" aria-controls="entrega-frete-helper" title="Ajuda: tipo de entrega e formato de frete">
+                      <span class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:11px;line-height:1;">?</span>
+                    </button>
+                  </label>
+                  <div class="small text-muted collapse mb-1" id="entrega-frete-helper">
+                    <p class="mb-1">O que o cliente vê no checkout (Retirada, Entrega ou ambos) é definido pelo <strong>Formato de frete</strong>, não pelo campo &quot;Tipo de entrega&quot;:</p>
+                    <ul class="mb-0 ps-3">
+                      <li><strong>Sem frete</strong> = apenas retirada disponível.</li>
+                      <li><strong>Grátis / Taxa fixa / Plataforma define</strong> = cliente escolhe entre retirada ou entrega.</li>
+                    </ul>
+                    <p class="mb-0 mt-1">O campo &quot;Tipo de entrega&quot; é preferência informativa da loja.</p>
+                  </div>
+                  <select class="form-select form-select-sm" id="loja-formato-frete" onchange="toggleFreteFields()">
+                    <option value="sem_frete">Sem frete (apenas retirada)</option>
+                    <option value="gratis">Grátis (lojista paga)</option>
+                    <option value="taxa_fixa">Taxa fixa</option>
+                    <option value="plataforma">Plataforma define</option>
+                  </select>
+                </div>
+                <div class="mb-3" id="wrap-taxa-entrega-fixa" style="display:none;">
+                  <label for="loja-taxa-entrega-fixa" class="form-label small">Taxa de entrega fixa (R$)</label>
+                  <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="loja-taxa-entrega-fixa">
+                </div>
+                <div class="mb-3" id="wrap-entrega-gratis-apos" style="display:none;">
+                  <label for="loja-entrega-gratis-apos" class="form-label small">Entrega grátis acima de (R$)</label>
+                  <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="loja-entrega-gratis-apos">
+                </div>
+                <div class="mb-3" id="wrap-raio-entrega-km">
+                  <label for="loja-raio-entrega-km" class="form-label small">Raio de entrega (km) <small class="text-muted">(opcional)</small></label>
+                  <input type="number" min="0" class="form-control form-control-sm" id="loja-raio-entrega-km">
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <!-- Anúncios: listagem, sincronizar estoque, publicar -->
+    <div class="card mb-3" id="card-anuncios">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="card-title mb-0">Anúncios</h5>
+            <div class="d-flex gap-1">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btn-sync-estoque" title="Sincronizar estoque dos anúncios"><i data-feather="refresh-cw"></i> Sincronizar estoque</button>
+                <button type="button" class="btn btn-sm btn-success" id="btn-publicar-anuncio"><i data-feather="plus"></i> Publicar anúncio</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2" id="msg-anuncios">Carregando…</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Preço</th>
+                            <th>Estoque</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-anuncios"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pedidos da loja (vitrine): compras feitas na vitrine aparecem aqui; CA recebe e-mail de novo pedido -->
+    <div class="card mb-3" id="card-pedidos">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Pedidos</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-recarregar-pedidos" title="Recarregar"><i data-feather="refresh-cw"></i></button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2">Compras feitas na vitrine aparecem nesta tabela; você recebe um e-mail a cada novo pedido.</p>
+            <p class="small mb-2" id="msg-pedidos">Carregando…</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Data</th>
+                            <th>Comprador</th>
+                            <th>Total</th>
+                            <th>Status pedido</th>
+                            <th>Status pagamento</th>
+                            <th>Entrega</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-pedidos"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Extrato -->
+    <div class="card mb-3" id="card-extrato">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Extrato</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-recarregar-extrato" title="Recarregar"><i data-feather="refresh-cw"></i></button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-2" id="msg-extrato">Carregando…</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tipo</th>
+                            <th>Descrição</th>
+                            <th>Valor bruto</th>
+                            <th>Valor líquido</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-extrato"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal publicar/editar anúncio (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap) -->
+<div id="modalAnuncioCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h6 style="margin: 0; font-size: 1.1rem; font-weight: 600;" id="modal-anuncio-heading">Publicar anúncio</h6>
+            <button type="button" onclick="fecharModalAnuncio()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 24px; line-height: 1; width: 36px; height: 36px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 20px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="modal-anuncio-id">
+            <div class="mb-2">
+                <label class="form-label small">Produto</label>
+                <p class="small text-muted mb-1">Selecione um ou mais produtos sem anúncio e sem pendências de estoque.</p>
+                <div style="position: relative; display: inline-block; margin-bottom: 6px;">
+                    <button type="button" class="btn btn-link btn-sm p-0 small d-inline-flex align-items-center gap-1 text-secondary" id="btn-helper-produto-pendencia" title="Regras de pendências para publicar">
+                        <span class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:11px;line-height:1;">?</span>
+                        Regras para publicar
+                    </button>
+                    <div class="small" id="helper-produto-pendencia-texto" style="display: none; position: absolute; top: 24px; left: 0; width: 300px; max-width: 80vw; background: #1f2937; color: #f9fafb; border-radius: 8px; padding: 10px 12px; box-shadow: 0 10px 24px rgba(0,0,0,0.25); z-index: 10001;">
+                        <div style="position: absolute; top: -6px; left: 14px; width: 12px; height: 12px; background: #1f2937; transform: rotate(45deg);"></div>
+                        Só entram produtos sem pendências de estoque: com imagem, tipo, categoria, preço de venda e descrição.
+                        <a href="/negocio/estoque/pendencias" style="color: #93c5fd; text-decoration: underline;">Corrigir em Estoque → Pendências</a>.
+                    </div>
+                </div>
+                <input type="text" class="form-control form-control-sm mb-1" id="modal-anuncio-busca-produto" placeholder="Buscar por código ou nome…" autocomplete="off" style="display: none;">
+                <select class="form-select form-select-sm" id="modal-anuncio-produto" size="6" style="min-height: 120px;" multiple>
+                    <option value="">Selecione um ou mais produtos</option>
+                </select>
+                <span class="small text-muted" id="modal-anuncio-produto-contador"></span>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Título *</label>
+                <input type="text" class="form-control form-control-sm" id="modal-anuncio-input-titulo" placeholder="Título do anúncio" required>
+                <span id="wrap-usar-nome-produto" class="d-none mt-1">
+                    <button type="button" class="btn btn-link btn-sm p-0 small" id="btn-usar-nome-produto">Usar nome do produto</button>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-link btn-sm p-0 small d-flex align-items-center gap-1 text-secondary" id="btn-titulo-helper" data-bs-toggle="collapse" data-bs-target="#titulo-helper-text" aria-expanded="false" aria-controls="titulo-helper-text" title="Ajuda: título na vitrine">
+                            <span class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:11px;line-height:1;">?</span>
+                            Como corrigir o título na vitrine
+                        </button>
+                        <div class="small text-muted collapse mt-1" id="titulo-helper-text">
+                            <ol class="mb-1 ps-3">
+                                <li>Acesse Minha Loja (marketplace).</li>
+                                <li>Localize o anúncio e clique em Editar.</li>
+                                <li>No modal, clique em &quot;Usar nome do produto&quot; (abaixo do campo Título) para preencher com o nome completo do cadastro.</li>
+                                <li>Clique em Salvar.</li>
+                            </ol>
+                            <p class="mb-0">O título completo passará a aparecer na loja (cards e página do produto). Nos cards, títulos longos são truncados em 2 linhas com reticências.</p>
+                        </div>
+                    </div>
+                </span>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Descrição</label>
+                <textarea class="form-control form-control-sm" id="modal-anuncio-descricao" rows="3" placeholder="Descreva o produto em detalhes (como nos grandes marketplaces: uso, materiais, dimensões, etc.)"></textarea>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Imagem em redes sociais (Open Graph)</label>
+                <input type="url" class="form-control form-control-sm" id="modal-anuncio-og-image-url" maxlength="500" placeholder="https://… (opcional, ex. 1200×630)" autocomplete="off">
+                <p class="small text-muted mb-0">URL absoluta (HTTPS). Se vazio, a vitrine usa a primeira foto da galeria ao compartilhar o link.</p>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Características do produto (ficha técnica)</label>
+                <p class="small text-muted mb-1">Ex.: Marca, Modelo, Cor, Material, Dimensões — melhora a busca e a confiança do comprador.</p>
+                <div id="caracteristicas-container"></div>
+                <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="btn-add-caracteristica">+ Adicionar característica</button>
+            </div>
+            <div class="row g-2 mb-2">
+                <div class="col-6">
+                    <label class="form-label small">Preço original (R$) *</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="modal-anuncio-preco" required>
+                </div>
+                <div class="col-6">
+                    <label class="form-label small">Preço promocional (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="modal-anuncio-preco-promo" placeholder="Opcional">
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Dar desconto de</label>
+                <div class="input-group input-group-sm">
+                    <input type="number" step="0.01" min="0" max="100" class="form-control form-control-sm" id="modal-anuncio-desconto-pct" placeholder="Ex.: 10">
+                    <span class="input-group-text">%</span>
+                </div>
+                <p class="small text-muted mb-0 mt-1">Ao preencher, o preço promocional é ajustado automaticamente.</p>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Estoque</label>
+                <select class="form-select form-select-sm" id="modal-anuncio-tipo-estoque">
+                    <option value="sincronizado">Sincronizado com meu estoque</option>
+                    <option value="manual">Manual</option>
+                </select>
+            </div>
+            <div class="mb-2">
+                <label class="form-label small d-flex align-items-center gap-2">
+                    Frete deste anúncio
+                    <span id="modal-anuncio-badge-frete-gratis" class="badge bg-success" style="display:none;">Frete grátis</span>
+                </label>
+                <select class="form-select form-select-sm" id="modal-anuncio-frete-modo">
+                    <option value="loja">Usar configuração da loja</option>
+                    <option value="gratis">Frete grátis neste produto</option>
+                </select>
+                <p class="small text-muted mb-0 mt-1">Quando configurado no produto, sobrescreve a regra de frete da loja para este anúncio.</p>
+            </div>
+            <div class="mb-2" id="wrap-anuncio-status" style="display: none;">
+                <label class="form-label small">Status</label>
+                <select class="form-select form-select-sm" id="modal-anuncio-status">
+                    <option value="rascunho">Rascunho</option>
+                    <option value="publicado">Publicado</option>
+                    <option value="pausado">Pausado</option>
+                </select>
+            </div>
+            <p class="small text-danger mb-0" id="modal-anuncio-msg"></p>
+        </div>
+        <div style="background: #f8f9fa; padding: 16px 20px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModalAnuncio()">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-modal-anuncio-salvar">Publicar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal alterar status do pedido (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap) -->
+<div id="modalStatusPedidoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 360px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 16px 20px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h6 style="margin: 0; font-size: 1.1rem; font-weight: 600;">Alterar status do pedido</h6>
+            <button type="button" onclick="fecharModalStatusPedido()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 24px; line-height: 1; width: 36px; height: 36px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 20px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="modal-pedido-id">
+            <label class="form-label small">Status do pedido</label>
+            <select class="form-select form-select-sm" id="modal-status-pedido">
+                <option value="aguardando_pagamento">Aguardando pagamento</option>
+                <option value="preparando">Preparando</option>
+                <option value="enviado">Enviado</option>
+                <option value="entregue">Entregue</option>
+                <option value="cancelado">Cancelado</option>
+            </select>
+        </div>
+        <div style="background: #f8f9fa; padding: 16px 20px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModalStatusPedido()">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-salvar-status">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Criar entrega (logística) -->
+<div id="modalCriarEntrega" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 380px; padding: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+        <h6 class="mb-3">Criar entrega</h6>
+        <input type="hidden" id="modal-entrega-pedido-id">
+        <div class="mb-2">
+            <label class="form-label small">Valor do frete (R$)</label>
+            <input type="number" step="0.01" class="form-control form-control-sm" id="modal-entrega-valor-frete" placeholder="0,00">
+        </div>
+        <div class="mb-2">
+            <label class="form-label small">Observações</label>
+            <textarea class="form-control form-control-sm" id="modal-entrega-observacoes" rows="2" placeholder="Opcional"></textarea>
+        </div>
+        <p class="small text-muted mb-2" id="modal-entrega-msg"></p>
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="fecharModalCriarEntrega()">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-confirmar-criar-entrega">Criar entrega</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  const isSuperAdmin = {{ 'true' if user_role == 'Superadministrador' else 'false' }};
+  const clienteIdEl = document.getElementById('minha_loja_cliente_id');
+  const clienteId = (clienteIdEl && clienteIdEl.value) ? clienteIdEl.value.trim() : '';
+  let lojaId = null;
+
+  function getToken() {
+    const c = document.cookie.split(';');
+    for (const x of c) {
+      const [n, v] = x.trim().split('=');
+      if (n === 'pdv_solumatica_token' || n === 'pdv_automscale_token') return v || null;
+    }
+    return null;
+  }
+
+  function api(url, opts) {
+    const t = getToken();
+    return fetch(url, {
+      ...opts,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(t ? { 'Authorization': 'Bearer ' + t } : {}),
+        ...(opts && opts.headers || {}),
+      },
+    });
+  }
+
+  let lojaData = null;
+  var MAX_NOME_FANTASIA_VITRINE = 80;
+  var MAX_DESC_LONGA_VITRINE = 1200;
+  // Título do anúncio: distinguir autofill vs digitado pelo usuário
+  var _tituloAnuncioEditadoManual = false;
+  function _setTituloAnuncioAuto(valor) {
+    _tituloAnuncioEditadoManual = false;
+    document.getElementById('modal-anuncio-input-titulo').value = valor || '';
+  }
+  function _resetTituloFlags() { _tituloAnuncioEditadoManual = false; }
+
+  function atualizarContadoresHeroVitrine() {
+    var nf = document.getElementById('loja-nome-fantasia');
+    var cn = document.getElementById('loja-nome-fantasia-count');
+    if (nf && cn) {
+      cn.textContent = (nf.value || '').length + ' / ' + MAX_NOME_FANTASIA_VITRINE + ' caracteres';
+    }
+    var da = document.getElementById('loja-descricao');
+    var cd = document.getElementById('loja-descricao-count');
+    if (da && cd) {
+      cd.textContent = (da.value || '').length + ' / ' + MAX_DESC_LONGA_VITRINE + ' caracteres';
+    }
+  }
+
+  function aplicarSugestoesEmCamposVazios(loja) {
+    if (!loja) return;
+    var nomeEl = document.getElementById('loja-nome');
+    if (nomeEl && !(nomeEl.value || '').trim() && loja.sugestao_nome_loja) nomeEl.value = loja.sugestao_nome_loja;
+    var nf = document.getElementById('loja-nome-fantasia');
+    if (nf && !(nf.value || '').trim() && loja.sugestao_nome_fantasia) {
+      nf.value = String(loja.sugestao_nome_fantasia).slice(0, MAX_NOME_FANTASIA_VITRINE);
+    }
+    var c = document.getElementById('loja-cidade-seo');
+    if (c && !(c.value || '').trim() && loja.sugestao_cidade_seo) c.value = loja.sugestao_cidade_seo;
+    var e = document.getElementById('loja-estado-seo');
+    if (e && !(e.value || '').trim() && loja.sugestao_estado_seo) e.value = String(loja.sugestao_estado_seo).toLowerCase();
+    updateSlugPreview();
+  }
+
+  function atualizarHintsSugestoes(loja) {
+    if (!loja) return;
+    var nome = loja.sugestao_nome_loja;
+    var nf = loja.sugestao_nome_fantasia;
+    var cid = loja.sugestao_cidade_seo;
+    var uf = loja.sugestao_estado_seo;
+    var hn = document.getElementById('hint-loja-nome');
+    if (hn) {
+      hn.textContent = nome
+        ? 'Nome cadastrado do estabelecimento: «' + nome + '». Campos vazios são preenchidos com este valor ao carregar; clique em «Preencher campos vazios» para reaplicar.'
+        : 'Nome exibido na vitrine. Se o campo estiver vazio ao carregar, preenchemos com o nome cadastrado do estabelecimento.';
+    }
+    var hnf = document.getElementById('hint-loja-nome-fantasia');
+    if (hnf) {
+      hnf.textContent = nf
+        ? 'Sugestão a partir do cadastro: «' + nf + '». (Máx. ' + MAX_NOME_FANTASIA_VITRINE + ' caracteres no hero.)'
+        : 'Nome usado no título (H1) do hero da página pública /{slug}. Máx. ' + MAX_NOME_FANTASIA_VITRINE + ' caracteres. Se estiver vazio, usamos o nome da loja ou o cadastro do estabelecimento.';
+    }
+    var hc = document.getElementById('hint-loja-cidade-seo');
+    if (hc) {
+      hc.textContent = cid
+        ? 'Sugestão (slug) a partir da cidade do cadastro: «' + cid + '».'
+        : 'Slug da cidade. Se vazio ao carregar, sugerimos a partir da cidade do cadastro do estabelecimento.';
+    }
+    var he = document.getElementById('hint-loja-estado-seo');
+    if (he) {
+      he.textContent = uf
+        ? 'Sugestão a partir da UF do cadastro: «' + String(uf).toLowerCase() + '».'
+        : 'Duas letras (ex.: sp). Se vazio, sugerimos a UF do cadastro.';
+    }
+    var resumo = document.getElementById('hint-sugestoes-resumo');
+    if (resumo) {
+      var parts = [];
+      if (nome) parts.push('nome «' + nome + '»');
+      if (cid) parts.push('cidade SEO «' + cid + '»');
+      if (uf) parts.push('UF «' + String(uf).toLowerCase() + '»');
+      resumo.textContent = parts.length ? 'Dados do cadastro usados como sugestão: ' + parts.join('; ') + '.' : '';
+    }
+  }
+
+  function abrirModalAnuncio() {
+    const modal = document.getElementById('modalAnuncioCustom');
+    if (modal) {
+      modal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  function fecharModalAnuncio() {
+    const modal = document.getElementById('modalAnuncioCustom');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+  function abrirModalStatusPedido() {
+    const modal = document.getElementById('modalStatusPedidoCustom');
+    if (modal) {
+      modal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+  function fecharModalStatusPedido() {
+    const modal = document.getElementById('modalStatusPedidoCustom');
+    if (modal) {
+      modal.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+  window.fecharModalAnuncio = fecharModalAnuncio;
+  window.fecharModalStatusPedido = fecharModalStatusPedido;
+
+  function showHide(noEstab, noLoja) {
+    const elNoEstab = document.getElementById('msg-sem-estabelecimento');
+    const elNoLoja = document.getElementById('msg-sem-loja');
+    const wrapDados = document.getElementById('wrap-dados-loja');
+    const cardAnuncios = document.getElementById('card-anuncios');
+    const cardPedidos = document.getElementById('card-pedidos');
+    const cardExtrato = document.getElementById('card-extrato');
+    if (elNoEstab) elNoEstab.style.display = noEstab ? 'block' : 'none';
+    if (elNoLoja) elNoLoja.style.display = noLoja ? 'block' : 'none';
+    var hide = noEstab || noLoja;
+    if (wrapDados) wrapDados.style.display = hide ? 'none' : 'block';
+    if (cardAnuncios) cardAnuncios.style.display = hide ? 'none' : 'block';
+    if (cardPedidos) cardPedidos.style.display = hide ? 'none' : 'block';
+    if (cardExtrato) cardExtrato.style.display = hide ? 'none' : 'block';
+  }
+
+  function toggleFreteFields() {
+    var fmt = document.getElementById('loja-formato-frete').value;
+    var showTaxa = (fmt === 'taxa_fixa' || fmt === 'plataforma');
+    document.getElementById('wrap-taxa-entrega-fixa').style.display = showTaxa ? '' : 'none';
+    document.getElementById('wrap-entrega-gratis-apos').style.display = showTaxa ? '' : 'none';
+    if (fmt === 'sem_frete') {
+      document.getElementById('loja-tipo-entrega').value = 'retirada';
+    }
+  }
+  window.toggleFreteFields = toggleFreteFields;
+
+  var logoBlob = null;
+  var bannerBlob = null;
+  var logoRemover = false;
+  var bannerRemover = false;
+
+  function _previewLogo(urlOrBlob) {
+    var img = document.getElementById('loja-logo-img');
+    var ph = document.getElementById('loja-logo-placeholder');
+    var remover = document.getElementById('loja-logo-remover');
+    if (urlOrBlob) {
+      img.src = urlOrBlob;
+      img.style.display = 'block';
+      ph.style.display = 'none';
+      remover.style.display = 'inline-block';
+    } else {
+      img.src = '';
+      img.style.display = 'none';
+      ph.style.display = 'block';
+      remover.style.display = 'none';
+    }
+  }
+  function _previewBanner(urlOrBlob) {
+    var img = document.getElementById('loja-banner-img');
+    var ph = document.getElementById('loja-banner-placeholder');
+    var remover = document.getElementById('loja-banner-remover');
+    if (urlOrBlob) {
+      img.src = urlOrBlob;
+      img.style.display = 'block';
+      ph.style.display = 'none';
+      remover.style.display = 'inline-block';
+    } else {
+      img.src = '';
+      img.style.display = 'none';
+      ph.style.display = 'block';
+      remover.style.display = 'none';
+    }
+  }
+  function _fileToDataUrl(file, cb) {
+    var r = new FileReader();
+    r.onload = function() { cb(r.result); };
+    r.readAsDataURL(file);
+  }
+
+  function preencherFormLoja(loja) {
+    lojaData = loja;
+    logoBlob = null;
+    bannerBlob = null;
+    logoRemover = false;
+    bannerRemover = false;
+    var status = (loja.status || 'pendente');
+    document.getElementById('loja-status').value = status;
+    var badgeEl = document.getElementById('loja-status-badge');
+    if (badgeEl) {
+      badgeEl.innerHTML = status === 'ativo'
+        ? '<span class="badge bg-success">Visível na vitrine</span>'
+        : '<span class="badge bg-secondary">Oculta na vitrine</span>';
+    }
+    document.getElementById('loja-nome').value = loja.nome_loja || '';
+    var nf = document.getElementById('loja-nome-fantasia');
+    if (nf) nf.value = loja.nome_fantasia || '';
+    var h1Linha = document.getElementById('loja-vitrine-hero-titulo-uma-linha');
+    if (h1Linha) h1Linha.checked = loja.vitrine_hero_titulo_uma_linha === true;
+    document.getElementById('loja-slug').value = loja.slug || '';
+    updateSlugPreview();
+    var dc = document.getElementById('loja-descricao-curta');
+    if (dc) dc.value = loja.descricao_curta || '';
+    document.getElementById('loja-descricao').value = loja.descricao_longa || loja.descricao || '';
+    document.getElementById('loja-categoria-principal').value = loja.categoria_principal || '';
+    document.getElementById('loja-cidade-seo').value = loja.cidade_seo || '';
+    document.getElementById('loja-estado-seo').value = loja.estado_seo || '';
+    updateCategoriaCidadePreview(loja.slug_categoria_cidade || '');
+    aplicarSugestoesEmCamposVazios(loja);
+    atualizarHintsSugestoes(loja);
+    document.getElementById('loja-tipo-entrega').value = loja.tipo_entrega || 'retirada';
+    document.getElementById('loja-formato-frete').value = loja.formato_frete || 'sem_frete';
+    document.getElementById('loja-taxa-entrega-fixa').value = loja.taxa_entrega_fixa || '';
+    document.getElementById('loja-entrega-gratis-apos').value = loja.entrega_gratis_apos || '';
+    document.getElementById('loja-raio-entrega-km').value = loja.raio_entrega_km || '';
+    document.getElementById('loja-logo-file').value = '';
+    document.getElementById('loja-banner-file').value = '';
+    var logoUrl = loja.logo_url || '';
+    var bannerUrl = loja.banner_url || '';
+    var logoSrc = logoUrl ? (logoUrl.startsWith('http') ? logoUrl : (logoUrl.startsWith('/') ? logoUrl : '/' + logoUrl)) : null;
+    var bannerSrc = bannerUrl ? (bannerUrl.startsWith('http') ? bannerUrl : (bannerUrl.startsWith('/') ? bannerUrl : '/' + bannerUrl)) : null;
+    _previewLogo(logoSrc);
+    _previewBanner(bannerSrc);
+    toggleFreteFields();
+    atualizarContadoresHeroVitrine();
+    if (!isSuperAdmin) {
+      ['loja-formato-frete', 'loja-taxa-entrega-fixa', 'loja-entrega-gratis-apos'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
+    }
+  }
+
+  function updateSlugPreview() {
+    var slugRaw = (document.getElementById('loja-slug').value || '').trim();
+    var previewEl = document.getElementById('loja-slug-preview');
+    if (!previewEl) return;
+    if (!slugRaw) {
+      previewEl.textContent = 'URL pública: —';
+      return;
+    }
+    var origin = (window.location && window.location.origin) ? window.location.origin : '';
+    previewEl.textContent = 'URL pública: ' + origin + '/' + slugRaw;
+  }
+
+  function updateCategoriaCidadePreview(slugCategoriaCidade) {
+    var previewEl = document.getElementById('loja-categoria-cidade-preview');
+    var linkEl = document.getElementById('loja-categoria-cidade-link');
+    if (!previewEl || !linkEl) return;
+    var slug = (slugCategoriaCidade || '').trim();
+    if (!slug) {
+      previewEl.textContent = 'URL local (categoria/cidade): —';
+      linkEl.style.display = 'none';
+      linkEl.removeAttribute('href');
+      return;
+    }
+    var origin = (window.location && window.location.origin) ? window.location.origin : '';
+    var url = origin + '/categoria/' + slug;
+    previewEl.textContent = 'URL local (categoria/cidade): ' + url;
+    linkEl.href = url;
+    linkEl.style.display = 'inline-block';
+  }
+
+  async function carregarLoja() {
+    if (!clienteId) {
+      showHide(true, false);
+      return null;
+    }
+    showHide(false, false);
+    const r = await api('/api/v1/marketplace/loja?cliente_id=' + encodeURIComponent(clienteId));
+    if (!r.ok) return null;
+    const data = await r.json().catch(function() { return null; });
+    if (!data || !data.id) {
+      showHide(false, true);
+      return null;
+    }
+    lojaId = data.id;
+    preencherFormLoja(data);
+    return data;
+  }
+
+  async function carregarAnuncios() {
+    const msg = document.getElementById('msg-anuncios');
+    const tbody = document.getElementById('tbody-anuncios');
+    if (!lojaId) { if (msg) msg.textContent = ''; if (tbody) tbody.innerHTML = ''; return; }
+    if (msg) msg.textContent = 'Carregando…';
+    const r = await api('/api/v1/marketplace/anuncios?loja_id=' + lojaId + '&limit=200');
+    if (!r.ok) {
+      if (msg) msg.textContent = 'Erro ao carregar anúncios.';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-muted">—</td></tr>';
+      return;
+    }
+    const data = await r.json();
+    const items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+    if (msg) msg.textContent = items.length === 0 ? 'Nenhum anúncio.' : '';
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Nenhum anúncio. Clique em "Publicar anúncio" para começar.</td></tr>';
+      if (typeof feather !== 'undefined') feather.replace();
+      return;
+    }
+    function fmtPreco(v) {
+      if (v == null || v === '' || isNaN(Number(v))) return '—';
+      return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    tbody.innerHTML = items.map(function(a) {
+      var statusBadge = a.status === 'publicado' ? 'bg-success' : (a.status === 'pausado' ? 'bg-secondary' : 'bg-warning');
+      var estoqueStr = a.estoque_atual != null ? a.estoque_atual : '—';
+      return '<tr><td>' + (a.titulo || '').substring(0, 40) + (a.titulo && a.titulo.length > 40 ? '…' : '') + '</td><td>' + fmtPreco(a.preco_promocional != null ? a.preco_promocional : a.preco_original) + '</td><td>' + estoqueStr + '</td><td><span class="badge ' + statusBadge + '">' + (a.status || '') + '</span></td><td><button type="button" class="btn btn-sm btn-outline-secondary btn-editar-anuncio me-1" data-id="' + a.id + '" title="Editar">Editar</button><button type="button" class="btn btn-sm btn-outline-secondary btn-toggle-anuncio" data-id="' + a.id + '" data-status="' + (a.status || '') + '" title="Pausar/Publicar">' + (a.status === 'publicado' ? 'Pausar' : 'Publicar') + '</button></td></tr>';
+    }).join('');
+    tbody.querySelectorAll('.btn-editar-anuncio').forEach(function(btn) {
+      btn.addEventListener('click', function() { abrirModalEditarAnuncio(parseInt(this.getAttribute('data-id'), 10)); });
+    });
+    tbody.querySelectorAll('.btn-toggle-anuncio').forEach(function(btn) {
+      btn.addEventListener('click', function() { toggleStatusAnuncio(parseInt(this.getAttribute('data-id'), 10), this.getAttribute('data-status')); });
+    });
+    if (typeof feather !== 'undefined') feather.replace();
+  }
+
+  async function carregarPedidos() {
+    const msg = document.getElementById('msg-pedidos');
+    const tbody = document.getElementById('tbody-pedidos');
+    if (!lojaId) {
+      if (msg) msg.textContent = 'Loja não carregada.';
+      if (tbody) tbody.innerHTML = '';
+      return;
+    }
+    if (msg) msg.textContent = 'Carregando…';
+    const r = await api('/api/v1/marketplace/loja/' + lojaId + '/pedidos?limit=100');
+    if (!r.ok) {
+      const err = await r.json().catch(function() { return {}; });
+      if (msg) msg.textContent = err.detail || 'Erro ao carregar pedidos.';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-muted">Erro ao carregar.</td></tr>';
+      return;
+    }
+    const data = await r.json();
+    const items = (data && data.items) ? data.items : [];
+    let entregasMap = {};
+    try {
+      const rLog = await api('/api/v1/logistica/entregas');
+      if (rLog.ok) {
+        const list = await rLog.json();
+        (list || []).forEach(function(e) { if (e.pedido_id) entregasMap[e.pedido_id] = e; });
+      }
+    } catch (e) { }
+    if (msg) msg.textContent = items.length === 0 ? 'Nenhum pedido.' : (data.total != null ? data.total + ' pedido(s).' : '');
+    if (items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-muted">Nenhum pedido.</td></tr>';
+      if (typeof feather !== 'undefined') feather.replace();
+      return;
+    }
+    function fmtData(d) {
+      if (!d) return '—';
+      try { return new Date(d).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }); } catch (e) { return d; }
+    }
+    function fmtValor(v) {
+      if (v == null || v === '' || isNaN(Number(v))) return '—';
+      return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function celulaEntrega(p) {
+      if ((p.tipo_entrega || '') !== 'entrega') return '<td class="text-muted">—</td>';
+      var ent = entregasMap[p.id];
+      if (!ent) {
+        return '<td><button type="button" class="btn btn-sm btn-outline-primary btn-criar-entrega" data-pedido-id="' + (p.id || '') + '" data-taxa="' + (p.taxa_entrega != null ? p.taxa_entrega : '0') + '">Criar entrega</button></td>';
+      }
+      if ((ent.status || '') === 'aguardando_publicacao') {
+        return '<td><button type="button" class="btn btn-sm btn-outline-success btn-publicar-entrega" data-entrega-id="' + (ent.id || '') + '">Publicar</button></td>';
+      }
+      return '<td><a href="/negocio/marketplace/logistica/entrega/' + (ent.id || '') + '" class="btn btn-sm btn-outline-secondary">Acompanhar</a></td>';
+    }
+    tbody.innerHTML = items.map(function(p) {
+      return '<tr>' +
+        '<td>' + (p.id || '—') + '</td>' +
+        '<td>' + fmtData(p.created_at) + '</td>' +
+        '<td>' + (p.comprador_nome || '—') + '</td>' +
+        '<td>' + fmtValor(p.total) + '</td>' +
+        '<td><span class="badge bg-secondary">' + (p.status_pedido || '—') + '</span></td>' +
+        '<td><span class="badge bg-info">' + (p.status_pagamento || '—') + '</span></td>' +
+        celulaEntrega(p) +
+        '<td><button type="button" class="btn btn-sm btn-outline-secondary btn-alterar-status" data-pedido-id="' + (p.id || '') + '" data-status="' + (p.status_pedido || '') + '" title="Alterar status"><i data-feather="edit-2"></i></button></td>' +
+      '</tr>';
+    }).join('');
+    tbody.querySelectorAll('.btn-alterar-status').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var id = this.getAttribute('data-pedido-id');
+        var statusAtual = this.getAttribute('data-status') || '';
+        document.getElementById('modal-pedido-id').value = id;
+        var sel = document.getElementById('modal-status-pedido');
+        sel.value = statusAtual || 'aguardando_pagamento';
+        abrirModalStatusPedido();
+      });
+    });
+    tbody.querySelectorAll('.btn-criar-entrega').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var pedidoId = this.getAttribute('data-pedido-id');
+        var taxa = this.getAttribute('data-taxa') || '0';
+        document.getElementById('modal-entrega-pedido-id').value = pedidoId;
+        document.getElementById('modal-entrega-valor-frete').value = taxa;
+        document.getElementById('modal-entrega-observacoes').value = '';
+        document.getElementById('modal-entrega-msg').textContent = '';
+        document.getElementById('modalCriarEntrega').style.display = 'block';
+        document.body.style.overflow = 'hidden';
+      });
+    });
+    tbody.querySelectorAll('.btn-publicar-entrega').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var entregaId = this.getAttribute('data-entrega-id');
+        if (!entregaId) return;
+        api('/api/v1/logistica/entregas/' + entregaId + '/publicar', { method: 'POST' })
+          .then(function(r) {
+            if (r.ok) return carregarPedidos();
+            return r.json().then(function(d) { alert(d.detail || 'Erro ao publicar.'); });
+          });
+      });
+    });
+    if (typeof feather !== 'undefined') feather.replace();
+  }
+
+  function fecharModalCriarEntrega() {
+    document.getElementById('modalCriarEntrega').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+  document.getElementById('btn-confirmar-criar-entrega').addEventListener('click', async function() {
+    var pedidoId = document.getElementById('modal-entrega-pedido-id').value;
+    var valorFrete = document.getElementById('modal-entrega-valor-frete').value;
+    var observacoes = document.getElementById('modal-entrega-observacoes').value;
+    var msgEl = document.getElementById('modal-entrega-msg');
+    if (!pedidoId) return;
+    var v = parseFloat(valorFrete);
+    if (isNaN(v) || v < 0) v = 0;
+    msgEl.textContent = 'Criando…';
+    var r = await api('/api/v1/logistica/entregas', {
+      method: 'POST',
+      body: JSON.stringify({ pedido_id: parseInt(pedidoId, 10), valor_frete: v, observacoes: observacoes || null })
+    });
+    if (!r.ok) {
+      var d = await r.json().catch(function() { return {}; });
+      msgEl.textContent = d.detail || 'Erro ao criar entrega.';
+      return;
+    }
+    fecharModalCriarEntrega();
+    await carregarPedidos();
+  });
+
+  async function carregarExtrato() {
+    const msg = document.getElementById('msg-extrato');
+    const tbody = document.getElementById('tbody-extrato');
+    if (!lojaId) {
+      if (msg) msg.textContent = 'Loja não carregada.';
+      if (tbody) tbody.innerHTML = '';
+      return;
+    }
+    if (msg) msg.textContent = 'Carregando…';
+    const r = await api('/api/v1/marketplace/loja/' + lojaId + '/extrato?limit=100');
+    if (!r.ok) {
+      if (r.status === 403) {
+        if (msg) msg.textContent = 'Sem permissão para ver extrato (marketplace:financeiro).';
+      } else {
+        const err = await r.json().catch(function() { return {}; });
+        if (msg) msg.textContent = err.detail || 'Erro ao carregar extrato.';
+      }
+      if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-muted">—</td></tr>';
+      return;
+    }
+    const rows = await r.json();
+    const list = Array.isArray(rows) ? rows : [];
+    if (msg) msg.textContent = list.length === 0 ? 'Nenhum lançamento.' : '';
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-muted">Nenhum lançamento no extrato.</td></tr>';
+      return;
+    }
+    function fmtData(d) {
+      if (!d) return '—';
+      try { return new Date(d).toLocaleString('pt-BR', { dateStyle: 'short' }); } catch (e) { return d; }
+    }
+    function fmtValor(v) {
+      if (v == null || v === '' || isNaN(Number(v))) return '—';
+      return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    tbody.innerHTML = list.map(function(e) {
+      return '<tr><td>' + fmtData(e.created_at) + '</td><td>' + (e.tipo || '—') + '</td><td>' + (e.descricao || '—') + '</td><td>' + fmtValor(e.valor_bruto) + '</td><td>' + fmtValor(e.valor_liquido) + '</td><td><span class="badge bg-secondary">' + (e.status || '—') + '</span></td></tr>';
+    }).join('');
+  }
+
+  async function atualizarStatusPedido(pedidoId, statusPedido) {
+    const r = await api('/api/v1/marketplace/pedidos/' + pedidoId, {
+      method: 'PATCH',
+      body: JSON.stringify({ status_pedido: statusPedido }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(function() { return {}; });
+      alert(Array.isArray(err.detail) ? err.detail.join('; ') : (err.detail || 'Erro ao atualizar status.'));
+      return;
+    }
+    fecharModalStatusPedido();
+    await carregarPedidos();
+  }
+
+  document.getElementById('btn-salvar-status').addEventListener('click', function() {
+    var id = document.getElementById('modal-pedido-id').value;
+    var status = document.getElementById('modal-status-pedido').value;
+    if (!id) return;
+    atualizarStatusPedido(id, status);
+  });
+
+  document.getElementById('btn-recarregar-pedidos').addEventListener('click', function() { carregarPedidos(); });
+  document.getElementById('btn-recarregar-extrato').addEventListener('click', function() { carregarExtrato(); });
+
+  document.getElementById('loja-logo-file').addEventListener('change', function() {
+    var f = this.files && this.files[0];
+    if (f && f.type && f.type.indexOf('image') !== -1) {
+      if (f.size > 5 * 1024 * 1024) { alert('Imagem excede 5 MB.'); this.value = ''; return; }
+      logoRemover = false;
+      _fileToDataUrl(f, function(dataUrl) {
+        logoBlob = dataUrl;
+        _previewLogo(dataUrl);
+      });
+    }
+    this.value = '';
+  });
+  document.getElementById('loja-logo-remover').addEventListener('click', function() {
+    logoBlob = null;
+    logoRemover = true;
+    document.getElementById('loja-logo-file').value = '';
+    _previewLogo(null);
+  });
+  document.getElementById('loja-banner-file').addEventListener('change', function() {
+    var f = this.files && this.files[0];
+    if (f && f.type && f.type.indexOf('image') !== -1) {
+      if (f.size > 5 * 1024 * 1024) { alert('Imagem excede 5 MB.'); this.value = ''; return; }
+      bannerRemover = false;
+      _fileToDataUrl(f, function(dataUrl) {
+        bannerBlob = dataUrl;
+        _previewBanner(dataUrl);
+      });
+    }
+    this.value = '';
+  });
+  document.getElementById('loja-banner-remover').addEventListener('click', function() {
+    bannerBlob = null;
+    bannerRemover = true;
+    document.getElementById('loja-banner-file').value = '';
+    _previewBanner(null);
+  });
+
+  document.getElementById('btn-salvar-loja').addEventListener('click', async function() {
+    if (!lojaId) return;
+    var msgEl = document.getElementById('msg-dados-loja');
+    msgEl.textContent = 'Salvando…';
+    var longDesc = document.getElementById('loja-descricao').value.trim() || null;
+    var shortDesc = (document.getElementById('loja-descricao-curta') && document.getElementById('loja-descricao-curta').value.trim()) || null;
+    var body = {
+      nome_loja: document.getElementById('loja-nome').value.trim() || null,
+      nome_fantasia: (document.getElementById('loja-nome-fantasia') && document.getElementById('loja-nome-fantasia').value.trim()) || null,
+      vitrine_hero_titulo_uma_linha: !!(document.getElementById('loja-vitrine-hero-titulo-uma-linha') && document.getElementById('loja-vitrine-hero-titulo-uma-linha').checked),
+      descricao_curta: shortDesc,
+      descricao_longa: longDesc,
+      descricao: longDesc,
+      slug: document.getElementById('loja-slug').value.trim() || null,
+      categoria_principal: document.getElementById('loja-categoria-principal').value.trim() || null,
+      cidade_seo: document.getElementById('loja-cidade-seo').value.trim() || null,
+      estado_seo: document.getElementById('loja-estado-seo').value.trim() || null,
+      tipo_entrega: document.getElementById('loja-tipo-entrega').value || 'retirada',
+      raio_entrega_km: parseInt(document.getElementById('loja-raio-entrega-km').value) || null,
+      status: document.getElementById('loja-status').value || 'ativo',
+    };
+    if (isSuperAdmin) {
+      body.formato_frete = document.getElementById('loja-formato-frete').value || 'sem_frete';
+      body.taxa_entrega_fixa = parseFloat(document.getElementById('loja-taxa-entrega-fixa').value) || null;
+      body.entrega_gratis_apos = parseFloat(document.getElementById('loja-entrega-gratis-apos').value) || null;
+    }
+    if (logoBlob) body.logo_blob = logoBlob;
+    if (bannerBlob) body.banner_blob = bannerBlob;
+    if (logoRemover) body.logo_url = null;
+    if (bannerRemover) body.banner_url = null;
+    var r = await api('/api/v1/marketplace/loja/' + lojaId, { method: 'PATCH', body: JSON.stringify(body) });
+    var data = await r.json().catch(function() { return {}; });
+    if (r.ok) {
+      msgEl.textContent = 'Dados salvos.';
+      lojaData = data;
+      preencherFormLoja(data);
+      setTimeout(function() { msgEl.textContent = ''; }, 2000);
+    } else {
+      msgEl.innerHTML = '<span class="text-danger">' + (Array.isArray(data.detail) ? data.detail.join('; ') : (data.detail || 'Erro ao salvar.')) + '</span>';
+    }
+  });
+  document.getElementById('loja-slug').addEventListener('input', updateSlugPreview);
+  var nfHero = document.getElementById('loja-nome-fantasia');
+  var descHero = document.getElementById('loja-descricao');
+  if (nfHero) nfHero.addEventListener('input', atualizarContadoresHeroVitrine);
+  if (descHero) descHero.addEventListener('input', atualizarContadoresHeroVitrine);
+  document.getElementById('loja-categoria-principal').addEventListener('input', function() { updateCategoriaCidadePreview(''); });
+  document.getElementById('loja-cidade-seo').addEventListener('input', function() { updateCategoriaCidadePreview(''); });
+
+  document.getElementById('btn-aplicar-sugestoes-cadastro').addEventListener('click', function() {
+    if (!lojaData) return;
+    aplicarSugestoesEmCamposVazios(lojaData);
+  });
+
+  document.getElementById('btn-sync-estoque').addEventListener('click', async function() {
+    if (!lojaId) return;
+    var btn = this;
+    btn.disabled = true;
+    var r = await api('/api/v1/marketplace/sync/estoque?loja_id=' + lojaId, { method: 'POST' });
+    btn.disabled = false;
+    if (r.ok) {
+      var data = await r.json();
+      document.getElementById('msg-anuncios').textContent = 'Estoque sincronizado (' + (data.sincronizados || 0) + ' anúncios).';
+      await carregarAnuncios();
+      setTimeout(function() { document.getElementById('msg-anuncios').textContent = ''; }, 3000);
+    } else {
+      var err = await r.json().catch(function() { return {}; });
+      alert(Array.isArray(err.detail) ? err.detail.join('; ') : (err.detail || 'Erro ao sincronizar.'));
+    }
+  });
+
+  function addCaracteristicaRow(nome, valor) {
+    var container = document.getElementById('caracteristicas-container');
+    var div = document.createElement('div');
+    div.className = 'd-flex gap-2 mb-2 align-items-center row-caracteristica';
+    div.innerHTML = '<input type="text" class="form-control form-control-sm flex-grow-1 col" placeholder="Ex.: Marca" value="' + (nome || '').replace(/"/g, '&quot;') + '"><input type="text" class="form-control form-control-sm flex-grow-1 col" placeholder="Ex.: Samsung" value="' + (valor || '').replace(/"/g, '&quot;') + '"><button type="button" class="btn btn-sm btn-outline-danger col-auto btn-remover-caracteristica">Remover</button>';
+    container.appendChild(div);
+    div.querySelector('.btn-remover-caracteristica').addEventListener('click', function() { div.remove(); });
+  }
+  function getCaracteristicasJson() {
+    var arr = [];
+    document.querySelectorAll('#caracteristicas-container .row-caracteristica').forEach(function(row) {
+      var inputs = row.querySelectorAll('input');
+      var nome = (inputs[0] && inputs[0].value) ? inputs[0].value.trim() : '';
+      var valor = (inputs[1] && inputs[1].value) ? inputs[1].value.trim() : '';
+      if (nome || valor) arr.push({ nome: nome || '—', valor: valor || '—' });
+    });
+    return arr.length ? JSON.stringify(arr) : null;
+  }
+  function fillCaracteristicas(atributosStr) {
+    var container = document.getElementById('caracteristicas-container');
+    container.innerHTML = '';
+    if (atributosStr && atributosStr.trim()) {
+      try {
+        var arr = JSON.parse(atributosStr);
+        if (Array.isArray(arr)) arr.forEach(function(item) { addCaracteristicaRow(item.nome, item.valor); });
+      } catch (e) {}
+    }
+  }
+  document.getElementById('btn-add-caracteristica').addEventListener('click', function() { addCaracteristicaRow('', ''); });
+
+  document.getElementById('btn-publicar-anuncio').addEventListener('click', function() {
+    if (!clienteId) {
+      alert('Nenhum estabelecimento em contexto. Acesse a página do seu negócio.');
+      return;
+    }
+    if (!lojaId) {
+      alert('Carregue a loja antes de publicar anúncios.');
+      return;
+    }
+    document.getElementById('modal-anuncio-heading').textContent = 'Publicar anúncio';
+    document.getElementById('btn-modal-anuncio-salvar').textContent = 'Publicar';
+    document.getElementById('modal-anuncio-id').value = '';
+    document.getElementById('wrap-anuncio-status').style.display = 'none';
+    document.getElementById('modal-anuncio-produto').disabled = false;
+    document.getElementById('modal-anuncio-produto').setAttribute('multiple', 'multiple');
+    document.getElementById('modal-anuncio-produto').innerHTML = '<option value="">Carregando…</option>';
+    document.getElementById('modal-anuncio-produto').size = 6;
+    document.getElementById('modal-anuncio-busca-produto').style.display = 'none';
+    document.getElementById('modal-anuncio-busca-produto').value = '';
+    document.getElementById('modal-anuncio-produto-contador').textContent = '';
+    _resetTituloFlags();
+    document.getElementById('modal-anuncio-input-titulo').value = '';
+    document.getElementById('modal-anuncio-descricao').value = '';
+    fillCaracteristicas('');
+    document.getElementById('modal-anuncio-preco').value = '';
+    document.getElementById('modal-anuncio-preco-promo').value = '';
+    document.getElementById('modal-anuncio-desconto-pct').value = '';
+    document.getElementById('modal-anuncio-tipo-estoque').value = 'sincronizado';
+    document.getElementById('modal-anuncio-frete-modo').value = 'loja';
+    document.getElementById('modal-anuncio-badge-frete-gratis').style.display = 'none';
+    document.getElementById('modal-anuncio-msg').textContent = '';
+    var ogInp = document.getElementById('modal-anuncio-og-image-url');
+    if (ogInp) ogInp.value = '';
+    document.getElementById('wrap-usar-nome-produto').classList.add('d-none');
+    abrirModalAnuncio();
+    Promise.all([
+      api('/api/v1/produtos-cliente/?cliente_id=' + encodeURIComponent(clienteId) + '&limit=500').then(function(r) { return r.ok ? r.json() : null; }),
+      api('/api/v1/marketplace/anuncios?loja_id=' + lojaId + '&limit=500').then(function(r) { return r.ok ? r.json() : null; })
+    ]).then(function(results) {
+      var prodData = results[0];
+      var anunciosData = results[1];
+      var items = (prodData && prodData.items) ? prodData.items : (Array.isArray(prodData) ? prodData : []);
+      var anunciosItems = (anunciosData && anunciosData.items) ? anunciosData.items : (Array.isArray(anunciosData) ? anunciosData : []);
+      var idsComAnuncio = {};
+      anunciosItems.forEach(function(a) { if (a.produto_ca_id) idsComAnuncio[a.produto_ca_id] = true; });
+      var produtosSemPendencia = items.filter(function(p) {
+        var temTipo = p.tipo_material_id != null;
+        var temCategoria = p.categoria_id != null;
+        var valorVendaNum = Number(p.valor_venda);
+        var temPrecoVenda = Number.isFinite(valorVendaNum) && valorVendaNum > 0;
+        var temFoto = !!(p.foto_peca && String(p.foto_peca).trim());
+        var temImagemMidia = false;
+        if (!temFoto && p.midias) {
+          try {
+            var midias = typeof p.midias === 'string' ? JSON.parse(p.midias) : p.midias;
+            if (Array.isArray(midias)) {
+              temImagemMidia = midias.some(function(m) {
+                return m && typeof m === 'object' && String(m.tipo || '').toLowerCase() === 'imagem';
+              });
+            }
+          } catch (e) {}
+        }
+        var temDescricao = !!(p.descricao && String(p.descricao).trim());
+        return temTipo && temCategoria && temPrecoVenda && (temFoto || temImagemMidia) && temDescricao;
+      });
+      var disponiveis = produtosSemPendencia.filter(function(p) { return !idsComAnuncio[p.id]; });
+      var pendenciasBloqueadas = items.length - produtosSemPendencia.length;
+      var opts = disponiveis.map(function(p) {
+        var valorVenda = (p.valor_venda != null && p.valor_venda !== '') ? String(p.valor_venda) : '';
+        var texto = (p.codigo || '') + (p.codigo && p.nome ? ' — ' : '') + (p.nome || '').substring(0, 60) + (p.nome && p.nome.length > 60 ? '…' : '');
+        return '<option value="' + p.id + '" data-nome="' + (p.nome || '').replace(/"/g, '&quot;') + '" data-valor-venda="' + valorVenda.replace(/"/g, '&quot;') + '">' + texto.replace(/</g, '&lt;') + '</option>';
+      }).join('');
+      document.getElementById('modal-anuncio-produto').innerHTML = opts;
+      var n = disponiveis.length;
+      if (n === 0) {
+        document.getElementById('modal-anuncio-produto-contador').textContent = 'Nenhum produto disponível para publicar no momento.';
+      } else {
+        document.getElementById('modal-anuncio-produto-contador').textContent = n + ' produto(s) disponível(eis) para publicar.' + (pendenciasBloqueadas > 0 ? ' ' + pendenciasBloqueadas + ' bloqueado(s) por pendências.' : '');
+      }
+      if (n > 4) {
+        document.getElementById('modal-anuncio-busca-produto').style.display = 'block';
+      }
+    }).catch(function() {
+      document.getElementById('modal-anuncio-produto').innerHTML = '<option value="">Erro ao carregar produtos</option>';
+      document.getElementById('modal-anuncio-produto-contador').textContent = '';
+    });
+  });
+
+  function aplicarDescontoPct() {
+    var preco = parseFloat(document.getElementById('modal-anuncio-preco').value);
+    var pct = parseFloat(document.getElementById('modal-anuncio-desconto-pct').value);
+    if (!isNaN(preco) && preco >= 0 && !isNaN(pct) && pct >= 0 && pct <= 100) {
+      var promo = preco * (1 - pct / 100);
+      document.getElementById('modal-anuncio-preco-promo').value = (Math.round(promo * 100) / 100).toFixed(2);
+    }
+  }
+  document.getElementById('modal-anuncio-desconto-pct').addEventListener('input', aplicarDescontoPct);
+  document.getElementById('modal-anuncio-desconto-pct').addEventListener('change', aplicarDescontoPct);
+  document.getElementById('modal-anuncio-preco').addEventListener('change', aplicarDescontoPct);
+
+  document.getElementById('modal-anuncio-busca-produto').addEventListener('input', function() {
+    var sel = document.getElementById('modal-anuncio-produto');
+    var q = (this.value || '').trim().toLowerCase();
+    for (var i = 0; i < sel.options.length; i++) {
+      var opt = sel.options[i];
+      if (!opt.value) { opt.hidden = false; continue; }
+      opt.hidden = q ? opt.textContent.toLowerCase().indexOf(q) === -1 : false;
+    }
+  });
+
+  /* Ao selecionar produto no modal de novo anúncio, preencher título e preço de venda do estoque. */
+  document.getElementById('modal-anuncio-produto').addEventListener('change', function() {
+    if (document.getElementById('modal-anuncio-id').value) return;
+    var selected = Array.from(this.selectedOptions || []).filter(function(o) { return !!o.value; });
+    // Se múltiplos produtos estiverem selecionados, não forçar um título único (evita repetir).
+    if (selected.length > 1) {
+      if (!_tituloAnuncioEditadoManual) _setTituloAnuncioAuto('');
+      return;
+    }
+    var opt = selected.length ? selected[0] : null;
+    if (opt && opt.value) {
+      if (opt.getAttribute('data-nome') && !_tituloAnuncioEditadoManual) _setTituloAnuncioAuto(opt.getAttribute('data-nome'));
+      var valorVenda = opt.getAttribute('data-valor-venda');
+      document.getElementById('modal-anuncio-preco').value = (valorVenda != null && valorVenda !== '') ? valorVenda : '';
+    }
+  });
+
+  document.getElementById('modal-anuncio-input-titulo').addEventListener('input', function() {
+    _tituloAnuncioEditadoManual = true;
+  });
+
+  document.getElementById('btn-usar-nome-produto').addEventListener('click', function() {
+    var selProduto = document.getElementById('modal-anuncio-produto');
+    var prodId = (selProduto.selectedOptions && selProduto.selectedOptions.length) ? selProduto.selectedOptions[0].value : '';
+    if (!prodId) { prodId = selProduto.value; }
+    if (!prodId) return;
+    api('/api/v1/produtos-cliente/' + prodId).then(function(r) { return r.json(); }).then(function(p) {
+      if (p && p.nome) document.getElementById('modal-anuncio-input-titulo').value = p.nome;
+    }).catch(function() {});
+  });
+
+  document.getElementById('btn-helper-produto-pendencia').addEventListener('click', function() {
+    var helper = document.getElementById('helper-produto-pendencia-texto');
+    if (!helper) return;
+    helper.style.display = helper.style.display === 'none' ? 'block' : 'none';
+  });
+  document.addEventListener('click', function(e) {
+    var helper = document.getElementById('helper-produto-pendencia-texto');
+    var btn = document.getElementById('btn-helper-produto-pendencia');
+    if (!helper || !btn) return;
+    if (helper.style.display === 'none') return;
+    if (helper.contains(e.target) || btn.contains(e.target)) return;
+    helper.style.display = 'none';
+  });
+
+  function abrirModalEditarAnuncio(anuncioId) {
+    document.getElementById('modal-anuncio-busca-produto').style.display = 'none';
+    document.getElementById('modal-anuncio-busca-produto').value = '';
+    document.getElementById('modal-anuncio-produto-contador').textContent = '';
+    document.getElementById('modal-anuncio-produto').size = 1;
+    api('/api/v1/marketplace/anuncios/' + anuncioId).then(function(r) { return r.json(); }).then(function(a) {
+      document.getElementById('modal-anuncio-heading').textContent = 'Editar anúncio';
+      document.getElementById('btn-modal-anuncio-salvar').textContent = 'Salvar';
+      document.getElementById('modal-anuncio-id').value = a.id;
+      document.getElementById('wrap-anuncio-status').style.display = 'block';
+      document.getElementById('modal-anuncio-produto').innerHTML = '<option value="' + a.produto_ca_id + '" selected>Produto #' + a.produto_ca_id + '</option>';
+      document.getElementById('modal-anuncio-produto').disabled = true;
+      document.getElementById('modal-anuncio-produto').removeAttribute('multiple');
+      var tituloAnuncio = (a.titulo != null) ? String(a.titulo) : '';
+      document.getElementById('modal-anuncio-input-titulo').value = tituloAnuncio;
+      document.getElementById('wrap-usar-nome-produto').classList.remove('d-none');
+      var descAnuncio = (a.descricao != null) ? String(a.descricao) : '';
+      document.getElementById('modal-anuncio-descricao').value = descAnuncio;
+      fillCaracteristicas(a.atributos || '');
+      document.getElementById('modal-anuncio-preco-promo').value = a.preco_promocional != null ? a.preco_promocional : '';
+      document.getElementById('modal-anuncio-tipo-estoque').value = a.tipo_estoque || 'sincronizado';
+      document.getElementById('modal-anuncio-frete-modo').value = a.frete_sobrescrever_loja && a.formato_frete_produto === 'gratis' ? 'gratis' : 'loja';
+      document.getElementById('modal-anuncio-badge-frete-gratis').style.display = (document.getElementById('modal-anuncio-frete-modo').value === 'gratis') ? 'inline-flex' : 'none';
+      document.getElementById('modal-anuncio-status').value = a.status || 'rascunho';
+      document.getElementById('modal-anuncio-msg').textContent = '';
+      var ogInpEd = document.getElementById('modal-anuncio-og-image-url');
+      if (ogInpEd) ogInpEd.value = (a.og_image_url != null && String(a.og_image_url).trim() !== '') ? String(a.og_image_url).trim() : '';
+      document.getElementById('modal-anuncio-desconto-pct').value = '';
+      /* Preço de venda puxado do estoque (produto do estabelecimento). */
+      document.getElementById('modal-anuncio-preco').value = '';
+      api('/api/v1/produtos-cliente/' + a.produto_ca_id).then(function(r) { return r.json(); }).then(function(p) {
+        // Corrige bug: se o título do anúncio estiver vazio, usar nome do produto do cadastro.
+        var tituloAtual = (document.getElementById('modal-anuncio-input-titulo').value || '').trim();
+        if (!tituloAtual && p && p.nome) {
+          document.getElementById('modal-anuncio-input-titulo').value = p.nome;
+        }
+        // Mesma correção para descrição: se a descrição do anúncio estiver vazia, usar a descrição do produto.
+        var descAtual = (document.getElementById('modal-anuncio-descricao').value || '').trim();
+        if (!descAtual && p && p.descricao) {
+          document.getElementById('modal-anuncio-descricao').value = p.descricao;
+        }
+        if (p && (p.valor_venda != null && p.valor_venda !== '')) document.getElementById('modal-anuncio-preco').value = p.valor_venda;
+        else if (a.preco_original != null) document.getElementById('modal-anuncio-preco').value = a.preco_original;
+      }).catch(function() {
+        if (a.preco_original != null) document.getElementById('modal-anuncio-preco').value = a.preco_original;
+      }).finally(function() {
+        var precoOrig = parseFloat(document.getElementById('modal-anuncio-preco').value);
+        var precoPromo = parseFloat(document.getElementById('modal-anuncio-preco-promo').value);
+        if (!isNaN(precoOrig) && precoOrig > 0 && !isNaN(precoPromo) && precoPromo >= 0 && precoPromo < precoOrig) {
+          var pct = (1 - precoPromo / precoOrig) * 100;
+          document.getElementById('modal-anuncio-desconto-pct').value = (Math.round(pct * 100) / 100).toFixed(2);
+        }
+        abrirModalAnuncio();
+      });
+    });
+  }
+
+  async function toggleStatusAnuncio(anuncioId, statusAtual) {
+    var novo = statusAtual === 'publicado' ? 'pausado' : 'publicado';
+    var r = await api('/api/v1/marketplace/anuncios/' + anuncioId, { method: 'PATCH', body: JSON.stringify({ status: novo }) });
+    if (r.ok) await carregarAnuncios();
+    else { var err = await r.json().catch(function() { return {}; }); alert(Array.isArray(err.detail) ? err.detail.join('; ') : (err.detail || 'Erro.')); }
+  }
+
+  document.getElementById('btn-modal-anuncio-salvar').addEventListener('click', async function() {
+    var id = document.getElementById('modal-anuncio-id').value.trim();
+    var msgEl = document.getElementById('modal-anuncio-msg');
+    msgEl.textContent = '';
+    var preco = parseFloat(document.getElementById('modal-anuncio-preco').value);
+    if (isNaN(preco) || preco < 0) { msgEl.textContent = 'Informe o preço original.'; return; }
+    if (id) {
+      var titulo = document.getElementById('modal-anuncio-input-titulo').value.trim();
+      if (!titulo) { msgEl.textContent = 'Informe o título.'; return; }
+      var ogTrim = (document.getElementById('modal-anuncio-og-image-url') && document.getElementById('modal-anuncio-og-image-url').value) ? document.getElementById('modal-anuncio-og-image-url').value.trim() : '';
+      var body = { titulo: titulo, descricao: document.getElementById('modal-anuncio-descricao').value.trim() || null, atributos: getCaracteristicasJson(), preco_original: preco, preco_promocional: document.getElementById('modal-anuncio-preco-promo').value ? parseFloat(document.getElementById('modal-anuncio-preco-promo').value) : null, tipo_estoque: document.getElementById('modal-anuncio-tipo-estoque').value, status: document.getElementById('modal-anuncio-status').value, og_image_url: ogTrim || null };
+      var freteModoEdicao = document.getElementById('modal-anuncio-frete-modo').value;
+      body.frete_sobrescrever_loja = freteModoEdicao !== 'loja';
+      body.formato_frete_produto = freteModoEdicao === 'gratis' ? 'gratis' : null;
+      var r = await api('/api/v1/marketplace/anuncios/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+      if (!r.ok) { var err = await r.json().catch(function() { return {}; }); msgEl.textContent = Array.isArray(err.detail) ? err.detail.join('; ') : (err.detail || 'Erro.'); return; }
+    } else {
+      document.getElementById('modal-anuncio-produto').setAttribute('multiple', 'multiple');
+      var sel = document.getElementById('modal-anuncio-produto');
+      var selecionados = Array.from(sel.selectedOptions || []).filter(function(opt) { return !!opt.value; });
+      if (!selecionados.length && sel.value) {
+        selecionados = [{ value: sel.value, getAttribute: function(name) { return sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].getAttribute(name) : ''; } }];
+      }
+      if (!selecionados.length) { msgEl.textContent = 'Selecione ao menos um produto.'; return; }
+      var tituloBase = document.getElementById('modal-anuncio-input-titulo').value.trim();
+      // Publicação em lote: se o título não foi digitado manualmente, use o nome de cada produto (não repetir).
+      var usarTituloBase = _tituloAnuncioEditadoManual && !!tituloBase;
+      var descricao = document.getElementById('modal-anuncio-descricao').value.trim() || null;
+      var atributos = getCaracteristicasJson();
+      var precoPromoValor = document.getElementById('modal-anuncio-preco-promo').value ? parseFloat(document.getElementById('modal-anuncio-preco-promo').value) : null;
+      var ogUrlNovo = (document.getElementById('modal-anuncio-og-image-url') && document.getElementById('modal-anuncio-og-image-url').value) ? document.getElementById('modal-anuncio-og-image-url').value.trim() : '';
+      for (var i = 0; i < selecionados.length; i++) {
+        var optSel = selecionados[i];
+        var tituloLinha = (usarTituloBase ? tituloBase : '') || String(optSel.getAttribute('data-nome') || '').trim();
+        if (!tituloLinha) {
+          msgEl.textContent = 'Informe o título ou garanta nome do produto no cadastro.';
+          return;
+        }
+        var body = {
+          loja_id: lojaId,
+          produto_ca_id: parseInt(optSel.value, 10),
+          titulo: tituloLinha,
+          descricao: descricao,
+          atributos: atributos,
+          preco_original: preco,
+          preco_promocional: precoPromoValor,
+          tipo_estoque: document.getElementById('modal-anuncio-tipo-estoque').value,
+          frete_sobrescrever_loja: document.getElementById('modal-anuncio-frete-modo').value !== 'loja',
+          formato_frete_produto: document.getElementById('modal-anuncio-frete-modo').value === 'gratis' ? 'gratis' : null,
+          og_image_url: ogUrlNovo || null
+        };
+        var r = await api('/api/v1/marketplace/anuncios', { method: 'POST', body: JSON.stringify(body) });
+        if (!r.ok) {
+          var err = await r.json().catch(function() { return {}; });
+          msgEl.textContent = Array.isArray(err.detail) ? err.detail.join('; ') : (err.detail || 'Erro ao publicar anúncios em lote.');
+          return;
+        }
+      }
+    }
+    fecharModalAnuncio();
+    await carregarAnuncios();
+  });
+
+  document.getElementById('btn-ativar-loja').addEventListener('click', async function() {
+    if (!clienteId) {
+      document.getElementById('msg-ativar-loja').textContent = 'Nenhum estabelecimento em contexto.';
+      return;
+    }
+    var btn = this;
+    var msgEl = document.getElementById('msg-ativar-loja');
+    btn.disabled = true;
+    msgEl.textContent = 'Ativando…';
+    var r = await api('/api/v1/marketplace/loja', {
+      method: 'POST',
+      body: JSON.stringify({ cliente_id: parseInt(clienteId, 10) }),
+    });
+    var data = await r.json().catch(function() { return {}; });
+    if (!r.ok) {
+      msgEl.innerHTML = '<span class="text-danger">' + (Array.isArray(data.detail) ? data.detail.join('; ') : (data.detail || 'Erro ao ativar loja.')) + '</span>';
+      btn.disabled = false;
+      return;
+    }
+    lojaId = data.id;
+    preencherFormLoja(data);
+    showHide(false, false);
+    document.getElementById('msg-sem-loja').style.display = 'none';
+    msgEl.textContent = 'Loja ativada. Carregando…';
+    await Promise.all([carregarAnuncios(), carregarPedidos(), carregarExtrato()]);
+    msgEl.textContent = '';
+    btn.disabled = false;
+    if (typeof feather !== 'undefined') feather.replace();
+  });
+
+  (function setupModalOverlay() {
+    var m1 = document.getElementById('modalAnuncioCustom');
+    var m2 = document.getElementById('modalStatusPedidoCustom');
+    if (m1) m1.addEventListener('click', function(e) { if (e.target === m1) fecharModalAnuncio(); });
+    if (m2) m2.addEventListener('click', function(e) { if (e.target === m2) fecharModalStatusPedido(); });
+  })();
+
+  document.getElementById('modal-anuncio-frete-modo').addEventListener('change', function() {
+    document.getElementById('modal-anuncio-badge-frete-gratis').style.display = this.value === 'gratis' ? 'inline-flex' : 'none';
+  });
+
+  (async function init() {
+    const loja = await carregarLoja();
+    if (loja) {
+      await Promise.all([carregarAnuncios(), carregarPedidos(), carregarExtrato()]);
+    }
+    if (typeof feather !== 'undefined') feather.replace();
+  })();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+{% set _base = (base_url or '') %}
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="index,follow">
+    <meta name="theme-color" content="#FEF7F1">
+    {% block head_meta %}{% endblock %}
+    <title>{% block title %}Ibix | Ibix{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}Ibix — vitrine e marketplace.{% endblock %}" />
+    <link rel="canonical" href="{{ _base }}{% block canonical_path %}/{% endblock %}" />
+    <link rel="shortcut icon" href="{{ _base }}/static/img/arte-pdv.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" href="{{ _base }}/static/css/loja.css?v=31" as="style">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link href="{{ _base }}/static/css/dashboard.css" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript><link href="{{ _base }}/static/css/dashboard.css" rel="stylesheet"></noscript>
+    <link href="{{ _base }}/static/css/certipeso.css" rel="stylesheet">
+    <link href="{{ _base }}/static/css/landing/header.css" rel="stylesheet">
+    <link href="{{ _base }}/static/css/loja.css?v=31" rel="stylesheet">
+    <style>
+        body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
+        body.loja-page { background: var(--loja-bg, #FEF7F1); }
+        main { flex: 1; }
+        .loja-header { font-family: "DM Sans", system-ui, -apple-system, sans-serif; }
+        .loja-header.cp-navbar .loja-nav-belt { min-height: 80px; display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem 1rem; justify-content: space-between; }
+        .loja-header .container { padding-left: 0; padding-right: 0; }
+        .loja-nav-left { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
+        .loja-nav-fill { flex: 1 1 220px; min-width: 160px; max-width: 700px; display: flex; justify-content: center; margin: 0 1rem; }
+        .loja-nav-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
+        .loja-header .loja-brand { font-weight: 700; letter-spacing: .2px; color: var(--ibix-text-strong, #2F3A44); text-decoration: none; font-size: 1.05rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 8px 22px; margin: -8px -22px; border-radius: 14px; }
+        .loja-header .loja-brand:hover { color: var(--ibix-hover, #C47A44); background: rgba(196, 122, 68, 0.08); }
+        .loja-header .loja-brand img { height: 64px; width: auto; object-fit: contain; display: block; }
+        .loja-brand-tag { font-weight: 600; color: #6b7280; font-size: 0.9rem; margin-left: 0.25rem; text-decoration: none; }
+        .loja-brand-tag:hover { color: var(--ibix-hover, #C47A44); }
+        .loja-search-form { display: flex; width: 100%; max-width: 100%; border: 1px solid rgba(0,0,0,.08); border-radius: 10px; overflow: hidden; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.06); min-height: 44px; }
+        .loja-search-form .form-control { flex: 1; min-width: 0; width: 100%; border: none; border-radius: 0; padding: 0.6rem 1rem; padding-right: 14px; font-size: 0.9375rem; box-sizing: border-box; }
+        .loja-search-form .form-control:focus { box-shadow: none; outline: none; }
+        .loja-search-form .btn-search { border: none; border-left: 1px solid rgba(255,255,255,.2); background: var(--loja-action, #5C6E4A); color: #fff; padding: 0 14px; width: auto; min-width: 88px; flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 800; letter-spacing: .02em; }
+        .loja-search-form .btn-search .feather { width: 1.125rem; height: 1.125rem; }
+        .loja-search-form .btn-search:hover { background: var(--loja-action-hover, #4E5F40); color: #fff; }
+        .loja-nav-item { color: var(--ibix-text-strong, #2F3A44); text-decoration: none; padding: 0.35rem 0.5rem; border-radius: 8px; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+        .loja-nav-item:hover { color: var(--ibix-hover, #C47A44); background: rgba(196, 122, 68, 0.08); }
+        .loja-nav-line1 { font-size: 0.75rem; color: #6b7280; }
+        .loja-nav-line2 { font-size: 0.875rem; font-weight: 600; }
+        .loja-nav-cart .loja-cart-count { background: var(--ibix-hover, #C47A44); color: #fff; font-size: 0.7rem; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-right: 2px; }
+        .loja-nav-item .feather, .loja-btn-icon .feather { width: 1.25rem; height: 1.25rem; }
+        .loja-nav-item.loja-nav-icon { flex-direction: row; align-items: center; gap: 0.35rem; }
+        .loja-nav-item.loja-nav-icon .loja-nav-line2 { font-size: 0.8125rem; }
+        .loja-nav-city { min-width: 0; max-width: 220px; }
+        .loja-nav-city .loja-nav-line2 { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cp-footer { border-top: 1px solid rgba(0,0,0,.08); background: #fff; padding: 18px 0; color: #6b7280; font-size: .9rem; }
+        .cp-footer a { color: #6b7280; text-decoration: none; }
+        .cp-footer a:hover { color: var(--cp-primary, var(--certipeso-primary, #2c3e50)); }
+        .cp-footer .cp-credits { font-size: .85rem; }
+        @media (max-width: 767px) {
+            .loja-header.cp-navbar .loja-nav-belt {
+                min-height: 64px;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 8px;
+                align-items: center;
+            }
+            .loja-nav-left { min-width: 0; }
+            .loja-nav-right { justify-content: flex-end; gap: 0.35rem; }
+            .loja-nav-fill {
+                grid-column: 1 / -1;
+                max-width: 100%;
+                width: 100%;
+                min-width: 0;
+                margin: 0;
+                justify-content: stretch;
+            }
+            .loja-search-form { width: 100%; min-width: 0; }
+        }
+        @media (min-width: 992px) {
+            .loja-nav-fill { min-width: 260px; max-width: 760px; }
+        }
+        @media (max-width: 400px) {
+            .loja-header .loja-brand img { height: 72px; }
+            .loja-nav-icon .loja-nav-line2 { display: none; }
+        }
+        @media (max-width: 575px) {
+            .loja-header .container { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .loja-nav-right { gap: 0.2rem; }
+            .loja-nav-item { padding: 0.25rem 0.35rem; }
+            .loja-brand-tag,
+            .loja-nav-line2 { display: none; }
+            .loja-search-form .btn-search { min-width: 42px; padding: 0 10px; }
+            .loja-search-form .form-control { font-size: 0.95rem; padding-right: 10px; }
+            .cp-footer .container { flex-direction: column; align-items: center; text-align: center; gap: 0.75rem; }
+        }
+    </style>
+    {% block page_styles %}{% endblock %}
+</head>
+<body class="loja-page">
+    <header class="cp-navbar loja-header">
+        <div class="container py-3">
+            <div class="loja-nav-belt">
+                <div class="loja-nav-left">
+                    <a class="loja-brand" href="{{ _base }}/" aria-label="Ibix - voltar para a vitrine">
+                        <img src="{{ _base }}/static/img/ibix/cab.png" alt="Ibix" width="520" height="170" fetchpriority="high">
+                    </a>
+                </div>
+                <div class="loja-nav-fill">
+                    <form class="loja-search-form" action="{{ _base }}/loja/busca" method="get" role="search">
+                        <input type="search" class="form-control" name="q" id="loja-header-busca-q" placeholder="O que você procura hoje?" value="" aria-label="Buscar produtos e lojas">
+                        <button type="submit" class="btn btn-search" title="Buscar" aria-label="Buscar">Buscar</button>
+                    </form>
+                </div>
+                <div class="loja-nav-right">
+                    <a class="loja-nav-item loja-nav-icon loja-nav-city" href="#" role="button" aria-label="Cidade" onclick="return false;">
+                        <i data-feather="map-pin"></i>
+                        <span class="loja-nav-line2">Sua cidade</span>
+                    </a>
+                    <a class="loja-nav-item loja-nav-icon" href="https://www.ibix.com.br/login" target="_blank" rel="noopener noreferrer" title="Loja — acesso lojista" aria-label="Loja — acesso lojista (login Ibix)">
+                        <i data-feather="briefcase"></i>
+                        <span class="loja-nav-line2">Loja</span>
+                    </a>
+                    <a class="loja-nav-item loja-nav-icon" href="{{ _base }}/loja/login" title="Entrar" aria-label="Entrar">
+                        <i data-feather="user"></i>
+                        <span class="loja-nav-line2">Entrar</span>
+                    </a>
+                    <a class="loja-nav-item loja-nav-cart loja-nav-icon" href="{{ _base }}/loja/carrinho" title="Carrinho" aria-label="Carrinho">
+                        <span id="loja-cart-count" class="loja-cart-count" style="display: none;">0</span>
+                        <i data-feather="shopping-cart"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="loja-main">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    <footer class="cp-footer">
+        <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <img src="{{ _base }}/static/img/ibix/rodape.png" alt="Ibix" width="420" height="216" loading="lazy" style="height: 28px; width: auto; display:block;">
+                <span>Ibix</span>
+                <span aria-hidden="true">·</span>
+                <span class="cp-credits">Desenvolvido por <a href="https://automscale.com.br" target="_blank" rel="noopener noreferrer"><strong>Automscale</strong></a></span>
+            </div>
+            <div class="ibix-seguro ibix-seguro--inline d-none d-md-block" style="max-width: 420px;">
+                <p class="ibix-seguro__title mb-1"><i data-feather="shield"></i>Ibix Seguro</p>
+                <ul class="ibix-seguro__list mb-0">
+                  <li>Compra protegida</li>
+                  <li>Pagamento liberado só após confirmação</li>
+                  <li>Entregue com rastreamento em tempo real</li>
+                </ul>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-1">
+                <a href="{{ _base }}/">Início</a>
+                <span aria-hidden="true">·</span>
+                <a href="{{ _base }}/loja/acompanhar-pedido">Acompanhar pedido</a>
+                <span aria-hidden="true">·</span>
+                <a href="{{ _base }}/loja/termos-de-uso">Termos de Uso</a>
+                <span aria-hidden="true">·</span>
+                <a href="{{ _base }}/politica-privacidade-marketplace">Política de Privacidade</a>
+                <span aria-hidden="true">·</span>
+                <a href="{{ _base }}/como-funciona-vitrine">Como funciona a vitrine</a>
+                <span aria-hidden="true">·</span>
+                <span>&copy; 2022</span>
+            </div>
+        </div>
+    </footer>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js" crossorigin="anonymous"></script>
+    <script>window.LOJA_CONSUMIDOR_ID = null;</script>
+    <script>window.LOJA_SLUG_CONTEXT = null;</script>
+    <script src="{{ _base }}/static/js/vitrine.js?v=9"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+    });
+    </script>
+    {% block scripts_extra %}{% endblock %}
+</body>
+</html>

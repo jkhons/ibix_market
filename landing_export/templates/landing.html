@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema para Calibração de Balanças | Certipeso</title>
+  <meta name="description" content="Sistema de gestão para calibração e certificação de balanças. Organize processos, controle certificados e opere alinhado à ISO/IEC 17025. Teste gratuito por 30 dias." />
+  <link rel="canonical" href="{{ base_url or 'https://app.certipeso.com.br' }}/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Sistema para Calibração de Balanças | Certipeso" />
+  <meta property="og:description" content="Sistema de gestão para calibração e certificação de balanças. Organize processos, controle certificados e opere alinhado à ISO/IEC 17025. Teste gratuito por 30 dias." />
+  <meta property="og:url" content="{{ base_url or 'https://app.certipeso.com.br' }}/" />
+  <meta property="og:locale" content="pt_BR" />
+
+  <link rel="shortcut icon" href="/static/img/icons/icon-48x48.png" />
+
+  <!-- Inter (mesmo padrão do login; se você já carrega via CSS local, ajuste) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap / dashboard.css (mesmo padrão do auth) -->
+  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <link rel="stylesheet" href="/static/css/certipeso.css" />
+
+  <style>
+    :root {
+      /* Usa variáveis do certipeso.css (primary/secondary) */
+      --cp-primary: var(--certipeso-primary);
+      --cp-secondary: var(--certipeso-secondary);
+    }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #ffffff;
+      color: #1f2937;
+    }
+
+    /* Header simples, sem exagero de radius */
+    .cp-navbar {
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+    }
+
+    .cp-brand {
+      font-weight: 700;
+      letter-spacing: .2px;
+      color: var(--cp-primary);
+      text-decoration: none;
+      font-size: 1.05rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .cp-brand img {
+      height: 64px;
+      width: auto;
+      max-width: none;
+      vertical-align: middle;
+      object-fit: contain;
+    }
+
+    .cp-nav-link {
+      color: #374151;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .cp-nav-link:hover { color: var(--cp-primary); }
+
+    .cp-hero {
+      padding: 64px 0 40px;
+      background: linear-gradient(180deg, rgba(44,62,80,.06), rgba(44,62,80,0));
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+
+    .cp-section {
+      padding: 56px 0;
+    }
+
+    .cp-kicker {
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-size: .78rem;
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    .cp-title {
+      font-weight: 800;
+      color: var(--cp-primary);
+      margin: 10px 0 12px;
+      line-height: 1.08;
+    }
+
+    .cp-lead {
+      font-size: 1.05rem;
+      color: #4b5563;
+      max-width: 56rem;
+    }
+
+    .cp-card {
+      border: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+      padding: 18px 18px;
+      height: 100%;
+    }
+
+    .cp-footer {
+      border-top: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+      padding: 18px 0;
+      color: #6b7280;
+      font-size: .9rem;
+    }
+    .cp-footer a { color: #6b7280; text-decoration: none; }
+    .cp-footer a:hover { color: var(--cp-primary); }
+    .cp-footer .cp-credits { font-size: .85rem; }
+    .cp-footer .cp-logo { height: 36px; width: auto; vertical-align: middle; object-fit: contain; }
+
+    .btn, .form-control, .cp-card {
+      border-radius: 2px !important;
+    }
+
+    .cp-btn-login {
+      background: linear-gradient(180deg, #2c3e50, #34495e);
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 8px !important;
+      color: #fff !important;
+      font-weight: 600;
+      padding: 0.6rem 1.5rem;
+      font-size: 1rem;
+      box-shadow: 0 1px 3px rgba(44, 62, 80, 0.25);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+    .cp-btn-login:hover {
+      background: linear-gradient(180deg, #34495e, #2c3e50);
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(44, 62, 80, 0.35);
+      transform: translateY(-1px);
+    }
+    .cp-btn-login:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px rgba(44, 62, 80, 0.2);
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="cp-navbar">
+    <div class="container py-3 d-flex align-items-center justify-content-between gap-3">
+      <a class="cp-brand" href="/">
+        <img src="/static/img/logo/logo.png" alt="Certipeso" style="height: 64px; width: auto;" fetchpriority="high" />
+        <span>Certipeso</span>
+      </a>
+
+      <nav class="d-none d-md-flex align-items-center gap-4">
+        <a class="cp-nav-link" href="#contato">Fale conosco</a>
+        <a class="cp-nav-link" href="#sobre">Sobre nós</a>
+      </nav>
+
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn cp-btn-login" href="/login">Login</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="cp-hero">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+
+          <div class="cp-kicker">
+            Sistema de gestão para empresas de calibração
+          </div>
+
+          <h1 class="cp-title display-5">
+            Sistema de Gestão para Calibração e Certificação de Balanças
+          </h1>
+
+          <p class="cp-lead mb-3">
+            Organize processos técnicos, certificados e informações administrativas em um único ambiente estruturado,
+            com rastreabilidade e padronização alinhadas às boas práticas laboratoriais.
+          </p>
+
+          <p class="cp-lead mb-4" style="font-size: 0.95rem;">
+            Estruturado para apoiar operações que seguem os princípios da ISO/IEC 17025.
+          </p>
+
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-primary" href="/cadastro">
+              Teste gratuito por 30 dias
+            </a>
+            <a class="btn btn-outline-secondary" href="#sobre">
+              Conhecer o sistema
+            </a>
+          </div>
+
+        </div>
+
+        <div class="col-lg-4">
+          <div class="cp-card">
+            <div class="cp-kicker">Visão rápida</div>
+            <ul class="mt-3 mb-0" style="padding-left: 18px; color:#4b5563;">
+              <li>Gestão estruturada da operação</li>
+              <li>Controle e rastreabilidade de certificados</li>
+              <li>Processos técnicos organizados</li>
+              <li>Controle de acesso por função</li>
+              <li>Ambiente centralizado para a empresa</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-top:1px solid rgba(0,0,0,.06); border-bottom:1px solid rgba(0,0,0,.06); background: rgba(44, 62, 80, 0.04);">
+    <div class="container py-4">
+      <div class="row text-center g-3">
+
+        <div class="col-md-4">
+          <div style="font-weight:600; color: var(--certipeso-primary);">
+            30 dias de acesso gratuito
+          </div>
+          <div style="font-size:0.9rem; color:#6b7280;">
+            Teste completo do sistema sem compromisso.
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div style="font-weight:600; color: var(--certipeso-primary);">
+            Sem fidelidade contratual
+          </div>
+          <div style="font-size:0.9rem; color:#6b7280;">
+            Pague apenas enquanto utilizar.
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div style="font-weight:600; color: var(--certipeso-primary);">
+            Estrutura alinhada à ISO/IEC 17025
+          </div>
+          <div style="font-size:0.9rem; color:#6b7280;">
+            Organização e rastreabilidade compatíveis com boas práticas laboratoriais.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- O que é -->
+  <section class="cp-section">
+    <div class="container">
+      <div class="cp-kicker">O que é</div>
+      <h2 class="cp-title h3">O que é o Certipeso</h2>
+      <p class="cp-lead mb-0">
+        O Certipeso é uma plataforma desenvolvida para laboratórios e empresas que realizam calibração e certificação de balanças.
+        Ele centraliza informações técnicas, controla acessos e organiza a emissão de certificados com rastreabilidade.
+      </p>
+    </div>
+  </section>
+
+  <!-- Fale conosco -->
+  <section id="contato" class="cp-section">
+    <div class="container">
+      <div class="cp-kicker">Fale conosco</div>
+      <h2 class="cp-title h3">Contato</h2>
+      <p class="cp-lead mb-4">
+        Envie sua mensagem pelo formulário abaixo ou entre em contato por telefone e WhatsApp.
+      </p>
+
+      {% if contact_telefone or (contact_whatsapp and contact_whatsapp_link) %}
+      <div class="cp-card mb-4">
+        <div class="cp-kicker">Meu contato</div>
+        <div class="d-flex flex-wrap gap-3 mt-2">
+          {% if contact_telefone %}
+          <div>
+            <span class="text-muted small">Telefone / WhatsApp:</span>
+            <a href="https://wa.me/{{ contact_whatsapp_link }}" target="_blank" rel="noopener noreferrer" class="d-block fw-medium">{{ contact_telefone }}</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="cp-card">
+        <div class="cp-kicker">Enviar mensagem</div>
+        <p class="text-muted small mb-3">Preencha os campos e envie. Você receberá retorno por e-mail.</p>
+        <div id="fale-conosco-alert" class="alert d-none mb-3" role="alert"></div>
+        <form id="fale-conosco-form">
+          <div class="mb-3">
+            <label for="fc-nome" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="fc-nome" name="nome" required maxlength="200" placeholder="Seu nome" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-email" class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="fc-email" name="email" required placeholder="seu@email.com" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-mensagem" class="form-label">Mensagem</label>
+            <textarea class="form-control" id="fc-mensagem" name="mensagem" required rows="4" maxlength="2000" placeholder="Sua mensagem"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary" id="fc-submit">
+            <span class="btn-text">Enviar</span>
+            <span class="btn-loading d-none"><span class="spinner-border spinner-border-sm me-1"></span>Enviando...</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sobre -->
+  <section id="sobre" class="cp-section" style="background: rgba(44,62,80,.02); border-top:1px solid rgba(0,0,0,.06);">
+    <div class="container">
+      <div class="cp-kicker">Sobre nós</div>
+      <h2 class="cp-title h3">Sobre o Certipeso</h2>
+      <p class="cp-lead mb-0">
+        O Certipeso foi desenvolvido para apoiar empresas de calibração em todos os aspectos da operação — técnico, administrativo e gerencial.
+        Ele organiza processos, certificados e informações em um ambiente estruturado, promovendo controle, rastreabilidade e melhor gestão do negócio.
+      </p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="cp-footer">
+    <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <img src="/static/img/logo/logo.png" alt="Certipeso" class="cp-logo" style="height: 36px; width: auto;" />
+        <span>Certipeso</span>
+        <span aria-hidden="true">·</span>
+        <span class="cp-credits">Desenvolvido por <strong>Automscale</strong></span>
+      </div>
+      <div>&copy; <span id="cpYear">2023</span></div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("cpYear").textContent = "2023";
+
+    (function() {
+      var form = document.getElementById("fale-conosco-form");
+      if (!form) return;
+      var alertEl = document.getElementById("fale-conosco-alert");
+      var submitBtn = form.querySelector("#fc-submit");
+      var btnText = submitBtn ? submitBtn.querySelector(".btn-text") : null;
+      var btnLoading = submitBtn ? submitBtn.querySelector(".btn-loading") : null;
+
+      function showAlert(msg, type) {
+        if (!alertEl) return;
+        alertEl.textContent = msg;
+        alertEl.className = "alert alert-" + (type || "info") + " mb-3";
+        alertEl.classList.remove("d-none");
+      }
+      function hideAlert() {
+        if (alertEl) alertEl.classList.add("d-none");
+      }
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        hideAlert();
+        var nome = (document.getElementById("fc-nome") && document.getElementById("fc-nome").value) || "";
+        var email = (document.getElementById("fc-email") && document.getElementById("fc-email").value) || "";
+        var mensagem = (document.getElementById("fc-mensagem") && document.getElementById("fc-mensagem").value) || "";
+        if (!nome.trim() || !email.trim() || !mensagem.trim()) {
+          showAlert("Preencha todos os campos.", "warning");
+          return;
+        }
+        if (btnText) btnText.classList.add("d-none");
+        if (btnLoading) btnLoading.classList.remove("d-none");
+        if (submitBtn) submitBtn.disabled = true;
+
+        fetch("/api/v1/landing/fale-conosco", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nome: nome.trim(), email: email.trim(), mensagem: mensagem.trim() })
+        })
+          .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+          .then(function(result) {
+            if (result.ok && result.data && result.data.success) {
+              showAlert(result.data.message || "Mensagem enviada com sucesso! Entraremos em contato em breve.", "success");
+              form.reset();
+            } else {
+              var d = result.data && result.data.detail;
+              var msg = (typeof d === "string" ? d : (d && d.message)) || (result.data && result.data.message) || "Erro ao enviar. Tente novamente.";
+              showAlert(msg, "danger");
+            }
+          })
+          .catch(function() {
+            showAlert("Erro ao enviar. Verifique sua conexão e tente novamente.", "danger");
+          })
+          .finally(function() {
+            if (btnText) btnText.classList.remove("d-none");
+            if (btnLoading) btnLoading.classList.add("d-none");
+            if (submitBtn) submitBtn.disabled = false;
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

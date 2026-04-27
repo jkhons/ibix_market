@@ -1,0 +1,175 @@
+{% extends "base_vitrine_institucional.html" %}
+{% block title %}Política de Privacidade (Marketplace) | Ibix{% endblock %}
+{% block meta_description %}Política de Privacidade e Proteção de Dados (LGPD) do Ibix para usuários da loja e marketplace.{% endblock %}
+{% block canonical_path %}/politica-privacidade-marketplace{% endblock %}
+
+{% block page_styles %}
+<style>
+  .vitrine-inst-hero {
+    padding: 2rem 0 1.5rem;
+    border: 1px solid var(--loja-border);
+    background: var(--ibix-surface);
+    border-radius: 12px !important;
+    box-shadow: var(--loja-shadow-sm);
+    margin: 0.35rem 0 1rem;
+  }
+  .vitrine-inst-hero h1 {
+    font-family: "Poppins", "DM Sans", system-ui, sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    color: var(--ibix-text-strong);
+    line-height: 1.25;
+    margin: 0 0 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+  .vitrine-inst-hero h1 .feather {
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    color: var(--ibix-action);
+  }
+  .vitrine-inst-hero .v-lead {
+    font-size: 0.95rem;
+    color: var(--ibix-text);
+    max-width: 42rem;
+    line-height: 1.6;
+    margin: 0;
+  }
+  .policy-content {
+    max-width: 52rem;
+    margin: 0 auto;
+    padding-bottom: 2rem;
+  }
+  .policy-content > p,
+  .policy-content li {
+    color: var(--ibix-text);
+    line-height: 1.7;
+  }
+  .policy-h {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--ibix-text-strong);
+    margin-top: 1.75rem;
+    margin-bottom: 0.6rem;
+    font-family: "Poppins", "DM Sans", system-ui, sans-serif;
+  }
+  .policy-h .feather {
+    width: 1.3rem;
+    height: 1.3rem;
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    color: var(--ibix-action);
+  }
+  .policy-h span { flex: 1; }
+  .policy-content ul { padding-left: 1.25rem; margin-bottom: 1rem; }
+  .policy-content li { margin-bottom: 0.35rem; }
+  .policy-content a { color: var(--ibix-hover); font-weight: 500; }
+  .policy-content a:hover { color: var(--ibix-action-hover); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="vitrine-inst-hero">
+  <div class="px-1 px-sm-2">
+    <h1><i data-feather="shield"></i><span>Política de Privacidade e Proteção de Dados (LGPD)</span></h1>
+    <p class="v-lead mb-0">Última atualização: 10/03/2026</p>
+  </div>
+</section>
+
+<div class="policy-content py-4">
+  <p>
+    A presente Política de Privacidade descreve como a <strong>Ibix</strong> coleta, utiliza, armazena e protege os dados pessoais dos usuários da loja e do marketplace, em conformidade com a Lei Geral de Proteção de Dados – LGPD (Lei nº 13.709/2018).
+  </p>
+  <p>
+    Ao utilizar a plataforma (loja, cadastro de comprador, checkout e serviços relacionados), o usuário declara estar ciente e concordar com os termos desta política.
+  </p>
+
+  <h4 class="policy-h"><i data-feather="briefcase"></i><span>1. Controlador dos Dados</span></h4>
+  <p>
+    Os dados pessoais coletados por meio da plataforma são tratados pela empresa:
+  </p>
+  <p>
+    <strong>Empresa:</strong> Automscale Soluções em Tecnologia Ltda.<br>
+    <strong>Site:</strong> <a href="https://automscale.com.br" target="_blank" rel="noopener noreferrer">https://automscale.com.br</a><br>
+    <strong>E-mail (privacidade/LGPD):</strong> <a href="mailto:privacidade@automscale.com.br">privacidade@automscale.com.br</a><br>
+    <strong>Telefone / WhatsApp:</strong> <a href="https://wa.me/5514998062084" target="_blank" rel="noopener noreferrer">(14) 99806-2084</a><br>
+    <strong>Horário de atendimento:</strong> Segunda a Sexta, 8h às 18h
+  </p>
+  <p>
+    CNPJ e endereço completos da controladora estão disponíveis no site ou mediante solicitação pelo canal de contato acima. Esta empresa atua como controladora dos dados pessoais conforme definido na LGPD.
+  </p>
+
+  <h4 class="policy-h"><i data-feather="layers"></i><span>2. Dados coletados</span></h4>
+  <p>A plataforma poderá coletar os seguintes tipos de dados:</p>
+  <p><strong>Dados de identificação:</strong> Nome, E-mail, Telefone, CPF ou CNPJ (quando necessário), Endereço.</p>
+  <p><strong>Dados de conta:</strong> login, senha criptografada, histórico de acesso.</p>
+  <p><strong>Dados de veículos (quando aplicável):</strong> marca, modelo, ano, quilometragem, histórico de serviços.</p>
+  <p><strong>Dados de transações:</strong> pedidos realizados, ofertas aceitas, serviços contratados, pagamentos.</p>
+  <p><strong>Dados técnicos:</strong> endereço IP, dispositivo utilizado, navegador, cookies, logs de acesso.</p>
+
+  <h4 class="policy-h"><i data-feather="crosshair"></i><span>3. Finalidade do tratamento de dados</span></h4>
+  <p>Os dados pessoais são utilizados para:</p>
+  <ul>
+    <li>permitir o funcionamento da plataforma</li>
+    <li>identificar usuários</li>
+    <li>viabilizar transações entre usuários e empresas</li>
+    <li>comunicação sobre pedidos e serviços</li>
+    <li>envio de notificações e atualizações</li>
+    <li>personalização de ofertas e recomendações</li>
+    <li>prevenção a fraudes</li>
+    <li>melhoria da experiência do usuário</li>
+    <li>cumprimento de obrigações legais</li>
+  </ul>
+
+  <h4 class="policy-h"><i data-feather="share-2"></i><span>4. Compartilhamento de dados</span></h4>
+  <p>A plataforma poderá compartilhar dados pessoais quando necessário para a execução do serviço.</p>
+  <p><strong>Compartilhamento com empresas parceiras:</strong> Determinadas informações podem ser compartilhadas com oficinas, lojas de autopeças e prestadores de serviço, quando necessário para a realização de um serviço ou pedido (nome, telefone, endereço de atendimento, informações do veículo, dados relacionados ao pedido).</p>
+  <p><strong>Compartilhamento com prestadores de tecnologia:</strong> Os dados também podem ser processados por empresas que fornecem infraestrutura tecnológica (hospedagem, processamento de pagamentos, serviços de e-mail, serviços de analytics).</p>
+  <p><strong>Obrigações legais:</strong> Os dados poderão ser compartilhados com autoridades públicas quando exigido por lei.</p>
+
+  <h4 class="policy-h"><i data-feather="cpu"></i><span>5. Uso de cookies</span></h4>
+  <p>A plataforma utiliza cookies para: autenticação de usuários, segurança da sessão, análise de uso da plataforma e melhoria da experiência do usuário (cookies de sessão, de desempenho e de segurança). O usuário pode configurar o navegador para bloquear cookies; algumas funcionalidades poderão ser afetadas.</p>
+
+  <h4 class="policy-h"><i data-feather="lock"></i><span>6. Segurança da informação</span></h4>
+  <p>A plataforma adota medidas técnicas e administrativas para proteger os dados contra acesso não autorizado, perda, destruição, alteração e divulgação indevida (criptografia, controle de acesso, monitoramento, registros de auditoria, autenticação segura). Nenhum sistema é totalmente imune a riscos.</p>
+
+  <h4 class="policy-h"><i data-feather="clock"></i><span>7. Retenção de dados</span></h4>
+  <p>Os dados pessoais serão armazenados pelo tempo necessário para as finalidades descritas (prestação dos serviços, obrigações legais, resolução de disputas, prevenção a fraudes). Após esse período, os dados poderão ser anonimizados, bloqueados ou excluídos.</p>
+
+  <h4 class="policy-h"><i data-feather="user-check"></i><span>8. Direitos do titular dos dados</span></h4>
+  <p>Nos termos da LGPD, o usuário possui direito a: confirmação da existência de tratamento, acesso aos dados, correção de dados incompletos ou desatualizados, anonimização ou bloqueio de dados desnecessários, portabilidade, eliminação, revogação do consentimento e informação sobre compartilhamento. Solicitações pelo canal de contato informado nesta política.</p>
+
+  <h4 class="policy-h"><i data-feather="mail"></i><span>9. Comunicação e marketing</span></h4>
+  <p>A plataforma poderá enviar comunicações sobre atualizações da conta, pedidos e serviços, ofertas e promoções e novidades. O usuário poderá solicitar a interrupção dessas comunicações a qualquer momento.</p>
+
+  <h4 class="policy-h"><i data-feather="users"></i><span>10. Responsabilidade de terceiros</span></h4>
+  <p>A plataforma atua como intermediadora entre usuários e empresas prestadoras de serviço. Após o compartilhamento necessário para a execução de um serviço ou pedido, o uso das informações por terceiros é de responsabilidade das respectivas empresas.</p>
+
+  <h4 class="policy-h"><i data-feather="truck"></i><span>11. Uso de dados do veículo</span></h4>
+  <p>Informações sobre veículos cadastrados na plataforma podem ser utilizadas para oferecer recomendações de manutenção, serviços, peças compatíveis e histórico de serviços realizados. Isso viabiliza funcionalidades de histórico do veículo e ofertas personalizadas.</p>
+
+  <h4 class="policy-h"><i data-feather="package"></i><span>12. Marketplace e criação de usuário</span></h4>
+  <p>No contexto do marketplace/loja: (i) o usuário pode ser criado no momento do cadastro na loja ou no checkout (conta de comprador); (ii) os dados informados no cadastro e no pedido são tratados conforme esta política; (iii) a plataforma e cada loja são responsáveis pelo tratamento dentro de seus respectivos âmbitos; (iv) o compartilhamento com a loja para entrega e atendimento do pedido é necessário para a execução do serviço.</p>
+
+  <h4 class="policy-h"><i data-feather="edit-3"></i><span>13. Alterações nesta política</span></h4>
+  <p>Esta política poderá ser atualizada periodicamente. Alterações relevantes poderão ser notificadas por e-mail, notificações na plataforma ou aviso no site.</p>
+
+  <h4 class="policy-h"><i data-feather="phone"></i><span>14. Contato e canal LGPD</span></h4>
+  <p>
+    Para exercer seus direitos ou esclarecer dúvidas sobre o tratamento de dados pessoais, entre em contato:
+  </p>
+  <p>
+    <strong>E-mail (privacidade):</strong> <a href="mailto:privacidade@automscale.com.br">privacidade@automscale.com.br</a><br>
+    <strong>E-mail (geral):</strong> <a href="mailto:automscale@automscale.com.br">automscale@automscale.com.br</a><br>
+    <strong>Telefone / WhatsApp:</strong> <a href="https://wa.me/5514998062084" target="_blank" rel="noopener noreferrer">(14) 99806-2084</a><br>
+    <strong>Horário:</strong> Segunda a Sexta, 8h às 18h<br>
+    <strong>Responsável:</strong> Encarregado de Proteção de Dados (DPO)
+  </p>
+</div>
+{% endblock %}

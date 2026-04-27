@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificado Renovado - PDV Ibix</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: #6f42c1; color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .success-box { background-color: #d4edda; border: 2px solid #28a745; padding: 15px; margin: 20px 0; border-radius: 5px; text-align: center; }
+        .success-box h2 { color: #28a745; margin: 0; }
+        .info-box { background-color: #f8f9fa; border-left: 4px solid #6f42c1; padding: 15px; margin: 20px 0; }
+        .info-box strong { color: #6f42c1; display: block; margin-bottom: 5px; }
+        .button { display: inline-block; padding: 12px 30px; background-color: #6f42c1; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 Certificado Renovado</h1>
+        </div>
+        
+        <div class="content">
+            <p>Olá, <strong>{{cliente_nome}}</strong>!</p>
+            
+            <div class="success-box">
+                <h2>✅ Renovação Concluída!</h2>
+            </div>
+            
+            <p>Seu certificado foi renovado com sucesso e já está disponível para download.</p>
+            
+            <div class="info-box">
+                <strong>📄 Novo Certificado:</strong>
+                {{numero_certificado_novo}}
+                
+                <strong>📄 Certificado Anterior:</strong>
+                {{numero_certificado_antigo}}
+                
+                <strong>⚙️ Equipamento:</strong>
+                {{equipamento}}
+                
+                <strong>📅 Data de Emissão:</strong>
+                {{data_emissao}}
+                
+                <strong>📅 Nova Validade:</strong>
+                {{data_validade}}
+            </div>
+            
+            <p><strong>Próxima Renovação:</strong> {{proxima_renovacao}}</p>
+            
+            <center>
+                <a href="{{download_link}}" class="button">📥 Baixar Novo Certificado</a>
+            </center>
+        </div>
+        
+        <div class="footer">
+            <p><strong>PDV Ibix - Sistema de vendas e gestão PDV</strong></p>
+            <p>Mantenha seu certificado em local seguro.</p>
+        </div>
+    </div>
+</body>
+</html>
+

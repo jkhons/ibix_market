@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Entregador - Login | Ibix</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <style>
+        body { font-family: system-ui, sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
+        .login-card { background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.1); max-width: 380px; width: 100%; }
+        .login-card h1 { margin: 0 0 1rem 0; font-size: 1.5rem; }
+        .form-label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
+        .form-control { width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; }
+        .mb-3 { margin-bottom: 1rem; }
+        .btn-primary { background: #2c3e50; color: #fff; border: none; padding: 0.6rem 1.25rem; border-radius: 6px; cursor: pointer; width: 100%; }
+        .alert-danger { background: #f8d7da; color: #721c24; padding: 0.5rem; border-radius: 4px; margin-bottom: 1rem; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1>Entregador</h1>
+        <p>Entre com seu e-mail e senha.</p>
+        <form id="entregador-login-form">
+            <div class="mb-3">
+                <label for="email" class="form-label">E-mail</label>
+                <input type="email" id="email" name="email" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="senha" class="form-label">Senha</label>
+                <input type="password" id="senha" name="senha" class="form-control" required>
+            </div>
+            <div id="login-error" class="alert-danger" role="alert"></div>
+            <button type="submit" class="btn-primary">Entrar</button>
+        </form>
+    </div>
+    <script>
+        document.getElementById("entregador-login-form").addEventListener("submit", function(e) {
+            e.preventDefault();
+            var err = document.getElementById("login-error");
+            err.style.display = "none";
+            var email = document.getElementById("email").value.trim();
+            var senha = document.getElementById("senha").value;
+            fetch("/api/v1/entregador/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email, senha: senha })
+            }).then(function(r) {
+                if (r.ok) return r.json();
+                return r.json().then(function(d) { throw new Error(d.detail || "Falha no login"); });
+            }).then(function(data) {
+                document.cookie = "entregador_token=" + data.access_token + "; path=/; max-age=86400; SameSite=Lax";
+                window.location.href = "/entregador/disponiveis";
+            }).catch(function(e) {
+                err.textContent = e.message || "Erro ao entrar.";
+                err.style.display = "block";
+            });
+        });
+    </script>
+</body>
+</html>

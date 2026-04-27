@@ -1,0 +1,3586 @@
+{% extends "base.html" %}
+
+{% block title %}Ordem de Serviço | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --os-primary: #2c3e50;
+        --os-secondary: #34495e;
+        --os-success: #27ae60;
+        --os-warning: #f39c12;
+        --os-danger: #e74c3c;
+        --os-info: #2980b9;
+    }
+
+    .card-os-resumo {
+        border-left: 4px solid var(--os-primary);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card-os-resumo:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    .card-os-resumo .stat {
+        font-size: 32px;
+    }
+
+    .pill-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .pill-status-pre_checagem { background: rgba(41, 128, 185, 0.12); color: #1b4f72; }
+    .pill-status-ensaio_inicial { background: rgba(41, 128, 185, 0.18); color: #154360; }
+    .pill-status-ajuste { background: rgba(243, 156, 18, 0.16); color: #7d6608; }
+    .pill-status-ensaio_final { background: rgba(46, 204, 113, 0.16); color: #145a32; }
+    .pill-status-concluido { background: rgba(39, 174, 96, 0.18); color: #0b5345; }
+    .pill-status-reprovado { background: rgba(231, 76, 60, 0.18); color: #78281f; }
+
+    .resumo-os-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+    }
+
+    .resumo-os-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 18px;
+        background: #ffffff;
+        min-height: 120px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.04);
+    }
+
+    .resumo-os-card h6 {
+        font-weight: 700;
+        color: var(--os-primary);
+    }
+
+    .resumo-diario-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+    }
+
+    .resumo-diario-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 16px;
+        background: #ffffff;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 120px;
+    }
+
+    .resumo-diario-label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
+        font-weight: 600;
+    }
+
+    .resumo-diario-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--os-primary);
+    }
+
+    .resumo-diario-sub {
+        font-size: 0.9rem;
+        color: #4b5563;
+    }
+
+    .resumo-diario-highlight {
+        color: #16a34a;
+        font-weight: 700;
+    }
+
+    .timeline-os {
+        position: relative;
+        padding-left: 24px;
+    }
+
+    .timeline-os::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 8px;
+        width: 2px;
+        height: 100%;
+        background: #d1d5db;
+    }
+
+    .timeline-os-item {
+        position: relative;
+        margin-bottom: 18px;
+    }
+
+    .timeline-os-item::before {
+        content: "";
+        position: absolute;
+        top: 4px;
+        left: -17px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--os-info);
+    }
+
+    .modal-os-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(3px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        overflow-y: auto;
+    }
+
+    .modal-os-overlay.active {
+        display: flex;
+    }
+
+    .modal-os-container {
+        background: #ffffff;
+        border-radius: 14px;
+        width: 100%;
+        max-width: 960px;
+        max-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 65px rgba(15, 23, 42, 0.25);
+        animation: modal-slide-down 0.25s ease;
+    }
+
+    .modal-os-header {
+        padding: 20px 28px;
+        background: linear-gradient(135deg, #2c3e50 0%, #2980b9 100%);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .modal-os-header h3 {
+        margin: 0;
+        font-size: 1.45rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .modal-os-close {
+        background: rgba(255, 255, 255, 0.22);
+        border: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        color: #ffffff;
+        font-size: 28px;
+        line-height: 1;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-os-close:hover {
+        transform: rotate(90deg) scale(1.05);
+        background: rgba(255, 255, 255, 0.36);
+    }
+
+    .modal-os-body {
+        padding: 26px 28px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .modal-os-footer {
+        padding: 18px 28px 24px 28px;
+        border-top: 1px solid #e5e7eb;
+        background: #f8fafc;
+        border-radius: 0 0 14px 14px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .modal-os-btn {
+        border: none;
+        border-radius: 10px;
+        padding: 12px 22px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .modal-os-btn-secundario {
+        background: #e5e7eb;
+        color: #111827;
+    }
+
+    .modal-os-btn-principal {
+        background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+        color: #ffffff;
+    }
+
+    .modal-os-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .modal-os-valor-editor {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .modal-os-valor-editor input[readonly] {
+        background: #f1f5f9;
+        cursor: not-allowed;
+    }
+
+    .modal-os-valor-editor button {
+        padding: 6px 10px;
+    }
+
+    .modal-os-section {
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 18px;
+        background: #ffffff;
+    }
+
+    .modal-os-section h6 {
+        font-weight: 700;
+        margin-bottom: 12px;
+        color: var(--os-primary);
+    }
+
+    .equipamento-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border-radius: 999px;
+        padding: 6px 12px;
+        background: rgba(41, 128, 185, 0.1);
+        color: #1a5276;
+        font-size: 13px;
+        margin: 4px 6px 4px 0;
+    }
+
+    .equipamento-chip button {
+        background: transparent;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+    }
+
+    @keyframes modal-slide-down {
+        from {
+            transform: translateY(-30px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    #toastContainerOS {
+        position: fixed;
+        top: 88px;
+        right: 24px;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .toast-os {
+        min-width: 280px;
+        max-width: 360px;
+        padding: 14px 18px;
+        border-radius: 12px;
+        color: #0f172a;
+        background: #f8fafc;
+        box-shadow: 0 15px 35px rgba(15, 23, 42, 0.15);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+        animation: toast-slide-in 0.25s ease;
+    }
+
+    .toast-os-success { border-left: 4px solid var(--os-success); }
+    .toast-os-error { border-left: 4px solid var(--os-danger); }
+    .toast-os-info { border-left: 4px solid var(--os-info); }
+
+    .toast-os button {
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 16px;
+        color: inherit;
+    }
+
+    @keyframes toast-slide-in {
+        from {
+            transform: translateX(40px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @media (max-width: 991px) {
+        .resumo-os-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .modal-os-container {
+            max-width: 95vw;
+        }
+    }
+    
+    /* Estilos para autocomplete de clientes */
+    .cliente-autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1055;
+        margin-top: 2px;
+    }
+
+    .cliente-autocomplete-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+
+    .cliente-autocomplete-item:last-child {
+        border-bottom: none;
+    }
+
+    .cliente-autocomplete-item:hover,
+    .cliente-autocomplete-item.active {
+        background-color: #f8f9fa;
+    }
+
+    .cliente-autocomplete-item strong {
+        display: block;
+        color: #212529;
+        margin-bottom: 4px;
+    }
+
+    .cliente-autocomplete-item small {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-0"><strong>Ordens de Serviço</strong></h1>
+            <p class="text-muted mb-0">Controle completo das ordens, ativos, lacres e calibrações.</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if user_permissions and 'negocios.ordem-servico-tipos:gerenciar' in user_permissions %}
+            <button class="btn btn-outline-secondary" onclick="abrirModalGerenciarTiposOS()">
+                <i data-feather="list" class="me-1"></i>
+                Gerenciar tipos
+            </button>
+            {% endif %}
+            <button class="btn btn-success" onclick="abrirModalNovaOS()">
+                <i data-feather="plus-circle" class="me-1"></i>
+                Nova Ordem
+            </button>
+            <button class="btn btn-outline-primary" onclick="abrirModalRelatorioOS()">
+                <i data-feather="bar-chart-2" class="me-1"></i>
+                Relatórios
+            </button>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i data-feather="filter" class="me-2"></i>
+                    Filtros Avançados
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="limparFiltrosOS()">
+                    <i data-feather="rotate-ccw" class="me-1"></i> Limpar Filtros
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-lg-3 col-md-6">
+                    <label for="filtroBuscaOS" class="form-label">Busca rápida</label>
+                    <input type="text" id="filtroBuscaOS" class="form-control" placeholder="Número, cliente ou ativo">
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label for="filtroClienteOSInput" class="form-label">Cliente</label>
+                    <div class="position-relative">
+                        <input type="text" class="form-control" id="filtroClienteOSInput" placeholder="Buscar cliente..." autocomplete="off">
+                        <input type="hidden" id="filtroClienteOS" name="filtro_cliente_id">
+                        <div id="filtroClienteOSAutocompleteDropdown" class="cliente-autocomplete-dropdown" style="display: none;"></div>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label for="filtroTipoOS" class="form-label">Tipo</label>
+                    <select id="filtroTipoOS" class="form-select">
+                        <option value="">Todos</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label for="filtroStatusOS" class="form-label">Etapa</label>
+                    <select id="filtroStatusOS" class="form-select">
+                        <option value="">Todas</option>
+                        <option value="pre_checagem">Pré-checagem</option>
+                        <option value="ensaio_inicial">Ensaio Inicial</option>
+                        <option value="ajuste">Ajuste</option>
+                        <option value="ensaio_final">Ensaio Final</option>
+                        <option value="concluido">Concluído</option>
+                        <option value="reprovado">Reprovado</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label for="filtroDataInicioOS" class="form-label">Data inicial</label>
+                    <input type="date" id="filtroDataInicioOS" class="form-control">
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <label for="filtroDataFimOS" class="form-label">Data final</label>
+                    <input type="date" id="filtroDataFimOS" class="form-control">
+                </div>
+                <div class="col-lg-2 col-md-4 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" onclick="aplicarFiltrosOS()">
+                        <i data-feather="search" class="me-1"></i>
+                        Buscar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header d-flex flex-column flex-md-row gap-2 justify-content-between align-items-md-center">
+            <h5 class="card-title mb-0">
+                <i data-feather="clipboard" class="me-2"></i>
+                Ordens registradas
+            </h5>
+            <div class="d-flex align-items-center gap-2">
+                <small class="text-muted" id="legendaUltimaAtualizacaoOS"></small>
+                <button class="btn btn-sm btn-outline-success" onclick="carregarOrdensOS(true)">
+                    <i data-feather="refresh-cw" class="me-1"></i>
+                    Atualizar
+                </button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 12%;">Número</th>
+                            <th style="width: 20%;">Cliente</th>
+                            <th style="width: 20%;">Ativo principal</th>
+                            <th style="width: 12%;">Tipo</th>
+                            <th style="width: 15%;">Etapa</th>
+                            <th style="width: 12%;">Início</th>
+                            <th style="width: 9%;" class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoTabelaOS">
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="spinner-border text-primary" role="status"></div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i data-feather="info" class="me-2"></i>
+                        Detalhes da ordem selecionada
+                    </h5>
+                </div>
+                <div class="card-body" id="painelDetalhesOS">
+                    <div class="text-center text-muted">
+                        <i data-feather="mouse-pointer" class="mb-2" style="width: 32px; height: 32px;"></i>
+                        <p class="mb-0">Selecione uma ordem para visualizar os detalhes.</p>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" id="btnGerenciarEquipamentosOS" disabled onclick="abrirModalEquipamentosOS()">
+                            <i data-feather="tool" class="me-1"></i>
+                            Gerenciar Ativos
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" id="btnAtualizarEtapaOS" disabled onclick="abrirMenuAtualizarEtapaOS()">
+                            <i data-feather="flag" class="me-1"></i>
+                            Atualizar Etapa
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" id="btnEditarOS" disabled onclick="abrirModalEditarOS()">
+                            <i data-feather="edit-3" class="me-1"></i>
+                            Editar Ordem
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" id="btnFinalizarOS" disabled onclick="abrirModalCaixaOS()">
+                            <i data-feather="check-circle" class="me-1"></i>
+                            Finalizar
+                        </button>
+                        <button class="btn btn-outline-info btn-sm d-none" id="btnEnviarParaVendasOS" disabled onclick="enviarOrdemParaVendas()">
+                            <i data-feather="shopping-cart" class="me-1"></i>
+                            Enviar para vendas
+                        </button>
+                    </div>
+                    <small class="text-muted" id="legendaAtualizacaoDetalhesOS"></small>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i data-feather="compass" class="me-2"></i>
+                        Resumo diário
+                    </h5>
+                    <button class="btn btn-sm btn-outline-secondary" id="btnAtualizarResumoOS" onclick="atualizarResumoDiarioOS(true)">
+                        <i data-feather="refresh-ccw" class="me-1"></i> Atualizar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="painelResumoDiarioOS">
+                        <div class="text-muted text-center py-3">
+                            <i data-feather="clock" class="mb-2" style="width: 28px; height: 28px;"></i>
+                            <p class="mb-0">Carregando resumo diário...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="modalNovaOSCustom" class="modal-os-overlay">
+    <div class="modal-os-container">
+        <div class="modal-os-header">
+            <h3 id="tituloModalOS"><span data-feather="file-plus"></span> Nova Ordem de Serviço</h3>
+            <button class="modal-os-close" onclick="fecharModalNovaOS()">×</button>
+        </div>
+        <div class="modal-os-body">
+            <form id="formNovaOS">
+                <div class="modal-os-section">
+                    <h6>Informações gerais</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Cliente *</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control" id="novoOSClienteInput" placeholder="Digite o nome do cliente..." autocomplete="off" required>
+                                <input type="hidden" id="novoOSCliente" name="cliente_id">
+                                <div id="novoOSClienteAutocompleteDropdown" class="cliente-autocomplete-dropdown" style="display: none;"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Tipo *</label>
+                            <select class="form-select" id="novoOSTipo" required>
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-os-section">
+                    <h6>Peças ou serviços</h6>
+                    <p class="text-muted small mb-3">
+                        Adicione itens reais do estoque que serão utilizados nesta ordem. Você pode incluir múltiplos itens com suas quantidades.
+                    </p>
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-7">
+                            <label class="form-label" for="novoOSItemEstoque">Item do estoque</label>
+                            <select class="form-select" id="novoOSItemEstoque">
+                                <option value="">Selecione...</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="novoOSItemQuantidade">Quantidade</label>
+                            <input type="number" class="form-control" id="novoOSItemQuantidade" min="1" value="1">
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" type="button" onclick="adicionarItemEstoqueOS()">
+                                <i data-feather="plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th style="width: 110px;" class="text-end">Valor unit.</th>
+                                    <th style="width: 80px;" class="text-center">Qtd.</th>
+                                    <th style="width: 120px;" class="text-end">Subtotal</th>
+                                    <th style="width: 60px;" class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaItensEstoqueSelecionados">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Nenhum item selecionado.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-4 ms-auto">
+                            <div class="border rounded p-3 bg-light">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Subtotal:</span>
+                                    <strong id="resumoSubtotalOS">R$ 0,00</strong>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label mb-0 me-2" for="resumoDescontoOS">Desconto:</label>
+                                    <div class="input-group input-group-sm" style="width: 140px;">
+                                        <span class="input-group-text">R$</span>
+                                        <input type="number" min="0" step="0.01" class="form-control text-end" id="resumoDescontoOS" value="0" oninput="atualizarDescontoOS(this.value)">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>Total:</span>
+                                    <strong id="resumoTotalOS" class="text-success">R$ 0,00</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <div class="modal-os-footer">
+            <button class="modal-os-btn modal-os-btn-secundario" type="button" onclick="fecharModalNovaOS()">Cancelar</button>
+            <button class="modal-os-btn modal-os-btn-principal" type="button" id="btnSalvarOS" onclick="salvarNovaOS()">
+                <span id="iconeSalvarOS" data-feather="save"></span>
+                <span id="textoSalvarOS">Salvar Ordem</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalEquipamentosOS" class="modal-os-overlay">
+    <div class="modal-os-container">
+        <div class="modal-os-header">
+            <h3><i data-feather="tool"></i> Ativos da Ordem</h3>
+            <button class="modal-os-close" onclick="fecharModalEquipamentosOS()">×</button>
+        </div>
+        <div class="modal-os-body">
+            <div class="modal-os-section">
+                <h6>Adicionar ativo</h6>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-7">
+                        <label class="form-label">Ativo disponível</label>
+                        <select class="form-select" id="novoEquipamentoBalancaOS">
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Técnico responsável</label>
+                        <input type="number" class="form-control" id="novoEquipamentoTecnicoOS" placeholder="ID do técnico">
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100" type="button" onclick="adicionarEquipamentoNaOrdem()">
+                            <i data-feather="plus"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-os-section">
+                <h6>Ativos vinculados</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Ativo</th>
+                                <th class="text-center">Etapa</th>
+                                <th class="text-center">Resultado</th>
+                                <th class="text-end">Atualizado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaEquipamentosOrdem">
+                            <tr>
+                <td colspan="4" class="text-center text-muted py-3">
+                    Nenhum ativo vinculado ainda.
+                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="modal-os-footer">
+            <button class="modal-os-btn modal-os-btn-secundario" type="button" onclick="fecharModalEquipamentosOS()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalSelecaoLacreOS" class="modal-os-overlay">
+    <div class="modal-os-container">
+        <div class="modal-os-header">
+            <h3><i data-feather="lock"></i> Selecionar Lote de Lacre</h3>
+            <button class="modal-os-close" onclick="fecharModalSelecaoLacreOS()">×</button>
+        </div>
+        <div class="modal-os-body">
+            <div class="modal-os-section">
+                <p class="text-muted mb-3">
+                    Item: <strong id="modalLacreItemNome"></strong><br>
+                    Quantidade: <strong id="modalLacreQuantidade"></strong>
+                </p>
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="modalLacreLoteSelect" class="form-label">Lote do Lacre *</label>
+                        <select class="form-select" id="modalLacreLoteSelect" onchange="atualizarInformacoesLoteSelecionadoOS()">
+                            <option value="">Selecione um lote ativo</option>
+                        </select>
+                        <small class="text-muted d-block mt-1" id="modalLacreLoteInfo">
+                            Carregando lotes disponíveis...
+                        </small>
+                    </div>
+                    <div class="col-12" id="modalLacreSerialContainer" style="display: none;">
+                        <label for="modalLacreSerialInput" class="form-label">Serial do Lacre</label>
+                        <div class="input-group">
+                            <input
+                                type="text"
+                                class="form-control"
+                                id="modalLacreSerialInput"
+                                placeholder="Digite o serial ou clique na lupa para buscar"
+                                inputmode="numeric"
+                                pattern="\\d*"
+                            >
+                            <button class="btn btn-outline-primary" type="button" onclick="buscarSeriaisDisponiveisOS()" title="Buscar seriais disponíveis do lote">
+                                <i data-feather="search"></i>
+                            </button>
+                        </div>
+                        <div id="modalLacreSeriaisLista" class="mt-2" style="display: none;">
+                            <label class="form-label small">Seriais disponíveis:</label>
+                            <select class="form-select form-select-sm" id="modalLacreSerialSelect" onchange="selecionarSerialDisponivelOS()">
+                                <option value="">Selecione um serial...</option>
+                            </select>
+                        </div>
+                        <small class="text-muted d-block mt-1" id="modalLacreSerialInfo">
+                            Digite o serial ou clique na lupa para buscar todos os seriais disponíveis do lote.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-os-footer">
+            <button class="modal-os-btn modal-os-btn-secundario" type="button" onclick="fecharModalSelecaoLacreOS()">Cancelar</button>
+            <button class="modal-os-btn modal-os-btn-principal" type="button" onclick="confirmarLacreSelecionadoOS()">
+                <i data-feather="check"></i>
+                Confirmar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalRelatorioOS" class="modal-os-overlay">
+    <div class="modal-os-container">
+        <div class="modal-os-header">
+            <h3><i data-feather="bar-chart-2"></i> Relatório de Ordens</h3>
+            <button class="modal-os-close" onclick="fecharModalRelatorioOS()">×</button>
+        </div>
+        <div class="modal-os-body">
+            <form id="formRelatorioOS">
+                <div class="modal-os-section">
+                    <h6>Intervalo de datas</h6>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Data inicial *</label>
+                            <input type="date" class="form-control" id="relatorioDataInicioOS" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Data final *</label>
+                            <input type="date" class="form-control" id="relatorioDataFimOS" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tipo (opcional)</label>
+                            <select class="form-select" id="relatorioTipoOS">
+                                <option value="">Todos</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-os-section">
+                    <h6>Resultado</h6>
+                    <pre class="bg-light border rounded p-3" id="relatorioResultadoOS" style="max-height: 260px; overflow-y: auto;">Informe o período e clique em "Gerar relatório".</pre>
+                </div>
+            </form>
+        </div>
+        <div class="modal-os-footer">
+            <button class="modal-os-btn modal-os-btn-secundario" type="button" onclick="fecharModalRelatorioOS()">Fechar</button>
+            <button class="modal-os-btn modal-os-btn-principal" type="button" onclick="gerarRelatorioOS()">
+                <i data-feather="file-text"></i>
+                Gerar relatório
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalCaixaOS" class="modal-os-overlay">
+    <div class="modal-os-container">
+        <div class="modal-os-header">
+            <h3><i data-feather="dollar-sign"></i> Caixa - Finalizar OS</h3>
+            <button class="modal-os-close" onclick="fecharModalCaixaOS()">×</button>
+        </div>
+        <div class="modal-os-body" id="corpoModalCaixaOS">
+            <div class="text-muted">
+                <p class="mb-0">Nenhuma informação preenchida.</p>
+            </div>
+        </div>
+        <div class="modal-os-footer">
+            <button class="modal-os-btn modal-os-btn-secundario" type="button" onclick="fecharModalCaixaOS()">Cancelar</button>
+            <button class="modal-os-btn modal-os-btn-principal" type="button" onclick="confirmarFinalizacaoOS()">
+                <i data-feather="check-circle"></i>
+                Finalizar
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="modalGerenciarTiposOS" class="modal-os-overlay" style="display: none;">
+    <div class="modal-os" style="max-width: 500px;">
+        <div class="modal-os-header">
+            <h3><span data-feather="list"></span> Gerenciar tipos de ordem</h3>
+            <button class="modal-os-close" onclick="fecharModalGerenciarTiposOS()">×</button>
+        </div>
+        <div class="modal-os-body">
+            <div class="mb-3">
+                <label class="form-label">Novo tipo</label>
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control" id="novoTipoOSNome" placeholder="Nome do tipo" maxlength="100">
+                    <button type="button" class="btn btn-primary" onclick="criarTipoOS()">Adicionar</button>
+                </div>
+            </div>
+            <ul class="list-group" id="listaTiposOS"></ul>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainerOS"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const estadoOrdemServico = {
+    clientes: [],
+    tipos: [],
+    ordens: [],
+    ordemSelecionada: null,
+    ordemEditandoId: null,
+    modoFormulario: 'create',
+    filtros: {
+        busca: '',
+        cliente: '',
+        tipo: '',
+        etapa: '',
+        dataInicio: '',
+        dataFim: ''
+    },
+    estoqueItens: [],
+    itensSelecionados: [],
+    descontoOS: 0,
+    financeiroPorOrdem: {}
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    feather.replace();
+    inicializarModuloOrdemServico();
+});
+
+function obterTokenOS() {
+    const fromCookie = getCookieOS('pdv_solumatica_token') || getCookieOS('pdv_automscale_token');
+    if (fromCookie) {
+        return fromCookie;
+    }
+    const fromStorage = window.localStorage.getItem('pdv_solumatica_token') || window.localStorage.getItem('pdv_automscale_token') || window.sessionStorage.getItem('pdv_automscale_token');
+    if (fromStorage) {
+        return fromStorage;
+    }
+    return null;
+}
+
+function getCookieOS(nome) {
+    const cookies = document.cookie ? document.cookie.split(';') : [];
+    for (const cookie of cookies) {
+        const [key, value] = cookie.trim().split('=');
+        if (key === nome) {
+            return value;
+        }
+    }
+    return null;
+}
+
+function logInfoOS(mensagem, contexto = {}) {
+    console.log(`📄 [Ordem Serviço] ${mensagem}`, contexto);
+}
+
+async function inicializarModuloOrdemServico() {
+    await Promise.all([
+        carregarClientesOS(),
+        carregarItensEstoqueOS(),
+        carregarTiposOS()
+    ]);
+    carregarEstatisticasOS();
+    carregarOrdensOS();
+}
+
+async function carregarTiposOS(incluirInativos = false) {
+    try {
+        const url = incluirInativos ? '/api/v1/ordens-servico/tipos?incluir_inativos=true' : '/api/v1/ordens-servico/tipos';
+        const resposta = await fetch(url, { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) return;
+        const tipos = await resposta.json();
+        estadoOrdemServico.tipos = Array.isArray(tipos) ? tipos : [];
+        preencherSelectTiposOS('novoOSTipo', true);
+        preencherSelectTiposOS('filtroTipoOS', false);
+        preencherSelectTiposOS('relatorioTipoOS', false);
+    } catch (e) {
+        logInfoOS('Erro ao carregar tipos', e);
+    }
+}
+
+function preencherSelectTiposOS(selectId, incluirPlaceholder) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const valorAtual = sel.value;
+    const tipos = estadoOrdemServico.tipos || [];
+    sel.innerHTML = '';
+    if (incluirPlaceholder) {
+        sel.appendChild(new Option('Selecione...', ''));
+    } else {
+        sel.appendChild(new Option('Todos', ''));
+    }
+    tipos.filter(t => t.ativo !== false).forEach(t => {
+        sel.appendChild(new Option(t.nome || t.codigo || `Tipo ${t.id}`, String(t.id)));
+    });
+    if (valorAtual && tipos.some(t => String(t.id) === valorAtual)) sel.value = valorAtual;
+}
+
+function montarHeadersAutenticados() {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = obterTokenOS();
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+async function carregarClientesOS() {
+    try {
+        const resposta = await fetch('/api/v1/clientes/todos', { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) {
+            throw new Error('Falha ao listar clientes');
+        }
+        const dados = await resposta.json();
+        estadoOrdemServico.clientes = Array.isArray(dados) ? dados : [];
+        
+        // Inicializar autocompletes após carregar clientes
+        inicializarAutocompleteFiltroClienteOS();
+        inicializarAutocompleteModalClienteOS();
+    } catch (erro) {
+        logInfoOS('Erro ao carregar clientes', { erro });
+        mostrarToastOS('Erro ao carregar clientes.', 'error');
+    }
+}
+
+function inicializarAutocompleteFiltroClienteOS() {
+    const inputBusca = document.getElementById('filtroClienteOSInput');
+    const inputHidden = document.getElementById('filtroClienteOS');
+    const dropdown = document.getElementById('filtroClienteOSAutocompleteDropdown');
+    
+    if (!inputBusca || !inputHidden || !dropdown) {
+        return;
+    }
+    
+    let timeoutId = null;
+    let clientesCarregados = [];
+    let indiceSelecionado = -1;
+    
+    const buscarClientes = async (termo) => {
+        if (!termo || termo.trim().length < 2) {
+            return [];
+        }
+        
+        try {
+            const params = new URLSearchParams({
+                nome: termo.trim(),
+                por_pagina: 50
+            });
+            
+            const resposta = await fetch(`/api/v1/clientes/?${params}`, {
+                headers: montarHeadersAutenticados()
+            });
+            
+            if (resposta.ok) {
+                const dados = await resposta.json();
+                const clientes = dados.clientes || [];
+                return Array.isArray(clientes) ? clientes : [];
+            }
+            return [];
+        } catch (error) {
+            console.error('Erro ao buscar clientes:', error);
+            return [];
+        }
+    };
+    
+    const exibirSugestoes = (clientes) => {
+        clientesCarregados = clientes;
+        dropdown.innerHTML = '';
+        
+        if (clientes.length === 0) {
+            const item = document.createElement('div');
+            item.className = 'cliente-autocomplete-item';
+            item.textContent = 'Nenhum cliente encontrado';
+            item.style.padding = '10px';
+            item.style.color = '#6c757d';
+            dropdown.appendChild(item);
+        } else {
+            clientes.forEach((cliente, index) => {
+                const item = document.createElement('div');
+                item.className = 'cliente-autocomplete-item';
+                item.dataset.index = index;
+                item.innerHTML = `
+                    <strong>${cliente.nome}</strong>
+                    ${cliente.cnpj ? `<br><small class="text-muted">CNPJ: ${cliente.cnpj}</small>` : ''}
+                `;
+                
+                item.addEventListener('click', () => selecionarCliente(cliente));
+                item.addEventListener('mouseenter', () => {
+                    dropdown.querySelectorAll('.cliente-autocomplete-item').forEach(i => {
+                        i.classList.remove('active');
+                    });
+                    item.classList.add('active');
+                    indiceSelecionado = index;
+                });
+                
+                dropdown.appendChild(item);
+            });
+        }
+        
+        dropdown.style.display = 'block';
+        indiceSelecionado = -1;
+    };
+    
+    const selecionarCliente = (cliente) => {
+        inputBusca.value = cliente.nome;
+        inputHidden.value = cliente.id;
+        dropdown.style.display = 'none';
+        carregarOrdensOS(true);
+    };
+    
+    const buscarClientesDebounce = async (termo) => {
+        if (termo.length < 2) {
+            dropdown.style.display = 'none';
+            inputHidden.value = '';
+            carregarOrdensOS(true);
+            return;
+        }
+        
+        dropdown.innerHTML = '<div class="cliente-autocomplete-item" style="padding: 10px; color: #6c757d;">Buscando...</div>';
+        dropdown.style.display = 'block';
+        
+        try {
+            const clientes = await buscarClientes(termo);
+            exibirSugestoes(clientes);
+        } catch (error) {
+            console.error('Erro na busca de clientes:', error);
+            dropdown.innerHTML = '<div class="cliente-autocomplete-item" style="padding: 10px; color: #dc3545;">Erro ao buscar clientes</div>';
+        }
+    };
+    
+    inputBusca.addEventListener('input', (e) => {
+        const termo = e.target.value;
+        
+        if (termo.length === 0) {
+            inputHidden.value = '';
+            dropdown.style.display = 'none';
+            carregarOrdensOS(true);
+            return;
+        }
+        
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            buscarClientesDebounce(termo);
+        }, 300);
+    });
+    
+    inputBusca.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (indiceSelecionado < clientesCarregados.length - 1) {
+                indiceSelecionado++;
+                const items = dropdown.querySelectorAll('.cliente-autocomplete-item');
+                items.forEach((item, idx) => {
+                    item.classList.toggle('active', idx === indiceSelecionado);
+                });
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (indiceSelecionado > 0) {
+                indiceSelecionado--;
+                const items = dropdown.querySelectorAll('.cliente-autocomplete-item');
+                items.forEach((item, idx) => {
+                    item.classList.toggle('active', idx === indiceSelecionado);
+                });
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (indiceSelecionado >= 0 && clientesCarregados[indiceSelecionado]) {
+                selecionarCliente(clientesCarregados[indiceSelecionado]);
+            } else {
+                carregarOrdensOS(true);
+            }
+        } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+            indiceSelecionado = -1;
+        }
+    });
+    
+    document.addEventListener('click', (e) => {
+        const wrapper = inputBusca.parentElement;
+        if (!wrapper.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function inicializarAutocompleteModalClienteOS() {
+    const inputBusca = document.getElementById('novoOSClienteInput');
+    const inputHidden = document.getElementById('novoOSCliente');
+    const dropdown = document.getElementById('novoOSClienteAutocompleteDropdown');
+    
+    if (!inputBusca || !inputHidden || !dropdown) {
+        return;
+    }
+    
+    let timeoutId = null;
+    let clientesCarregados = [];
+    let indiceSelecionado = -1;
+    
+    const buscarClientes = async (termo) => {
+        if (!termo || termo.trim().length < 2) {
+            return [];
+        }
+        
+        try {
+            const params = new URLSearchParams({
+                nome: termo.trim(),
+                por_pagina: 50
+            });
+            
+            const resposta = await fetch(`/api/v1/clientes/?${params}`, {
+                headers: montarHeadersAutenticados()
+            });
+            
+            if (resposta.ok) {
+                const dados = await resposta.json();
+                const clientes = dados.clientes || [];
+                return Array.isArray(clientes) ? clientes : [];
+            }
+            return [];
+        } catch (error) {
+            console.error('Erro ao buscar clientes:', error);
+            return [];
+        }
+    };
+    
+    const exibirSugestoes = (clientes) => {
+        clientesCarregados = clientes;
+        dropdown.innerHTML = '';
+        
+        if (clientes.length === 0) {
+            const item = document.createElement('div');
+            item.className = 'cliente-autocomplete-item';
+            item.textContent = 'Nenhum cliente encontrado';
+            item.style.padding = '10px';
+            item.style.color = '#6c757d';
+            dropdown.appendChild(item);
+        } else {
+            clientes.forEach((cliente, index) => {
+                const item = document.createElement('div');
+                item.className = 'cliente-autocomplete-item';
+                item.dataset.index = index;
+                item.innerHTML = `
+                    <strong>${cliente.nome}</strong>
+                    ${cliente.cnpj ? `<br><small class="text-muted">CNPJ: ${cliente.cnpj}</small>` : ''}
+                `;
+                
+                item.addEventListener('click', () => selecionarCliente(cliente));
+                item.addEventListener('mouseenter', () => {
+                    dropdown.querySelectorAll('.cliente-autocomplete-item').forEach(i => {
+                        i.classList.remove('active');
+                    });
+                    item.classList.add('active');
+                    indiceSelecionado = index;
+                });
+                
+                dropdown.appendChild(item);
+            });
+        }
+        
+        dropdown.style.display = 'block';
+        indiceSelecionado = -1;
+    };
+    
+    const selecionarCliente = (cliente) => {
+        inputBusca.value = cliente.nome;
+        inputHidden.value = cliente.id;
+        dropdown.style.display = 'none';
+        
+        if (typeof carregarEquipamentosClienteModal === 'function') {
+            carregarEquipamentosClienteModal();
+        }
+    };
+    
+    const buscarClientesDebounce = async (termo) => {
+        if (termo.length < 2) {
+            dropdown.style.display = 'none';
+            inputHidden.value = '';
+            return;
+        }
+        
+        dropdown.innerHTML = '<div class="cliente-autocomplete-item" style="padding: 10px; color: #6c757d;">Buscando...</div>';
+        dropdown.style.display = 'block';
+        
+        try {
+            const clientes = await buscarClientes(termo);
+            exibirSugestoes(clientes);
+        } catch (error) {
+            console.error('Erro na busca de clientes:', error);
+            dropdown.innerHTML = '<div class="cliente-autocomplete-item" style="padding: 10px; color: #dc3545;">Erro ao buscar clientes</div>';
+        }
+    };
+    
+    inputBusca.addEventListener('input', (e) => {
+        const termo = e.target.value;
+        
+        if (termo.length === 0) {
+            inputHidden.value = '';
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            buscarClientesDebounce(termo);
+        }, 300);
+    });
+    
+    inputBusca.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (indiceSelecionado < clientesCarregados.length - 1) {
+                indiceSelecionado++;
+                const items = dropdown.querySelectorAll('.cliente-autocomplete-item');
+                items.forEach((item, idx) => {
+                    item.classList.toggle('active', idx === indiceSelecionado);
+                });
+            }
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (indiceSelecionado > 0) {
+                indiceSelecionado--;
+                const items = dropdown.querySelectorAll('.cliente-autocomplete-item');
+                items.forEach((item, idx) => {
+                    item.classList.toggle('active', idx === indiceSelecionado);
+                });
+            }
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (indiceSelecionado >= 0 && clientesCarregados[indiceSelecionado]) {
+                selecionarCliente(clientesCarregados[indiceSelecionado]);
+            }
+        } else if (e.key === 'Escape') {
+            dropdown.style.display = 'none';
+            indiceSelecionado = -1;
+        }
+    });
+    
+    document.addEventListener('click', (e) => {
+        const wrapper = inputBusca.parentElement;
+        if (!wrapper.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function atualizarLegendaAtualizacao() {
+    const legenda = document.getElementById('legendaUltimaAtualizacaoOS');
+    if (!legenda) {
+        return;
+    }
+    const agora = new Date();
+    legenda.textContent = `Atualizado em ${agora.toLocaleDateString('pt-BR')} às ${agora.toLocaleTimeString('pt-BR')}`;
+}
+
+function montarParametrosConsultaOS() {
+    const params = new URLSearchParams();
+    if (estadoOrdemServico.filtros.tipo) {
+        params.append('tipo_id', estadoOrdemServico.filtros.tipo);
+    }
+    if (estadoOrdemServico.filtros.etapa) {
+        params.append('status', estadoOrdemServico.filtros.etapa);
+    }
+    if (estadoOrdemServico.filtros.cliente) {
+        params.append('cliente_id', estadoOrdemServico.filtros.cliente);
+    }
+    if (estadoOrdemServico.filtros.busca) {
+        params.append('busca', estadoOrdemServico.filtros.busca);
+    }
+    return params.toString();
+}
+
+async function carregarOrdensOS(recarregarFiltro = false) {
+    try {
+        if (recarregarFiltro) {
+            estadoOrdemServico.filtros.busca = document.getElementById('filtroBuscaOS')?.value.trim() || '';
+            estadoOrdemServico.filtros.cliente = document.getElementById('filtroClienteOS')?.value || '';
+            estadoOrdemServico.filtros.tipo = document.getElementById('filtroTipoOS')?.value || '';
+            estadoOrdemServico.filtros.etapa = document.getElementById('filtroStatusOS')?.value || '';
+            estadoOrdemServico.filtros.dataInicio = document.getElementById('filtroDataInicioOS')?.value || '';
+            estadoOrdemServico.filtros.dataFim = document.getElementById('filtroDataFimOS')?.value || '';
+        }
+
+        const parametros = montarParametrosConsultaOS();
+        const url = `/api/v1/ordens-servico${parametros ? `?${parametros}` : ''}`;
+
+        const resposta = await fetch(url, { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) {
+            throw new Error('Falha ao carregar ordens');
+        }
+
+        const dados = await resposta.json();
+        estadoOrdemServico.ordens = Array.isArray(dados.ordens) ? dados.ordens : [];
+        if (recarregarFiltro) {
+            limparCacheFinanceiroOS();
+        }
+
+        if (estadoOrdemServico.filtros.dataInicio) {
+            const inicio = new Date(estadoOrdemServico.filtros.dataInicio);
+            estadoOrdemServico.ordens = estadoOrdemServico.ordens.filter((ordem) => {
+                const dataInicioOrdem = ordem.data_abertura ? new Date(ordem.data_abertura) : null;
+                return !dataInicioOrdem || dataInicioOrdem >= inicio;
+            });
+        }
+
+        if (estadoOrdemServico.filtros.dataFim) {
+            const fim = new Date(estadoOrdemServico.filtros.dataFim);
+            estadoOrdemServico.ordens = estadoOrdemServico.ordens.filter((ordem) => {
+                const dataInicioOrdem = ordem.data_abertura ? new Date(ordem.data_abertura) : null;
+                return !dataInicioOrdem || dataInicioOrdem <= fim;
+            });
+        }
+
+        atualizarTabelaOrdens();
+        await atualizarResumoDiarioOS();
+        atualizarLegendaAtualizacao();
+        feather.replace();
+    } catch (erro) {
+        logInfoOS('Erro ao carregar ordens', { erro });
+        mostrarToastOS('Erro ao carregar ordens de serviço.', 'error');
+    }
+}
+
+function carregarEstatisticasOS() {
+    atualizarResumoDiarioOS().catch((erro) => {
+        logInfoOS('Erro ao atualizar resumo diário', { erro });
+    });
+}
+
+function atualizarTabelaOrdens() {
+    const corpo = document.getElementById('corpoTabelaOS');
+    if (!corpo) {
+        return;
+    }
+
+    if (!estadoOrdemServico.ordens.length) {
+        corpo.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-4 text-muted">
+                    Nenhuma ordem encontrada com os filtros atuais.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const linhas = estadoOrdemServico.ordens.map((ordem) => {
+        const clienteNome = ordem.cliente_nome || '--';
+        const dataAbertura = ordem.data_abertura ? (typeof formatarDataApenas === 'function' ? formatarDataApenas(ordem.data_abertura) : ordem.data_abertura) : '--';
+        const codigo = ordem.codigo || `OS-${ordem.id}`;
+        const status = ordem.status || 'aberta';
+        const tipoNome = ordem.tipo_nome || ordem.tipo || '--';
+
+        return `
+            <tr>
+                <td><strong>${codigo}</strong></td>
+                <td>${clienteNome}</td>
+                <td><span class="text-muted">Ver detalhes</span></td>
+                <td class="text-capitalize">${tipoNome}</td>
+                <td>
+                    <span class="pill-status pill-status-${status}">
+                        ${status.replace('_', ' ')}
+                    </span>
+                </td>
+                <td>${dataAbertura}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-primary" onclick="selecionarOrdemOS(${ordem.id})">
+                        <i data-feather="eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    corpo.innerHTML = linhas;
+    feather.replace();
+}
+
+async function selecionarOrdemOS(id) {
+    try {
+        const resposta = await fetch(`/api/v1/ordens-servico/${id}`, { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) {
+            throw new Error('Ordem não encontrada');
+        }
+        const dados = await resposta.json();
+        estadoOrdemServico.ordemSelecionada = dados;
+        preencherDetalhesOrdem(dados);
+        prepararEquipamentosModal();
+        prepararEquipamentosDisponiveis();
+        habilitarAcoesDetalhes(true);
+    } catch (erro) {
+        logInfoOS('Erro ao selecionar ordem', { erro, id });
+        mostrarToastOS('Erro ao carregar detalhes da ordem.', 'error');
+        habilitarAcoesDetalhes(false);
+    }
+}
+
+function habilitarAcoesDetalhes(flag) {
+    const botaoEquip = document.getElementById('btnGerenciarEquipamentosOS');
+    const botaoEtapa = document.getElementById('btnAtualizarEtapaOS');
+    const botaoEditar = document.getElementById('btnEditarOS');
+    const botaoFinalizar = document.getElementById('btnFinalizarOS');
+    if (botaoEquip) botaoEquip.disabled = !flag;
+    if (botaoEtapa) botaoEtapa.disabled = !flag;
+    if (botaoEditar) botaoEditar.disabled = !flag;
+    if (botaoFinalizar) botaoFinalizar.disabled = !flag;
+}
+
+function atualizarBotoesDetalhesOrdem() {
+    const ordem = estadoOrdemServico.ordemSelecionada;
+    const botaoEtapa = document.getElementById('btnAtualizarEtapaOS');
+    const botaoEditar = document.getElementById('btnEditarOS');
+    const botaoFinalizar = document.getElementById('btnFinalizarOS');
+    const botaoEnviarVendas = document.getElementById('btnEnviarParaVendasOS');
+    const possuiOrdem = Boolean(ordem);
+    const statusAtual = ordem?.status || 'aberta';
+    const concluida = statusAtual === 'concluida';
+    const vendaId = ordem?.venda_id ?? null;
+    const mostrarEnviarVendas = possuiOrdem && concluida && !vendaId;
+
+    if (botaoEtapa) botaoEtapa.disabled = !possuiOrdem;
+    if (botaoEditar) botaoEditar.disabled = !possuiOrdem || concluida;
+    if (botaoFinalizar) botaoFinalizar.disabled = !possuiOrdem || concluida;
+    if (botaoEnviarVendas) {
+        botaoEnviarVendas.disabled = !mostrarEnviarVendas;
+        if (mostrarEnviarVendas) {
+            botaoEnviarVendas.classList.remove('d-none');
+        } else {
+            botaoEnviarVendas.classList.add('d-none');
+        }
+    }
+}
+
+function atualizarTituloModalOS(texto, icone) {
+    const titulo = document.getElementById('tituloModalOS');
+    if (!titulo) {
+        return;
+    }
+    titulo.innerHTML = `<span data-feather="${icone}"></span> ${texto}`;
+    feather.replace();
+}
+
+function configurarBotaoSalvarOS(callback, texto, icone) {
+    const botao = document.getElementById('btnSalvarOS');
+    const textoEl = document.getElementById('textoSalvarOS');
+    const iconeEl = document.getElementById('iconeSalvarOS');
+    if (!botao || !textoEl || !iconeEl) {
+        return;
+    }
+    botao.onclick = callback;
+    textoEl.textContent = texto;
+    iconeEl.setAttribute('data-feather', icone);
+    feather.replace();
+}
+
+function extrairResumoObservacoesOS(observacoes) {
+    const resumo = {
+        itens: [],
+        subtotal: null,
+        desconto: null,
+        total: null,
+    };
+
+    if (!observacoes || typeof observacoes !== 'string') {
+        return resumo;
+    }
+
+    const linhas = observacoes
+        .split(/\n+/)
+        .map((linha) => linha.trim())
+        .filter(Boolean);
+
+    linhas.forEach((linha) => {
+        const linhaNormalizada = linha.toLowerCase();
+        if (linhaNormalizada.startsWith('itens:')) {
+            const conteudo = linha.slice(6).trim();
+            if (conteudo) {
+                resumo.itens = conteudo
+                    .split('|')
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+            }
+        } else if (linhaNormalizada.startsWith('subtotal:')) {
+            const partes = linha.split(':');
+            resumo.subtotal = partes.slice(1).join(':').trim();
+        } else if (linhaNormalizada.startsWith('desconto:')) {
+            const partes = linha.split(':');
+            resumo.desconto = partes.slice(1).join(':').trim();
+        } else if (linhaNormalizada.startsWith('total:')) {
+            const partes = linha.split(':');
+            resumo.total = partes.slice(1).join(':').trim();
+        }
+    });
+
+    if (!resumo.total && resumo.subtotal) {
+        resumo.total = resumo.subtotal;
+    }
+
+    return resumo;
+}
+
+function preencherDetalhesOrdem(ordem) {
+    const painel = document.getElementById('painelDetalhesOS');
+    const legenda = document.getElementById('legendaAtualizacaoDetalhesOS');
+    if (!painel) {
+        return;
+    }
+
+    const cliente = ordem.cliente_nome || '--';
+    const numero = ordem.codigo || `OS-${ordem.id}`;
+    const tipoDisplay = ordem.tipo_nome ?? ordem.tipo ?? 'N/D';
+    const tipo = typeof tipoDisplay === 'string' ? tipoDisplay : String(tipoDisplay?.value || tipoDisplay?.name || 'N/D');
+    const etapaBruta = ordem.status ?? 'aberta';
+    const etapaValor = typeof etapaBruta === 'string'
+        ? etapaBruta
+        : (etapaBruta?.value || etapaBruta?.name || 'aberta');
+    const etapaTexto = String(etapaValor);
+    const etapaClasse = etapaTexto.toLowerCase().replace(/\s+/g, '_');
+    const etapaLabel = etapaTexto.replace(/_/g, ' ');
+    const responsavel = ordem.responsavel_nome || 'Não definido';
+    const inicio = ordem.data_abertura ? (typeof formatarDataApenas === 'function' ? formatarDataApenas(ordem.data_abertura) : ordem.data_abertura) : '--';
+    const conclusao = ordem.data_conclusao ? (typeof formatarDataApenas === 'function' ? formatarDataApenas(ordem.data_conclusao) : ordem.data_conclusao) : 'Em andamento';
+    const quantidadeEquipamentos = Array.isArray(ordem.equipamentos) ? ordem.equipamentos.length : 0;
+    const itensOrdem = Array.isArray(ordem.itens) ? ordem.itens : [];
+    const resumoObservacoes = extrairResumoObservacoesOS(ordem.observacoes);
+
+    let itensResumoHtml = '<p class="text-muted mb-0">Nenhuma peça ou serviço registrado.</p>';
+    let financeiroResumoHtml = '<p class="text-muted mb-0">Sem valores financeiros registrados.</p>';
+
+    if (itensOrdem.length) {
+        const subtotalItens = itensOrdem.reduce((total, item) => {
+            const quantidade = Number(item.quantidade || 0);
+            const valorUnitario = Number(item.valor_unitario || 0);
+            return total + quantidade * valorUnitario;
+        }, 0);
+        const descontoItens = itensOrdem.reduce((total, item) => total + Number(item.desconto || 0), 0);
+        const totalItens = itensOrdem.reduce((total, item) => total + Number(item.valor_total || 0), 0);
+
+        itensResumoHtml = `<ul class="list-unstyled mb-0">
+            ${itensOrdem
+                .map((item) => {
+                    const quantidade = Number(item.quantidade || 0);
+                    const unidade = item.unidade ? ` ${item.unidade}` : '';
+                    const valorUnitario = formatarMoeda(item.valor_unitario || 0);
+                    const valorTotal = formatarMoeda(item.valor_total || (quantidade * Number(item.valor_unitario || 0)));
+                    return `<li class="d-flex justify-content-between align-items-start mb-1">
+                                <span>${item.codigo ? `${item.codigo} - ` : ''}<strong>${item.nome}</strong><br>
+                                <small class="text-muted">Qtd: ${quantidade}${unidade} • Unit: ${valorUnitario}</small></span>
+                                <strong class="ms-3">${valorTotal}</strong>
+                            </li>`;
+                })
+                .join('')}
+        </ul>`;
+
+        const subtotalFormatado = formatarMoeda(subtotalItens);
+        const descontoFormatado = descontoItens > 0 ? formatarMoeda(descontoItens) : null;
+        const totalFormatado = formatarMoeda(totalItens);
+
+        const blocosFinanceiros = [
+            `<div class="d-flex justify-content-between align-items-center">
+                <span>Subtotal</span>
+                <strong>${subtotalFormatado}</strong>
+            </div>`,
+        ];
+
+        if (descontoFormatado) {
+            blocosFinanceiros.push(`
+            <div class="d-flex justify-content-between align-items-center">
+                <span>Desconto</span>
+                <strong class="text-danger">${descontoFormatado}</strong>
+            </div>
+            `);
+        }
+
+        blocosFinanceiros.push(`
+        <div class="d-flex justify-content-between align-items-center">
+            <span>Total</span>
+            <strong class="text-success fs-5">${totalFormatado}</strong>
+        </div>
+        `);
+
+        financeiroResumoHtml = blocosFinanceiros.join('');
+    } else if (resumoObservacoes.itens.length) {
+        itensResumoHtml = `<ul class="list-unstyled mb-0">
+            ${resumoObservacoes.itens
+                .map((itemTexto) => {
+                    const partes = itemTexto.split('=').map((parte) => parte.trim()).filter(Boolean);
+                    const descricao = partes[0] || itemTexto;
+                    const valor = partes[1] || '';
+                    return `<li class="d-flex justify-content-between align-items-start mb-1">
+                                <span>${descricao}</span>
+                                ${valor ? `<strong class="ms-3">${valor}</strong>` : ''}
+                            </li>`;
+                })
+                .join('')}
+        </ul>`;
+
+        const financeiroBlocos = [];
+        if (resumoObservacoes.subtotal) {
+            financeiroBlocos.push(`
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Subtotal</span>
+                    <strong>${resumoObservacoes.subtotal}</strong>
+                </div>
+            `);
+        }
+        if (resumoObservacoes.desconto) {
+            financeiroBlocos.push(`
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Desconto</span>
+                    <strong class="text-danger">${resumoObservacoes.desconto}</strong>
+                </div>
+            `);
+        }
+        if (resumoObservacoes.total) {
+            financeiroBlocos.push(`
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Total</span>
+                    <strong class="text-success fs-5">${resumoObservacoes.total}</strong>
+                </div>
+            `);
+        }
+        financeiroResumoHtml = financeiroBlocos.length
+            ? financeiroBlocos.join('')
+            : '<p class="text-muted mb-0">Sem valores financeiros registrados.</p>';
+    }
+
+    painel.innerHTML = `
+        <div class="mb-3">
+            <span class="pill-status pill-status-${etapaClasse} mb-2">${etapaLabel}</span>
+            <h4 class="fw-bold mb-1">${numero}</h4>
+            <p class="text-muted mb-0">Cliente: <strong>${cliente}</strong></p>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="resumo-os-card">
+                    <h6>Tipo de processo</h6>
+                    <p class="mb-2 text-capitalize">${tipo}</p>
+                    <small class="text-muted">Responsável: ${responsavel}</small>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="resumo-os-card">
+                    <h6>Controle de ativos</h6>
+                    <p class="mb-2">${quantidadeEquipamentos} ativo(s) vinculado(s)</p>
+                    <small class="text-muted">Atualize pelo botão "Ativos"</small>
+                </div>
+            </div>
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-6">
+                <div class="border rounded p-3">
+                    <strong>Início</strong>
+                    <p class="mb-0">${inicio}</p>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="border rounded p-3">
+                    <strong>Conclusão</strong>
+                    <p class="mb-0">${conclusao}</p>
+                </div>
+            </div>
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-6">
+                <div class="resumo-os-card">
+                    <h6>Peças e serviços</h6>
+                    ${itensResumoHtml}
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="resumo-os-card">
+                    <h6>Resumo financeiro</h6>
+                    ${financeiroResumoHtml}
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (legenda) {
+        const agora = new Date();
+        legenda.textContent = `Detalhes atualizados em ${agora.toLocaleTimeString('pt-BR')}`;
+    }
+
+    atualizarBotoesDetalhesOrdem();
+    feather.replace();
+}
+
+async function abrirModalNovaOS() {
+    const modal = document.getElementById('modalNovaOSCustom');
+    if (!modal) {
+        return;
+    }
+    estadoOrdemServico.modoFormulario = 'create';
+    estadoOrdemServico.ordemEditandoId = null;
+    atualizarTituloModalOS('Nova Ordem de Serviço', 'file-plus');
+    configurarBotaoSalvarOS(salvarNovaOS, 'Salvar Ordem', 'save');
+    document.getElementById('formNovaOS').reset();
+    estadoOrdemServico.itensSelecionados = [];
+    estadoOrdemServico.descontoOS = 0;
+    const seletorItem = document.getElementById('novoOSItemEstoque');
+    const campoQuantidade = document.getElementById('novoOSItemQuantidade');
+    if (seletorItem) {
+        seletorItem.value = '';
+    }
+    if (campoQuantidade) {
+        campoQuantidade.value = 1;
+    }
+    const campoDesconto = document.getElementById('resumoDescontoOS');
+    if (campoDesconto) {
+        campoDesconto.value = 0;
+    }
+    const campoClienteInput = document.getElementById('novoOSClienteInput');
+    const campoClienteHidden = document.getElementById('novoOSCliente');
+    const dropdownCliente = document.getElementById('novoOSClienteAutocompleteDropdown');
+    if (campoClienteInput) {
+        campoClienteInput.value = '';
+        campoClienteInput.disabled = false;
+    }
+    if (campoClienteHidden) {
+        campoClienteHidden.value = '';
+    }
+    if (dropdownCliente) {
+        dropdownCliente.style.display = 'none';
+    }
+    renderizarItensEstoqueSelecionados();
+    atualizarResumoFinanceiroOS();
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => feather.replace(), 100);
+}
+
+async function abrirModalEditarOS() {
+    const ordem = estadoOrdemServico.ordemSelecionada;
+    const modal = document.getElementById('modalNovaOSCustom');
+    if (!ordem || !modal) {
+        mostrarToastOS('Selecione uma ordem para editar.', 'info');
+        return;
+    }
+
+    estadoOrdemServico.modoFormulario = 'edit';
+    estadoOrdemServico.ordemEditandoId = ordem.id;
+
+    document.getElementById('formNovaOS').reset();
+    preencherFormularioOSEdicao(ordem);
+    configurarBotaoSalvarOS(salvarEdicaoOS, 'Atualizar Ordem', 'save');
+    atualizarTituloModalOS(`Editar ${ordem.codigo || 'Ordem de Serviço'}`, 'edit-3');
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => feather.replace(), 100);
+}
+
+function preencherFormularioOSEdicao(ordem) {
+    const campoClienteInput = document.getElementById('novoOSClienteInput');
+    const campoClienteHidden = document.getElementById('novoOSCliente');
+    const campoTipo = document.getElementById('novoOSTipo');
+    const campoDesconto = document.getElementById('resumoDescontoOS');
+
+    if (campoClienteHidden) {
+        campoClienteHidden.value = ordem.cliente_id || '';
+    }
+    if (campoClienteInput) {
+        campoClienteInput.value = ordem.cliente_nome || '';
+        campoClienteInput.disabled = true;
+    }
+    if (campoTipo) {
+        campoTipo.value = ordem.tipo_id != null ? String(ordem.tipo_id) : '';
+    }
+
+    const itensOrdem = Array.isArray(ordem.itens) ? ordem.itens : [];
+    estadoOrdemServico.itensSelecionados = itensOrdem.map((item) => ({
+        id: item.produto_cliente_id ?? item.estoque_id ?? null,
+        codigo: item.codigo || '',
+        nome: item.nome || '',
+        unidade: item.unidade || '',
+        valor_unitario: Number(item.valor_unitario || 0),
+        quantidade: Number(item.quantidade || 0),
+        bloqueado: true
+    }));
+
+    const descontoTotal = itensOrdem.reduce((total, item) => total + Number(item.desconto || 0), 0);
+    estadoOrdemServico.descontoOS = descontoTotal;
+    if (campoDesconto) {
+        campoDesconto.value = descontoTotal.toFixed(2);
+    }
+
+    renderizarItensEstoqueSelecionados();
+    atualizarResumoFinanceiroOS();
+}
+
+function fecharModalNovaOS() {
+    const modal = document.getElementById('modalNovaOSCustom');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        estadoOrdemServico.itensSelecionados = [];
+        estadoOrdemServico.descontoOS = 0;
+        renderizarItensEstoqueSelecionados();
+        atualizarResumoFinanceiroOS();
+        const campoCliente = document.getElementById('novoOSCliente');
+        if (campoCliente) {
+            campoCliente.disabled = false;
+        }
+        estadoOrdemServico.modoFormulario = 'create';
+        estadoOrdemServico.ordemEditandoId = null;
+    }
+}
+
+function formatarDataApenasOS(dataStr) {
+    if (!dataStr) return '-';
+    const s = String(dataStr).trim();
+    const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return match[3] + '/' + match[2] + '/' + match[1];
+    return s;
+}
+
+async function carregarItensEstoqueOS(clienteId) {
+    try {
+        let url = '/api/v1/produtos-cliente/?limit=200';
+        if (clienteId) {
+            url += '&cliente_id=' + encodeURIComponent(clienteId);
+        }
+        const resposta = await fetch(url, { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) {
+            throw new Error('Falha ao listar produtos');
+        }
+        const payload = await resposta.json();
+        estadoOrdemServico.estoqueItens = Array.isArray(payload.items) ? payload.items : [];
+        preencherSelectItensEstoque();
+    } catch (erro) {
+        logInfoOS('Erro ao carregar produtos', { erro });
+        mostrarToastOS('Erro ao carregar produtos.', 'error');
+        estadoOrdemServico.estoqueItens = [];
+        preencherSelectItensEstoque();
+    }
+}
+
+function preencherSelectItensEstoque() {
+    const seletor = document.getElementById('novoOSItemEstoque');
+    if (!seletor) {
+        return;
+    }
+    const valorAnterior = seletor.value;
+    seletor.innerHTML = '<option value="">Selecione...</option>';
+
+    estadoOrdemServico.estoqueItens.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        const identificador = item.codigo ? `${item.codigo} - ` : '';
+        option.textContent = `${identificador}${item.nome}${item.unidade_medida ? ` (${item.unidade_medida})` : ''}`;
+        seletor.appendChild(option);
+    });
+
+    if (valorAnterior) {
+        seletor.value = valorAnterior;
+    }
+}
+
+function adicionarItemEstoqueOS() {
+    const seletor = document.getElementById('novoOSItemEstoque');
+    const campoQuantidade = document.getElementById('novoOSItemQuantidade');
+    if (!seletor || !campoQuantidade) {
+        return;
+    }
+
+    const itemId = Number(seletor.value);
+    const quantidade = Number(campoQuantidade.value);
+
+    if (!itemId) {
+        mostrarToastOS('Selecione um item do estoque.', 'info');
+        return;
+    }
+
+    if (!quantidade || quantidade <= 0) {
+        mostrarToastOS('Informe uma quantidade válida.', 'info');
+        return;
+    }
+
+    const itemEstoque = estadoOrdemServico.estoqueItens.find((item) => item.id === itemId);
+    if (!itemEstoque) {
+        mostrarToastOS('Item de estoque não encontrado.', 'error');
+        return;
+    }
+
+    // Lacre não é usado neste modelo (plano migração): itens são sempre adicionados como produto_cliente
+    // (fluxo de lacres-selos foi ignorado/removido)
+
+    // Adicionar item (produto_cliente_id = item.id)
+    const existente = estadoOrdemServico.itensSelecionados.find((item) => item.id === itemId);
+    if (existente) {
+        existente.quantidade += quantidade;
+    } else {
+        estadoOrdemServico.itensSelecionados.push({
+            id: itemEstoque.id,
+            codigo: itemEstoque.codigo,
+            nome: itemEstoque.nome,
+            unidade: itemEstoque.unidade_medida,
+            valor_unitario: Number(itemEstoque.valor_venda || 0),
+            quantidade,
+            bloqueado: true
+        });
+    }
+
+    campoQuantidade.value = 1;
+    seletor.value = '';
+    renderizarItensEstoqueSelecionados();
+    atualizarResumoFinanceiroOS();
+    feather.replace();
+}
+
+function renderizarItensEstoqueSelecionados() {
+    const corpo = document.getElementById('tabelaItensEstoqueSelecionados');
+    if (!corpo) {
+        return;
+    }
+
+    if (!estadoOrdemServico.itensSelecionados.length) {
+        corpo.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">Nenhum item selecionado.</td>
+            </tr>
+        `;
+        feather.replace();
+        atualizarResumoFinanceiroOS();
+        return;
+    }
+
+    corpo.innerHTML = estadoOrdemServico.itensSelecionados.map((item) => {
+        const identificador = item.codigo ? `${item.codigo} - ` : '';
+        const unidade = item.unidade ? ` ${item.unidade}` : '';
+        const valorUnitario = Number(item.valor_unitario ?? 0);
+        const bloqueado = item.bloqueado !== false;
+        const subtotal = valorUnitario * item.quantidade;
+        const icone = bloqueado ? 'lock' : 'unlock';
+        const readonlyAttr = bloqueado ? 'readonly' : '';
+        const valorFormatado = Number.isFinite(valorUnitario) ? valorUnitario.toFixed(2) : '0.00';
+        
+        // Badge de lacre vinculado
+        const temLacre = item.lacre_lote_id != null;
+        const badgeLacre = temLacre 
+            ? `<span class="badge bg-info ms-2" title="Lacre vinculado: Lote ${item.lacre_lote_id}${item.lacre_serial ? `, Serial ${item.lacre_serial}` : ''}">
+                <i data-feather="lock" style="width: 12px; height: 12px;"></i> Lacre
+               </span>`
+            : '';
+        
+        return `
+            <tr>
+                <td>
+                    ${identificador}<strong>${item.nome}</strong>
+                    ${badgeLacre}
+                </td>
+                <td class="text-end">
+                    <div class="modal-os-valor-editor">
+                        <input type="number" class="form-control form-control-sm text-end" id="valorItem-${item.id}"
+                            value="${valorFormatado}" step="0.01" min="0" ${readonlyAttr}
+                            oninput="editarValorItem(${item.id}, this.value)"
+                            onblur="normalizarValorItem(${item.id})">
+                        <button class="btn btn-sm btn-outline-secondary" type="button"
+                            onclick="alternarEdicaoValorItem(${item.id})"
+                            aria-label="${bloqueado ? 'Desbloquear valor unitário' : 'Bloquear valor unitário'}">
+                            <i data-feather="${icone}"></i>
+                        </button>
+                    </div>
+                </td>
+                <td class="text-center">${item.quantidade}${unidade}</td>
+                <td class="text-end" id="subtotalItem-${item.id}">${formatarMoeda(subtotal)}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-outline-danger" type="button" onclick="removerItemEstoqueOS(${item.id})">
+                        <i data-feather="trash-2"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+    feather.replace();
+    atualizarResumoFinanceiroOS();
+}
+
+function removerItemEstoqueOS(itemId) {
+    estadoOrdemServico.itensSelecionados = estadoOrdemServico.itensSelecionados.filter((item) => item.id !== Number(itemId));
+    renderizarItensEstoqueSelecionados();
+    atualizarResumoFinanceiroOS();
+    feather.replace();
+}
+
+function alternarEdicaoValorItem(itemId) {
+    const item = estadoOrdemServico.itensSelecionados.find((registro) => registro.id === Number(itemId));
+    if (!item) {
+        return;
+    }
+    const estavaBloqueado = item.bloqueado !== false;
+    item.bloqueado = estavaBloqueado ? false : true;
+    renderizarItensEstoqueSelecionados();
+    if (item.bloqueado === false) {
+        setTimeout(() => {
+            const input = document.getElementById(`valorItem-${itemId}`);
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        }, 0);
+    }
+}
+
+function editarValorItem(itemId, novoValor) {
+    const item = estadoOrdemServico.itensSelecionados.find((registro) => registro.id === Number(itemId));
+    if (!item || item.bloqueado !== false) {
+        return;
+    }
+    const normalizado = String(novoValor || '').replace(',', '.');
+    const valorNumero = Number(normalizado);
+    if (!Number.isFinite(valorNumero) || valorNumero < 0) {
+        return;
+    }
+    item.valor_unitario = valorNumero;
+    const subtotalCell = document.getElementById(`subtotalItem-${itemId}`);
+    if (subtotalCell) {
+        subtotalCell.textContent = formatarMoeda(valorNumero * item.quantidade);
+    }
+    atualizarResumoFinanceiroOS();
+}
+
+function normalizarValorItem(itemId) {
+    const item = estadoOrdemServico.itensSelecionados.find((registro) => registro.id === Number(itemId));
+    if (!item || item.bloqueado !== false) {
+        return;
+    }
+    const input = document.getElementById(`valorItem-${itemId}`);
+    if (!input) {
+        return;
+    }
+    const normalizado = String(input.value || '').replace(',', '.');
+    const valorNumero = Number(normalizado);
+    if (Number.isFinite(valorNumero) && valorNumero >= 0) {
+        item.valor_unitario = valorNumero;
+        input.value = valorNumero.toFixed(2);
+        const subtotalCell = document.getElementById(`subtotalItem-${itemId}`);
+        if (subtotalCell) {
+            subtotalCell.textContent = formatarMoeda(valorNumero * item.quantidade);
+        }
+        atualizarResumoFinanceiroOS();
+    } else {
+        input.value = Number(item.valor_unitario || 0).toFixed(2);
+    }
+}
+
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(valor || 0));
+}
+
+function parseValorMonetario(valorTexto) {
+    if (valorTexto === null || valorTexto === undefined) {
+        return null;
+    }
+    if (typeof valorTexto === 'number') {
+        return Number.isFinite(valorTexto) ? valorTexto : null;
+    }
+    const normalizado = valorTexto
+        .toString()
+        .trim()
+        .replace(/[R$\s]/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+    const numero = Number(normalizado);
+    return Number.isFinite(numero) ? numero : null;
+}
+
+function calcularSubtotalItens() {
+    return estadoOrdemServico.itensSelecionados.reduce((total, item) => {
+        const unitario = Number(item.valor_unitario || 0);
+        return total + unitario * item.quantidade;
+    }, 0);
+}
+
+function atualizarResumoFinanceiroOS() {
+    const subtotal = calcularSubtotalItens();
+    const desconto = Math.min(Number(estadoOrdemServico.descontoOS || 0), subtotal);
+    const total = subtotal - desconto;
+
+    const campoSubtotal = document.getElementById('resumoSubtotalOS');
+    const campoTotal = document.getElementById('resumoTotalOS');
+    const campoDesconto = document.getElementById('resumoDescontoOS');
+
+    if (campoSubtotal) {
+        campoSubtotal.textContent = formatarMoeda(subtotal);
+    }
+    if (campoTotal) {
+        campoTotal.textContent = formatarMoeda(total);
+    }
+    if (campoDesconto && Number(campoDesconto.value) !== desconto) {
+        campoDesconto.value = Number(desconto).toFixed(2);
+    }
+}
+
+function atualizarDescontoOS(valor) {
+    estadoOrdemServico.descontoOS = Math.max(Number(valor || 0), 0);
+    atualizarResumoFinanceiroOS();
+}
+
+function gerarItensPayloadOS() {
+    const subtotal = calcularSubtotalItens();
+    const desconto = Math.min(Number(estadoOrdemServico.descontoOS || 0), subtotal);
+    const total = subtotal - desconto;
+
+    let descontoRestante = desconto;
+    const subtotalReferencia = subtotal > 0 ? subtotal : 0;
+
+    const itensPayload = estadoOrdemServico.itensSelecionados.map((item, index, array) => {
+        const quantidadeNumero = Number(item.quantidade || 0);
+        const valorUnitarioNumero = Number(item.valor_unitario || 0);
+        const valorBruto = quantidadeNumero * valorUnitarioNumero;
+
+        let descontoItem = 0;
+        if (descontoRestante > 0 && subtotalReferencia > 0) {
+            if (index === array.length - 1) {
+                descontoItem = descontoRestante;
+            } else {
+                const proporcao = valorBruto / subtotalReferencia;
+                descontoItem = Number((desconto * proporcao).toFixed(2));
+            }
+        }
+        descontoRestante = Math.max(descontoRestante - descontoItem, 0);
+
+        const valorTotalCalculado = Math.max(valorBruto - descontoItem, 0);
+        return {
+            produto_cliente_id: item.id || null,
+            codigo: item.codigo || null,
+            nome: item.nome || '',
+            unidade: item.unidade || null,
+            quantidade: quantidadeNumero,
+            valor_unitario: valorUnitarioNumero,
+            desconto: descontoItem,
+            valor_total: valorTotalCalculado,
+            observacao: null,
+            lacre_lote_id: item.lacre_lote_id || null,
+            lacre_serial: item.lacre_serial || null
+        };
+    });
+
+    return {
+        subtotal,
+        desconto,
+        total,
+        itensPayload
+    };
+}
+
+async function salvarNovaOS() {
+    try {
+        const clienteId = document.getElementById('novoOSCliente').value;
+        const tipoId = document.getElementById('novoOSTipo').value;
+        if (!clienteId || !tipoId) {
+            mostrarToastOS('Preencha os campos obrigatórios.', 'error');
+            return;
+        }
+
+        const { subtotal, desconto, total, itensPayload } = gerarItensPayloadOS();
+
+        const resumoItens = itensPayload.length
+            ? itensPayload.map((item) => {
+                const identificador = item.codigo ? `${item.codigo} - ` : '';
+                const unidade = item.unidade ? ` ${item.unidade}` : '';
+                const valorUnitario = formatarMoeda(item.valor_unitario || 0);
+                const subtotalItem = formatarMoeda(item.valor_total || 0);
+                return `${identificador}${item.nome} x${item.quantidade}${unidade} (${valorUnitario}) = ${subtotalItem}`;
+            }).join(' | ')
+            : null;
+
+        const resumoFinanceiro = subtotal > 0 || desconto > 0
+            ? `Subtotal: ${formatarMoeda(subtotal)} | Desconto: ${formatarMoeda(desconto)} | Total: ${formatarMoeda(total)}`
+            : null;
+
+        const observacoesBlocos = [];
+        if (resumoItens) {
+            observacoesBlocos.push(`Itens: ${resumoItens}`);
+        }
+        if (resumoFinanceiro) {
+            observacoesBlocos.push(resumoFinanceiro);
+        }
+
+        const payload = {
+            cliente_id: Number(clienteId),
+            tipo_id: Number(tipoId),
+            prioridade: 'media',
+            status: 'aberta',
+            observacoes: observacoesBlocos.length ? observacoesBlocos.join('\n') : null,
+            itens: itensPayload
+        };
+
+        const resposta = await fetch('/api/v1/ordens-servico', {
+            method: 'POST',
+            headers: montarHeadersAutenticados(),
+            body: JSON.stringify(payload)
+        });
+
+        if (!resposta.ok) {
+            const erroPayload = await resposta.json().catch(() => ({}));
+            throw new Error(erroPayload.detail || 'Erro ao criar ordem');
+        }
+
+        mostrarToastOS('Ordem criada com sucesso!', 'success');
+        fecharModalNovaOS();
+        renderizarItensEstoqueSelecionados();
+        carregarEstatisticasOS();
+        carregarOrdensOS(true);
+    } catch (erro) {
+        logInfoOS('Erro ao salvar ordem', { erro });
+        mostrarToastOS(`Erro ao salvar ordem: ${erro.message}`, 'error');
+    }
+}
+
+async function salvarEdicaoOS() {
+    try {
+        const ordemId = estadoOrdemServico.ordemEditandoId;
+        if (!ordemId) {
+            mostrarToastOS('Nenhuma ordem selecionada para edição.', 'error');
+            return;
+        }
+
+        const tipoId = document.getElementById('novoOSTipo').value;
+        if (!tipoId) {
+            mostrarToastOS('Informe o tipo da ordem.', 'error');
+            return;
+        }
+
+        const { subtotal, desconto, total, itensPayload } = gerarItensPayloadOS();
+
+        const resumoItens = itensPayload.length
+            ? itensPayload.map((item) => {
+                const identificador = item.codigo ? `${item.codigo} - ` : '';
+                const unidade = item.unidade ? ` ${item.unidade}` : '';
+                const valorUnitario = formatarMoeda(item.valor_unitario || 0);
+                const subtotalItem = formatarMoeda(item.valor_total || 0);
+                return `${identificador}${item.nome} x${item.quantidade}${unidade} (${valorUnitario}) = ${subtotalItem}`;
+            }).join(' | ')
+            : null;
+
+        const resumoFinanceiro = subtotal > 0 || desconto > 0
+            ? `Subtotal: ${formatarMoeda(subtotal)} | Desconto: ${formatarMoeda(desconto)} | Total: ${formatarMoeda(total)}`
+            : null;
+
+        const observacoesBlocos = [];
+        if (resumoItens) {
+            observacoesBlocos.push(`Itens: ${resumoItens}`);
+        }
+        if (resumoFinanceiro) {
+            observacoesBlocos.push(resumoFinanceiro);
+        }
+
+        const payload = {
+            tipo_id: Number(tipoId),
+            observacoes: observacoesBlocos.length ? observacoesBlocos.join('\n') : null,
+            itens: itensPayload
+        };
+
+        const resposta = await fetch(`/api/v1/ordens-servico/${ordemId}`, {
+            method: 'PATCH',
+            headers: montarHeadersAutenticados(),
+            body: JSON.stringify(payload)
+        });
+
+        if (!resposta.ok) {
+            const erroPayload = await resposta.json().catch(() => ({}));
+            throw new Error(erroPayload.detail || 'Erro ao atualizar ordem');
+        }
+
+        mostrarToastOS('Ordem atualizada com sucesso!', 'success');
+        fecharModalNovaOS();
+        limparCacheFinanceiroOS(ordemId);
+        await carregarOrdensOS(true);
+        await selecionarOrdemOS(ordemId);
+    } catch (erro) {
+        logInfoOS('Erro ao atualizar ordem', { erro });
+        mostrarToastOS(`Erro ao atualizar ordem: ${erro.message}`, 'error');
+    }
+}
+
+function aplicarFiltrosOS() {
+    carregarOrdensOS(true);
+}
+
+function limparFiltrosOS() {
+    const filtroBusca = document.getElementById('filtroBuscaOS');
+    const filtroClienteInput = document.getElementById('filtroClienteOSInput');
+    const filtroClienteHidden = document.getElementById('filtroClienteOS');
+    const filtroClienteDropdown = document.getElementById('filtroClienteOSAutocompleteDropdown');
+    const filtroTipo = document.getElementById('filtroTipoOS');
+    const filtroStatus = document.getElementById('filtroStatusOS');
+    const filtroDataInicio = document.getElementById('filtroDataInicioOS');
+    const filtroDataFim = document.getElementById('filtroDataFimOS');
+    
+    if (filtroBusca) filtroBusca.value = '';
+    if (filtroClienteInput) filtroClienteInput.value = '';
+    if (filtroClienteHidden) filtroClienteHidden.value = '';
+    if (filtroClienteDropdown) filtroClienteDropdown.style.display = 'none';
+    if (filtroTipo) filtroTipo.value = '';
+    if (filtroStatus) filtroStatus.value = '';
+    if (filtroDataInicio) filtroDataInicio.value = '';
+    if (filtroDataFim) filtroDataFim.value = '';
+    carregarOrdensOS(true);
+}
+
+function abrirModalEquipamentosOS() {
+    const modal = document.getElementById('modalEquipamentosOS');
+    if (!modal || !estadoOrdemServico.ordemSelecionada) {
+        return;
+    }
+    preencherTabelaEquipamentosOrdem();
+    prepararEquipamentosDisponiveis();
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => feather.replace(), 100);
+}
+
+function fecharModalEquipamentosOS() {
+    const modal = document.getElementById('modalEquipamentosOS');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+function prepararEquipamentosDisponiveis() {
+    const seletor = document.getElementById('novoEquipamentoBalancaOS');
+    if (!seletor || !estadoOrdemServico.ordemSelecionada) {
+        return;
+    }
+
+    const clienteId = estadoOrdemServico.ordemSelecionada.cliente_id;
+    if (!clienteId) {
+        seletor.innerHTML = '<option value="">Selecione...</option>';
+        return;
+    }
+
+    fetch(`/api/v1/equipamentos?cliente_id=${clienteId}&per_page=500`, { headers: montarHeadersAutenticados() })
+        .then((resposta) => resposta.ok ? resposta.json() : Promise.resolve({ equipamentos: [] }))
+        .then((dados) => {
+            const equipamentos = Array.isArray(dados.equipamentos) ? dados.equipamentos : [];
+            seletor.innerHTML = '<option value="">Selecione...</option>';
+            const jaVinculados = new Set(
+                (estadoOrdemServico.ordemSelecionada?.equipamentos || []).map((item) => item.equipamento_id)
+            );
+            equipamentos.forEach((equip) => {
+                if (jaVinculados.has(equip.id)) {
+                    return;
+                }
+                const option = document.createElement('option');
+                option.value = equip.id;
+                option.textContent = `${equip.fabricante} ${equip.modelo} • Série ${equip.numero_serie}`;
+                seletor.appendChild(option);
+            });
+        })
+        .catch((erro) => {
+            logInfoOS('Erro ao preparar ativos disponíveis', { erro });
+            mostrarToastOS('Não foi possível listar os ativos disponíveis.', 'error');
+        });
+}
+
+function prepararEquipamentosModal() {
+    const seletorEquipamento = document.getElementById('novoEquipamentoBalancaOS');
+    const campoTecnico = document.getElementById('novoEquipamentoTecnicoOS');
+
+    if (seletorEquipamento) {
+        seletorEquipamento.value = '';
+    }
+
+    if (campoTecnico) {
+        campoTecnico.value = '';
+    }
+
+    preencherTabelaEquipamentosOrdem();
+}
+
+function preencherTabelaEquipamentosOrdem() {
+    const tabela = document.getElementById('tabelaEquipamentosOrdem');
+    if (!tabela || !estadoOrdemServico.ordemSelecionada) {
+        return;
+    }
+
+    const equipamentos = Array.isArray(estadoOrdemServico.ordemSelecionada.equipamentos)
+        ? estadoOrdemServico.ordemSelecionada.equipamentos
+        : [];
+
+    if (!equipamentos.length) {
+        tabela.innerHTML = `
+            <tr>
+                <td colspan="4" class="text-center text-muted py-3">Nenhum ativo vinculado ainda.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    tabela.innerHTML = equipamentos.map((item) => {
+        const nome = item.equipamento_nome || 'Ativo';
+        const modelo = item.equipamento_modelo || '';
+        const serie = item.equipamento_numero_serie || '--';
+        const papel = item.papel || 'principal';
+        const atualizado = item.updated_at ? new Date(item.updated_at).toLocaleString('pt-BR') : '--';
+        return `
+            <tr>
+                <td>
+                    <strong>${nome} ${modelo}</strong><br>
+                    <small class="text-muted">Série ${serie}</small>
+                </td>
+                <td class="text-center text-capitalize">${papel}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-outline-danger" onclick="removerEquipamentoDaOrdem(${item.equipamento_id})">
+                        <i data-feather="trash-2"></i>
+                    </button>
+                </td>
+                    <td class="text-end"><small class="text-muted">${atualizado}</small></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function abrirMenuAtualizarEtapaOS() {
+    if (!estadoOrdemServico.ordemSelecionada) {
+        return;
+    }
+    const etapas = ['aberta', 'em_andamento', 'aguardando_material', 'aguardando_cliente', 'concluida', 'cancelada'];
+    const etapaAtual = estadoOrdemServico.ordemSelecionada.status || 'aberta';
+    const proximaEtapa = prompt(
+        `Digite a nova etapa (${etapas.join(', ')}). Etapa atual: ${etapaAtual}.`,
+        etapaAtual
+    );
+    if (!proximaEtapa) {
+        return;
+    }
+    if (!etapas.includes(proximaEtapa)) {
+        mostrarToastOS('Etapa inválida. Operação cancelada.', 'error');
+        return;
+    }
+    atualizarEtapaOrdem(proximaEtapa);
+}
+
+async function atualizarEtapaOrdem(novaEtapa) {
+    if (!estadoOrdemServico.ordemSelecionada) {
+        return;
+    }
+    try {
+        const resposta = await fetch(`/api/v1/ordens-servico/${estadoOrdemServico.ordemSelecionada.id}/status?status_novo=${encodeURIComponent(novaEtapa)}`, {
+            method: 'PATCH',
+            headers: montarHeadersAutenticados()
+        });
+        if (!resposta.ok) {
+            const erroPayload = await resposta.json().catch(() => ({}));
+            throw new Error(erroPayload.detail || 'Falha ao atualizar etapa');
+        }
+        mostrarToastOS('Etapa atualizada com sucesso!', 'success');
+        selecionarOrdemOS(estadoOrdemServico.ordemSelecionada.id);
+    } catch (erro) {
+        logInfoOS('Erro ao atualizar etapa', { erro, novaEtapa });
+        mostrarToastOS(`Erro ao atualizar etapa: ${erro.message}`, 'error');
+    }
+}
+
+function abrirModalCaixaOS() {
+    const ordem = estadoOrdemServico.ordemSelecionada;
+    if (!ordem) {
+        mostrarToastOS('Selecione uma ordem para finalizar.', 'info');
+        return;
+    }
+    if ((ordem.status || '') === 'concluida') {
+        mostrarToastOS('Esta ordem já está finalizada.', 'info');
+        return;
+    }
+
+    const modal = document.getElementById('modalCaixaOS');
+    if (!modal) {
+        return;
+    }
+
+    const corpo = document.getElementById('corpoModalCaixaOS');
+    if (corpo) {
+        corpo.innerHTML = `
+            <div>
+                <p class="mb-1"><strong>Ordem:</strong> ${ordem.codigo || `OS-${ordem.id}`}</p>
+                <p class="mb-1"><strong>Cliente:</strong> ${ordem.cliente_nome || '--'}</p>
+                <p class="text-muted mb-0">Preencha as informações de caixa (em breve).</p>
+            </div>
+        `;
+    }
+
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => feather.replace(), 50);
+}
+
+function fecharModalCaixaOS() {
+    const modal = document.getElementById('modalCaixaOS');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+async function confirmarFinalizacaoOS() {
+    const ordem = estadoOrdemServico.ordemSelecionada;
+    if (!ordem) {
+        mostrarToastOS('Selecione uma ordem para finalizar.', 'info');
+        return;
+    }
+    if ((ordem.status || '') === 'concluida') {
+        mostrarToastOS('Esta ordem já está finalizada.', 'info');
+        fecharModalCaixaOS();
+        return;
+    }
+    await atualizarEtapaOrdem('concluida');
+    fecharModalCaixaOS();
+}
+
+async function enviarOrdemParaVendas() {
+    const ordem = estadoOrdemServico.ordemSelecionada;
+    if (!ordem) {
+        mostrarToastOS('Selecione uma ordem para enviar para vendas.', 'info');
+        return;
+    }
+    if ((ordem.status || '') !== 'concluida') {
+        mostrarToastOS('A ordem deve estar concluída para enviar para vendas.', 'warning');
+        return;
+    }
+    if (ordem.venda_id) {
+        mostrarToastOS('Esta ordem já foi enviada para vendas.', 'info');
+        return;
+    }
+    const btn = document.getElementById('btnEnviarParaVendasOS');
+    if (btn) btn.disabled = true;
+    try {
+        const resposta = await fetch(`/api/v1/ordens-servico/${ordem.id}/enviar-para-vendas`, {
+            method: 'POST',
+            headers: montarHeadersAutenticados()
+        });
+        const payload = await resposta.json().catch(() => ({}));
+        if (!resposta.ok) {
+            let msg = 'Falha ao enviar para vendas.';
+            if (payload.detail) {
+                msg = Array.isArray(payload.detail)
+                    ? payload.detail.map(function(d) { return d.msg || d; }).join(', ')
+                    : String(payload.detail);
+            }
+            throw new Error(msg);
+        }
+        const numeroVenda = payload.numero_venda || payload.id;
+        mostrarToastOS(`Venda ${numeroVenda} criada. Redirecionando para o módulo de vendas.`, 'success');
+        setTimeout(() => {
+            window.location.href = '/negocio/venda';
+        }, 1500);
+    } catch (erro) {
+        if (btn) btn.disabled = false;
+        mostrarToastOS(erro.message || 'Erro ao enviar para vendas.', 'error');
+    }
+}
+
+async function adicionarEquipamentoNaOrdem() {
+    if (!estadoOrdemServico.ordemSelecionada) {
+        return;
+    }
+    const equipamentoId = document.getElementById('novoEquipamentoBalancaOS').value;
+    const tecnicoId = document.getElementById('novoEquipamentoTecnicoOS').value;
+
+    if (!equipamentoId) {
+        mostrarToastOS('Selecione um ativo para adicionar.', 'info');
+        return;
+    }
+
+    try {
+        const equipamentosAtuais = Array.isArray(estadoOrdemServico.ordemSelecionada.equipamentos)
+            ? estadoOrdemServico.ordemSelecionada.equipamentos
+            : [];
+
+        const payloadEquipamentos = equipamentosAtuais.map((item) => ({
+            equipamento_id: item.equipamento_id,
+            papel: item.papel,
+            observacao: item.observacao || null
+        }));
+
+        payloadEquipamentos.push({
+            equipamento_id: Number(equipamentoId),
+            papel: 'apoio',
+            observacao: tecnicoId ? `Responsável: ${tecnicoId}` : null
+        });
+
+        const resposta = await fetch(`/api/v1/ordens-servico/${estadoOrdemServico.ordemSelecionada.id}`, {
+            method: 'PATCH',
+            headers: montarHeadersAutenticados(),
+            body: JSON.stringify({ equipamentos: payloadEquipamentos })
+        });
+        if (!resposta.ok) {
+            const erroPayload = await resposta.json().catch(() => ({}));
+            throw new Error(erroPayload.detail || 'Erro ao vincular equipamento');
+        }
+        mostrarToastOS('Ativo vinculado com sucesso!', 'success');
+        selecionarOrdemOS(estadoOrdemServico.ordemSelecionada.id);
+        prepararEquipamentosModal();
+        prepararEquipamentosDisponiveis();
+    } catch (erro) {
+        logInfoOS('Erro ao adicionar ativo', { erro });
+        mostrarToastOS(`Erro ao adicionar ativo: ${erro.message}`, 'error');
+    }
+    preencherTabelaEquipamentosOrdem();
+}
+
+function abrirModalRelatorioOS() {
+    const modal = document.getElementById('modalRelatorioOS');
+    if (!modal) {
+        return;
+    }
+    document.getElementById('formRelatorioOS').reset();
+    document.getElementById('relatorioResultadoOS').textContent = 'Informe o período e clique em "Gerar relatório".';
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => feather.replace(), 100);
+}
+
+function fecharModalRelatorioOS() {
+    const modal = document.getElementById('modalRelatorioOS');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+async function gerarRelatorioOS() {
+    const inicio = document.getElementById('relatorioDataInicioOS').value;
+    const fim = document.getElementById('relatorioDataFimOS').value;
+    const tipo = document.getElementById('relatorioTipoOS').value;
+    const resultado = document.getElementById('relatorioResultadoOS');
+
+    if (!inicio || !fim) {
+        mostrarToastOS('Informe o período para gerar o relatório.', 'info');
+        return;
+    }
+
+    const inicioData = new Date(inicio);
+    const fimData = new Date(fim);
+
+    const filtradas = estadoOrdemServico.ordens.filter((ordem) => {
+        const abertura = ordem.data_abertura ? new Date(ordem.data_abertura) : null;
+        if (!abertura) {
+            return false;
+        }
+        const dentroPeriodo = abertura >= inicioData && abertura <= fimData;
+        const tipoOk = tipo ? Number(ordem.tipo_id) === Number(tipo) : true;
+        return dentroPeriodo && tipoOk;
+    });
+
+    const porStatus = filtradas.reduce((acc, ordem) => {
+        const chave = ordem.status || 'indefinido';
+        acc[chave] = (acc[chave] || 0) + 1;
+        return acc;
+    }, {});
+
+    const relatorio = {
+        periodo: { inicio, fim },
+        tipo: tipo || 'todos',
+        total: filtradas.length,
+        por_status: porStatus,
+        ordens: filtradas
+    };
+
+    resultado.textContent = JSON.stringify(relatorio, null, 2);
+}
+
+function mostrarToastOS(mensagem, tipo = 'info') {
+    const container = document.getElementById('toastContainerOS');
+    if (!container) {
+        return;
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast-os toast-os-${tipo}`;
+    toast.innerHTML = `
+        <span>${mensagem}</span>
+        <button type="button" onclick="this.parentElement.remove()">×</button>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 5500);
+}
+
+async function abrirModalGerenciarTiposOS() {
+    document.getElementById('modalGerenciarTiposOS').style.display = 'flex';
+    document.getElementById('novoTipoOSNome').value = '';
+    await carregarTiposOS(true);
+    renderizarListaTiposOS();
+    feather.replace();
+}
+
+function fecharModalGerenciarTiposOS() {
+    document.getElementById('modalGerenciarTiposOS').style.display = 'none';
+}
+
+function renderizarListaTiposOS() {
+    const ul = document.getElementById('listaTiposOS');
+    if (!ul) return;
+    const tipos = estadoOrdemServico.tipos || [];
+    ul.innerHTML = tipos.length ? tipos.map(t =>
+        `<li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>${t.nome || t.codigo || '—'}</span>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge ${t.ativo ? 'bg-success' : 'bg-secondary'}">${t.ativo ? 'Ativo' : 'Inativo'}</span>
+                ${t.ativo ? `<button type="button" class="btn btn-sm btn-outline-warning" onclick="desativarTipoOS(${t.id})" title="Desativar">Desativar</button>` : ''}
+            </div>
+        </li>`
+    ).join('') : '<li class="list-group-item text-muted">Nenhum tipo cadastrado. Adicione acima.</li>';
+}
+
+async function desativarTipoOS(tipoId) {
+    if (!confirm('Desativar este tipo? Ordens já criadas com ele continuarão exibindo o nome.')) return;
+    try {
+        const res = await fetch(`/api/v1/ordens-servico/tipos/${tipoId}`, {
+            method: 'PATCH',
+            headers: montarHeadersAutenticados(),
+            body: JSON.stringify({ ativo: false })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Erro ao desativar tipo');
+        }
+        mostrarToastOS('Tipo desativado.', 'success');
+        await carregarTiposOS(true);
+        renderizarListaTiposOS();
+        preencherSelectTiposOS('novoOSTipo', true);
+        preencherSelectTiposOS('filtroTipoOS', false);
+        preencherSelectTiposOS('relatorioTipoOS', false);
+    } catch (e) {
+        mostrarToastOS(e.message || 'Erro ao desativar tipo', 'error');
+    }
+}
+
+async function criarTipoOS() {
+    const input = document.getElementById('novoTipoOSNome');
+    const nome = (input && input.value || '').trim();
+    if (!nome) {
+        mostrarToastOS('Informe o nome do tipo.', 'error');
+        return;
+    }
+    try {
+        const res = await fetch('/api/v1/ordens-servico/tipos', {
+            method: 'POST',
+            headers: montarHeadersAutenticados(),
+            body: JSON.stringify({ nome, ativo: true })
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.detail || 'Erro ao criar tipo');
+        }
+        mostrarToastOS('Tipo adicionado.', 'success');
+        input.value = '';
+        await carregarTiposOS(true);
+        renderizarListaTiposOS();
+        preencherSelectTiposOS('novoOSTipo', true);
+        preencherSelectTiposOS('filtroTipoOS', false);
+        preencherSelectTiposOS('relatorioTipoOS', false);
+    } catch (e) {
+        mostrarToastOS(e.message || 'Erro ao criar tipo', 'error');
+    }
+}
+
+async function atualizarResumoDiarioOS(showToast = false) {
+    const painel = document.getElementById('painelResumoDiarioOS');
+    if (!painel) {
+        return;
+    }
+
+    if (!Array.isArray(estadoOrdemServico.ordens) || !estadoOrdemServico.ordens.length) {
+        painel.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i data-feather="info" class="mb-2" style="width: 28px; height: 28px;"></i>
+                <p class="mb-0">Nenhuma ordem registrada.</p>
+            </div>
+        `;
+        feather.replace();
+        return;
+    }
+
+    const hoje = new Date();
+    const ordensHoje = estadoOrdemServico.ordens.filter((ordem) => {
+        if (!ordem.data_abertura) {
+            return false;
+        }
+        const dataAbertura = new Date(ordem.data_abertura);
+        if (Number.isNaN(dataAbertura.getTime())) {
+            return false;
+        }
+        return dataAbertura.getFullYear() === hoje.getFullYear()
+            && dataAbertura.getMonth() === hoje.getMonth()
+            && dataAbertura.getDate() === hoje.getDate();
+    });
+
+    if (!ordensHoje.length) {
+        painel.innerHTML = `
+            <div class="text-center text-muted py-3">
+                <i data-feather="calendar" class="mb-2" style="width: 28px; height: 28px;"></i>
+                <p class="mb-0">Ainda não há ordens abertas hoje.</p>
+            </div>
+        `;
+        feather.replace();
+        if (showToast) {
+            mostrarToastOS('Nenhuma ordem registrada hoje.', 'info');
+        }
+        return;
+    }
+
+    const normalizarStatus = (status) => {
+        if (typeof status === 'string') {
+            return status;
+        }
+        if (status && typeof status === 'object') {
+            return status.value || status.name || '';
+        }
+        return '';
+    };
+
+    const ordensAbertasHoje = ordensHoje.filter((ordem) => normalizarStatus(ordem.status) === 'aberta');
+    const ordensFinalizadasHoje = ordensHoje.filter((ordem) => normalizarStatus(ordem.status) === 'concluida');
+    const ordensAbertasGeral = estadoOrdemServico.ordens.filter((ordem) => normalizarStatus(ordem.status) === 'aberta');
+
+    let totalFinalizadasValor = 0;
+    let totalComValor = 0;
+    let totalAbertoValor = 0;
+
+    if (ordensFinalizadasHoje.length) {
+        const detalhes = await Promise.all(
+            ordensFinalizadasHoje.map((ordem) => obterResumoFinanceiroOrdem(ordem.id))
+        );
+
+        detalhes.forEach((info) => {
+            if (info && Number.isFinite(info.totalNumero)) {
+                totalFinalizadasValor += info.totalNumero;
+                totalComValor += 1;
+            }
+        });
+    }
+
+    if (ordensAbertasGeral.length) {
+        const detalhesAbertas = await Promise.all(
+            ordensAbertasGeral.map((ordem) => obterResumoFinanceiroOrdem(ordem.id))
+        );
+
+        detalhesAbertas.forEach((info) => {
+            if (info) {
+                const valorConsiderado =
+                    Number.isFinite(info.totalNumero) ? info.totalNumero :
+                    (Number.isFinite(info.subtotalNumero) ? info.subtotalNumero : null);
+                if (Number.isFinite(valorConsiderado)) {
+                    totalAbertoValor += valorConsiderado;
+                }
+            }
+        });
+    }
+
+    const valorMedio = totalComValor ? totalFinalizadasValor / totalComValor : 0;
+    const totalFinalizadoFormatado = formatarMoeda(totalFinalizadasValor);
+    const valorMedioFormatado = formatarMoeda(valorMedio);
+    const totalAbertoFormatado = formatarMoeda(totalAbertoValor);
+
+    painel.innerHTML = `
+        <div class="resumo-diario-grid">
+            <div class="resumo-diario-card">
+                <span class="resumo-diario-label">Abertas hoje</span>
+                <span class="resumo-diario-value">${ordensAbertasHoje.length}</span>
+                <span class="resumo-diario-sub">Status "aberta" na data atual</span>
+            </div>
+            <div class="resumo-diario-card">
+                <span class="resumo-diario-label">Finalizadas hoje</span>
+                <span class="resumo-diario-value">${ordensFinalizadasHoje.length}</span>
+                <span class="resumo-diario-sub">Concluídas com data de abertura de hoje</span>
+            </div>
+            <div class="resumo-diario-card">
+                <span class="resumo-diario-label">Valor em aberto</span>
+                <span class="resumo-diario-value">${totalAbertoFormatado}</span>
+                <span class="resumo-diario-sub">Todas as ordens abertas com valor registrado</span>
+            </div>
+            <div class="resumo-diario-card">
+                <span class="resumo-diario-label">Ticket médio finalizadas</span>
+                <span class="resumo-diario-value resumo-diario-highlight">${valorMedioFormatado}</span>
+                <span class="resumo-diario-sub">Somente ordens com valor informado</span>
+            </div>
+            <div class="resumo-diario-card">
+                <span class="resumo-diario-label">Total finalizado</span>
+                <span class="resumo-diario-value">${totalFinalizadoFormatado}</span>
+                <span class="resumo-diario-sub">Soma das ordens concluídas hoje</span>
+            </div>
+        </div>
+        <p class="text-muted small mt-3 mb-0">Resumo diário referente a ${hoje.toLocaleDateString('pt-BR')}.</p>
+    `;
+
+    feather.replace();
+
+    if (showToast) {
+        mostrarToastOS('Resumo diário atualizado.', 'success');
+    }
+}
+
+async function obterResumoFinanceiroOrdem(ordemId) {
+    if (estadoOrdemServico.financeiroPorOrdem[ordemId]) {
+        return estadoOrdemServico.financeiroPorOrdem[ordemId];
+    }
+
+    try {
+        const resposta = await fetch(`/api/v1/ordens-servico/${ordemId}`, { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) {
+            throw new Error('Falha ao buscar detalhes da ordem');
+        }
+        const dados = await resposta.json();
+        const itens = Array.isArray(dados.itens) ? dados.itens : [];
+
+        let subtotalNumero = 0;
+        let descontoNumero = 0;
+        let totalNumero = 0;
+
+        if (itens.length) {
+            subtotalNumero = itens.reduce((acc, item) => {
+                const quantidade = Number(item.quantidade || 0);
+                const valorUnitario = Number(item.valor_unitario || 0);
+                return acc + quantidade * valorUnitario;
+            }, 0);
+            descontoNumero = itens.reduce((acc, item) => acc + Number(item.desconto || 0), 0);
+            totalNumero = itens.reduce((acc, item) => acc + Number(item.valor_total || 0), 0);
+        } else {
+            const resumoTexto = extrairResumoObservacoesOS(dados.observacoes);
+            subtotalNumero = parseValorMonetario(resumoTexto.subtotal) || 0;
+            descontoNumero = parseValorMonetario(resumoTexto.desconto) || 0;
+            totalNumero = parseValorMonetario(resumoTexto.total) || subtotalNumero - descontoNumero;
+        }
+
+        totalNumero = Number(totalNumero.toFixed(2));
+        subtotalNumero = Number(subtotalNumero.toFixed(2));
+        descontoNumero = Number(descontoNumero.toFixed(2));
+
+        const info = {
+            resumo: {
+                itens,
+                subtotal: subtotalNumero,
+                desconto: descontoNumero,
+                total: totalNumero
+            },
+            totalNumero,
+            subtotalNumero,
+            descontoNumero
+        };
+        estadoOrdemServico.financeiroPorOrdem[ordemId] = info;
+        return info;
+    } catch (erro) {
+        logInfoOS('Erro ao obter dados financeiros da ordem', { ordemId, erro });
+        return null;
+    }
+}
+
+function limparCacheFinanceiroOS(ordemId) {
+    if (!ordemId) {
+        estadoOrdemServico.financeiroPorOrdem = {};
+        return;
+    }
+    delete estadoOrdemServico.financeiroPorOrdem[ordemId];
+}
+
+// ===== FUNÇÕES DE SELEÇÃO DE LACRE =====
+
+let estadoLacreModal = {
+    itemEstoque: null,
+    quantidade: 1,
+    lotesDisponiveis: [],
+    loteSelecionado: null,
+    serialValidado: null,
+    validacaoSerial: { disponivel: false, mensagem: '' }
+};
+
+async function abrirModalSelecaoLacre(itemEstoque, quantidade) {
+    estadoLacreModal.itemEstoque = itemEstoque;
+    estadoLacreModal.quantidade = quantidade;
+    estadoLacreModal.loteSelecionado = null;
+    estadoLacreModal.serialValidado = null;
+    estadoLacreModal.validacaoSerial = { disponivel: false, mensagem: '' };
+
+    // Preencher informações do item
+    const itemNomeEl = document.getElementById('modalLacreItemNome');
+    const quantidadeEl = document.getElementById('modalLacreQuantidade');
+    if (itemNomeEl) itemNomeEl.textContent = itemEstoque.nome || '';
+    if (quantidadeEl) quantidadeEl.textContent = quantidade;
+
+    // Carregar lotes disponíveis
+    await carregarLotesDisponiveisPorEstoque(itemEstoque.id);
+
+    // Mostrar modal
+    const modal = document.getElementById('modalSelecaoLacreOS');
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    feather.replace();
+}
+
+function fecharModalSelecaoLacreOS() {
+    const modal = document.getElementById('modalSelecaoLacreOS');
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    
+    // Limpar campos
+    const loteSelect = document.getElementById('modalLacreLoteSelect');
+    const serialInput = document.getElementById('modalLacreSerialInput');
+    const serialSelect = document.getElementById('modalLacreSerialSelect');
+    const serialLista = document.getElementById('modalLacreSerialLista');
+    const serialContainer = document.getElementById('modalLacreSerialContainer');
+    
+    if (loteSelect) loteSelect.value = '';
+    if (serialInput) serialInput.value = '';
+    if (serialSelect) serialSelect.value = '';
+    if (serialLista) serialLista.style.display = 'none';
+    if (serialContainer) serialContainer.style.display = 'none';
+    estadoLacreModal = {
+        itemEstoque: null,
+        quantidade: 1,
+        lotesDisponiveis: [],
+        loteSelecionado: null,
+        serialValidado: null,
+        validacaoSerial: { disponivel: false, mensagem: '' }
+    };
+}
+
+async function carregarLotesDisponiveisPorEstoque(estoqueId) {
+    const select = document.getElementById('modalLacreLoteSelect');
+    const info = document.getElementById('modalLacreLoteInfo');
+    
+    if (info) {
+        info.textContent = 'Carregando lotes disponíveis...';
+        info.classList.remove('text-success', 'text-danger');
+        info.classList.add('text-muted');
+    }
+
+    try {
+        const resposta = await fetch(`/api/v1/lacres-selos/disponiveis-por-estoque/${estoqueId}`, {
+            headers: montarHeadersAutenticados()
+        });
+
+        if (!resposta.ok) {
+            throw new Error('Erro ao carregar lotes disponíveis');
+        }
+
+        const lotes = await resposta.json();
+        estadoLacreModal.lotesDisponiveis = Array.isArray(lotes) ? lotes : [];
+
+        // Preencher select
+        select.innerHTML = '<option value="">Selecione um lote ativo</option>';
+        estadoLacreModal.lotesDisponiveis.forEach(lote => {
+            const option = document.createElement('option');
+            option.value = lote.id;
+            option.textContent = `${lote.lote} • Estoque ${lote.estoque_id} • Saldo: ${lote.quantidade_disponivel}`;
+            select.appendChild(option);
+        });
+
+        if (info) {
+            if (estadoLacreModal.lotesDisponiveis.length === 0) {
+                info.textContent = 'Nenhum lote disponível para este item.';
+                info.classList.add('text-danger');
+            } else {
+                info.textContent = `${estadoLacreModal.lotesDisponiveis.length} lote(s) disponível(is).`;
+                info.classList.add('text-success');
+            }
+        }
+    } catch (erro) {
+        logInfoOS('Erro ao carregar lotes disponíveis', { erro, estoqueId });
+        if (info) {
+            info.textContent = 'Erro ao carregar lotes. Tente novamente.';
+            info.classList.add('text-danger');
+        }
+        estadoLacreModal.lotesDisponiveis = [];
+        select.innerHTML = '<option value="">Erro ao carregar lotes</option>';
+    }
+}
+
+async function atualizarInformacoesLoteSelecionadoOS() {
+    const select = document.getElementById('modalLacreLoteSelect');
+    const info = document.getElementById('modalLacreLoteInfo');
+    const serialContainer = document.getElementById('modalLacreSerialContainer');
+    const serialInput = document.getElementById('modalLacreSerialInput');
+    const serialInfo = document.getElementById('modalLacreSerialInfo');
+
+    const loteId = Number(select.value);
+    if (!loteId) {
+        estadoLacreModal.loteSelecionado = null;
+        if (serialContainer) serialContainer.style.display = 'none';
+        if (info) {
+            info.textContent = 'Selecione um lote ativo.';
+        }
+        return;
+    }
+
+    // Buscar dados atualizados do lote do servidor
+    try {
+        if (info) {
+            info.textContent = 'Carregando informações do lote...';
+            info.classList.remove('text-success', 'text-danger');
+            info.classList.add('text-muted');
+        }
+
+        const resposta = await fetch(`/api/v1/lacres-selos/${loteId}`, {
+            headers: montarHeadersAutenticados()
+        });
+
+        if (!resposta.ok) {
+            throw new Error('Erro ao carregar informações do lote');
+        }
+
+        const lote = await resposta.json();
+        
+        if (!lote) {
+            estadoLacreModal.loteSelecionado = null;
+            if (serialContainer) serialContainer.style.display = 'none';
+            if (info) {
+                info.textContent = 'Lote não encontrado.';
+                info.classList.remove('text-success', 'text-muted');
+                info.classList.add('text-danger');
+            }
+            return;
+        }
+
+        // Atualizar o lote no cache
+        const indexCache = estadoLacreModal.lotesDisponiveis.findIndex(l => l.id === loteId);
+        if (indexCache >= 0) {
+            estadoLacreModal.lotesDisponiveis[indexCache] = lote;
+        } else {
+            estadoLacreModal.lotesDisponiveis.push(lote);
+        }
+
+        estadoLacreModal.loteSelecionado = lote;
+
+        // Atualizar informações do lote com dados atualizados
+        const total = lote.quantidade_lote || 0;
+        const usados = lote.quantidade_usada || 0;
+        const saldo = Math.max(total - usados, 0);
+        const proximo = lote.proximo_serial ?? '—';
+
+        if (info) {
+            info.textContent = `Total: ${total} • Usados: ${usados} • Saldo: ${saldo} • Próximo serial: ${proximo}`;
+            info.classList.remove('text-danger', 'text-muted');
+            info.classList.add('text-success');
+        }
+
+        // Mostrar/ocultar campo de serial
+        if (lote.serial_inicio != null && lote.serial_fim != null) {
+            if (serialContainer) serialContainer.style.display = 'block';
+            const serialLista = document.getElementById('modalLacreSerialLista');
+            const serialSelect = document.getElementById('modalLacreSerialSelect');
+            if (serialInput) serialInput.value = '';
+            if (serialSelect) serialSelect.value = '';
+            if (serialLista) serialLista.style.display = 'none';
+            estadoLacreModal.serialValidado = null;
+            estadoLacreModal.validacaoSerial = { disponivel: false, mensagem: '' };
+            if (serialInfo) {
+                serialInfo.textContent = 'Digite o serial ou clique na lupa para buscar todos os seriais disponíveis.';
+                serialInfo.classList.remove('text-success', 'text-danger');
+                serialInfo.classList.add('text-muted');
+            }
+        } else {
+            if (serialContainer) serialContainer.style.display = 'none';
+            estadoLacreModal.serialValidado = null;
+        }
+    } catch (erro) {
+        logInfoOS('Erro ao carregar informações do lote', { erro, loteId });
+        
+        // Fallback: usar dados do cache se houver
+        const loteCache = estadoLacreModal.lotesDisponiveis.find(l => l.id === loteId);
+        if (loteCache) {
+            estadoLacreModal.loteSelecionado = loteCache;
+            const total = loteCache.quantidade_lote || 0;
+            const usados = loteCache.quantidade_usada || 0;
+            const saldo = Math.max(total - usados, 0);
+            const proximo = loteCache.proximo_serial ?? '—';
+            
+            if (info) {
+                info.textContent = `Total: ${total} • Usados: ${usados} • Saldo: ${saldo} • Próximo serial: ${proximo} (dados em cache)`;
+                info.classList.remove('text-success', 'text-muted');
+                info.classList.add('text-warning');
+            }
+        } else {
+            estadoLacreModal.loteSelecionado = null;
+            if (serialContainer) serialContainer.style.display = 'none';
+            if (info) {
+                info.textContent = 'Erro ao carregar informações do lote.';
+                info.classList.remove('text-success', 'text-muted');
+                info.classList.add('text-danger');
+            }
+        }
+        return;
+    }
+}
+
+async function buscarSeriaisDisponiveisOS() {
+    const loteSelect = document.getElementById('modalLacreLoteSelect');
+    const serialInput = document.getElementById('modalLacreSerialInput');
+    const serialSelect = document.getElementById('modalLacreSerialSelect');
+    const serialLista = document.getElementById('modalLacreSerialLista');
+    const info = document.getElementById('modalLacreSerialInfo');
+
+    const loteId = Number(loteSelect.value);
+    const serialTexto = serialInput ? serialInput.value.trim() : '';
+
+    if (!loteId) {
+        mostrarToastOS('Selecione o lote do lacre antes de buscar seriais.', 'warning');
+        return false;
+    }
+
+    // Se há serial digitado, validar apenas esse serial
+    if (serialTexto) {
+        return await validarSerialEspecificoOS(loteId, serialTexto);
+    }
+
+    // Se não há serial digitado, buscar todos os seriais disponíveis
+    try {
+        if (info) {
+            info.textContent = 'Buscando seriais disponíveis...';
+            info.classList.remove('text-success', 'text-danger');
+            info.classList.add('text-muted');
+        }
+
+        const resposta = await fetch(`/api/v1/lacres-selos/${loteId}/seriais-disponiveis`, {
+            headers: montarHeadersAutenticados()
+        });
+
+        if (!resposta.ok) {
+            const erro = await resposta.json().catch(() => ({}));
+            const mensagemErro = erro.detail || 'Erro ao buscar seriais disponíveis.';
+            mostrarToastOS(mensagemErro, 'danger');
+            if (info) {
+                info.textContent = mensagemErro;
+                info.classList.remove('text-success', 'text-muted');
+                info.classList.add('text-danger');
+            }
+            return false;
+        }
+
+        const data = await resposta.json();
+        const seriaisDisponiveis = data.disponiveis || [];
+
+        if (seriaisDisponiveis.length === 0) {
+            if (info) {
+                info.textContent = 'Nenhum serial disponível neste lote.';
+                info.classList.remove('text-success', 'text-muted');
+                info.classList.add('text-danger');
+            }
+            mostrarToastOS('Nenhum serial disponível neste lote.', 'warning');
+            if (serialLista) serialLista.style.display = 'none';
+            return false;
+        }
+
+        // Preencher select com seriais disponíveis
+        if (serialSelect) {
+            serialSelect.innerHTML = '<option value="">Selecione um serial...</option>';
+            seriaisDisponiveis.forEach(serial => {
+                const option = document.createElement('option');
+                option.value = serial;
+                option.textContent = `Serial ${serial}`;
+                serialSelect.appendChild(option);
+            });
+        }
+
+        // Mostrar lista de seriais
+        if (serialLista) serialLista.style.display = 'block';
+        
+        if (info) {
+            info.textContent = `${seriaisDisponiveis.length} serial(is) disponível(is). Selecione um da lista.`;
+            info.classList.remove('text-danger', 'text-muted');
+            info.classList.add('text-success');
+        }
+
+        mostrarToastOS(`✅ ${seriaisDisponiveis.length} serial(is) disponível(is) encontrado(s).`, 'success');
+        return true;
+
+    } catch (erro) {
+        logInfoOS('Erro ao buscar seriais disponíveis', { erro });
+        const mensagemErro = erro.message || 'Erro ao buscar seriais disponíveis.';
+        mostrarToastOS(mensagemErro, 'danger');
+        if (info) {
+            info.textContent = mensagemErro;
+            info.classList.remove('text-success', 'text-muted');
+            info.classList.add('text-danger');
+        }
+        return false;
+    }
+}
+
+async function validarSerialEspecificoOS(loteId, serialTexto) {
+    const serialInput = document.getElementById('modalLacreSerialInput');
+    const info = document.getElementById('modalLacreSerialInfo');
+
+    const serialNumero = Number(serialTexto);
+    if (!Number.isFinite(serialNumero) || serialNumero < 0) {
+        mostrarToastOS('O serial deve conter apenas números válidos.', 'warning');
+        return false;
+    }
+
+    try {
+        const params = new URLSearchParams({ serial: serialNumero });
+        const resposta = await fetch(`/api/v1/lacres-selos/${loteId}/validar-serial?${params.toString()}`, {
+            headers: montarHeadersAutenticados()
+        });
+
+        if (!resposta.ok) {
+            const erro = await resposta.json().catch(() => ({}));
+            const mensagemErro = erro.detail || 'Erro ao validar serial.';
+            mostrarToastOS(mensagemErro, 'danger');
+            estadoLacreModal.validacaoSerial = { disponivel: false, mensagem: mensagemErro };
+            if (info) {
+                info.textContent = mensagemErro;
+                info.classList.remove('text-success');
+                info.classList.add('text-danger');
+            }
+            return false;
+        }
+
+        const data = await resposta.json();
+        const mensagem = data.mensagem || (data.disponivel ? 'Serial disponível para uso.' : 'Serial indisponível.');
+
+        estadoLacreModal.validacaoSerial = {
+            disponivel: Boolean(data.disponivel),
+            mensagem
+        };
+
+        if (data.disponivel) {
+            estadoLacreModal.serialValidado = serialNumero;
+            if (info) {
+                info.textContent = mensagem;
+                info.classList.remove('text-muted', 'text-danger');
+                info.classList.add('text-success');
+            }
+            mostrarToastOS('✅ Serial validado com sucesso!', 'success');
+            return true;
+        } else {
+            estadoLacreModal.serialValidado = null;
+            if (info) {
+                info.textContent = mensagem;
+                info.classList.remove('text-muted', 'text-success');
+                info.classList.add('text-danger');
+            }
+            mostrarToastOS(mensagem, 'danger');
+            return false;
+        }
+    } catch (erro) {
+        logInfoOS('Erro ao validar serial do lacre', { erro });
+        const mensagemErro = erro.message || 'Erro ao validar serial.';
+        mostrarToastOS(mensagemErro, 'danger');
+        estadoLacreModal.validacaoSerial = { disponivel: false, mensagem: mensagemErro };
+        if (info) {
+            info.textContent = mensagemErro;
+            info.classList.remove('text-success');
+            info.classList.add('text-danger');
+        }
+        return false;
+    }
+}
+
+function selecionarSerialDisponivelOS() {
+    const serialSelect = document.getElementById('modalLacreSerialSelect');
+    const serialInput = document.getElementById('modalLacreSerialInput');
+    const info = document.getElementById('modalLacreSerialInfo');
+
+    if (!serialSelect) {
+        return;
+    }
+
+    const serialSelecionado = Number(serialSelect.value);
+    
+    if (!serialSelecionado) {
+        estadoLacreModal.serialValidado = null;
+        estadoLacreModal.validacaoSerial = { disponivel: false, mensagem: '' };
+        if (info) {
+            info.textContent = 'Selecione um serial da lista.';
+            info.classList.remove('text-success', 'text-danger');
+            info.classList.add('text-muted');
+        }
+        return;
+    }
+
+    // Preencher input e validar
+    if (serialInput) {
+        serialInput.value = serialSelecionado;
+    }
+
+    estadoLacreModal.serialValidado = serialSelecionado;
+    estadoLacreModal.validacaoSerial = {
+        disponivel: true,
+        mensagem: `Serial ${serialSelecionado} selecionado e disponível.`
+    };
+
+    if (info) {
+        info.textContent = `Serial ${serialSelecionado} selecionado e disponível.`;
+        info.classList.remove('text-muted', 'text-danger');
+        info.classList.add('text-success');
+    }
+}
+
+function confirmarLacreSelecionadoOS() {
+    const loteSelect = document.getElementById('modalLacreLoteSelect');
+    if (!loteSelect) {
+        mostrarToastOS('Erro ao acessar modal de seleção de lacre.', 'error');
+        return;
+    }
+
+    const loteId = Number(loteSelect.value);
+
+    if (!loteId) {
+        mostrarToastOS('Selecione um lote de lacre.', 'warning');
+        return;
+    }
+
+    const lote = estadoLacreModal.lotesDisponiveis.find(l => l.id === loteId);
+    if (!lote) {
+        mostrarToastOS('Lote selecionado não encontrado.', 'error');
+        return;
+    }
+
+    // Verificar se precisa de serial
+    if (lote.serial_inicio != null && lote.serial_fim != null) {
+        if (!estadoLacreModal.serialValidado || !estadoLacreModal.validacaoSerial.disponivel) {
+            mostrarToastOS('Valide o serial do lacre antes de confirmar.', 'warning');
+            return;
+        }
+    }
+
+    // Adicionar item com lacre vinculado
+    const itemEstoque = estadoLacreModal.itemEstoque;
+    const existente = estadoOrdemServico.itensSelecionados.find((item) => item.id === itemEstoque.id);
+    
+    const itemComLacre = {
+        id: itemEstoque.id,
+        codigo: itemEstoque.codigo,
+        nome: itemEstoque.nome,
+        unidade: itemEstoque.unidade_medida,
+        valor_unitario: Number(itemEstoque.valor_venda || 0),
+        quantidade: estadoLacreModal.quantidade,
+        bloqueado: true,
+        lacre_lote_id: loteId,
+        lacre_serial: estadoLacreModal.serialValidado || null
+    };
+
+    if (existente) {
+        // Se já existe, atualizar quantidade e lacre
+        existente.quantidade += estadoLacreModal.quantidade;
+        existente.lacre_lote_id = loteId;
+        existente.lacre_serial = estadoLacreModal.serialValidado || null;
+    } else {
+        estadoOrdemServico.itensSelecionados.push(itemComLacre);
+    }
+
+    // Limpar campos do formulário
+    const seletor = document.getElementById('novoOSItemEstoque');
+    const campoQuantidade = document.getElementById('novoOSItemQuantidade');
+    if (seletor) seletor.value = '';
+    if (campoQuantidade) campoQuantidade.value = 1;
+
+    // Fechar modal e renderizar
+    fecharModalSelecaoLacreOS();
+    renderizarItensEstoqueSelecionados();
+    atualizarResumoFinanceiroOS();
+    feather.replace();
+}
+</script>
+{% endblock %}
+

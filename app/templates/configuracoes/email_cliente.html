@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}E-mail por cliente | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div id="alert-email-cliente" class="mb-3"></div>
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">E-mail por cliente</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="align-middle" data-feather="mail"></i>
+                <span class="align-middle">Remetente por cliente</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <p id="email-cliente-desativado" class="text-muted d-none">
+                Configurações de e-mail por cliente estão desativadas pelo administrador.
+            </p>
+            <p id="email-cliente-ajuda" class="text-muted small d-none mb-3">
+                Defina um e-mail remetente e nome para cada cliente. Se não preencher, será usado o remetente geral do sistema.
+            </p>
+            <div id="email-cliente-container">
+                <div class="text-muted">Carregando...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/email-cliente.js?v=1.0.0"></script>
+{% endblock %}

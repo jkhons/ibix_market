@@ -1,0 +1,256 @@
+{# 
+  REFERÊNCIA DO CERTILOG - Listagem de Templates Form Builder
+  Este arquivo é uma cópia de referência do sistema Certilog.
+  Não deve ser usado diretamente no PDV Ibix.
+  Adaptar conforme necessário para implementação futura.
+#}
+{% extends "base.html" %}
+
+{% block title %}Templates de OS - Form Builder{% endblock %}
+
+{% block page_title %}Templates de OS - Form Builder{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <h1 class="h3 d-inline align-middle">Templates de Formulários de OS</h1>
+        <button type="button" class="btn btn-primary" onclick="abrirModalNovoTemplate()">
+            <i class="align-middle me-1" data-feather="plus"></i>
+            Novo Template
+        </button>
+    </div>
+    
+    <!-- Filtros -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de OS</label>
+                    <select class="form-select" id="filtro-tipo-os">
+                        <option value="">Todos</option>
+                        <!-- Será preenchido via API -->
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="filtro-status">
+                        <option value="">Todos</option>
+                        <option value="rascunho">Rascunho</option>
+                        <option value="publicado">Publicado</option>
+                        <option value="arquivado">Arquivado</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Escopo</label>
+                    <select class="form-select" id="filtro-escopo">
+                        <option value="">Todos</option>
+                        <option value="corporativo">Corporativo</option>
+                        <option value="unidade">Unidade</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-secondary w-100" onclick="filtrarTemplates()">
+                        <i class="align-middle me-1" data-feather="filter"></i>
+                        Filtrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabela de Templates -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Tipo OS</th>
+                            <th>Escopo</th>
+                            <th>Status</th>
+                            <th>Versão Atual</th>
+                            <th>Criado em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-templates">
+                        <tr><td colspan="7" class="text-center text-muted">Carregando templates...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Criar/Editar Template -->
+<div id="modalTemplateCustom" class="modal-template-overlay">
+    <div class="modal-template-container">
+        <div class="modal-template-header">
+            <h3 id="modalTemplateLabel">Novo Template</h3>
+            <button class="modal-template-close" onclick="fecharModalTemplate()">×</button>
+        </div>
+        <div class="modal-template-body">
+            <form id="formTemplate">
+                <input type="hidden" id="templateId" name="id">
+                
+                <div class="mb-3">
+                    <label for="templateNome" class="form-label">Nome do Template *</label>
+                    <input type="text" class="form-control" id="templateNome" name="nome" required maxlength="200">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="templateTipoOS" class="form-label">Tipo de OS *</label>
+                    <select class="form-select" id="templateTipoOS" name="tipo_os" required>
+                        <option value="">Carregando tipos...</option>
+                    </select>
+                    <small class="text-muted">Selecione o tipo de ordem de serviço para este template</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="templateTipoOSPadrao" class="form-label">Template Padrão para Tipo de OS</label>
+                    <select class="form-select" id="templateTipoOSPadrao" name="tipo_os_id">
+                        <option value="">Selecione para tornar este template padrão para um tipo específico...</option>
+                        <!-- Será preenchido via API -->
+                    </select>
+                    <small class="text-muted">Ao selecionar um tipo de OS, este template será usado automaticamente quando usuários criarem OS deste tipo na unidade.</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="templateUnidadeId" class="form-label">Escopo (Unidade)</label>
+                    <select class="form-select" id="templateUnidadeId" name="unidade_id">
+                        <option value="">Corporativo (todas unidades)</option>
+                        <!-- Será preenchido via API -->
+                    </select>
+                    <small class="text-muted">Deixe vazio para template corporativo (todas unidades)</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="templateDescricao" class="form-label">Descrição</label>
+                    <textarea class="form-control" id="templateDescricao" name="descricao" rows="3"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-template-footer">
+            <button type="button" class="btn btn-secondary" onclick="fecharModalTemplate()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="salvarTemplate()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Duplicar Template -->
+<div id="modalDuplicarTemplateCustom" class="modal-template-overlay">
+    <div class="modal-template-container">
+        <div class="modal-template-header">
+            <h3 id="modalDuplicarTemplateLabel">Duplicar Template</h3>
+            <button class="modal-template-close" onclick="fecharModalDuplicarTemplate()">×</button>
+        </div>
+        <div class="modal-template-body">
+            <form id="formDuplicarTemplate">
+                <input type="hidden" id="duplicarTemplateId" name="template_id">
+                
+                <div class="mb-3">
+                    <label for="duplicarTemplateNome" class="form-label">Nome do Template *</label>
+                    <input type="text" class="form-control" id="duplicarTemplateNome" name="nome" required maxlength="200">
+                    <small class="text-muted">Nome para o template duplicado</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="duplicarTemplateUnidadeId" class="form-label">Escopo (Unidade)</label>
+                    <select class="form-select" id="duplicarTemplateUnidadeId" name="unidade_id">
+                        <option value="">Corporativo (todas unidades)</option>
+                        <!-- Será preenchido via API -->
+                    </select>
+                    <small class="text-muted">Selecione a unidade de destino para o template duplicado</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-template-footer">
+            <button type="button" class="btn btn-secondary" onclick="fecharModalDuplicarTemplate()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="confirmarDuplicacao()">Duplicar</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.modal-template-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1050;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-template-overlay.active {
+    display: flex;
+}
+
+.modal-template-container {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-template-header {
+    padding: 1rem;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-template-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6c757d;
+}
+
+.modal-template-body {
+    padding: 1rem;
+}
+
+.modal-template-footer {
+    padding: 1rem;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/form_builder_templates.js"></script>
+<script>
+// Inicializar ao carregar página
+document.addEventListener('DOMContentLoaded', async function() {
+    // Verificar se usuário é SUPER_ADMIN (valor já calculado no backend)
+    {% if is_super_admin is defined %}
+    isUserSuperAdmin = {{ 'true' if is_super_admin else 'false' }};
+    {% else %}
+    isUserSuperAdmin = false;
+    {% endif %}
+    
+    console.log('isUserSuperAdmin:', isUserSuperAdmin); // Debug
+    
+    await carregarTemplates();
+    await carregarUnidades();
+    await carregarTiposOS();
+    feather.replace();
+});
+</script>
+{% endblock %}

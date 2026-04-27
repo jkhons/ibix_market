@@ -1,0 +1,81 @@
+/* Stepper e etapas - Novo Processo */
+.progress-stepper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+}
+
+.progress-stepper .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.progress-stepper .step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 8px;
+    transition: all 0.3s ease;
+}
+
+.progress-stepper .step.active .step-number {
+    background-color: #3b7ddd;
+    color: white;
+    box-shadow: 0 0 0 4px rgba(59, 125, 221, 0.2);
+}
+
+.progress-stepper .step.completed .step-number {
+    background-color: #28a745;
+    color: white;
+}
+
+.progress-stepper .step-label {
+    font-size: 12px;
+    color: #6c757d;
+    text-align: center;
+    max-width: 120px;
+}
+
+.progress-stepper .step.active .step-label {
+    color: #3b7ddd;
+    font-weight: 600;
+}
+
+.progress-stepper .step.completed .step-label {
+    color: #28a745;
+}
+
+.progress-stepper .step-line {
+    flex: 1;
+    height: 2px;
+    background-color: #e9ecef;
+    margin: 0 15px;
+    max-width: 100px;
+    position: relative;
+    top: -20px;
+}
+
+.progress-stepper .step.completed ~ .step-line {
+    background-color: #28a745;
+}
+
+.etapa-content {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

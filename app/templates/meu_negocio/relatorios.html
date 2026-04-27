@@ -1,0 +1,308 @@
+{% extends "base.html" %}
+
+{% block title %}Relatórios de negócios | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle"><strong>Relatórios de negócios</strong></h1>
+        <p class="text-muted small mb-0">Fechamento de caixa, vendas por período, mais vendidos, custo x venda e cancelamentos. Dados conforme seu escopo de acesso.</p>
+    </div>
+
+    <div id="relatorios-error" class="alert alert-danger d-none"></div>
+
+    <div class="card mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2"><label class="form-label small mb-0">Estabelecimento</label><select class="form-select form-select-sm" id="filtro-cliente"><option value="">Todos</option></select></div>
+                <div class="col-md-2"><label class="form-label small mb-0">Caixa</label><select class="form-select form-select-sm" id="filtro-caixa"><option value="">Todos</option></select></div>
+            </div>
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs mb-3" id="relatorios-tab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-fechamento" data-bs-toggle="tab" data-bs-target="#painel-fechamento" type="button" role="tab">Fechamento de caixa</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-vendas" data-bs-toggle="tab" data-bs-target="#painel-vendas" type="button" role="tab">Vendas por período</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-mais-vendidos" data-bs-toggle="tab" data-bs-target="#painel-mais-vendidos" type="button" role="tab">Mais vendidos</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-custo-venda" data-bs-toggle="tab" data-bs-target="#painel-custo-venda" type="button" role="tab">Custo x venda</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-cancelamentos" data-bs-toggle="tab" data-bs-target="#painel-cancelamentos" type="button" role="tab">Cancelamentos</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="relatorios-painel">
+        <!-- Fechamento de caixa -->
+        <div class="tab-pane fade show active" id="painel-fechamento" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-2"><label class="form-label small">Data início</label><input type="date" class="form-control form-control-sm" id="fechamento-data-inicio"></div>
+                        <div class="col-md-2"><label class="form-label small">Data fim</label><input type="date" class="form-control form-control-sm" id="fechamento-data-fim"></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm" id="btn-fechamento">Gerar</button></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm" id="btn-fechamento-csv">Exportar CSV</button></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Caixa</th><th>Operador</th><th>Abertura</th><th>Fechamento</th><th class="text-end">Valor inicial</th><th class="text-end">Valor final</th><th>Status</th></tr></thead>
+                            <tbody id="fechamento-body"><tr><td colspan="7" class="text-muted">Defina o período e clique em Gerar.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Vendas por período -->
+        <div class="tab-pane fade" id="painel-vendas" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-2"><label class="form-label small">Data início</label><input type="date" class="form-control form-control-sm" id="vendas-data-inicio"></div>
+                        <div class="col-md-2"><label class="form-label small">Data fim</label><input type="date" class="form-control form-control-sm" id="vendas-data-fim"></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm" id="btn-vendas">Gerar</button></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm" id="btn-vendas-csv">Exportar CSV</button></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Número</th><th>Data</th><th class="text-end">Total</th><th>Status</th></tr></thead>
+                            <tbody id="vendas-body"><tr><td colspan="4" class="text-muted">Defina o período e clique em Gerar.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0" id="vendas-total"></p>
+                </div>
+            </div>
+        </div>
+        <!-- Mais vendidos -->
+        <div class="tab-pane fade" id="painel-mais-vendidos" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-2"><label class="form-label small">Data início</label><input type="date" class="form-control form-control-sm" id="mais-vendidos-data-inicio"></div>
+                        <div class="col-md-2"><label class="form-label small">Data fim</label><input type="date" class="form-control form-control-sm" id="mais-vendidos-data-fim"></div>
+                        <div class="col-md-2"><label class="form-label small">Ordenar</label><select class="form-select form-select-sm" id="mais-vendidos-ordenar"><option value="quantidade">Quantidade</option><option value="valor">Valor</option></select></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm" id="btn-mais-vendidos">Gerar</button></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm" id="btn-mais-vendidos-csv">Exportar CSV</button></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Produto</th><th class="text-end">Quantidade</th><th class="text-end">Valor total</th></tr></thead>
+                            <tbody id="mais-vendidos-body"><tr><td colspan="3" class="text-muted">Defina o período e clique em Gerar.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Custo x venda -->
+        <div class="tab-pane fade" id="painel-custo-venda" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-2"><label class="form-label small">Data início</label><input type="date" class="form-control form-control-sm" id="custo-venda-data-inicio"></div>
+                        <div class="col-md-2"><label class="form-label small">Data fim</label><input type="date" class="form-control form-control-sm" id="custo-venda-data-fim"></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm" id="btn-custo-venda">Gerar</button></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm" id="btn-custo-venda-csv">Exportar CSV</button></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Produto</th><th class="text-end">Qtd vendida</th><th class="text-end">Valor venda</th><th class="text-end">Custo un.</th><th class="text-end">Margem %</th><th class="text-end">Markup %</th></tr></thead>
+                            <tbody id="custo-venda-body"><tr><td colspan="6" class="text-muted">Defina o período e clique em Gerar.</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Cancelamentos -->
+        <div class="tab-pane fade" id="painel-cancelamentos" role="tabpanel">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-2"><label class="form-label small">Data início</label><input type="date" class="form-control form-control-sm" id="cancelamentos-data-inicio"></div>
+                        <div class="col-md-2"><label class="form-label small">Data fim</label><input type="date" class="form-control form-control-sm" id="cancelamentos-data-fim"></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-primary btn-sm" id="btn-cancelamentos">Gerar</button></div>
+                        <div class="col-md-2 d-flex align-items-end"><button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cancelamentos-csv">Exportar CSV</button></div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Número</th><th>Data</th><th class="text-end">Total</th></tr></thead>
+                            <tbody id="cancelamentos-body"><tr><td colspan="3" class="text-muted">Defina o período e clique em Gerar.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mb-0" id="cancelamentos-total"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function api(path, opts) {
+        opts = opts || {};
+        var token = document.cookie.split('; ').find(function(r) { return r.startsWith('pdv_automscale_token='); });
+        token = token ? token.split('=')[1] : '';
+        return fetch(path, { headers: { 'Authorization': 'Bearer ' + token }, credentials: 'include' }).then(function(r) { return r.json(); });
+    }
+    function formatarMoeda(v) { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v) || 0); }
+    function formatarData(s) { if (!s) return '-'; var d = new Date(s); return isNaN(d.getTime()) ? s : d.toLocaleDateString('pt-BR'); }
+    function paramsFiltros() {
+        var c = document.getElementById('filtro-cliente');
+        var p = document.getElementById('filtro-caixa');
+        var s = '';
+        if (c && c.value) s += '&cliente_id=' + encodeURIComponent(c.value);
+        if (p && p.value) s += '&caixa_id=' + encodeURIComponent(p.value);
+        return s;
+    }
+    function paramsDatas(idInicio, idFim) {
+        var fim = document.getElementById(idFim).value || new Date().toISOString().slice(0,10);
+        var inicio = document.getElementById(idInicio).value || (function(){ var d=new Date(); d.setDate(d.getDate()-30); return d.toISOString().slice(0,10); })();
+        return '?data_inicio=' + encodeURIComponent(inicio) + '&data_fim=' + encodeURIComponent(fim) + paramsFiltros();
+    }
+    var lastFechamento = [], lastVendas = [], lastMaisVendidos = [], lastCustoVenda = [], lastCancelamentos = [];
+    function downloadCSV(header, rows, filename) {
+        var csv = header.join(';') + '\n' + rows.map(function(r) { return r.join(';'); }).join('\n');
+        var blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(a.href);
+    }
+    function carregarClientes() {
+        // Mesmo endpoint da página fiscal/empresa: estabelecimento = CA (emissor). Lista idêntica a /fiscal/empresa.
+        api('/api/v1/clientes/todos?para_empresa_fiscal=true').then(function(d) {
+            var list = Array.isArray(d) ? d : (d.clientes || d.itens || []);
+            var sel = document.getElementById('filtro-cliente');
+            if (!sel) return;
+            sel.innerHTML = '<option value="">Todos</option>';
+            list.forEach(function(c) {
+                var o = document.createElement('option');
+                o.value = c.id;
+                o.textContent = c.nome || c.razao_social || 'Cliente #' + c.id;
+                sel.appendChild(o);
+            });
+        }).catch(function() {});
+    }
+    function carregarCaixas() {
+        var sel = document.getElementById('filtro-caixa');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">Todos</option>';
+        api('/api/v1/caixas/').then(function(list) {
+            (Array.isArray(list) ? list : []).forEach(function(p) {
+                var o = document.createElement('option');
+                o.value = p.id;
+                o.textContent = (p.identificador || 'Caixa') + ' (ID ' + p.id + ')';
+                sel.appendChild(o);
+            });
+        }).catch(function() {});
+    }
+    document.addEventListener('DOMContentLoaded', function() { carregarClientes(); carregarCaixas(); });
+
+    document.getElementById('btn-fechamento').addEventListener('click', function() {
+        var q = paramsDatas('fechamento-data-inicio', 'fechamento-data-fim');
+        api('/api/v1/negocios/relatorios/fechamento-caixa' + q).then(function(data) {
+            lastFechamento = data.itens || [];
+            var body = document.getElementById('fechamento-body');
+            if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="7" class="text-muted">Nenhum registro no período.</td></tr>'; return; }
+            body.innerHTML = data.itens.map(function(r) {
+                return '<tr><td>' + (r.caixa_identificador || '-') + '</td><td>' + (r.operador_nome || '-') + '</td><td>' + formatarData(r.data_abertura) + '</td><td>' + formatarData(r.data_fechamento) + '</td><td class="text-end">' + formatarMoeda(r.valor_inicial) + '</td><td class="text-end">' + (r.valor_final != null ? formatarMoeda(r.valor_final) : '-') + '</td><td>' + (r.status || '-') + '</td></tr>';
+            }).join('');
+        }).catch(function() { document.getElementById('fechamento-body').innerHTML = '<tr><td colspan="7" class="text-danger">Erro ao carregar.</td></tr>'; });
+    });
+    document.getElementById('btn-fechamento-csv').addEventListener('click', function() {
+        if (!lastFechamento.length) { alert('Gere o relatório primeiro.'); return; }
+        var header = ['Caixa','Operador','Abertura','Fechamento','Valor inicial','Valor final','Status'];
+        var rows = lastFechamento.map(function(r) {
+            return [r.caixa_identificador||'', r.operador_nome||'', r.data_abertura||'', r.data_fechamento||'', r.valor_inicial||'', r.valor_final!=null?r.valor_final:'', r.status||''];
+        });
+        downloadCSV(header, rows, 'fechamento-caixa.csv');
+    });
+    document.getElementById('btn-vendas').addEventListener('click', function() {
+        var q = paramsDatas('vendas-data-inicio', 'vendas-data-fim');
+        api('/api/v1/negocios/relatorios/vendas-periodo' + q + '&pagina=1&por_pagina=500').then(function(data) {
+            lastVendas = data.itens || [];
+            var body = document.getElementById('vendas-body');
+            if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="4" class="text-muted">Nenhum registro no período.</td></tr>'; document.getElementById('vendas-total').textContent = 'Total: 0'; return; }
+            body.innerHTML = data.itens.map(function(r) {
+                return '<tr><td>' + (r.numero_venda || '-') + '</td><td>' + formatarData(r.data_venda) + '</td><td class="text-end">' + formatarMoeda(r.total) + '</td><td>' + (r.status || '-') + '</td></tr>';
+            }).join('');
+            document.getElementById('vendas-total').textContent = 'Total: ' + (data.total || 0) + ' vendas';
+        }).catch(function() { document.getElementById('vendas-body').innerHTML = '<tr><td colspan="4" class="text-danger">Erro ao carregar.</td></tr>'; });
+    });
+    document.getElementById('btn-vendas-csv').addEventListener('click', function() {
+        if (!lastVendas.length) { alert('Gere o relatório primeiro.'); return; }
+        var header = ['Número','Data','Total','Status'];
+        var rows = lastVendas.map(function(r) { return [r.numero_venda||'', r.data_venda||'', r.total||'', r.status||'']; });
+        downloadCSV(header, rows, 'vendas-periodo.csv');
+    });
+    document.getElementById('btn-mais-vendidos').addEventListener('click', function() {
+        var q = paramsDatas('mais-vendidos-data-inicio', 'mais-vendidos-data-fim');
+        q += '&ordenar=' + (document.getElementById('mais-vendidos-ordenar').value || 'quantidade') + '&limite=50';
+        api('/api/v1/negocios/relatorios/mais-vendidos' + q).then(function(data) {
+            lastMaisVendidos = data.itens || [];
+            var body = document.getElementById('mais-vendidos-body');
+            if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted">Nenhum dado no período.</td></tr>'; return; }
+            body.innerHTML = data.itens.map(function(r) {
+                return '<tr><td>' + (r.nome || '-') + '</td><td class="text-end">' + Number(r.quantidade || 0).toLocaleString('pt-BR') + '</td><td class="text-end">' + formatarMoeda(r.valor_total) + '</td></tr>';
+            }).join('');
+        }).catch(function() { document.getElementById('mais-vendidos-body').innerHTML = '<tr><td colspan="3" class="text-danger">Erro ao carregar.</td></tr>'; });
+    });
+    document.getElementById('btn-mais-vendidos-csv').addEventListener('click', function() {
+        if (!lastMaisVendidos.length) { alert('Gere o relatório primeiro.'); return; }
+        var header = ['Produto','Quantidade','Valor total'];
+        var rows = lastMaisVendidos.map(function(r) { return [r.nome||'', r.quantidade||'', r.valor_total||'']; });
+        downloadCSV(header, rows, 'mais-vendidos.csv');
+    });
+    document.getElementById('btn-custo-venda').addEventListener('click', function() {
+        var q = paramsDatas('custo-venda-data-inicio', 'custo-venda-data-fim');
+        api('/api/v1/negocios/relatorios/custo-venda' + q).then(function(data) {
+            lastCustoVenda = data.itens || [];
+            var body = document.getElementById('custo-venda-body');
+            if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="6" class="text-muted">Nenhum dado no período.</td></tr>'; return; }
+            body.innerHTML = data.itens.map(function(r) {
+                var margem = r.margem_percentual != null ? r.margem_percentual + '%' : '-';
+                var markup = r.markup_percentual != null ? r.markup_percentual + '%' : '-';
+                return '<tr><td>' + (r.nome || '-') + '</td><td class="text-end">' + Number(r.quantidade_vendida || 0).toLocaleString('pt-BR') + '</td><td class="text-end">' + formatarMoeda(r.valor_venda_total) + '</td><td class="text-end">' + formatarMoeda(r.custo_unitario) + '</td><td class="text-end">' + margem + '</td><td class="text-end">' + markup + '</td></tr>';
+            }).join('');
+        }).catch(function() { document.getElementById('custo-venda-body').innerHTML = '<tr><td colspan="6" class="text-danger">Erro ao carregar.</td></tr>'; });
+    });
+    document.getElementById('btn-custo-venda-csv').addEventListener('click', function() {
+        if (!lastCustoVenda.length) { alert('Gere o relatório primeiro.'); return; }
+        var header = ['Produto','Qtd vendida','Valor venda','Custo un.','Margem %','Markup %'];
+        var rows = lastCustoVenda.map(function(r) {
+            return [r.nome||'', r.quantidade_vendida||'', r.valor_venda_total||'', r.custo_unitario||'', r.margem_percentual!=null?r.margem_percentual:'', r.markup_percentual!=null?r.markup_percentual:''];
+        });
+        downloadCSV(header, rows, 'custo-venda.csv');
+    });
+    document.getElementById('btn-cancelamentos').addEventListener('click', function() {
+        var q = paramsDatas('cancelamentos-data-inicio', 'cancelamentos-data-fim');
+        api('/api/v1/negocios/relatorios/cancelamentos' + q).then(function(data) {
+            lastCancelamentos = data.itens || [];
+            var body = document.getElementById('cancelamentos-body');
+            if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted">Nenhuma venda cancelada no período.</td></tr>'; document.getElementById('cancelamentos-total').textContent = 'Total: 0'; return; }
+            body.innerHTML = data.itens.map(function(r) {
+                return '<tr><td>' + (r.numero_venda || '-') + '</td><td>' + formatarData(r.data_venda) + '</td><td class="text-end">' + formatarMoeda(r.total) + '</td></tr>';
+            }).join('');
+            document.getElementById('cancelamentos-total').textContent = 'Total: ' + (data.total || 0) + ' cancelamentos';
+        }).catch(function() { document.getElementById('cancelamentos-body').innerHTML = '<tr><td colspan="3" class="text-danger">Erro ao carregar.</td></tr>'; });
+    });
+    document.getElementById('btn-cancelamentos-csv').addEventListener('click', function() {
+        if (!lastCancelamentos.length) { alert('Gere o relatório primeiro.'); return; }
+        var header = ['Número','Data','Total'];
+        var rows = lastCancelamentos.map(function(r) { return [r.numero_venda||'', r.data_venda||'', r.total||'']; });
+        downloadCSV(header, rows, 'cancelamentos.csv');
+    });
+    var hoje = new Date().toISOString().slice(0,10);
+    var mesAtras = new Date(); mesAtras.setDate(mesAtras.getDate() - 30); mesAtras = mesAtras.toISOString().slice(0,10);
+    ['fechamento','vendas','mais-vendidos','custo-venda','cancelamentos'].forEach(function(n) {
+        var ini = document.getElementById(n + (n === 'mais-vendidos' ? '-data-inicio' : '-data-inicio'));
+        var fim = document.getElementById(n + (n === 'mais-vendidos' ? '-data-fim' : '-data-fim'));
+        if (ini) ini.value = mesAtras;
+        if (fim) fim.value = hoje;
+    });
+})();
+</script>
+{% endblock %}

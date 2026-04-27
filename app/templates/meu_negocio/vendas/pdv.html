@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="PDV - Ponto de Venda PDV Ibix">
+    <meta name="theme-color" content="#1f2e43">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PDV">
+    <title>PDV - Ponto de Venda | PDV Ibix</title>
+    <link rel="manifest" href="/negocio/venda/pdv/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/static/img/icons/iconcertipeso.png">
+    <link href="/static/css/pdv.css?v={{ pdv_static_version }}" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="pdv-app">
+    <header class="pdv-topbar">
+        <div class="pdv-brand">
+            <img src="/static/img/icons/iconcertipeso.png" alt="PDV Ibix" class="pdv-brand-icon">
+            <div class="pdv-brand-text">
+                <h1 class="pdv-brand-title">PDV Ibix</h1>
+                <p class="pdv-brand-subtitle">Vendas rápidas em balcão</p>
+                <p id="pdv-header-identificador" class="pdv-brand-pdv-id" aria-label="Caixa atual" style="display: none;"></p>
+            </div>
+        </div>
+        <div class="pdv-caixa-toolbar" id="pdv-caixa-toolbar">
+            <label for="pdv-select-caixa" class="pdv-caixa-label">Caixa</label>
+            <select id="pdv-select-caixa" class="pdv-select-caixa" aria-label="Selecionar caixa para o turno de vendas">
+                <option value="">Carregando…</option>
+            </select>
+            <a href="/negocio/caixa" class="pdv-caixa-link" id="pdv-link-abrir-turno" title="Cadastrar caixas ou abrir/fechar turno">Turno / cadastro</a>
+        </div>
+        <div class="pdv-topbar-actions">
+            <button type="button" class="pdv-btn pdv-btn-install" id="pdv-btn-install-app" aria-label="Instalar aplicativo PDV" style="display:none;">
+                <i class="fas fa-download"></i>
+                Instalar app
+            </button>
+            <button type="button" class="pdv-icon-btn" id="pdv-btn-close" aria-label="Fechar PDV">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    </header>
+    <div id="pdv-install-hint" class="pdv-install-hint" style="display:none;" role="status" aria-live="polite"></div>
+
+    <main class="pdv-main">
+        <section class="pdv-panel pdv-products-panel">
+            <header class="pdv-panel-header">
+                <h2>Produtos</h2>
+                <small id="pdv-produtos-meta">Produtos em ordem A–Z</small>
+            </header>
+            <div class="pdv-panel-body" id="pdv-produtos-container">
+                <div class="pdv-empty-state">
+                    <i class="fas fa-search"></i>
+                    <p>Digite para buscar produtos</p>
+                </div>
+            </div>
+        </section>
+
+        <aside class="pdv-right-column">
+            <article class="pdv-panel pdv-search-panel">
+                <label for="pdv-busca-produto" class="pdv-field-label">Buscar produto</label>
+                <div class="pdv-field-inline pdv-search-full">
+                    <div class="pdv-search-input-wrap">
+                        <i class="fas fa-search"></i>
+                        <input
+                            id="pdv-busca-produto"
+                            class="pdv-input pdv-input-search"
+                            type="text"
+                            placeholder="Código, nome ou descrição"
+                            autocomplete="off"
+                        >
+                    </div>
+                </div>
+            </article>
+            <div class="pdv-panel pdv-cart-panel">
+            <header class="pdv-panel-header pdv-panel-header-resumo">
+                <h2>Resumo</h2>
+                <button type="button" class="pdv-btn-cliente-icon" id="pdv-btn-cliente" aria-label="Cliente" title="Selecionar cliente">
+                    <i class="fas fa-user"></i>
+                </button>
+            </header>
+            <div class="pdv-panel-body pdv-cart-body">
+                <div class="pdv-summary-kpis" id="pdv-resumo-content">
+                    <div class="pdv-summary-main">
+                        <span class="pdv-summary-text" id="pdv-resumo-texto">Carrinho vazio</span>
+                        <span class="pdv-summary-total" id="pdv-resumo-total">R$ 0,00</span>
+                    </div>
+                    <button type="button" class="pdv-btn pdv-btn-primary" id="pdv-btn-abrir-carrinho">
+                        <i class="fas fa-shopping-cart"></i>
+                        Ver carrinho
+                    </button>
+                </div>
+                <div id="pdv-cart-preview" class="pdv-cart-preview">
+                    <p class="pdv-cart-preview-empty">Nenhum item no carrinho</p>
+                </div>
+            </div>
+            </div>
+        </aside>
+    </main>
+</div>
+
+<div id="pdv-modal-carrinho" class="pdv-modal" style="display:none;">
+    <div class="pdv-modal-dialog pdv-modal-dialog-lg">
+        <header class="pdv-modal-header">
+            <h3>Carrinho de compras</h3>
+            <button type="button" class="pdv-icon-btn" id="pdv-btn-fechar-carrinho" aria-label="Fechar carrinho">
+                <i class="fas fa-times"></i>
+            </button>
+        </header>
+        <div class="pdv-modal-body" id="pdv-modal-carrinho-body"></div>
+        <footer class="pdv-modal-footer">
+            <div class="pdv-modal-total">
+                <span>Total</span>
+                <strong id="pdv-modal-total-valor">R$ 0,00</strong>
+            </div>
+            <button type="button" class="pdv-btn pdv-btn-success" id="pdv-btn-finalizar-carrinho">
+                <i class="fas fa-check-circle"></i>
+                Finalizar venda
+            </button>
+        </footer>
+    </div>
+</div>
+
+<div id="pdv-modal-clientes" class="pdv-modal" style="display:none;">
+    <div class="pdv-modal-dialog">
+        <header class="pdv-modal-header">
+            <h3>Selecionar cliente</h3>
+            <button type="button" class="pdv-icon-btn" id="pdv-btn-fechar-clientes" aria-label="Fechar clientes">
+                <i class="fas fa-times"></i>
+            </button>
+        </header>
+        <div class="pdv-modal-body">
+            <div class="pdv-search-input-wrap pdv-search-modal">
+                <i class="fas fa-search"></i>
+                <input
+                    type="text"
+                    id="pdv-busca-cliente"
+                    class="pdv-input pdv-input-search"
+                    placeholder="Buscar por nome ou CNPJ"
+                >
+            </div>
+            <div class="pdv-clientes-list" id="pdv-clientes-list"></div>
+        </div>
+    </div>
+</div>
+
+<div id="pdv-modal-finalizar" class="pdv-modal" style="display:none;">
+    <div class="pdv-modal-dialog">
+        <header class="pdv-modal-header">
+            <h3>Finalizar venda</h3>
+            <button type="button" class="pdv-icon-btn" id="pdv-btn-fechar-finalizar" aria-label="Fechar finalização">
+                <i class="fas fa-times"></i>
+            </button>
+        </header>
+        <div class="pdv-modal-body">
+            <div class="pdv-finalizar-total">
+                <span>Total da venda</span>
+                <strong id="pdv-finalizar-total-valor">R$ 0,00</strong>
+            </div>
+
+            <div class="pdv-pagamento-cards" id="pdv-pagamento-cards">
+                <button type="button" class="pdv-pagamento-card" data-pagamento="pix">
+                    <i class="fas fa-qrcode"></i>
+                    <span>PIX</span>
+                </button>
+                <button type="button" class="pdv-pagamento-card" data-pagamento="cartao_debito">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Cartão débito</span>
+                </button>
+                <button type="button" class="pdv-pagamento-card" data-pagamento="cartao_credito">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Cartão crédito</span>
+                </button>
+            </div>
+
+            <div class="pdv-money-box" id="pdv-money-box" style="display:none;">
+                <label for="pdv-valor-recebido">Valor recebido (dinheiro)</label>
+                <input type="number" id="pdv-valor-recebido" class="pdv-input" min="0" step="0.01" placeholder="0,00">
+                <div class="pdv-money-change">Troco: <strong id="pdv-troco-valor">R$ 0,00</strong></div>
+            </div>
+        </div>
+        <footer class="pdv-modal-footer">
+            <button type="button" class="pdv-btn pdv-btn-ghost" id="pdv-btn-cancelar-finalizar">Cancelar</button>
+            <button type="button" class="pdv-btn pdv-btn-success" id="pdv-btn-confirmar-venda" style="display:none;" disabled>
+                Confirmar venda (legado)
+            </button>
+        </footer>
+    </div>
+</div>
+
+<div id="pdv-toast-stack" class="pdv-toast-stack" aria-live="polite" aria-atomic="true"></div>
+
+<script src="/static/js/modal-template.js?v={{ pdv_static_version }}"></script>
+<script src="/static/js/pdv.js?v={{ pdv_static_version }}"></script>
+<script src="/static/js/pdv-pwa.js?v={{ pdv_static_version }}"></script>
+</body>
+</html>
+

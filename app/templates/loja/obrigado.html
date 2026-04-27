@@ -1,0 +1,99 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Obrigado{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title">Obrigado pela compra!</h1>
+    <p class="loja-auth-subtitle mb-3">Seu pedido foi recebido e a loja já foi notificada.</p>
+    <div id="loja-obrigado-resumo" class="mb-3 text-start" style="max-width:300px; margin:0 auto;"></div>
+    {% set numero_pedido = request.query_params.get('numero_pedido') or request.query_params.get('pedido_id') %}
+    {% set pedido_id = request.query_params.get('pedido_id') %}
+    {% if numero_pedido %}
+    <p class="mb-2"><strong>Número do pedido: {{ numero_pedido }}</strong></p>
+    <p class="text-muted small mb-3">Guarde este número para acompanhar o pedido. Você pode consultar o status em <a href="/loja/acompanhar-pedido">Acompanhar pedido</a>.</p>
+    {% endif %}
+    {% if pedido_id %}
+    <div class="mb-3 text-start" style="max-width:320px;margin-left:auto;margin-right:auto;">
+      <label for="loja-obrigado-payment-method" class="form-label small mb-1">Forma de pagamento</label>
+      <select id="loja-obrigado-payment-method" class="form-select form-select-sm">
+        <option value="pix">PIX</option>
+        <option value="credit_card">Cartão de crédito</option>
+        <option value="boleto">Boleto</option>
+      </select>
+    </div>
+    {% endif %}
+    <div class="loja-auth-actions d-flex flex-wrap gap-2">
+      {% if pedido_id %}
+      <button type="button" class="btn btn-primary" id="loja-obrigado-pagar-agora" data-pedido-id="{{ pedido_id }}">Pagar agora</button>
+      {% endif %}
+      <a href="/loja/acompanhar-pedido{% if numero_pedido %}?numero_pedido={{ numero_pedido | urlencode }}{% endif %}" class="btn btn-outline-primary">Acompanhar pedido</a>
+      <a href="/loja/meus-pedidos" class="btn btn-outline-secondary">Meus pedidos</a>
+      {% if request.query_params.get('email') and numero_pedido %}
+      <a href="/loja/completar-cadastro?email={{ request.query_params.get('email') | urlencode }}&numero_pedido={{ numero_pedido | urlencode }}" class="btn btn-primary">Criar conta (só definir senha)</a>
+      {% endif %}
+      <a href="/" class="btn btn-primary">Voltar à loja</a>
+    </div>
+    <p class="text-muted small mt-2 mb-0" id="loja-obrigado-pagar-msg"></p>
+  </div>
+</div>
+{% if pedido_id %}
+<script>
+(function () {
+  var qsPm = new URLSearchParams(window.location.search).get("payment_method");
+  var selPm = document.getElementById("loja-obrigado-payment-method");
+  if (qsPm && selPm && ["pix", "credit_card", "boleto"].indexOf(qsPm) >= 0) selPm.value = qsPm;
+  var btn = document.getElementById("loja-obrigado-pagar-agora");
+  var msg = document.getElementById("loja-obrigado-pagar-msg");
+  var pedidoId = btn ? btn.getAttribute("data-pedido-id") : null;
+  if (pedidoId) {
+    fetch("/api/v1/loja/meus-pedidos", { credentials: "same-origin" })
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(pedidos) {
+        var p = (pedidos || []).find(function(x) { return String(x.id) === String(pedidoId); });
+        if (p) {
+          var el = document.getElementById("loja-obrigado-resumo");
+          if (el) {
+            var fmt = window.Vitrine ? window.Vitrine.formatPreco : function(v) { return "R$ " + Number(v).toFixed(2).replace(".",","); };
+            el.innerHTML =
+              '<div style="display:flex;justify-content:space-between;"><span>Subtotal</span><strong>' + fmt(p.subtotal) + '</strong></div>' +
+              (p.taxa_entrega > 0 ? '<div style="display:flex;justify-content:space-between;"><span>Frete</span><strong>' + fmt(p.taxa_entrega) + '</strong></div>' : '<div style="display:flex;justify-content:space-between;"><span>Frete</span><strong>Grátis</strong></div>') +
+              '<div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:4px;margin-top:4px;"><span><strong>Total</strong></span><strong>' + fmt(p.total) + '</strong></div>';
+          }
+        }
+      }).catch(function(){});
+  }
+  if (btn) {
+    btn.addEventListener("click", function () {
+      btn.disabled = true;
+      if (msg) msg.textContent = "Redirecionando...";
+      fetch("/api/v1/loja/pedidos/" + btn.getAttribute("data-pedido-id") + "/nova-tentativa-pagamento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payment_method: (selPm && selPm.value) ? selPm.value : "pix" }),
+        credentials: "same-origin",
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.detail && !data.redirect_url && !data.qr_code && !data.copy_paste_code) {
+            if (msg) msg.textContent = data.detail;
+            btn.disabled = false;
+            return;
+          }
+          if (window.Vitrine && window.Vitrine.handlePagamentoResponse && window.Vitrine.handlePagamentoResponse(data)) {
+            return;
+          }
+          if (msg) msg.textContent = (data && data.detail) ? data.detail : "Erro ao gerar link de pagamento.";
+          btn.disabled = false;
+        })
+        .catch(function () {
+          if (msg) msg.textContent = "Erro ao solicitar novo pagamento.";
+          btn.disabled = false;
+        });
+    });
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

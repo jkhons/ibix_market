@@ -1,0 +1,654 @@
+{% extends "base.html" %}
+{% block title %}Hierarquia do Sistema | PDV Ibix{% endblock %}
+
+{% block content %}
+<style>
+    .hier-stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px }
+    .hier-stat-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; padding:14px 20px; min-width:140px; text-align:center; box-shadow:0 1px 3px rgba(0,0,0,.06) }
+    .hier-stat-card .val { font-size:1.6rem; font-weight:700; line-height:1.2 }
+    .hier-stat-card .lbl { font-size:.75rem; color:#6c757d; text-transform:uppercase; letter-spacing:.5px }
+
+    .hier-search { max-width:360px; margin-bottom:16px }
+
+    .hier-tree { font-size:.88rem }
+    .hier-node { margin-left:0; list-style:none; padding:0 }
+    .hier-node .hier-node { margin-left:24px }
+
+    .hier-toggle { cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:6px; transition:background .15s }
+    .hier-toggle:hover { background:rgba(0,0,0,.04) }
+    .hier-toggle .arrow { display:inline-block; width:16px; font-size:.7rem; color:#6c757d; transition:transform .2s }
+    .hier-toggle.collapsed .arrow { transform:rotate(-90deg) }
+
+    .hier-children { overflow:hidden; transition:max-height .3s ease }
+    .hier-children.collapsed { max-height:0 !important; padding:0 }
+
+    .badge-role { font-size:.7rem; padding:2px 8px; border-radius:10px; font-weight:600; white-space:nowrap }
+    .role-superadministrador { background:#dc3545; color:#fff }
+    .role-administrador { background:#0d6efd; color:#fff }
+    .role-cliente-administrador { background:#198754; color:#fff }
+    .role-tecnico { background:#6f42c1; color:#fff }
+    .role-contador { background:#fd7e14; color:#fff }
+    .role-operador-pdv { background:#20c997; color:#fff }
+    .role-subcliente { background:#6c757d; color:#fff }
+    .role-sem-role { background:#adb5bd; color:#fff }
+
+    .badge-status { font-size:.65rem; padding:2px 6px; border-radius:4px; font-weight:600 }
+    .status-ativa { background:#d1e7dd; color:#0f5132 }
+    .status-trial { background:#cff4fc; color:#055160 }
+    .status-inadimplente { background:#fff3cd; color:#664d03 }
+    .status-bloqueada { background:#f8d7da; color:#842029 }
+    .status-cancelada { background:#e2e3e5; color:#41464b }
+    .status-sem_assinatura { background:#e2e3e5; color:#41464b }
+
+    .tenant-card { background:#fff; border:1px solid #dee2e6; border-radius:8px; margin-bottom:10px; overflow:hidden }
+    .tenant-header { padding:10px 16px; display:flex; align-items:center; gap:10px; cursor:pointer; user-select:none }
+    .tenant-header:hover { background:#f8f9fa }
+    .tenant-body { padding:4px 16px 14px 16px }
+    .tenant-inactive { opacity:.6 }
+
+    .user-row { display:flex; align-items:center; gap:8px; padding:3px 0; flex-wrap:wrap }
+    .user-row .u-name { font-weight:500 }
+    .user-row .u-email { color:#6c757d; font-size:.8rem }
+    .user-row .u-inactive { text-decoration:line-through; opacity:.5 }
+
+    .vinculo-box { background:#f8f9fa; border-left:3px solid #dee2e6; border-radius:0 4px 4px 0; padding:6px 12px; margin:4px 0 6px 28px; font-size:.82rem }
+    .vinculo-box.vinc-cliente { border-color:#0d6efd }
+    .vinculo-box.vinc-ca { border-color:#198754 }
+    .vinculo-box.vinc-tecnico { border-color:#6f42c1 }
+    .vinculo-box.vinc-contador { border-color:#fd7e14 }
+
+    .vinculo-label { font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.3px; margin-bottom:2px }
+    .vinculo-item { display:flex; align-items:center; gap:6px; padding:1px 0 }
+    .vinculo-item .vi-id { color:#6c757d; font-size:.75rem; min-width:28px }
+
+    .roles-legend { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px }
+
+    .expand-controls { display:flex; gap:8px; margin-bottom:10px }
+    .expand-controls button { font-size:.78rem }
+
+    .orphan-section { margin-top:20px; border-top:2px dashed #dee2e6; padding-top:14px }
+
+    /* Mapa Conceitual */
+    .mapa-toggle-btn { cursor:pointer; border:none; background:#f0f4ff; color:#0d6efd; font-weight:600; font-size:.85rem; padding:8px 16px; border-radius:6px; display:inline-flex; align-items:center; gap:6px; transition:background .15s }
+    .mapa-toggle-btn:hover { background:#dbe4ff }
+    .mapa-toggle-btn .mapa-arrow { transition:transform .2s; font-size:.7rem }
+    .mapa-toggle-btn.collapsed .mapa-arrow { transform:rotate(-90deg) }
+
+    .mapa-section { margin-bottom:20px }
+    .mapa-body { overflow:hidden; transition:max-height .4s ease }
+    .mapa-body.collapsed { max-height:0 !important }
+
+    .mapa-flow { display:flex; flex-direction:column; align-items:center; gap:0; padding:20px 0 }
+    .mapa-connector { width:3px; height:28px; background:linear-gradient(to bottom, #adb5bd, #6c757d); position:relative }
+    .mapa-connector::after { content:''; position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); border-left:6px solid transparent; border-right:6px solid transparent; border-top:8px solid #6c757d }
+
+    .mapa-box { border:2px solid; border-radius:12px; padding:16px 20px; max-width:700px; width:100%; position:relative; background:#fff }
+    .mapa-box h4 { margin:0 0 6px 0; font-size:.95rem; font-weight:700 }
+    .mapa-box p { margin:0 0 4px 0; font-size:.82rem; color:#495057; line-height:1.45 }
+    .mapa-box .mapa-tag { display:inline-block; font-size:.68rem; padding:1px 7px; border-radius:4px; font-weight:600; margin-right:4px }
+    .mapa-box .mapa-detail { font-size:.78rem; color:#6c757d; margin:6px 0 0 0; padding:6px 0 0 0; border-top:1px dashed #dee2e6 }
+    .mapa-box ul { margin:4px 0 0 0; padding-left:18px; font-size:.8rem; color:#495057 }
+    .mapa-box ul li { margin:2px 0 }
+
+    .box-tenant { border-color:#0d6efd; background:linear-gradient(135deg, #f0f4ff 0%, #fff 100%) }
+    .box-tenant h4 { color:#0d6efd }
+    .box-ca { border-color:#198754; background:linear-gradient(135deg, #f0fdf4 0%, #fff 100%) }
+    .box-ca h4 { color:#198754 }
+    .box-cliente { border-color:#6f42c1; background:linear-gradient(135deg, #f8f0ff 0%, #fff 100%) }
+    .box-cliente h4 { color:#6f42c1 }
+    .box-subcliente { border-color:#6c757d; background:linear-gradient(135deg, #f5f5f5 0%, #fff 100%) }
+    .box-subcliente h4 { color:#495057 }
+
+    .mapa-branch { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; margin:0 }
+    .mapa-branch-item { text-align:center; border:1.5px solid #dee2e6; border-radius:8px; padding:10px 14px; min-width:110px; background:#fff; font-size:.8rem }
+    .mapa-branch-item strong { display:block; font-size:.82rem; margin-bottom:2px }
+    .mapa-branch-item .mapa-sub { font-size:.7rem; color:#6c757d }
+
+    .mapa-connector-h { display:flex; justify-content:center; align-items:flex-start; gap:0; position:relative; padding:10px 0 }
+    .mapa-connector-h::before { content:''; position:absolute; top:0; left:50%; width:3px; height:10px; background:#adb5bd; transform:translateX(-50%) }
+    .mapa-connector-h .h-line { height:2px; background:#adb5bd; flex:1; max-width:200px; margin-top:10px }
+    .mapa-connector-h .h-dot { width:8px; height:8px; border-radius:50%; background:#6c757d; margin-top:6px }
+
+    .mapa-table { width:100%; max-width:700px; margin:12px auto; border-collapse:collapse; font-size:.8rem }
+    .mapa-table th { background:#f0f4ff; color:#0d6efd; padding:6px 10px; text-align:left; border:1px solid #dee2e6; font-weight:600 }
+    .mapa-table td { padding:5px 10px; border:1px solid #dee2e6; vertical-align:top }
+    .mapa-table code { font-size:.75rem; background:#e9ecef; padding:1px 4px; border-radius:3px }
+
+    .mapa-example { max-width:700px; margin:12px auto; background:#1e1e2e; color:#cdd6f4; border-radius:10px; padding:16px 20px; font-family:'Fira Code','Cascadia Code',monospace; font-size:.78rem; line-height:1.6; overflow-x:auto; white-space:pre }
+    .mapa-example .ex-tenant { color:#89b4fa }
+    .mapa-example .ex-role { color:#a6e3a1 }
+    .mapa-example .ex-cliente { color:#cba6f7 }
+    .mapa-example .ex-sub { color:#f9e2af }
+    .mapa-example .ex-dim { color:#6c7086 }
+
+    .mapa-note { max-width:700px; margin:10px auto; font-size:.78rem; color:#6c757d; background:#fff3cd; border-left:3px solid #ffc107; padding:8px 12px; border-radius:0 6px 6px 0 }
+
+    .siglas-card { max-width:700px; margin:0 auto 16px auto; background:#fff; border:1.5px solid #dee2e6; border-radius:10px; overflow:hidden }
+    .siglas-header { background:linear-gradient(135deg, #1e293b 0%, #334155 100%); color:#fff; padding:10px 18px; font-weight:700; font-size:.88rem; letter-spacing:.3px }
+    .siglas-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:0 }
+    .sigla-item { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid #f1f5f9; transition:background .1s }
+    .sigla-item:hover { background:#f8fafc }
+    .sigla-code { font-weight:800; font-size:1.05rem; min-width:32px; text-align:center; font-family:'Fira Code','Cascadia Code',monospace }
+    .sigla-info { line-height:1.3 }
+    .sigla-info .sigla-nome { font-weight:600; font-size:.82rem; color:#1e293b }
+    .sigla-info .sigla-desc { font-size:.72rem; color:#6c757d }
+</style>
+
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="h3 d-inline align-middle mb-0">Hierarquia do Sistema</h1>
+        <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
+    </div>
+
+    <div id="loading" class="text-muted small">Carregando hierarquia…</div>
+    <div id="error" class="text-danger small d-none"></div>
+    <div id="content" class="d-none">
+        <div id="stats-row" class="hier-stats"></div>
+
+        <div class="roles-legend" id="roles-legend"></div>
+
+        <!-- Mapa Conceitual (colapsável) -->
+        <div class="mapa-section">
+            <button class="mapa-toggle-btn" id="mapa-toggle-btn" type="button">
+                <span class="mapa-arrow">&#9660;</span> Mapa Conceitual da Hierarquia
+            </button>
+            <div class="mapa-body" id="mapa-body" style="max-height:none">
+
+                <!-- Siglas do Sistema -->
+                <div class="siglas-card" style="margin-top:12px">
+                    <div class="siglas-header">Siglas do Sistema</div>
+                    <div class="siglas-grid">
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#dc3545">SA</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">Superadministrador</div>
+                                <div class="sigla-desc">N&iacute;vel 1 &mdash; acesso total, todos os tenants</div>
+                            </div>
+                        </div>
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#0d6efd">AD</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">Administrador</div>
+                                <div class="sigla-desc">N&iacute;vel 2 &mdash; supervisiona CAs e clientes</div>
+                            </div>
+                        </div>
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#198754">CA</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">Cliente Administrador</div>
+                                <div class="sigla-desc">N&iacute;vel 3 &mdash; dono do neg&oacute;cio, gerencia equipe</div>
+                            </div>
+                        </div>
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#6f42c1">TC</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">T&eacute;cnico</div>
+                                <div class="sigla-desc">N&iacute;vel 4 &mdash; herda escopo do CA</div>
+                            </div>
+                        </div>
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#fd7e14">CT</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">Contador</div>
+                                <div class="sigla-desc">N&iacute;vel 4 &mdash; herda escopo do CA</div>
+                            </div>
+                        </div>
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#20c997">OP</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">Operador PDV</div>
+                                <div class="sigla-desc">N&iacute;vel 5 &mdash; opera caixa/terminal</div>
+                            </div>
+                        </div>
+                        <div class="sigla-item">
+                            <span class="sigla-code" style="color:#6c757d">CF</span>
+                            <div class="sigla-info">
+                                <div class="sigla-nome">Cliente Final (Subcliente)</div>
+                                <div class="sigla-desc">Portal &mdash; consumidor, v&ecirc; s&oacute; seus dados</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mapa-flow">
+
+                    <!-- TENANT -->
+                    <div class="mapa-box box-tenant">
+                        <h4>TENANT <span class="mapa-tag" style="background:#dbeafe;color:#1d4ed8">tabela: tenants</span></h4>
+                        <p>A organiza&ccedil;&atilde;o SaaS. Tem plano, assinatura, billing.</p>
+                        <p><strong>Campos:</strong> nome, slug, plan_id, external_id (gateway), ativo</p>
+                        <div class="mapa-detail">
+                            1 Tenant &rarr; 1 SubscriptionBilling (trial, ativa, bloqueada&hellip;)<br>
+                            1 Tenant &rarr; N Usu&aacute;rios (via <code>usuarios.tenant_id</code>)
+                        </div>
+                    </div>
+
+                    <div class="mapa-connector"></div>
+
+                    <!-- Roles do Tenant -->
+                    <div class="mapa-branch">
+                        <div class="mapa-branch-item" style="border-color:#dc3545">
+                            <strong style="color:#dc3545">SA &mdash; Superadmin</strong>
+                            <div class="mapa-sub">V&ecirc; tudo</div>
+                        </div>
+                        <div class="mapa-branch-item" style="border-color:#0d6efd">
+                            <strong style="color:#0d6efd">AD &mdash; Administrador</strong>
+                            <div class="mapa-sub">N&iacute;vel 2</div>
+                            <div class="mapa-sub" style="margin-top:4px"><code>administrador_cliente_administradores</code></div>
+                            <div class="mapa-sub">Admin &harr; CA: quem supervisiona quem</div>
+                        </div>
+                        <div class="mapa-branch-item" style="border-color:#adb5bd">
+                            <strong style="color:#6c757d">&hellip; outros internos</strong>
+                        </div>
+                    </div>
+
+                    <div class="mapa-connector"></div>
+
+                    <!-- CLIENTE ADMINISTRADOR -->
+                    <div class="mapa-box box-ca">
+                        <h4>SEU CLIENTE <span class="mapa-tag" style="background:#d1fae5;color:#065f46">quem paga/usa o PDV</span></h4>
+                        <p><strong>CA &mdash; CLIENTE ADMINISTRADOR</strong> (role do Usu&aacute;rio)</p>
+                        <p>&Eacute; um Usu&aacute;rio com role "Cliente Administrador". Representa: o dono do neg&oacute;cio, a empresa que usa o PDV.</p>
+                        <ul>
+                            <li><code>cliente_administrador_clientes</code> &rarr; N estabelecimentos (Clientes)</li>
+                            <li><code>cliente_administrador_tecnicos</code> &rarr; N t&eacute;cnicos</li>
+                            <li><code>areas_cliente</code> (indiretamente) &rarr; N subclientes</li>
+                        </ul>
+                        <div class="mapa-detail">
+                            Billing: <code>resolve_tenant_pagador()</code> &rarr; <code>usuario.tenant_id</code>
+                        </div>
+                    </div>
+
+                    <div class="mapa-connector"></div>
+
+                    <!-- Equipe do CA -->
+                    <div style="max-width:700px;width:100%">
+                        <div style="text-align:center;font-size:.78rem;color:#6c757d;margin-bottom:6px;font-weight:600">Equipe do Cliente Administrador</div>
+                        <div class="mapa-branch">
+                            <div class="mapa-branch-item" style="border-color:#6f42c1">
+                                <strong style="color:#6f42c1">TC &mdash; T&eacute;cnico</strong>
+                                <div class="mapa-sub">N&iacute;vel 4</div>
+                                <div class="mapa-sub" style="margin-top:3px"><code>cliente_admin_tecnicos</code></div>
+                                <div class="mapa-sub">Herda escopo de clientes do CA</div>
+                            </div>
+                            <div class="mapa-branch-item" style="border-color:#fd7e14">
+                                <strong style="color:#fd7e14">CT &mdash; Contador</strong>
+                                <div class="mapa-sub">N&iacute;vel 4</div>
+                                <div class="mapa-sub" style="margin-top:3px">FK self-ref: <code>contador_vinculado_ca_id</code></div>
+                                <div class="mapa-sub">Herda escopo de clientes do CA</div>
+                            </div>
+                            <div class="mapa-branch-item" style="border-color:#20c997">
+                                <strong style="color:#20c997">OP &mdash; Operador PDV</strong>
+                                <div class="mapa-sub">N&iacute;vel 5</div>
+                                <div class="mapa-sub">Sem escopo de cliente (terminal)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mapa-connector"></div>
+
+                    <!-- CLIENTE (Empresa Fiscal) -->
+                    <div class="mapa-box box-cliente">
+                        <h4>ESTABELECIMENTO <span class="mapa-tag" style="background:#ede9fe;color:#5b21b6">Empresa Fiscal</span></h4>
+                        <p><strong>CLIENTE</strong> (<code>tabela: clientes</code>) = quem emite NF-e, NFC-e</p>
+                        <p><strong>Campos:</strong> nome, cnpj (unique), endereco, cidade, uf, email</p>
+                        <p>Um CA pode ter v&aacute;rios (matriz + filiais):</p>
+                        <ul>
+                            <li>CA "Jo&atilde;o Restaurantes" &rarr; Cliente "Filial Centro"</li>
+                            <li>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; &rarr; Cliente "Filial Shopping"</li>
+                            <li>&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;&emsp; &rarr; Cliente "Filial Aeroporto"</li>
+                        </ul>
+                        <div class="mapa-detail">
+                            Cada Cliente tem: PDVs, Produtos, Estoque, Vendas, Ordens de Servi&ccedil;o, Notas Fiscais
+                        </div>
+                    </div>
+
+                    <div class="mapa-connector"></div>
+
+                    <!-- SUBCLIENTE -->
+                    <div class="mapa-box box-subcliente">
+                        <h4>CLIENTE DO SEU CLIENTE <span class="mapa-tag" style="background:#e9ecef;color:#495057">consumidor final</span></h4>
+                        <p><strong>CF &mdash; SUBCLIENTE / CLIENTE FINAL</strong> (role do Usu&aacute;rio) &mdash; vinculado a 1 &uacute;nico Cliente via <code>areas_cliente</code></p>
+                        <p>Representa: o cliente da empresa fiscal, quem recebe certificados, compra produtos, recebe NF.</p>
+                        <p><strong>Acessa:</strong> Portal (<code>/portal</code>) &mdash; v&ecirc; seus certificados, vendas/pedidos, equipamentos, agendamentos.</p>
+                        <div class="mapa-detail">
+                            <strong>Escopo:</strong> v&ecirc; APENAS dados do seu Cliente (empresa fiscal)
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Tabela de vínculos -->
+                <div style="text-align:center;margin-top:10px">
+                    <h5 style="font-size:.9rem;color:#495057;margin-bottom:8px">Tabelas de v&iacute;nculo (o "cola" da hierarquia)</h5>
+                </div>
+                <table class="mapa-table">
+                    <thead>
+                        <tr><th>Tabela</th><th>Liga</th><th>Significado</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>administrador_clientes</code></td><td>Admin &harr; Cliente</td><td>Quais empresas fiscais o Admin pode ver</td></tr>
+                        <tr><td><code>administrador_cliente_administradores</code></td><td>Admin &harr; CA</td><td>Qual Admin supervisiona qual CA</td></tr>
+                        <tr><td><code>cliente_administrador_clientes</code></td><td>CA &harr; Cliente</td><td>Quais empresas fiscais o CA possui</td></tr>
+                        <tr><td><code>cliente_administrador_tecnicos</code></td><td>CA &harr; T&eacute;cnico</td><td>Quais t&eacute;cnicos pertencem ao CA</td></tr>
+                        <tr><td><code>areas_cliente</code></td><td>Subcliente &harr; Cliente</td><td>Qual empresa fiscal o subcliente pode acessar</td></tr>
+                    </tbody>
+                </table>
+
+                <!-- Exemplo concreto -->
+                <div style="text-align:center;margin-top:16px">
+                    <h5 style="font-size:.9rem;color:#495057;margin-bottom:8px">Exemplo concreto</h5>
+                </div>
+                <div class="mapa-example"><span class="ex-tenant">Tenant "Certilog"</span>
+  <span class="ex-dim">&boxur;&boxh;</span> <span class="ex-role"><strong>SA</strong> Superadmin:</span> super.admin@certipeso.com.br
+  <span class="ex-dim">&boxur;&boxh;</span> <span class="ex-role"><strong>AD</strong> Administrador:</span> admin@certilog.com.br
+  <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxur;&boxh;</span> supervisiona CA "Jo&atilde;o"
+  <span class="ex-dim">&boxur;&boxh;</span> <span class="ex-role"><strong>CA</strong> Cliente Admin:</span> joao@restaurantes.com.br
+       <span class="ex-dim">&boxvr;&boxh;</span> <span class="ex-cliente">Clientes (empresas fiscais):</span>
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxvr;&boxh;</span> <span class="ex-cliente">"Restaurante Centro Ltda"</span> <span class="ex-dim">(CNPJ 12.345.678/0001-01)</span>
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxvr;&boxh;</span> PDV 1 (caixa balc&atilde;o) <span class="ex-dim">&larr; <strong>OP</strong> opera aqui</span>
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxvr;&boxh;</span> PDV 2 (caixa delivery) <span class="ex-dim">&larr; <strong>OP</strong> opera aqui</span>
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxvr;&boxh;</span> Produtos: Marmitex, Refrigerante...
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxur;&boxh;</span> Vendas, Estoque, NFs...
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxur;&boxh;</span> <span class="ex-cliente">"Restaurante Shopping Ltda"</span> <span class="ex-dim">(CNPJ 12.345.678/0002-82)</span>
+       <span class="ex-dim">&boxv;</span>         <span class="ex-dim">&boxur;&boxh;</span> PDV 1
+       <span class="ex-dim">&boxvr;&boxh;</span> <span class="ex-role"><strong>TC</strong> T&eacute;cnicos:</span>
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxur;&boxh;</span> maria@tecnica.com <span class="ex-dim">(herda acesso aos 2 clientes)</span>
+       <span class="ex-dim">&boxvr;&boxh;</span> <span class="ex-role"><strong>CT</strong> Contador:</span>
+       <span class="ex-dim">&boxv;</span>    <span class="ex-dim">&boxur;&boxh;</span> contador@certilog.com <span class="ex-dim">(herda acesso do CA "Jo&atilde;o")</span>
+       <span class="ex-dim">&boxur;&boxh;</span> <span class="ex-sub"><strong>CF</strong> Clientes finais (subclientes do Jo&atilde;o):</span>
+            <span class="ex-dim">&boxvr;&boxh;</span> <span class="ex-sub">empresa.abc@gmail.com</span> <span class="ex-dim">&rarr; v&ecirc; dados de "Rest. Centro"</span>
+            <span class="ex-dim">&boxur;&boxh;</span> <span class="ex-sub">pedro@fornecedor.com</span> <span class="ex-dim">&rarr; v&ecirc; dados de "Rest. Shopping"</span></div>
+
+                <div class="mapa-note">
+                    <strong>Observa&ccedil;&atilde;o:</strong> A tabela <code>clientes</code> n&atilde;o tem FK direta para <code>tenants</code>. A rela&ccedil;&atilde;o &eacute; indireta: Tenant &rarr; Usu&aacute;rio (CA) &rarr; <code>cliente_administrador_clientes</code> &rarr; Cliente. O escopo &eacute; sempre resolvido em runtime pela fun&ccedil;&atilde;o <code>get_allowed_cliente_ids()</code> em <code>app/core/scope.py</code>.
+                </div>
+
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <input type="text" id="q" class="form-control form-control-sm hier-search" placeholder="Buscar tenant, usuário, cliente…">
+            <div class="expand-controls">
+                <button class="btn btn-outline-secondary btn-sm" onclick="window._hierExpandAll()">Expandir tudo</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="window._hierCollapseAll()">Recolher tudo</button>
+            </div>
+        </div>
+
+        <div id="tree-container" class="hier-tree"></div>
+        <div id="orphan-container"></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var DATA = null;
+
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+
+    function roleSlug(r) {
+        return (r || 'sem-role').toLowerCase().replace(/\s+/g, '-').replace(/[áàã]/g, 'a').replace(/[éê]/g, 'e').replace(/[í]/g, 'i').replace(/[óô]/g, 'o').replace(/[ú]/g, 'u');
+    }
+
+    function roleBadge(r) {
+        return '<span class="badge-role role-' + roleSlug(r) + '">' + esc(r || 'Sem Role') + '</span>';
+    }
+
+    function statusBadge(s) {
+        return '<span class="badge-status status-' + (s || 'sem_assinatura') + '">' + esc(s || 'sem assinatura') + '</span>';
+    }
+
+    function esc(t) {
+        var d = document.createElement('div');
+        d.textContent = t;
+        return d.innerHTML;
+    }
+
+    function userHTML(u, showRole) {
+        var cls = u.ativo ? '' : ' u-inactive';
+        var h = '<div class="user-row">';
+        h += '<span class="vi-id">#' + u.id + '</span>';
+        h += '<span class="u-name' + cls + '">' + esc(u.nome) + '</span>';
+        h += '<span class="u-email">' + esc(u.email) + '</span>';
+        if (showRole) h += roleBadge(u.role);
+        if (!u.ativo) h += '<span class="badge bg-secondary" style="font-size:.6rem">inativo</span>';
+        h += '</div>';
+        return h;
+    }
+
+    function clienteHTML(c) {
+        return '<div class="vinculo-item"><span class="vi-id">#' + c.id + '</span><strong>' + esc(c.nome) + '</strong><span class="u-email">' + esc(c.cnpj || '') + '</span><span class="u-email">' + esc((c.cidade || '') + (c.uf ? '/' + c.uf : '')) + '</span></div>';
+    }
+
+    function vinculosHTML(entry) {
+        var h = '';
+        if (entry.clientes_vinculados && entry.clientes_vinculados.length) {
+            h += '<div class="vinculo-box vinc-cliente"><div class="vinculo-label" style="color:#0d6efd">Clientes vinculados (' + entry.clientes_vinculados.length + ')</div>';
+            entry.clientes_vinculados.forEach(function(c) { h += clienteHTML(c); });
+            h += '</div>';
+        }
+        if (entry.cas_vinculados && entry.cas_vinculados.length) {
+            h += '<div class="vinculo-box vinc-ca"><div class="vinculo-label" style="color:#198754">CAs vinculados (' + entry.cas_vinculados.length + ')</div>';
+            entry.cas_vinculados.forEach(function(ca) { h += userHTML(ca, true); });
+            h += '</div>';
+        }
+        if (entry.tecnicos_vinculados && entry.tecnicos_vinculados.length) {
+            h += '<div class="vinculo-box vinc-tecnico"><div class="vinculo-label" style="color:#6f42c1">Técnicos vinculados (' + entry.tecnicos_vinculados.length + ')</div>';
+            entry.tecnicos_vinculados.forEach(function(t) { h += userHTML(t, false); });
+            h += '</div>';
+        }
+        if (entry.vinculado_a_ca) {
+            h += '<div class="vinculo-box vinc-contador"><div class="vinculo-label" style="color:#fd7e14">Vinculado ao CA</div>';
+            h += userHTML(entry.vinculado_a_ca, false);
+            h += '</div>';
+        }
+        return h;
+    }
+
+    function renderStats(stats) {
+        var items = [
+            { val: stats.total_tenants, lbl: 'Tenants', color: '#0d6efd' },
+            { val: stats.total_usuarios, lbl: 'Usuários', color: '#198754' },
+            { val: stats.total_clientes, lbl: 'Clientes', color: '#6f42c1' },
+            { val: stats.total_roles, lbl: 'Roles', color: '#fd7e14' },
+        ];
+        var uprole = stats.usuarios_por_role || {};
+        Object.keys(uprole).forEach(function(r) {
+            items.push({ val: uprole[r], lbl: r, color: '#6c757d' });
+        });
+        var h = '';
+        items.forEach(function(it) {
+            h += '<div class="hier-stat-card"><div class="val" style="color:' + it.color + '">' + it.val + '</div><div class="lbl">' + esc(it.lbl) + '</div></div>';
+        });
+        document.getElementById('stats-row').innerHTML = h;
+    }
+
+    function renderLegend(roles) {
+        var h = '';
+        roles.forEach(function(r) { h += roleBadge(r.nome) + ' '; });
+        document.getElementById('roles-legend').innerHTML = h;
+    }
+
+    var ROLE_ORDER = ['Superadministrador', 'Administrador', 'Cliente Administrador', 'Técnico', 'Contador', 'Operador PDV', 'Subcliente', 'Sem Role'];
+
+    function renderTenant(t) {
+        var id = 'tenant-' + t.id;
+        var inactiveCls = t.ativo ? '' : ' tenant-inactive';
+        var subHtml = t.subscription ? statusBadge(t.subscription.status) + (t.subscription.qtd_pdvs ? ' <span class="u-email">' + t.subscription.qtd_pdvs + ' PDVs</span>' : '') : '<span class="u-email">sem assinatura</span>';
+
+        var h = '<div class="tenant-card' + inactiveCls + '">';
+        h += '<div class="tenant-header hier-toggle" data-target="' + id + '-body">';
+        h += '<span class="arrow">&#9660;</span>';
+        h += '<strong>#' + t.id + ' ' + esc(t.nome) + '</strong>';
+        if (t.slug) h += '<span class="u-email">(' + esc(t.slug) + ')</span>';
+        h += subHtml;
+        if (!t.ativo) h += '<span class="badge bg-secondary" style="font-size:.6rem">inativo</span>';
+        h += '<span class="u-email ms-auto">' + t.total_usuarios + ' usuário(s)</span>';
+        h += '</div>';
+
+        h += '<div class="tenant-body hier-children" id="' + id + '-body">';
+        var upr = t.usuarios_por_role || {};
+        var sortedRoles = Object.keys(upr).sort(function(a, b) {
+            var ia = ROLE_ORDER.indexOf(a); var ib = ROLE_ORDER.indexOf(b);
+            if (ia === -1) ia = 99; if (ib === -1) ib = 99;
+            return ia - ib;
+        });
+        sortedRoles.forEach(function(role) {
+            var users = upr[role];
+            var gid = id + '-role-' + roleSlug(role);
+            h += '<div style="margin:6px 0 2px 0">';
+            h += '<span class="hier-toggle" data-target="' + gid + '">';
+            h += '<span class="arrow">&#9660;</span>';
+            h += roleBadge(role);
+            h += '<span class="u-email">(' + users.length + ')</span>';
+            h += '</span>';
+            h += '<div class="hier-children" id="' + gid + '" style="margin-left:20px">';
+            users.forEach(function(u) {
+                h += userHTML(u, false);
+                h += vinculosHTML(u);
+            });
+            h += '</div></div>';
+        });
+        h += '</div></div>';
+        return h;
+    }
+
+    function renderOrphans(orphans) {
+        if (!orphans || !orphans.length) return;
+        var c = document.getElementById('orphan-container');
+        var h = '<div class="orphan-section"><h5>Usuários sem Tenant (' + orphans.length + ')</h5>';
+        orphans.forEach(function(u) {
+            h += userHTML(u, true);
+        });
+        h += '</div>';
+        c.innerHTML = h;
+    }
+
+    function renderTree(data) {
+        var container = document.getElementById('tree-container');
+        var h = '';
+        data.tenants.forEach(function(t) { h += renderTenant(t); });
+        container.innerHTML = h;
+    }
+
+    function filterTree(q) {
+        if (!DATA) return;
+        q = q.toLowerCase().trim();
+        var container = document.getElementById('tree-container');
+        var cards = container.querySelectorAll('.tenant-card');
+        cards.forEach(function(card) {
+            if (!q) { card.style.display = ''; return; }
+            card.style.display = card.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
+        });
+        var orphanEl = document.getElementById('orphan-container');
+        if (orphanEl) {
+            var rows = orphanEl.querySelectorAll('.user-row');
+            rows.forEach(function(row) {
+                if (!q) { row.style.display = ''; return; }
+                row.style.display = row.textContent.toLowerCase().indexOf(q) >= 0 ? '' : 'none';
+            });
+        }
+    }
+
+    function setupToggles() {
+        document.addEventListener('click', function(e) {
+            var toggle = e.target.closest('.hier-toggle');
+            if (!toggle) return;
+            var targetId = toggle.getAttribute('data-target');
+            if (!targetId) return;
+            var target = document.getElementById(targetId);
+            if (!target) return;
+            var isCollapsed = target.classList.contains('collapsed');
+            if (isCollapsed) {
+                target.classList.remove('collapsed');
+                target.style.maxHeight = target.scrollHeight + 'px';
+                toggle.classList.remove('collapsed');
+                setTimeout(function() { target.style.maxHeight = 'none'; }, 300);
+            } else {
+                target.style.maxHeight = target.scrollHeight + 'px';
+                target.offsetHeight; // force reflow
+                target.style.maxHeight = '0';
+                target.classList.add('collapsed');
+                toggle.classList.add('collapsed');
+            }
+        });
+    }
+
+    window._hierExpandAll = function() {
+        document.querySelectorAll('.hier-children.collapsed').forEach(function(el) {
+            el.classList.remove('collapsed');
+            el.style.maxHeight = 'none';
+        });
+        document.querySelectorAll('.hier-toggle.collapsed').forEach(function(el) {
+            el.classList.remove('collapsed');
+        });
+    };
+
+    window._hierCollapseAll = function() {
+        document.querySelectorAll('.hier-children').forEach(function(el) {
+            el.style.maxHeight = '0';
+            el.classList.add('collapsed');
+        });
+        document.querySelectorAll('.hier-toggle[data-target]').forEach(function(el) {
+            el.classList.add('collapsed');
+        });
+    };
+
+    function init() {
+        fetch('/api/v1/admin/hierarquia', {
+            headers: { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json' }
+        })
+        .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function(data) {
+            DATA = data;
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('content').classList.remove('d-none');
+            renderStats(data.stats);
+            renderLegend(data.roles);
+            renderTree(data);
+            renderOrphans(data.orphan_users);
+        })
+        .catch(function(e) {
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('error').textContent = 'Erro ao carregar hierarquia: ' + e.message;
+            document.getElementById('error').classList.remove('d-none');
+        });
+    }
+
+    var debounce;
+    document.getElementById('q').addEventListener('input', function() {
+        clearTimeout(debounce);
+        debounce = setTimeout(function() { filterTree(document.getElementById('q').value); }, 250);
+    });
+
+    // Mapa conceitual toggle
+    var mapaBtn = document.getElementById('mapa-toggle-btn');
+    var mapaBody = document.getElementById('mapa-body');
+    if (mapaBtn && mapaBody) {
+        mapaBody.classList.add('collapsed');
+        mapaBtn.classList.add('collapsed');
+        mapaBtn.addEventListener('click', function() {
+            var isCollapsed = mapaBody.classList.contains('collapsed');
+            if (isCollapsed) {
+                mapaBody.classList.remove('collapsed');
+                mapaBody.style.maxHeight = mapaBody.scrollHeight + 'px';
+                mapaBtn.classList.remove('collapsed');
+                setTimeout(function() { mapaBody.style.maxHeight = 'none'; }, 400);
+            } else {
+                mapaBody.style.maxHeight = mapaBody.scrollHeight + 'px';
+                mapaBody.offsetHeight;
+                mapaBody.style.maxHeight = '0';
+                mapaBody.classList.add('collapsed');
+                mapaBtn.classList.add('collapsed');
+            }
+        });
+    }
+
+    setupToggles();
+    init();
+})();
+</script>
+{% endblock %}

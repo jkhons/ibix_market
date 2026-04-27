@@ -1,0 +1,1351 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciamento de Usuários | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ===== MODAL CUSTOMIZADO INDEPENDENTE - SEM BOOTSTRAP ===== */
+    
+    /* Overlay do Modal */
+    .custom-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        z-index: 9998;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .custom-modal-overlay.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Container do Modal */
+    .custom-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        z-index: 9999;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 20px;
+        box-sizing: border-box;
+    }
+    
+    .custom-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Conteúdo do Modal */
+    .custom-modal-content {
+        background: #ffffff;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 700px;
+        max-height: calc(100vh - 40px);
+        max-height: calc(100dvh - 40px);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideDown 0.3s ease;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        margin: auto;
+    }
+    
+    .custom-modal-content-small {
+        max-width: 500px;
+    }
+    
+    /* Form no modal: permite que o body role */
+    .custom-modal-content > form {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+    
+    /* Header do Modal */
+    .custom-modal-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: #ffffff;
+        padding: 24px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+        gap: 12px;
+    }
+    
+    .custom-modal-header.danger {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+    }
+    
+    .custom-modal-title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        flex: 1;
+    }
+    
+    .custom-modal-close {
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        font-size: 28px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+    
+    .custom-modal-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: rotate(90deg);
+    }
+    
+    /* Body do Modal */
+    .custom-modal-body {
+        padding: 30px;
+        background: #ffffff;
+        overflow-y: auto;
+        overflow-x: hidden;
+        flex: 1;
+        min-height: 0;
+    }
+    
+    /* Formulário */
+    .custom-form-row {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .custom-form-group {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .custom-form-group.full-width {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .custom-form-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .custom-form-label .required {
+        color: #e74c3c;
+        margin-left: 4px;
+    }
+    
+    .custom-form-input,
+    .custom-form-select {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 15px;
+        color: #2c3e50;
+        background: #ffffff;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        outline: none;
+        transition: all 0.2s ease;
+        font-family: inherit;
+    }
+    
+    .custom-form-input:focus,
+    .custom-form-select:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+    }
+    
+    .custom-form-input::placeholder {
+        color: #95a5a6;
+    }
+    
+    /* Input Group (Senha) */
+    .custom-input-group {
+        position: relative;
+        display: flex;
+    }
+    
+    .custom-input-group .custom-form-input {
+        flex: 1;
+        border-radius: 8px 0 0 8px;
+    }
+    
+    .custom-input-group-btn {
+        padding: 12px 16px;
+        background: #ecf0f1;
+        border: 2px solid #e0e0e0;
+        border-left: none;
+        border-radius: 0 8px 8px 0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .custom-input-group-btn:hover {
+        background: #d5dbdb;
+    }
+    
+    /* Helper Text */
+    .custom-form-helper {
+        background: #f8f9fa;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border-left: 4px solid #3498db;
+        margin-top: 12px;
+        font-size: 13px;
+        color: #495057;
+        line-height: 1.6;
+    }
+    
+    .custom-form-helper strong {
+        color: #2c3e50;
+    }
+    
+    /* Switch Toggle */
+    .custom-switch {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .custom-switch-input {
+        display: none;
+    }
+    
+    .custom-switch-slider {
+        width: 50px;
+        height: 26px;
+        background: #bdc3c7;
+        border-radius: 13px;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .custom-switch-slider::after {
+        content: '';
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        background: #ffffff;
+        border-radius: 50%;
+        top: 2px;
+        left: 2px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .custom-switch-input:checked + .custom-switch-slider {
+        background: #27ae60;
+    }
+    
+    .custom-switch-input:checked + .custom-switch-slider::after {
+        left: 26px;
+    }
+    
+    .custom-switch-label {
+        font-size: 15px;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    /* Footer do Modal */
+    .custom-modal-footer {
+        padding: 20px 30px;
+        background: #f8f9fa;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        border-top: 1px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    /* Botões */
+    .custom-btn {
+        padding: 12px 24px;
+        font-size: 15px;
+        font-weight: 500;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: inherit;
+    }
+    
+    .custom-btn-primary {
+        background: #2c3e50;
+        color: #ffffff;
+    }
+    
+    .custom-btn-primary:hover {
+        background: #34495e;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(44, 62, 80, 0.3);
+    }
+    
+    .custom-btn-secondary {
+        background: #95a5a6;
+        color: #ffffff;
+    }
+    
+    .custom-btn-secondary:hover {
+        background: #7f8c8d;
+    }
+    
+    .custom-btn-danger {
+        background: #e74c3c;
+        color: #ffffff;
+    }
+    
+    .custom-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(231, 76, 60, 0.3);
+    }
+    
+    /* Mensagem de Alerta */
+    .custom-alert-message {
+        font-size: 16px;
+        color: #2c3e50;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+    
+    .custom-alert-warning {
+        background: #fff5f5;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border-left: 4px solid #e74c3c;
+        font-size: 14px;
+        color: #721c24;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* Animações */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Responsividade - Modal Novo Usuário / Novo Representante */
+    @media (max-width: 768px) {
+        .custom-modal {
+            padding: 12px;
+            align-items: flex-start;
+        }
+        
+        .custom-modal.active {
+            align-items: flex-start;
+        }
+        
+        .custom-modal-content {
+            max-width: 100%;
+            max-height: calc(100vh - 24px);
+            max-height: calc(100dvh - 24px);
+        }
+        
+        .custom-modal-header {
+            padding: 16px 20px;
+        }
+        
+        .custom-modal-title {
+            font-size: 18px;
+        }
+        
+        .custom-modal-body {
+            padding: 20px;
+        }
+        
+        .custom-form-row {
+            flex-direction: column;
+            gap: 0;
+            margin-bottom: 16px;
+        }
+        
+        .custom-form-group {
+            margin-bottom: 16px;
+        }
+        
+        .custom-form-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .custom-modal-footer {
+            flex-wrap: wrap;
+            padding: 16px 20px;
+        }
+        
+        .custom-btn {
+            min-width: 0;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .custom-modal {
+            padding: 8px;
+        }
+        
+        .custom-modal-content {
+            max-height: calc(100vh - 16px);
+            max-height: calc(100dvh - 16px);
+            border-radius: 8px;
+        }
+        
+        .custom-modal-header {
+            padding: 14px 16px;
+        }
+        
+        .custom-modal-title {
+            font-size: 16px;
+        }
+        
+        .custom-modal-body {
+            padding: 16px;
+        }
+        
+        .custom-modal-footer {
+            flex-direction: column;
+            padding: 14px 16px;
+            gap: 8px;
+        }
+        
+        .custom-btn {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .custom-form-helper {
+            font-size: 12px;
+            padding: 10px 12px;
+        }
+    }
+        
+        /* ===== ESTILOS PARA TABELA DE ROLES ===== */
+        #tabelaRoles tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        #tabelaRoles .badge {
+            font-size: 11px;
+            padding: 4px 8px;
+        }
+        
+        #tabelaRoles .btn-group {
+            display: flex;
+            gap: 4px;
+        }
+        
+        #tabelaRoles .btn-group .btn {
+            padding: 4px 8px;
+        }
+        
+        #cardRolesContainer .alert {
+            padding: 12px;
+            margin-bottom: 16px;
+        }
+        
+        #cardRolesContainer .alert i {
+            width: 16px;
+            height: 16px;
+        }
+        
+        /* ===== ESTILOS PARA MODAL DE PERMISSÕES ===== */
+        .modulo-permissoes {
+            margin-bottom: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .modulo-header {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        
+        .modulo-header:hover {
+            background: linear-gradient(135deg, #e9ecef, #dee2e6);
+        }
+        
+        .modulo-header-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+        
+        .modulo-icon {
+            font-size: 20px;
+        }
+        
+        .modulo-titulo {
+            font-weight: 600;
+            color: #2c3e50;
+            margin: 0;
+        }
+        
+        .modulo-contador {
+            font-size: 12px;
+            color: #6c757d;
+            margin-left: 8px;
+        }
+        
+        .modulo-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .btn-selecionar-todas,
+        .btn-desmarcar-todas {
+            padding: 4px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-selecionar-todas {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-selecionar-todas:hover {
+            background: #229954;
+        }
+        
+        .btn-desmarcar-todas {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .btn-desmarcar-todas:hover {
+            background: #7f8c8d;
+        }
+        
+        .modulo-toggle {
+            font-size: 20px;
+            color: #6c757d;
+            transition: transform 0.3s ease;
+        }
+        
+        .modulo-toggle.expandido {
+            transform: rotate(180deg);
+        }
+        
+        .modulo-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: #ffffff;
+        }
+        
+        .modulo-body.expandido {
+            max-height: 800px;
+        }
+        
+        .permissao-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            transition: background 0.2s ease;
+        }
+        
+        .permissao-item:last-child {
+            border-bottom: none;
+        }
+        
+        .permissao-item:hover {
+            background: #f8f9fa;
+        }
+        
+        .permissao-checkbox {
+            margin-top: 2px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .permissao-info {
+            flex: 1;
+        }
+        
+        .permissao-nome {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .permissao-descricao {
+            font-size: 12px;
+            color: #6c757d;
+            margin: 0;
+        }
+        
+        .permissao-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .permissao-badge-visualizar { background: #d4edda; color: #155724; }
+        .permissao-badge-criar { background: #d1ecf1; color: #0c5460; }
+        .permissao-badge-editar { background: #fff3cd; color: #856404; }
+        .permissao-badge-excluir { background: #f8d7da; color: #721c24; }
+        .permissao-badge-default { background: #e2e3e5; color: #383d41; }
+        
+        #buscaPermissoes {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+        }
+        
+        #buscaPermissoes:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            outline: none;
+        }
+        
+        .modulo-permissoes.oculto {
+            display: none;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+{% set can_view = user_permissions and 'usuarios:visualizar' in user_permissions %}
+{% set can_create = user_permissions and 'usuarios:criar' in user_permissions %}
+{% set can_edit = user_permissions and 'usuarios:editar' in user_permissions %}
+{% set can_delete = user_permissions and 'usuarios:excluir' in user_permissions %}
+{# Gerenciamento de Roles e Permissões apenas para Superadministrador (Administrador não vê este card) #}
+{% set can_manage_roles = user_permissions and 'usuarios:gerenciar_roles' in user_permissions and user_role == 'Superadministrador' %}
+<div class="container-fluid p-0">
+    <!-- Header da página -->
+    <div class="mb-3">
+        <h1 class="h3 mb-3">Gerenciamento de Usuários</h1>
+    </div>
+
+    <!-- Resumo -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <p class="text-muted small mb-0">Cada usuário possui uma função que define o que pode acessar. Visibilidade e ações por permissão granular (usuarios:visualizar, usuarios:criar, etc.).</p>
+        </div>
+    </div>
+
+    {% if can_view %}
+    <!-- Card Representantes (Administradores) -->
+    <div class="row mb-3" id="cardRepresentantesWrap">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header py-2">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="align-middle me-2" data-feather="user-check"></i>
+                                Representantes (Administradores)
+                            </h5>
+                        </div>
+                        {% if can_create and user_role == 'Superadministrador' %}
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-primary btn-sm" id="btnNovoAdministrador" title="Abrir formulário com função Administrador (Representante) já selecionada">
+                                <i class="align-middle me-1" data-feather="user-plus"></i>
+                                Novo Representante
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body py-2">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    {% if can_edit %}
+                                    <th class="text-end">Ações</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRepresentantes">
+                                <tr><td colspan="4" class="text-center text-muted">Carregando...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted small mb-0 mt-1"><span id="totalRepresentantes">0</span> representante(s)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card Usuários do Sistema (somente com usuarios:visualizar) -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="align-middle me-2" data-feather="users"></i>
+                                Usuários do Sistema
+                            </h5>
+                        </div>
+                        <div class="col-auto d-flex gap-2">
+                            {% if can_create %}
+                            <button type="button" class="btn btn-primary" id="btnNovoUsuario">
+                                <i class="align-middle me-1" data-feather="plus"></i>
+                                Novo Usuário
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="align-middle" data-feather="search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="filtroNome" placeholder="Filtrar por nome...">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroStatus">
+                                <option value="">Todos os status</option>
+                                <option value="true">Ativo</option>
+                                <option value="false">Inativo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filtroRole">
+                                <option value="">Todas as funções</option>
+                                <!-- Opções serão carregadas via JavaScript -->
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-secondary w-100" id="btnLimparFiltros">
+                                <i class="align-middle me-1" data-feather="refresh-cw"></i>
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de usuários -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tabelaUsuarios">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Email</th>
+                                    <th>Função</th>
+                                    <th>Status</th>
+                                    <th>Criado em</th>
+                                    {% if can_edit or can_delete %}
+                                    <th>Ações</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyUsuarios">
+                                <!-- Dados serão carregados via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginação -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted">
+                            Mostrando <span id="infoPagina">0-0</span> de <span id="totalUsuarios">0</span> usuários
+                        </div>
+                        <nav aria-label="Navegação de páginas">
+                            <ul class="pagination mb-0" id="paginacao">
+                                <!-- Paginação será gerada via JavaScript -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if can_manage_roles %}
+    <!-- Card Funções (Roles) e Permissões (somente com usuarios:gerenciar_roles) -->
+    <div class="row mt-4" id="cardRolesContainer">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="align-middle me-2" data-feather="shield"></i>
+                                Funções (Roles) e Permissões
+                            </h5>
+                        </div>
+                        <div class="col-auto">
+                            <a href="/roles" class="btn btn-outline-secondary btn-sm me-1" title="Abrir em tela cheia">Abrir em tela cheia</a>
+                            <button type="button" class="btn btn-outline-primary btn-sm me-1" id="btnAdicionarPermissoes">
+                                <i class="align-middle me-1" data-feather="key"></i>
+                                Gerenciar Permissões
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnNovaRole">
+                                <i class="align-middle me-1" data-feather="plus"></i>
+                                Nova Role
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="tabelaRoles">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Descrição</th>
+                                    <th>Status</th>
+                                    <th>Tipo</th>
+                                    <th>Usuários</th>
+                                    <th>Permissões</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRoles">
+                                <!-- Dados carregados via roles-manager.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Overlay do Modal -->
+<div class="custom-modal-overlay" id="modalOverlay"></div>
+
+<!-- Modal Customizado para Novo/Editar Usuário -->
+<div class="custom-modal" id="modalNovoUsuario">
+    <div class="custom-modal-content">
+        <div class="custom-modal-header">
+            <h2 class="custom-modal-title" id="modalNovoUsuarioLabel">
+                <i class="align-middle" data-feather="user-plus"></i>
+                Novo Usuário
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModal">×</button>
+        </div>
+        
+        <form id="formUsuario">
+            <div class="custom-modal-body">
+                <input type="hidden" id="usuarioId" name="id">
+                
+                <!-- Nome e Email -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group">
+                        <label class="custom-form-label">
+                            Nome Completo <span class="required">*</span>
+                        </label>
+                        <input type="text" class="custom-form-input" id="nome" name="nome" required>
+                    </div>
+                    
+                    <div class="custom-form-group">
+                        <label class="custom-form-label">
+                            Email <span class="required">*</span>
+                        </label>
+                        <input type="email" class="custom-form-input" id="email" name="email" required>
+                    </div>
+                </div>
+                
+                <!-- CPF e RG -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group">
+                        <label class="custom-form-label">CPF</label>
+                        <input type="text" class="custom-form-input" id="cpf" name="cpf" placeholder="000.000.000-00" maxlength="14">
+                    </div>
+                    <div class="custom-form-group">
+                        <label class="custom-form-label">RG</label>
+                        <input type="text" class="custom-form-input" id="rg" name="rg" placeholder="RG" maxlength="20">
+                    </div>
+                </div>
+                
+                <!-- Documento (anexo) -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">Documento / Anexo</label>
+                        <input type="text" class="custom-form-input" id="documentoPath" name="documento_path" placeholder="Caminho ou URL do documento (opcional)" maxlength="500">
+                    </div>
+                </div>
+                
+                <!-- Função -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">
+                            Função <span class="required">*</span>
+                        </label>
+                        <select class="custom-form-select" id="role" name="role_id" required>
+                            <option value="">Selecione uma função</option>
+                        </select>
+                        <div class="custom-form-helper">
+                            <i class="align-middle" data-feather="info"></i>
+                            A função define o que o usuário pode acessar no sistema.<br>
+                            <strong>• Superadministrador:</strong> Acesso total ao sistema (único com acesso total).<br>
+                            <strong>• Administrador (Representante):</strong> Acesso restrito à sua árvore — apenas clientes e Clientes Administradores vinculados a ele (definidos pelo Superadministrador).<br>
+                            <strong>• Cliente Administrador:</strong> Cliente (Empresa Fiscal) — emite nota fiscal; gerencia sua equipe e subclientes.<br>
+                            <strong>• Técnico:</strong> Operações técnicas e certificados (no escopo do Cliente Administrador ao qual está vinculado).<br>
+                            <strong>• Subcliente:</strong> Cliente do Cliente — quem receberá a nota fiscal (gerenciado pelo Cliente Administrador).<br>
+                            <strong>• Visualizador:</strong> Apenas visualização de dados<br>
+                            <strong>• Auditor:</strong> Acesso para auditoria e logs
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Senha e Confirmar Senha -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group">
+                        <label class="custom-form-label">
+                            Senha <span class="required">*</span>
+                        </label>
+                        <div class="custom-input-group">
+                            <input type="password" class="custom-form-input" id="senha" name="senha" required>
+                            <button type="button" class="custom-input-group-btn" id="btnToggleSenha">
+                                <i class="align-middle" data-feather="eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="custom-form-group">
+                        <label class="custom-form-label">
+                            Confirmar Senha <span class="required">*</span>
+                        </label>
+                        <input type="password" class="custom-form-input" id="confirmarSenha" name="confirmarSenha" required>
+                    </div>
+                </div>
+                
+                <!-- Usuário Ativo -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group">
+                        <label class="custom-switch">
+                            <input type="checkbox" class="custom-switch-input" id="ativo" name="ativo">
+                            <span class="custom-switch-slider"></span>
+                            <span class="custom-switch-label">Usuário Ativo</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Escopo do Representante: clientes (empresas) que ele pode gerenciar (apenas Superadmin, role Administrador) -->
+                <div class="custom-form-row" id="secaoClientesAdmin" style="display: none;">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">Clientes (empresas) que este Representante pode gerenciar</label>
+                        <select class="custom-form-select" id="clientesVinculados" name="clientes_vinculados" multiple size="6">
+                            <option value="">Carregando...</option>
+                        </select>
+                        <div class="custom-form-helper">
+                            <i class="align-middle" data-feather="info"></i>
+                            O Superadministrador define aqui quais <strong>empresas (clientes)</strong> este Representante verá no sistema. Ele só acessa dados desses clientes e dos Clientes Administradores vinculados a eles. Segure Ctrl (ou Cmd) para selecionar vários.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="custom-modal-footer">
+                <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarModal">
+                    <i class="align-middle" data-feather="x"></i>
+                    Cancelar
+                </button>
+                <button type="submit" class="custom-btn custom-btn-primary" id="btnSalvarUsuario">
+                    <i class="align-middle" data-feather="save"></i>
+                    Salvar Usuário
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Customizado de Confirmação para Exclusão -->
+<div class="custom-modal" id="modalConfirmacao">
+    <div class="custom-modal-content custom-modal-content-small">
+        <div class="custom-modal-header danger">
+            <h2 class="custom-modal-title">
+                <i class="align-middle" data-feather="alert-triangle"></i>
+                Confirmar Exclusão
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModalConfirmacao">×</button>
+        </div>
+        
+        <div class="custom-modal-body">
+            <p class="custom-alert-message">
+                Tem certeza que deseja excluir o usuário <strong id="nomeUsuarioExclusao"></strong>?
+            </p>
+            <div class="custom-alert-warning">
+                <i class="align-middle" data-feather="alert-circle"></i>
+                Esta ação não pode ser desfeita.
+            </div>
+        </div>
+        
+        <div class="custom-modal-footer">
+            <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarExclusao">
+                <i class="align-middle" data-feather="x"></i>
+                Cancelar
+            </button>
+            <button type="button" class="custom-btn custom-btn-danger" id="btnConfirmarExclusao">
+                <i class="align-middle" data-feather="trash-2"></i>
+                Excluir Usuário
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Customizado para Nova/Editar Role -->
+<div class="custom-modal" id="modalNovaRole">
+    <div class="custom-modal-content custom-modal-content-small">
+        <div class="custom-modal-header">
+            <h2 class="custom-modal-title" id="modalNovaRoleLabel">
+                <i class="align-middle" data-feather="shield"></i>
+                Nova Role
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModalRole">×</button>
+        </div>
+        
+        <form id="formRole">
+            <div class="custom-modal-body">
+                <input type="hidden" id="roleId" name="id">
+                
+                <!-- Nome da Role -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">
+                            Nome da Role <span class="required">*</span>
+                        </label>
+                        <input type="text" class="custom-form-input" id="roleNome" name="nome" required maxlength="50">
+                    </div>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">
+                            Descrição
+                        </label>
+                        <textarea class="custom-form-input" id="roleDescricao" name="descricao" rows="3" style="resize: vertical;"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Status Ativo -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group">
+                        <label class="custom-switch">
+                            <input type="checkbox" class="custom-switch-input" id="roleAtivo" name="ativo">
+                            <span class="custom-switch-slider"></span>
+                            <span class="custom-switch-label">Role Ativa</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="custom-modal-footer">
+                <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarRole">
+                    <i class="align-middle" data-feather="x"></i>
+                    Cancelar
+                </button>
+                <button type="submit" class="custom-btn custom-btn-primary" id="btnSalvarRole">
+                    <i class="align-middle" data-feather="save"></i>
+                    Salvar Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Exclusão de Role -->
+<div class="custom-modal" id="modalConfirmarExclusaoRole">
+    <div class="custom-modal-content custom-modal-content-small">
+        <div class="custom-modal-header danger">
+            <h2 class="custom-modal-title">
+                <i class="align-middle" data-feather="alert-triangle"></i>
+                Confirmar Exclusão de Role
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModalConfirmarRole">×</button>
+        </div>
+        
+        <div class="custom-modal-body">
+            <p class="custom-alert-message">
+                Tem certeza que deseja excluir a role <strong id="nomeRoleExclusao"></strong>?
+            </p>
+            <div class="custom-alert-warning">
+                <i class="align-middle" data-feather="alert-circle"></i>
+                Esta ação não pode ser desfeita. Certifique-se de que não há usuários vinculados a esta role.
+            </div>
+        </div>
+        
+        <div class="custom-modal-footer">
+            <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarExclusaoRole">
+                <i class="align-middle" data-feather="x"></i>
+                Cancelar
+            </button>
+            <button type="button" class="custom-btn custom-btn-danger" id="btnConfirmarExclusaoRole">
+                <i class="align-middle" data-feather="trash-2"></i>
+                Excluir Role
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Gerenciamento de Permissões -->
+<div class="custom-modal" id="modalGerenciarPermissoes">
+    <div class="custom-modal-content" style="max-width: 800px;">
+        <div class="custom-modal-header">
+            <h2 class="custom-modal-title">
+                <i class="align-middle" data-feather="key"></i>
+                Gerenciar Permissões - <span id="rolePermissoesNome">Role</span>
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModalPermissoes">×</button>
+        </div>
+        
+        <div class="custom-modal-body" style="max-height: 600px; overflow-y: auto;">
+            <!-- Barra de progresso -->
+            <div class="alert alert-info mb-3" id="progressoPermissoes">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span>
+                        <i class="align-middle" data-feather="info"></i>
+                        <strong id="contadorPermissoes">0/0</strong> permissões selecionadas
+                    </span>
+                    <span class="badge bg-primary" id="percentualPermissoes">0%</span>
+                </div>
+            </div>
+            
+            <!-- Campo de busca -->
+            <div class="mb-3">
+                <input type="text" class="form-control" id="buscaPermissoes" 
+                       placeholder="🔍 Buscar permissão...">
+            </div>
+            
+            <!-- Container de módulos -->
+            <div id="containerModulos">
+                <!-- Módulos serão carregados aqui via JavaScript -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Carregando permissões...</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="custom-modal-footer">
+            <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarPermissoes">
+                <i class="align-middle" data-feather="x"></i>
+                Cancelar
+            </button>
+            <button type="button" class="custom-btn custom-btn-primary" id="btnSalvarPermissoes">
+                <i class="align-middle" data-feather="save"></i>
+                Salvar Permissões
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Adicionar Permissões -->
+<div class="custom-modal" id="modalAdicionarPermissoes">
+    <div class="custom-modal-content" style="max-width: 600px;">
+        <div class="custom-modal-header">
+            <h2 class="custom-modal-title">
+                <i class="align-middle" data-feather="key"></i>
+                Adicionar Permissões
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModalAdicionarPermissoes">×</button>
+        </div>
+        
+        <div class="custom-modal-body">
+            <form id="formAdicionarPermissoes">
+                <div class="mb-3">
+                    <label for="novoModulo" class="form-label">Módulo</label>
+                    <select class="form-select" id="novoModulo" required>
+                        <option value="">Selecione um módulo...</option>
+                        <option value="dashboard">Dashboard</option>
+                        <option value="clientes">Clientes</option>
+                        <option value="equipamentos">Equipamentos</option>
+                        <option value="agendamentos">Agendamentos</option>
+                        <option value="certificados">Certificados</option>
+                        <optgroup label="Negócios">
+                            <option value="negocios.estoque">Negócios > Estoque</option>
+                            <option value="negocios.venda">Negócios > Venda</option>
+                            <option value="negocios.financeiro">Negócios > Financeiro</option>
+                            <option value="negocios.ordem-servico">Negócios > Ordem de Serviço</option>
+                            <option value="negocios.lacres-selos">Negócios > Lacres e Selos</option>
+                        </optgroup>
+                        <optgroup label="Fiscal">
+                            <option value="fiscal.empresa">Fiscal > Empresa</option>
+                            <option value="fiscal.empresa.criar">Fiscal > Empresa > Criar (apenas Super/Admin)</option>
+                            <option value="fiscal.notas-fiscais">Fiscal > Notas Fiscais</option>
+                        </optgroup>
+                        <option value="termobarohigrometro">Termobarohigrômetro</option>
+                        <option value="contratos">Contratos</option>
+                        <option value="afericao">Aferição</option>
+                        <option value="calibracao">Calibração</option>
+                        <option value="peso">Peso</option>
+                        <option value="inspetores">Inspetores</option>
+                        <option value="configuracoes">Configurações</option>
+                        <option value="usuarios">Usuários</option>
+                        <option value="outro">Outro (novo módulo)</option>
+                    </select>
+                    <div class="form-text">Selecione um módulo existente ou escolha "Outro" para criar um novo</div>
+                </div>
+                
+                <div class="mb-3" id="grupoNovoModulo" style="display: none;">
+                    <label for="novoModuloNome" class="form-label">Nome do Novo Módulo</label>
+                    <input type="text" class="form-control" id="novoModuloNome" placeholder="Ex: relatorios" pattern="[a-z0-9_-]+" title="Apenas letras minúsculas, números, hífens e underscores">
+                    <div class="form-text">Nome do módulo (sem espaços, em minúsculas, apenas letras, números, hífens e underscores)</div>
+                </div>
+                
+                <div class="mb-3" id="grupoPermissoesExistentes" style="display: none;">
+                    <label class="form-label">Permissões já cadastradas no sistema:</label>
+                    <div id="listaPermissoesExistentes" class="border rounded p-2 bg-light small">
+                        <!-- Preenchido via JS a partir do banco -->
+                    </div>
+                    <div class="form-text mt-1">As ações marcadas abaixo serão criadas (ou ignoradas se já existirem).</div>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Permissões a criar:</label>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permVisualizar" value="visualizar">
+                                <label class="form-check-label" for="permVisualizar">
+                                    <strong>Visualizar</strong><br>
+                                    <small class="text-muted">Visualizar lista</small>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permCriar" value="criar">
+                                <label class="form-check-label" for="permCriar">
+                                    <strong>Criar</strong><br>
+                                    <small class="text-muted">Criar novos registros</small>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permEditar" value="editar">
+                                <label class="form-check-label" for="permEditar">
+                                    <strong>Editar</strong><br>
+                                    <small class="text-muted">Editar registros existentes</small>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="permExcluir" value="excluir">
+                                <label class="form-check-label" for="permExcluir">
+                                    <strong>Excluir</strong><br>
+                                    <small class="text-muted">Excluir registros</small>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-text">Marque as permissões que deseja criar para este módulo</div>
+                </div>
+                
+                <div class="alert alert-info">
+                    <i class="align-middle me-2" data-feather="info"></i>
+                    <strong>Preview das permissões:</strong>
+                    <div id="previewPermissoes" class="mt-2">
+                        <span class="text-muted">Nenhuma permissão selecionada</span>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <div class="custom-modal-footer">
+            <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarAdicionarPermissoes">
+                <i class="align-middle" data-feather="x"></i>
+                Cancelar
+            </button>
+            <button type="button" class="custom-btn custom-btn-primary" id="btnSalvarAdicionarPermissoes">
+                <i class="align-middle" data-feather="save"></i>
+                Adicionar Permissão
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    window.USER_PERMISSIONS = {{ user_permissions | tojson }};
+    window.USER_ROLE = {{ user_role | tojson }};
+</script>
+<script src="/static/js/custom-modal.js?v=1.3"></script>
+<script src="/static/js/permissoes-manager.js?v=1.0"></script>
+<script src="/static/js/roles-manager.js?v=1.2"></script>
+<script src="/static/js/usuarios.js?v=3.5"></script>
+{% endblock %}

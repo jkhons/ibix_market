@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+
+{% block title %}Gerenciamento de Roles RBAC | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ===== CSS CUSTOMIZADO PARA GERENCIAMENTO DE ROLES ===== */
+    
+    /* Cores do Sistema PDV Ibix */
+    :root {
+        --certipeso-primary: #2c3e50;
+        --certipeso-secondary: #34495e;
+        --certipeso-success: #27ae60;
+        --certipeso-warning: #f39c12;
+        --certipeso-danger: #e74c3c;
+        --certipeso-info: #3498db;
+        --certipeso-light: #ecf0f1;
+    }
+    
+    /* Overlay do Modal */
+    .custom-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        z-index: 9998;
+        animation: fadeIn 0.3s ease;
+    }
+    
+    .custom-modal-overlay.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Container do Modal */
+    .custom-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+        overflow-y: auto;
+        padding: 20px;
+    }
+    
+    .custom-modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Conteúdo do Modal */
+    .custom-modal-content {
+        background: #ffffff;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 600px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideDown 0.3s ease;
+        overflow: hidden;
+    }
+    
+    .custom-modal-content-small {
+        max-width: 500px;
+    }
+    
+    /* Header do Modal */
+    .custom-modal-header {
+        background: linear-gradient(135deg, #2c3e50, #34495e);
+        color: #ffffff;
+        padding: 24px 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .custom-modal-header.danger {
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+    }
+    
+    .custom-modal-title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .custom-modal-close {
+        background: transparent;
+        border: none;
+        color: #ffffff;
+        font-size: 28px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+    }
+    
+    .custom-modal-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: rotate(90deg);
+    }
+    
+    /* Body do Modal */
+    .custom-modal-body {
+        padding: 30px;
+        background: #ffffff;
+    }
+    
+    /* Formulário */
+    .custom-form-row {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .custom-form-group {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .custom-form-group.full-width {
+        width: 100%;
+    }
+    
+    .custom-form-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 8px;
+        display: block;
+    }
+    
+    .custom-form-label .required {
+        color: #e74c3c;
+        margin-left: 4px;
+    }
+    
+    .custom-form-input,
+    .custom-form-select,
+    .custom-form-textarea {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 15px;
+        color: #2c3e50;
+        background: #ffffff;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        outline: none;
+        transition: all 0.2s ease;
+        font-family: inherit;
+    }
+    
+    .custom-form-textarea {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .custom-form-input:focus,
+    .custom-form-select:focus,
+    .custom-form-textarea:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+    }
+    
+    .custom-form-input::placeholder {
+        color: #95a5a6;
+    }
+    
+    /* Switch Toggle */
+    .custom-switch {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        user-select: none;
+    }
+    
+    .custom-switch-input {
+        display: none;
+    }
+    
+    .custom-switch-slider {
+        width: 50px;
+        height: 26px;
+        background: #bdc3c7;
+        border-radius: 13px;
+        position: relative;
+        transition: all 0.3s ease;
+    }
+    
+    .custom-switch-slider::after {
+        content: '';
+        position: absolute;
+        width: 22px;
+        height: 22px;
+        background: #ffffff;
+        border-radius: 50%;
+        top: 2px;
+        left: 2px;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+    
+    .custom-switch-input:checked + .custom-switch-slider {
+        background: #27ae60;
+    }
+    
+    .custom-switch-input:checked + .custom-switch-slider::after {
+        left: 26px;
+    }
+    
+    .custom-switch-label {
+        font-size: 15px;
+        font-weight: 500;
+        color: #2c3e50;
+    }
+    
+    /* Footer do Modal */
+    .custom-modal-footer {
+        padding: 20px 30px;
+        background: #f8f9fa;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+    /* Botões */
+    .custom-btn {
+        padding: 12px 24px;
+        font-size: 15px;
+        font-weight: 500;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: inherit;
+    }
+    
+    .custom-btn-primary {
+        background: #2c3e50;
+        color: #ffffff;
+    }
+    
+    .custom-btn-primary:hover {
+        background: #34495e;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(44, 62, 80, 0.3);
+    }
+    
+    .custom-btn-secondary {
+        background: #95a5a6;
+        color: #ffffff;
+    }
+    
+    .custom-btn-secondary:hover {
+        background: #7f8c8d;
+    }
+    
+    .custom-btn-danger {
+        background: #e74c3c;
+        color: #ffffff;
+    }
+    
+    .custom-btn-danger:hover {
+        background: #c0392b;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(231, 76, 60, 0.3);
+    }
+    
+    /* Mensagem de Alerta */
+    .custom-alert-message {
+        font-size: 16px;
+        color: #2c3e50;
+        line-height: 1.6;
+        margin-bottom: 20px;
+    }
+    
+    .custom-alert-warning {
+        background: #fff5f5;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border-left: 4px solid #e74c3c;
+        font-size: 14px;
+        color: #721c24;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* Badges de Status */
+    .role-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .role-badge-ativo {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .role-badge-inativo {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .role-badge-sistema {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+    
+    /* Animações */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .custom-modal {
+            padding: 10px;
+        }
+        
+        .custom-modal-content {
+            max-width: 100%;
+        }
+        
+        .custom-modal-header {
+            padding: 20px;
+        }
+        
+        .custom-modal-title {
+            font-size: 18px;
+        }
+        
+        .custom-modal-body {
+            padding: 20px;
+        }
+        
+        .custom-form-row {
+            flex-direction: column;
+            gap: 0;
+        }
+        
+        .custom-modal-footer {
+            flex-direction: column;
+        }
+        
+        .custom-btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Header da página -->
+    <div class="mb-3">
+        <h1 class="h3 mb-3">
+            <i class="align-middle me-2" data-feather="shield"></i>
+            Gerenciamento de Roles RBAC
+        </h1>
+    </div>
+
+    <!-- Informações sobre o Sistema RBAC -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="alert alert-warning" role="alert">
+                <div class="d-flex align-items-center">
+                    <i class="align-middle me-2" data-feather="alert-triangle"></i>
+                    <div>
+                        <h6 class="alert-heading mb-1">⚠️ Área Administrativa - Apenas Administradores</h6>
+                        <p class="mb-0 small">
+                            Esta área permite gerenciar as roles (funções) do sistema RBAC. 
+                            <strong>Atenção:</strong> Roles do sistema (Administrador, Técnico, Cliente, Visualizador, Auditor) não podem ser excluídas.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card principal -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="align-middle me-2" data-feather="layers"></i>
+                                Roles do Sistema
+                            </h5>
+                        </div>
+                        <div class="col-auto">
+                            <button type="button" class="btn btn-primary" id="btnNovaRole">
+                                <i class="align-middle me-1" data-feather="plus"></i>
+                                Nova Role
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Filtros -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="align-middle" data-feather="search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="filtroNome" placeholder="Filtrar por nome...">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <select class="form-select" id="filtroStatus">
+                                <option value="">Todos os status</option>
+                                <option value="true">Ativo</option>
+                                <option value="false">Inativo</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-outline-secondary w-100" id="btnLimparFiltros">
+                                <i class="align-middle me-1" data-feather="refresh-cw"></i>
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tabela de roles -->
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="tabelaRoles">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nome</th>
+                                    <th>Descrição</th>
+                                    <th>Status</th>
+                                    <th>Tipo</th>
+                                    <th>Usuários</th>
+                                    <th>Criada em</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyRoles">
+                                <!-- Dados serão carregados via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Paginação -->
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted">
+                            Mostrando <span id="infoPagina">0-0</span> de <span id="totalRoles">0</span> roles
+                        </div>
+                        <nav aria-label="Navegação de páginas">
+                            <ul class="pagination mb-0" id="paginacao">
+                                <!-- Paginação será gerada via JavaScript -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Overlay do Modal -->
+<div class="custom-modal-overlay" id="modalOverlay"></div>
+
+<!-- Modal Customizado para Nova/Editar Role -->
+<div class="custom-modal" id="modalNovaRole">
+    <div class="custom-modal-content">
+        <div class="custom-modal-header">
+            <h2 class="custom-modal-title" id="modalNovaRoleLabel">
+                <i class="align-middle" data-feather="plus-circle"></i>
+                Nova Role
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModal">×</button>
+        </div>
+        
+        <form id="formRole">
+            <div class="custom-modal-body">
+                <input type="hidden" id="roleId" name="id">
+                
+                <!-- Nome -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">
+                            Nome da Role <span class="required">*</span>
+                        </label>
+                        <input type="text" class="custom-form-input" id="nome" name="nome" required 
+                               placeholder="Ex: Gerente, Supervisor, etc.">
+                    </div>
+                </div>
+                
+                <!-- Descrição -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group full-width">
+                        <label class="custom-form-label">
+                            Descrição
+                        </label>
+                        <textarea class="custom-form-textarea" id="descricao" name="descricao" 
+                                  placeholder="Descreva as responsabilidades e permissões desta role..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- Status Ativo -->
+                <div class="custom-form-row">
+                    <div class="custom-form-group">
+                        <label class="custom-switch">
+                            <input type="checkbox" class="custom-switch-input" id="ativo" name="ativo">
+                            <span class="custom-switch-slider"></span>
+                            <span class="custom-switch-label">Role Ativa</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="custom-modal-footer">
+                <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarModal">
+                    <i class="align-middle" data-feather="x"></i>
+                    Cancelar
+                </button>
+                <button type="submit" class="custom-btn custom-btn-primary" id="btnSalvarRole">
+                    <i class="align-middle" data-feather="save"></i>
+                    Salvar Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal Customizado de Confirmação para Exclusão -->
+<div class="custom-modal" id="modalConfirmacao">
+    <div class="custom-modal-content custom-modal-content-small">
+        <div class="custom-modal-header danger">
+            <h2 class="custom-modal-title">
+                <i class="align-middle" data-feather="alert-triangle"></i>
+                Confirmar Exclusão
+            </h2>
+            <button type="button" class="custom-modal-close" id="btnCloseModalConfirmacao">×</button>
+        </div>
+        
+        <div class="custom-modal-body">
+            <p class="custom-alert-message">
+                Tem certeza que deseja excluir a role <strong id="nomeRoleExclusao"></strong>?
+            </p>
+            <div class="custom-alert-warning">
+                <i class="align-middle" data-feather="alert-circle"></i>
+                Esta ação não pode ser desfeita e afetará todos os usuários associados a esta role.
+            </div>
+        </div>
+        
+        <div class="custom-modal-footer">
+            <button type="button" class="custom-btn custom-btn-secondary" id="btnCancelarExclusao">
+                <i class="align-middle" data-feather="x"></i>
+                Cancelar
+            </button>
+            <button type="button" class="custom-btn custom-btn-danger" id="btnConfirmarExclusao">
+                <i class="align-middle" data-feather="trash-2"></i>
+                Excluir Role
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/custom-modal-roles.js?v=1.0"></script>
+<script src="/static/js/roles.js?v=1.0"></script>
+{% endblock %}
+

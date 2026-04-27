@@ -1,0 +1,925 @@
+{
+  "layout": "column",
+  "secoes": [
+    {
+      "id": "secao_cabecalho",
+      "titulo": "Cabeçalho da Ordem de Serviço",
+      "ordem": 1,
+      "campos": ["campo_cabecalho_os"]
+    },
+    {
+      "id": "secao_informacoes_gerais",
+      "titulo": "Informações Gerais",
+      "ordem": 2,
+      "campos": [
+        "campo_texto_descricao",
+        "campo_numero_prioridade",
+        "campo_data_solicitacao",
+        "campo_hora_inicio",
+        "campo_datetime_planejamento",
+        "campo_select_tipo",
+        "campo_boolean_parada_maquina",
+        "campo_checkbox_opcoes",
+        "campo_texto_informativo"
+      ]
+    },
+    {
+      "id": "secao_equipamento",
+      "titulo": "Dados do Equipamento",
+      "ordem": 3,
+      "campos": ["campo_equipamentos"]
+    },
+    {
+      "id": "secao_apontamento",
+      "titulo": "Apontamento de Horas",
+      "ordem": 4,
+      "campos": ["campo_apontamento_horas"]
+    },
+    {
+      "id": "secao_materiais",
+      "titulo": "Materiais e Peças Utilizadas",
+      "ordem": 5,
+      "campos": ["campo_materiais_pecas"]
+    },
+    {
+      "id": "secao_checklist",
+      "titulo": "Checklist de Execução",
+      "ordem": 6,
+      "campos": ["campo_checklist_execucao"]
+    },
+    {
+      "id": "secao_seguranca",
+      "titulo": "Segurança e Qualidade",
+      "ordem": 7,
+      "campos": [
+        "campo_seguranca_operacional",
+        "campo_qsa"
+      ]
+    },
+    {
+      "id": "secao_tabela",
+      "titulo": "Tabela de Dados Repetíveis",
+      "ordem": 8,
+      "campos": ["campo_tabela_dados"]
+    },
+    {
+      "id": "secao_documentos",
+      "titulo": "Documentos e Evidências",
+      "ordem": 9,
+      "campos": ["campo_upload_documentos"]
+    },
+    {
+      "id": "secao_status_final",
+      "titulo": "Status Final do Serviço",
+      "ordem": 10,
+      "campos": ["campo_status_final"]
+    }
+  ],
+  "campos": [
+    {
+      "id": "campo_cabecalho_os",
+      "tipo": "cabecalho_os",
+      "label": "Cabeçalho da Ordem de Serviço",
+      "obrigatorio": false,
+      "config": {
+        "showLogo": true,
+        "showProgramName": true,
+        "showUnit": true,
+        "showAddress": true,
+        "showDocumentCode": true,
+        "showRegulatory": true,
+        "showRevision": true,
+        "showPageCounter": true,
+        "showOsNumber": true,
+        "showOsType": true,
+        "showIssueDate": true
+      },
+      "layout": {
+        "variant": "print_like",
+        "columns": 3,
+        "showBorders": true
+      },
+      "data": {
+        "mode": "readonly",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": [],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": false,
+        "immutableAfter": []
+      }
+    },
+    {
+      "id": "campo_texto_descricao",
+      "tipo": "text",
+      "label": "Descrição do Problema",
+      "obrigatorio": true,
+      "help": "Descreva detalhadamente o problema ou serviço a ser executado",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {
+          "mask": null
+        },
+        "placeholder": "Digite a descrição do problema...",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": true,
+        "requiredWhen": [],
+        "rules": [
+          {
+            "type": "minLength",
+            "value": 10,
+            "message": "A descrição deve ter no mínimo 10 caracteres"
+          }
+        ]
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_numero_prioridade",
+      "tipo": "number",
+      "label": "Prioridade (1-5)",
+      "obrigatorio": true,
+      "help": "Nível de prioridade de 1 (baixa) a 5 (crítica)",
+      "layout": {
+        "width": "third",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": 3
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {
+          "numberDecimals": 0
+        },
+        "placeholder": "1-5",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": true,
+        "requiredWhen": [],
+        "rules": [
+          {
+            "type": "min",
+            "value": 1,
+            "message": "Prioridade mínima é 1"
+          },
+          {
+            "type": "max",
+            "value": 5,
+            "message": "Prioridade máxima é 5"
+          }
+        ]
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["em_execucao", "fechada"]
+      }
+    },
+    {
+      "id": "campo_data_solicitacao",
+      "tipo": "date",
+      "label": "Data de Solicitação",
+      "obrigatorio": true,
+      "help": "Data em que a OS foi solicitada",
+      "layout": {
+        "width": "third",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "computed",
+        "binding": "os.data_solicitacao",
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {
+          "date": "DD/MM/YYYY"
+        },
+        "placeholder": "DD/MM/YYYY",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": true,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": [],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": false,
+        "immutableAfter": []
+      }
+    },
+    {
+      "id": "campo_hora_inicio",
+      "tipo": "hora",
+      "label": "Hora de Início",
+      "obrigatorio": false,
+      "help": "Hora em que a execução foi iniciada",
+      "layout": {
+        "width": "third",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {
+          "mask": "HH:mm"
+        },
+        "placeholder": "HH:mm",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [
+          {
+            "field": "campo_status_final",
+            "operator": "equals",
+            "value": "concluido"
+          }
+        ],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_datetime_planejamento",
+      "tipo": "datetime",
+      "label": "Data e Hora Planejadas",
+      "obrigatorio": false,
+      "help": "Data e hora previstas para execução",
+      "layout": {
+        "width": "half",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {
+          "datetime": "DD/MM/YYYY HH:mm"
+        },
+        "placeholder": "DD/MM/YYYY HH:mm",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["em_execucao", "fechada"]
+      }
+    },
+    {
+      "id": "campo_select_tipo",
+      "tipo": "select",
+      "label": "Tipo de Manutenção",
+      "obrigatorio": true,
+      "help": "Selecione o tipo de manutenção",
+      "layout": {
+        "width": "half",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": "preventiva"
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "Selecione...",
+        "emptyState": "—"
+      },
+      "config": {
+        "options": [
+          {"value": "preventiva", "label": "Preventiva"},
+          {"value": "corretiva", "label": "Corretiva"},
+          {"value": "rota", "label": "Rota"},
+          {"value": "inspecao", "label": "Inspeção"},
+          {"value": "informativo", "label": "Informativo"}
+        ]
+      },
+      "validation": {
+        "required": true,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["em_execucao", "fechada"]
+      }
+    },
+    {
+      "id": "campo_boolean_parada_maquina",
+      "tipo": "boolean",
+      "label": "Parada de Máquina Necessária",
+      "obrigatorio": false,
+      "help": "Indica se a execução requer parada da máquina",
+      "layout": {
+        "width": "half",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": false
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Não"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_checkbox_opcoes",
+      "tipo": "checkbox",
+      "label": "Opções Adicionais",
+      "obrigatorio": false,
+      "help": "Selecione as opções aplicáveis",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": []
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Nenhuma opção selecionada"
+      },
+      "config": {
+        "options": [
+          {"value": "requer_aprovacao", "label": "Requer Aprovação"},
+          {"value": "requer_documentacao", "label": "Requer Documentação"},
+          {"value": "requer_treinamento", "label": "Requer Treinamento"},
+          {"value": "urgente", "label": "Urgente"}
+        ]
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_texto_informativo",
+      "tipo": "texto_informativo",
+      "label": "Informação Importante",
+      "obrigatorio": false,
+      "help": "Campo somente leitura para exibir informações",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "readonly",
+        "binding": "os.numero_os",
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {
+          "mask": null
+        },
+        "placeholder": "",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": [],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": false,
+        "immutableAfter": []
+      }
+    },
+    {
+      "id": "campo_equipamentos",
+      "tipo": "equipamentos",
+      "label": "Equipamentos Relacionados",
+      "obrigatorio": false,
+      "help": "Selecione os equipamentos relacionados à OS",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "Selecione equipamentos...",
+        "emptyState": "Nenhum equipamento selecionado"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO", "SOLICITANTE"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_apontamento_horas",
+      "tipo": "apontamento_horas",
+      "label": "Apontamento de Horas por Técnico",
+      "obrigatorio": false,
+      "help": "Registre as horas trabalhadas por cada técnico",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": []
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Nenhum apontamento registrado"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [
+          {
+            "field": "campo_status_final",
+            "operator": "equals",
+            "value": "concluido"
+          }
+        ],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_materiais_pecas",
+      "tipo": "materiais_pecas",
+      "label": "Materiais e Peças Utilizadas",
+      "obrigatorio": false,
+      "help": "Registre os materiais e peças utilizadas na execução",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": []
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Nenhum material registrado"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_checklist_execucao",
+      "tipo": "checklist",
+      "label": "Checklist de Execução",
+      "obrigatorio": false,
+      "help": "Checklist de itens verificados durante a execução",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": []
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Nenhum item verificado"
+      },
+      "config": {
+        "items": [
+          {
+            "id": "item_1",
+            "label": "Equipamento desligado e isolado",
+            "tipo": "c_nc_na",
+            "obrigatorio": true
+          },
+          {
+            "id": "item_2",
+            "label": "EPIs verificados e em uso",
+            "tipo": "c_nc_na",
+            "obrigatorio": true
+          },
+          {
+            "id": "item_3",
+            "label": "Ferramentas adequadas disponíveis",
+            "tipo": "c_nc_na",
+            "obrigatorio": false
+          },
+          {
+            "id": "item_4",
+            "label": "Área de trabalho limpa e organizada",
+            "tipo": "c_nc_na",
+            "obrigatorio": false
+          }
+        ]
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_seguranca_operacional",
+      "tipo": "seguranca_operacional",
+      "label": "Segurança Operacional",
+      "obrigatorio": true,
+      "help": "Equipamento está seguro para operação?",
+      "layout": {
+        "width": "half",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": true,
+        "requiredWhen": [
+          {
+            "field": "campo_status_final",
+            "operator": "equals",
+            "value": "concluido"
+          }
+        ],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_qsa",
+      "tipo": "qsa",
+      "label": "QSA - Qualidade e Segurança de Alimentos",
+      "obrigatorio": false,
+      "help": "Avaliação de conformidade com requisitos de qualidade e segurança de alimentos",
+      "layout": {
+        "width": "half",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_tabela_dados",
+      "tipo": "tabela",
+      "label": "Tabela de Dados Repetíveis",
+      "obrigatorio": false,
+      "help": "Tabela para registro de dados repetíveis (ex: leituras, medições)",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": []
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Nenhum registro adicionado"
+      },
+      "config": {
+        "columns": [
+          {
+            "id": "col_data",
+            "label": "Data/Hora",
+            "tipo": "datetime",
+            "obrigatorio": true,
+            "width": "25%"
+          },
+          {
+            "id": "col_valor",
+            "label": "Valor",
+            "tipo": "number",
+            "obrigatorio": true,
+            "width": "25%"
+          },
+          {
+            "id": "col_unidade",
+            "label": "Unidade",
+            "tipo": "text",
+            "obrigatorio": false,
+            "width": "20%"
+          },
+          {
+            "id": "col_observacao",
+            "label": "Observação",
+            "tipo": "text",
+            "obrigatorio": false,
+            "width": "30%"
+          }
+        ]
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_upload_documentos",
+      "tipo": "upload",
+      "label": "Documentos e Evidências",
+      "obrigatorio": false,
+      "help": "Faça upload de fotos, PDFs ou outros documentos relacionados",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": []
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "Nenhum arquivo anexado"
+      },
+      "config": {
+        "maxFiles": 10,
+        "maxFileSize": 5242880,
+        "allowedTypes": ["image/jpeg", "image/png", "application/pdf"],
+        "accept": ".jpg,.jpeg,.png,.pdf"
+      },
+      "validation": {
+        "required": false,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    },
+    {
+      "id": "campo_status_final",
+      "tipo": "status_final",
+      "label": "Status Final do Serviço",
+      "obrigatorio": true,
+      "help": "Status final da execução do serviço",
+      "layout": {
+        "width": "full",
+        "columns": 1,
+        "align": "left"
+      },
+      "data": {
+        "mode": "input",
+        "binding": null,
+        "default": null
+      },
+      "render": {
+        "showWhen": [{"if": "always"}],
+        "format": {},
+        "placeholder": "",
+        "emptyState": "—"
+      },
+      "validation": {
+        "required": true,
+        "requiredWhen": [],
+        "rules": []
+      },
+      "permissions": {
+        "visibility": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editable": ["ADMIN", "PCM", "SUPERVISOR", "TECNICO"],
+        "editableWhen": []
+      },
+      "audit": {
+        "trackChanges": true,
+        "immutableAfter": ["fechada"]
+      }
+    }
+  ]
+}

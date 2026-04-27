@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Área do Contador - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Área do Contador</h1>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Resumo do período</h6>
+                    <div id="resumo-periodo">Carregando...</div>
+                    <div class="mt-2">
+                        <label class="form-label small">Data início</label>
+                        <input type="date" class="form-control form-control-sm" id="filtroDataInicio">
+                    </div>
+                    <div class="mt-1">
+                        <label class="form-label small">Data fim</label>
+                        <input type="date" class="form-control form-control-sm" id="filtroDataFim">
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="btnAtualizarResumo">Atualizar</button>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted">Exportações</h6>
+                    <p class="small mb-2">Notas emitidas por período (CSV).</p>
+                    <a href="#" id="linkExportNotas" class="btn btn-outline-secondary btn-sm">Baixar CSV - Notas emitidas</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Documentos fiscais (listagem)</h5>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted">Visualização e download de XML/PDF. Filtros por período e status.</p>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover" id="tabelaDocumentos">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Número</th>
+                            <th>Data</th>
+                            <th>Valor</th>
+                            <th>Status</th>
+                            <th>Download</th>
+                        </tr>
+                    </thead>
+                    <tbody id="corpoDocumentos">
+                        <tr><td colspan="6">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const getToken = () => document.cookie.split('; ').find(r => r.startsWith('pdv_automscale_token='))?.split('=')[1] || '';
+    const api = (path) => fetch(path, { headers: { 'Authorization': 'Bearer ' + getToken() } });
+
+    function atualizarResumo() {
+        const di = document.getElementById('filtroDataInicio').value;
+        const df = document.getElementById('filtroDataFim').value;
+        let q = '/api/v1/fiscal/relatorios/resumo-periodo';
+        if (di) q += '?data_inicio=' + di;
+        if (df) q += (q.includes('?') ? '&' : '?') + 'data_fim=' + df;
+        api(q).then(r => r.json()).then(data => {
+            const el = document.getElementById('resumo-periodo');
+            el.innerHTML = '<div>NF-e/NFC-e: ' + (data.nf_e_nfce?.quantidade || 0) + ' docs, R$ ' + (data.nf_e_nfce?.valor_total?.toFixed(2) || '0,00') + '</div>' +
+                '<div>NFS-e: ' + (data.nfse?.quantidade || 0) + ' docs, R$ ' + (data.nfse?.valor_total?.toFixed(2) || '0,00') + '</div>';
+        }).catch(() => { document.getElementById('resumo-periodo').textContent = 'Erro ao carregar'; });
+    }
+
+    function carregarDocumentos() {
+        const di = document.getElementById('filtroDataInicio').value;
+        const df = document.getElementById('filtroDataFim').value;
+        let urlNf = '/api/v1/fiscal/notas-fiscais?limit=100';
+        let urlNs = '/api/v1/fiscal/notas-servico?limit=100';
+        if (di) { urlNf += '&data_inicio=' + di; urlNs += '&data_inicio=' + di; }
+        if (df) { urlNf += '&data_fim=' + df; urlNs += '&data_fim=' + df; }
+        Promise.all([api(urlNf).then(r => r.json()), api(urlNs).then(r => r.json())]).then(([nfs, nss]) => {
+            const linhas = [];
+            (nfs || []).forEach(n => {
+                const tipo = (n.tipo && n.tipo.toUpperCase && n.tipo.toUpperCase() === 'NFE') ? 'NF-e' : 'NFC-e';
+                const status = n.status?.value || n.status || '';
+                linhas.push({ tipo, id: n.id, numero: n.numero, data: n.data_emissao, valor: n.valor_total, status, doc: 'nfe' });
+            });
+            (nss || []).forEach(n => {
+                linhas.push({ tipo: 'NFS-e', id: n.id, numero: n.numero, data: n.data_emissao, valor: n.valor_total, status: n.status?.value || n.status || '', doc: 'nfse' });
+            });
+            linhas.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+            const tbody = document.getElementById('corpoDocumentos');
+            const baseNf = '/api/v1/fiscal/notas-fiscais';
+            const baseNs = '/api/v1/fiscal/notas-servico';
+            tbody.innerHTML = linhas.map(l => {
+                const base = l.doc === 'nfse' ? baseNs : baseNf;
+                const urlXml = base + '/' + l.id + '/download/xml';
+                const urlPdf = base + '/' + l.id + '/download/pdf';
+                return '<tr><td>' + l.tipo + '</td><td>' + (l.numero || '') + '</td><td>' + (l.data ? l.data.slice(0,10) : '') + '</td><td>' + (l.valor != null ? parseFloat(l.valor).toFixed(2) : '') + '</td><td>' + l.status + '</td><td><button type="button" class="btn btn-sm btn-outline-secondary me-1" data-download="' + urlXml + '" data-ext="xml">XML</button><button type="button" class="btn btn-sm btn-outline-secondary" data-download="' + urlPdf + '" data-ext="pdf">PDF</button></td></tr>';
+            }).join('') || '<tr><td colspan="6">Nenhum documento no período.</td></tr>';
+            tbody.querySelectorAll('[data-download]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const url = this.getAttribute('data-download');
+                    const ext = this.getAttribute('data-ext') || 'bin';
+                    api(url).then(r => r.blob()).then(blob => {
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = 'documento.' + ext;
+                        a.click();
+                        URL.revokeObjectURL(a.href);
+                    }).catch(() => alert('Download indisponível ou sem permissão.'));
+                });
+            });
+        }).catch(() => { document.getElementById('corpoDocumentos').innerHTML = '<tr><td colspan="6">Erro ao carregar.</td></tr>'; });
+    }
+
+    document.getElementById('btnAtualizarResumo').onclick = () => { atualizarResumo(); carregarDocumentos(); };
+    const linkExport = document.getElementById('linkExportNotas');
+    linkExport.onclick = function(e) {
+        e.preventDefault();
+        const di = document.getElementById('filtroDataInicio').value;
+        const df = document.getElementById('filtroDataFim').value;
+        let q = '/api/v1/fiscal/relatorios/notas-emitidas?formato=csv';
+        if (di) q += '&data_inicio=' + di;
+        if (df) q += '&data_fim=' + df;
+        window.location.href = q;
+        return false;
+    };
+    linkExport.href = '/api/v1/fiscal/relatorios/notas-emitidas?formato=csv';
+
+    atualizarResumo();
+    carregarDocumentos();
+    if (typeof feather !== 'undefined') feather.replace();
+})();
+</script>
+{% endblock %}

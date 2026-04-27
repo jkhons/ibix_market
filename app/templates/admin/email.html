@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}E-mail | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="h3 d-inline align-middle mb-0">Configuração de E-mail</h1>
+        <a href="/configuracoes" class="btn btn-outline-secondary btn-sm">Configurações gerais</a>
+    </div>
+
+    <div id="alert-container"></div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Servidor SMTP</h6>
+                </div>
+                <div class="card-body">
+                    <form id="formConfigEmail">
+                        <div class="row mb-2">
+                            <div class="col-md-8">
+                                <label for="emailHost" class="form-label">Servidor SMTP *</label>
+                                <input type="text" class="form-control" id="emailHost" placeholder="smtp.gmail.com" required>
+                                <div class="form-text">Endereço do servidor de e-mail</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="emailPort" class="form-label">Porta *</label>
+                                <input type="number" class="form-control" id="emailPort" placeholder="587" required>
+                                <div class="form-text">TLS: 587, SSL: 465</div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label for="emailUsername" class="form-label">Usuário/E-mail *</label>
+                                <input type="text" class="form-control" id="emailUsername" placeholder="seu-email@dominio.com" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="emailPassword" class="form-label">Senha *</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="emailPassword" placeholder="••••••••" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="toggleEmailPassword">
+                                        <i class="align-middle" data-feather="eye"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <label for="emailFrom" class="form-label">E-mail Remetente *</label>
+                                <input type="email" class="form-control" id="emailFrom" placeholder="noreply@dominio.com" required>
+                                <div class="form-text">E-mail que aparecerá como remetente</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="emailFromName" class="form-label">Nome Remetente</label>
+                                <input type="text" class="form-control" id="emailFromName" placeholder="PDV Ibix">
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="emailUseTLS">
+                                    <label class="form-check-label" for="emailUseTLS">
+                                        Usar TLS (Recomendado)
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="emailUseSSL">
+                                    <label class="form-check-label" for="emailUseSSL">
+                                        Usar SSL
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="align-middle" data-feather="save"></i>
+                                <span class="align-middle">Salvar Configurações</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-info" id="btnTestarConexaoEmail">
+                                <i class="align-middle" data-feather="activity"></i>
+                                <span class="align-middle">Testar Conexão</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-success" id="btnEnviarEmailTeste">
+                                <i class="align-middle" data-feather="send"></i>
+                                <span class="align-middle">Enviar E-mail de Teste</span>
+                            </button>
+                            <a href="/configuracoes/email/templates" class="btn btn-outline-primary">
+                                <i class="align-middle" data-feather="file-text"></i>
+                                <span class="align-middle">Gerenciar Templates</span>
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">Ajuda</h6>
+                </div>
+                <div class="card-body">
+                    <h6 class="text-muted">Gmail</h6>
+                    <small>
+                        <strong>Servidor:</strong> smtp.gmail.com<br>
+                        <strong>Porta:</strong> 587 (TLS)<br>
+                        <strong>Senha de App:</strong> Obrigatório usar senha de app
+                    </small>
+                    <hr>
+                    <h6 class="text-muted">Outlook/Office 365</h6>
+                    <small>
+                        <strong>Servidor:</strong> smtp.office365.com<br>
+                        <strong>Porta:</strong> 587 (TLS)
+                    </small>
+                    <hr>
+                    <h6 class="text-muted">Yahoo</h6>
+                    <small>
+                        <strong>Servidor:</strong> smtp.mail.yahoo.com<br>
+                        <strong>Porta:</strong> 587 (TLS)
+                    </small>
+                    <hr>
+                    <div class="alert alert-warning mb-0">
+                        <small>
+                            <i class="align-middle" data-feather="alert-triangle"></i>
+                            <strong>Importante:</strong> Use senhas de aplicativo para maior segurança.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/configuracoes.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof feather !== 'undefined') feather.replace();
+});
+</script>
+{% endblock %}

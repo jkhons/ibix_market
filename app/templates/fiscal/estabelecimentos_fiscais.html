@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Estabelecimentos Fiscais | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Estabelecimentos Fiscais</strong></h1>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" type="button" id="btnNovoEstab" onclick="abrirModalEstabFiscalCustom();">
+                    <i data-feather="plus" style="width: 18px; height: 18px;"></i>
+                    Novo estabelecimento
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Cliente</label>
+                <select id="filtroCliente" class="form-select" style="max-width: 300px;">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>CNPJ</th>
+                            <th>IE</th>
+                            <th>CRT</th>
+                            <th>Regime</th>
+                            <th>Ativo</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyEstab"></tbody>
+                </table>
+            </div>
+            <p id="msgLista" class="text-muted mb-0"></p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo/Editar (padrão MAPA_DE_REGRAS: inline, sem Bootstrap) -->
+<div id="modalEstabFiscalCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 720px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 id="modalEstabTitle" style="margin: 0; font-size: 18px; font-weight: bold;">Novo estabelecimento fiscal</h5>
+            <button type="button" onclick="fecharModalEstabFiscalCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <input type="hidden" id="estabId" />
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px;">
+                <div><label style="display: block; margin-bottom: 5px; font-weight: bold;">Cliente *</label><select id="estabClienteId" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select></div>
+                <div><label style="display: block; margin-bottom: 5px; font-weight: bold;">CNPJ *</label><input type="text" id="estabCnpj" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+                <div><label style="display: block; margin-bottom: 5px; font-weight: bold;">IE</label><input type="text" id="estabIe" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+                <div><label style="display: block; margin-bottom: 5px; font-weight: bold;">CRT</label><input type="number" id="estabCrt" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+                <div><label style="display: block; margin-bottom: 5px; font-weight: bold;">Regime tributário</label><input type="text" id="estabRegime" placeholder="Ex: 1" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+                <div><label style="display: block; margin-bottom: 5px; font-weight: bold;">Série NFe</label><input type="text" id="estabSerieNfe" value="1" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+                <div style="grid-column: span 2;"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="estabAtivo" checked style="width: auto;" /> Ativo</label></div>
+            </div>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalEstabFiscalCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnSalvarEstab" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function getToken() {
+        const m = document.cookie.match(/pdv_automscale_token=([^;]+)/);
+        return m ? m[1] : '';
+    }
+    function headers() {
+        const t = getToken();
+        const h = { 'Content-Type': 'application/json' };
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    }
+
+    let clientesMap = {};
+    async function carregarClientes() {
+        const sel = document.getElementById('filtroCliente');
+        const selModal = document.getElementById('estabClienteId');
+        try {
+            const r = await fetch('/api/v1/clientes/todos?para_empresa_fiscal=true', { headers: headers() });
+            const data = r.ok ? await r.json() : {};
+            const items = Array.isArray(data) ? data : (data.clientes || data.itens || data.data || []);
+            clientesMap = {};
+            items.forEach(c => { clientesMap[c.id] = c.nome || c.razao_social || 'Cliente #' + c.id; });
+            [sel, selModal].forEach(s => {
+                if (!s) return;
+                const v = s.value;
+                s.innerHTML = s === sel ? '<option value="">Todos</option>' : '<option value="">Selecione</option>';
+                items.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.nome || c.razao_social || 'Cliente #' + c.id;
+                    s.appendChild(opt);
+                });
+                if (v) s.value = v;
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    async function carregarEstab() {
+        const clienteId = document.getElementById('filtroCliente').value;
+        let url = '/api/v1/estabelecimentos-fiscais/';
+        if (clienteId) url += '?cliente_id=' + clienteId;
+        const tbody = document.getElementById('tbodyEstab');
+        const msg = document.getElementById('msgLista');
+        try {
+            const r = await fetch(url, { headers: headers() });
+            if (!r.ok) { tbody.innerHTML = ''; msg.textContent = 'Erro ao carregar.'; return; }
+            const list = await r.json();
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhum estabelecimento encontrado.</td></tr>'; msg.textContent = ''; return; }
+            tbody.innerHTML = list.map(e => {
+                const nomeCliente = clientesMap[e.cliente_id] || ('Cliente #' + e.cliente_id);
+                return `
+                <tr>
+                    <td>${e.id}</td>
+                    <td>${nomeCliente}</td>
+                    <td>${e.cnpj || '-'}</td>
+                    <td>${e.ie || '-'}</td>
+                    <td>${e.crt != null ? e.crt : '-'}</td>
+                    <td>${e.regime_tributario || '-'}</td>
+                    <td><span class="badge bg-${e.ativo ? 'success' : 'secondary'}">${e.ativo ? 'Sim' : 'Não'}</span></td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-outline-primary me-1 btn-editar-estab" data-id="${e.id}" title="Editar"><i data-feather="edit-2" style="width:14px;height:14px;"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-excluir-estab" data-id="${e.id}" title="Excluir"><i data-feather="trash-2" style="width:14px;height:14px;"></i></button>
+                    </td>
+                </tr>
+            `;
+            }).join('');
+            msg.textContent = list.length + ' estabelecimento(s).';
+            if (typeof feather !== 'undefined') feather.replace();
+        } catch (e) {
+            tbody.innerHTML = '';
+            msg.textContent = 'Erro.';
+            console.error(e);
+        }
+    }
+
+    document.getElementById('filtroCliente').addEventListener('change', carregarEstab);
+
+    document.getElementById('tbodyEstab').addEventListener('click', async function(ev) {
+        const btnEdit = ev.target.closest('.btn-editar-estab');
+        const btnDel = ev.target.closest('.btn-excluir-estab');
+        if (btnEdit) {
+            const id = parseInt(btnEdit.getAttribute('data-id'), 10);
+            try {
+                const r = await fetch('/api/v1/estabelecimentos-fiscais/' + id, { headers: headers() });
+                if (!r.ok) { alert('Erro ao carregar estabelecimento.'); return; }
+                const e = await r.json();
+                document.getElementById('estabId').value = e.id;
+                document.getElementById('estabClienteId').value = e.cliente_id;
+                document.getElementById('estabCnpj').value = e.cnpj || '';
+                document.getElementById('estabIe').value = e.ie || '';
+                document.getElementById('estabCrt').value = e.crt != null ? e.crt : '';
+                document.getElementById('estabRegime').value = e.regime_tributario || '';
+                document.getElementById('estabSerieNfe').value = e.serie_nfe || '1';
+                document.getElementById('estabAtivo').checked = e.ativo !== false;
+                document.getElementById('modalEstabTitle').textContent = 'Editar estabelecimento fiscal';
+                document.getElementById('estabClienteId').disabled = true;
+                document.getElementById('estabCnpj').readOnly = true;
+                abrirModalEstabFiscalCustom();
+                if (typeof feather !== 'undefined') feather.replace();
+            } catch (err) { alert('Erro ao carregar.'); console.error(err); }
+        }
+        if (btnDel) {
+            const id = parseInt(btnDel.getAttribute('data-id'), 10);
+            if (!confirm('Excluir este estabelecimento fiscal? Esta ação não pode ser desfeita.')) return;
+            try {
+                const r = await fetch('/api/v1/estabelecimentos-fiscais/' + id, { method: 'DELETE', headers: headers() });
+                if (!r.ok) {
+                    const data = await r.json().catch(() => ({}));
+                    const msg = data.detail || (typeof data.detail === 'string' ? data.detail : r.statusText);
+                    alert('Erro ao excluir: ' + msg);
+                    return;
+                }
+                carregarEstab();
+            } catch (err) { alert('Erro ao excluir.'); console.error(err); }
+        }
+    });
+
+    window.abrirModalEstabFiscalCustom = function() {
+        var id = document.getElementById('estabId').value;
+        document.getElementById('modalEstabTitle').textContent = id ? 'Editar estabelecimento fiscal' : 'Novo estabelecimento fiscal';
+        if (!id) {
+            document.getElementById('estabClienteId').disabled = false;
+            document.getElementById('estabCnpj').readOnly = false;
+            document.getElementById('estabClienteId').value = '';
+            document.getElementById('estabCnpj').value = '';
+            document.getElementById('estabIe').value = '';
+            document.getElementById('estabCrt').value = '';
+            document.getElementById('estabRegime').value = '';
+            document.getElementById('estabSerieNfe').value = '1';
+            document.getElementById('estabAtivo').checked = true;
+        }
+        var m = document.getElementById('modalEstabFiscalCustom');
+        if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+    };
+    window.fecharModalEstabFiscalCustom = function() {
+        var m = document.getElementById('modalEstabFiscalCustom');
+        if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
+    };
+    (function() {
+        var modal = document.getElementById('modalEstabFiscalCustom');
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) fecharModalEstabFiscalCustom(); });
+    })();
+    document.getElementById('btnSalvarEstab').addEventListener('click', async function() {
+        const id = document.getElementById('estabId').value;
+        const clienteId = document.getElementById('estabClienteId').value;
+        const cnpj = document.getElementById('estabCnpj').value.trim();
+        const ie = document.getElementById('estabIe').value.trim();
+        const crt = document.getElementById('estabCrt').value;
+        const regime = document.getElementById('estabRegime').value.trim();
+        const serieNfe = document.getElementById('estabSerieNfe').value.trim() || '1';
+        const ativo = document.getElementById('estabAtivo').checked;
+        if (!clienteId || !cnpj) { alert('Preencha Cliente e CNPJ.'); return; }
+        const body = id
+            ? { ie: ie || null, crt: crt ? parseInt(crt, 10) : null, regime_tributario: regime || null, serie_nfe: serieNfe, ativo }
+            : { cliente_id: parseInt(clienteId, 10), cnpj, ie: ie || null, crt: crt ? parseInt(crt, 10) : null, regime_tributario: regime || null, serie_nfe: serieNfe, ativo };
+        try {
+            const url = id ? '/api/v1/estabelecimentos-fiscais/' + id : '/api/v1/estabelecimentos-fiscais/';
+            const method = id ? 'PATCH' : 'POST';
+            const r = await fetch(url, { method, headers: headers(), body: JSON.stringify(body) });
+            const data = r.ok ? await r.json() : null;
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Erro: ' + err);
+                return;
+            }
+            fecharModalEstabFiscalCustom();
+            document.getElementById('estabId').value = '';
+            document.getElementById('estabClienteId').disabled = false;
+            document.getElementById('estabCnpj').readOnly = false;
+            document.getElementById('estabCnpj').value = '';
+            document.getElementById('estabIe').value = '';
+            document.getElementById('estabCrt').value = '';
+            document.getElementById('estabRegime').value = '';
+            document.getElementById('estabSerieNfe').value = '1';
+            carregarEstab();
+        } catch (e) {
+            alert('Erro ao salvar.');
+            console.error(e);
+        }
+    });
+
+    document.getElementById('btnNovoEstab').addEventListener('click', function() {
+        document.getElementById('estabId').value = '';
+    });
+
+    carregarClientes().then(carregarEstab);
+    if (typeof feather !== 'undefined') feather.replace();
+})();
+</script>
+{% endblock %}

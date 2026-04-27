@@ -1,0 +1,81 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Esqueci minha senha{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title">Esqueci minha senha</h1>
+    <p class="loja-auth-subtitle">
+      Informe seu e-mail para receber o link de redefinição de senha.
+    </p>
+
+    <form id="loja-esqueci-senha-form">
+      <div class="mb-3">
+        <label for="loja-esqueci-email" class="form-label">E-mail</label>
+        <input type="email" class="form-control" id="loja-esqueci-email" name="email" required>
+      </div>
+
+      <div id="loja-esqueci-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+      <div id="loja-esqueci-success" class="alert alert-success" style="display: none;" role="alert"></div>
+
+      <div class="loja-auth-actions">
+        <button type="submit" class="btn btn-primary" id="loja-esqueci-btn">Enviar link</button>
+        <a href="/loja/login" class="loja-auth-link">Voltar ao login</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("loja-esqueci-senha-form");
+  var errorEl = document.getElementById("loja-esqueci-error");
+  var successEl = document.getElementById("loja-esqueci-success");
+  var btn = document.getElementById("loja-esqueci-btn");
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+    successEl.style.display = "none";
+
+    var email = document.getElementById("loja-esqueci-email").value.trim();
+    if (!email) {
+      errorEl.textContent = "Informe seu e-mail.";
+      errorEl.style.display = "block";
+      return;
+    }
+
+    btn.disabled = true;
+    var lojaId = typeof window.Vitrine !== "undefined" && typeof window.Vitrine.getContextLojaId === "function" ? window.Vitrine.getContextLojaId() : null;
+    var body = { email: email };
+    if (lojaId) body.loja_id = lojaId;
+
+    fetch("/api/v1/loja/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(body)
+    })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (result) {
+      if (result.ok && result.data.message) {
+        successEl.textContent = result.data.message;
+        successEl.style.display = "block";
+        form.reset();
+      } else {
+        errorEl.textContent = result.data.detail || "Erro ao enviar. Tente novamente.";
+        errorEl.style.display = "block";
+      }
+    })
+    .catch(function () {
+      errorEl.textContent = "Erro de conexão. Tente novamente.";
+      errorEl.style.display = "block";
+    })
+    .finally(function () { btn.disabled = false; });
+  });
+})();
+</script>
+{% endblock %}

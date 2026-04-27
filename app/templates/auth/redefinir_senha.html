@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="Redefinir senha - Ibix">
+	<link rel="icon" href="/static/img/landing/logoSfundo.png" type="image/png" />
+	<title>Redefinir senha | Ibix</title>
+	<link href="/static/css/dashboard.css" rel="stylesheet">
+	<link href="/static/css/certipeso.css" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+	<main class="d-flex w-100">
+		<div class="container d-flex flex-column">
+			<div class="row vh-100">
+				<div class="col-sm-10 col-md-8 col-lg-6 col-xl-5 mx-auto d-table h-100">
+					<div class="d-table-cell align-middle">
+						<div class="text-center mt-4">
+							<img src="/static/img/landing/logoSfundo.png" alt="Ibix" class="mb-3" style="max-height: 130px; width: auto;">
+							<h1 class="h4" style="font-size: 1.25rem;">Redefinir senha</h1>
+							<p class="lead">Digite sua nova senha abaixo</p>
+						</div>
+						<div class="card">
+							<div class="card-body">
+								<div class="m-sm-3">
+									<div id="alert-area"></div>
+									<div id="form-container" style="display: none;">
+										<form id="redefinir-senha-form">
+											<input type="hidden" id="token" name="token" value="{{ token }}">
+											<div class="mb-3">
+												<label class="form-label">Nova senha</label>
+												<input class="form-control form-control-lg" type="password" name="new_password" id="new_password" placeholder="Nova senha" autocomplete="new-password" required minlength="6" />
+											</div>
+											<div class="mb-3">
+												<label class="form-label">Confirmar senha</label>
+												<input class="form-control form-control-lg" type="password" name="confirm_password" id="confirm_password" placeholder="Repita a nova senha" autocomplete="new-password" required minlength="6" />
+											</div>
+											<div class="d-grid gap-2 mt-3">
+												<button type="submit" class="btn btn-lg btn-primary" id="btn-submit">
+													<span class="btn-text">Redefinir senha</span>
+													<span class="btn-loading d-none">
+														<span class="spinner-border spinner-border-sm me-2" role="status"></span>
+														Salvando...
+													</span>
+												</button>
+											</div>
+										</form>
+									</div>
+									<div id="invalid-message" style="display: none;">
+										<p class="text-danger">Link inválido ou expirado. Solicite uma nova redefinição de senha.</p>
+										<a href="/auth/esqueci-senha" class="btn btn-outline-primary">Solicitar novo link</a>
+									</div>
+									<div id="loading-message">Verificando link...</div>
+								</div>
+							</div>
+						</div>
+						<div class="text-center mb-3">
+							<a href="/login">Voltar ao login</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</main>
+	<script>
+	(function() {
+		var token = document.getElementById('token').value;
+		var alertArea = document.getElementById('alert-area');
+		var formContainer = document.getElementById('form-container');
+		var invalidMessage = document.getElementById('invalid-message');
+		var loadingMessage = document.getElementById('loading-message');
+
+		function showAlert(msg, type) {
+			alertArea.innerHTML = '<div class="alert alert-' + (type || 'info') + '">' + msg + '</div>';
+		}
+
+		function setLoading(loading) {
+			var btn = document.getElementById('btn-submit');
+			if (btn) {
+				btn.querySelector('.btn-text').classList.toggle('d-none', loading);
+				btn.querySelector('.btn-loading').classList.toggle('d-none', !loading);
+				btn.disabled = loading;
+			}
+		}
+
+		if (!token) {
+			if (loadingMessage) loadingMessage.style.display = 'none';
+			invalidMessage.style.display = 'block';
+		} else {
+			fetch('/api/v1/auth/redefinir-senha/valida?token=' + encodeURIComponent(token), { credentials: 'include' })
+				.then(function(r) { return r.json(); })
+				.then(function(d) {
+					if (loadingMessage) loadingMessage.style.display = 'none';
+					if (d.valid) {
+						formContainer.style.display = 'block';
+					} else {
+						invalidMessage.style.display = 'block';
+					}
+				})
+				.catch(function() {
+					loadingMessage.style.display = 'none';
+					invalidMessage.style.display = 'block';
+				});
+		}
+
+		document.getElementById('redefinir-senha-form').addEventListener('submit', function(e) {
+			e.preventDefault();
+			alertArea.innerHTML = '';
+			var newPwd = document.getElementById('new_password').value;
+			var confirmPwd = document.getElementById('confirm_password').value;
+			if (newPwd.length < 6) {
+				showAlert('A senha deve ter no mínimo 6 caracteres.', 'warning');
+				return;
+			}
+			if (newPwd !== confirmPwd) {
+				showAlert('As senhas não coincidem.', 'danger');
+				return;
+			}
+			setLoading(true);
+			fetch('/api/v1/auth/redefinir-senha', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({ token: token, new_password: newPwd, confirm_password: confirmPwd })
+			})
+			.then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+			.then(function(result) {
+				if (result.ok) {
+					showAlert(result.data.message || 'Senha alterada. Redirecionando...', 'success');
+					setTimeout(function() { window.location.href = '/login?msg=senha_alterada'; }, 1500);
+				} else {
+					showAlert(result.data.detail || 'Erro ao redefinir senha.', 'danger');
+					setLoading(false);
+				}
+			})
+			.catch(function() {
+				showAlert('Erro de conexão. Tente novamente.', 'danger');
+				setLoading(false);
+			});
+		});
+	})();
+	</script>
+</body>
+</html>

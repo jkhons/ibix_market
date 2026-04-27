@@ -1,0 +1,13 @@
+export { api, extractApiError } from './api';
+export { default as authService } from './authService';
+export { default as catalogService } from './catalogService';
+export { default as marketingService } from './marketingService';
+export { default as couponService } from './couponService';
+export { default as checkoutService } from './checkoutService';
+export { default as addressService } from './addressService';
+export { default as notificationService } from './notificationService';
+export { default as favoriteService } from './favoriteService';
+export { default as orderService } from './orderService';
+export { default as chatService } from './chatService';
+export { default as consumerService } from './consumerService';
+export { default as geoService } from './geoService';

@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Preços PDV - Licenças | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <a href="/admin/billing/tenants" class="btn btn-outline-secondary btn-sm me-2">&larr; Voltar</a>
+        <h1 class="h3 d-inline align-middle">Preços de Licença PDV</h1>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header"><strong>Preço vigente</strong></div>
+        <div class="card-body">
+            <div id="loading" class="text-muted small">Carregando...</div>
+            <div id="vigente" class="d-none">
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <div class="card border">
+                            <div class="card-body text-center">
+                                <div class="text-muted small">Valor base (1 PDV)</div>
+                                <div class="fs-4 fw-bold text-primary" id="valorBase">R$ 0,00</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border">
+                            <div class="card-body text-center">
+                                <div class="text-muted small">PDV adicional</div>
+                                <div class="fs-4 fw-bold text-success" id="valorAdicional">R$ 0,00</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card border">
+                            <div class="card-body text-center">
+                                <div class="text-muted small">Exemplo: 3 PDVs</div>
+                                <div class="fs-4 fw-bold text-dark" id="exemploValor">R$ 0,00</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-muted small mb-0" id="vigenciaInfo"></p>
+            </div>
+            <div id="error" class="text-danger small d-none"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><strong>Criar novo preço</strong></div>
+        <div class="card-body">
+            <form id="formNovoPreco" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Valor base (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="novoBase" placeholder="170.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">PDV adicional (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="novoAdicional" placeholder="70.00">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Vigência a partir de</label>
+                    <input type="date" class="form-control" id="novoVigencia">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100" id="btnSalvar">Criar preço</button>
+                </div>
+            </form>
+            <span id="msg" class="small mt-2 d-block"></span>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header"><strong>Histórico de preços</strong></div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Valor base</th>
+                            <th>PDV adicional</th>
+                            <th>Vigência</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyPrecos"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function authHeaders() {
+        return { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    }
+    function fmt(centavos) { return 'R$ ' + (centavos / 100).toFixed(2); }
+
+    function load() {
+        fetch('/api/v1/admin/precos-pdv/', { headers: authHeaders() })
+            .then(function(r) { return r.json(); })
+            .then(function(list) {
+                document.getElementById('loading').classList.add('d-none');
+                var vigente = list.find(function(p) { return p.ativo; });
+                if (vigente) {
+                    document.getElementById('vigente').classList.remove('d-none');
+                    document.getElementById('valorBase').textContent = fmt(vigente.valor_base_centavos);
+                    document.getElementById('valorAdicional').textContent = fmt(vigente.valor_pdv_adicional_centavos);
+                    document.getElementById('exemploValor').textContent = fmt(vigente.valor_base_centavos + 2 * vigente.valor_pdv_adicional_centavos);
+                    document.getElementById('vigenciaInfo').textContent = 'Vigente desde: ' + vigente.vigencia_inicio;
+                } else {
+                    document.getElementById('error').classList.remove('d-none');
+                    document.getElementById('error').textContent = 'Nenhum preço vigente.';
+                }
+                var tbody = document.getElementById('tbodyPrecos');
+                tbody.innerHTML = '';
+                list.forEach(function(p) {
+                    var tr = document.createElement('tr');
+                    tr.innerHTML = '<td>' + p.id + '</td><td>' + fmt(p.valor_base_centavos) + '</td><td>' + fmt(p.valor_pdv_adicional_centavos) + '</td><td>' + p.vigencia_inicio + '</td><td>' + (p.ativo ? '<span class="badge bg-success">Ativo</span>' : '<span class="badge bg-secondary">Inativo</span>') + '</td><td>' + (p.ativo ? '<button class="btn btn-outline-danger btn-sm" onclick="desativar(' + p.id + ')">Desativar</button>' : '') + '</td>';
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(function(err) {
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('error').classList.remove('d-none');
+                document.getElementById('error').textContent = 'Erro: ' + err.message;
+            });
+    }
+
+    window.desativar = function(id) {
+        fetch('/api/v1/admin/precos-pdv/' + id, {
+            method: 'PATCH', headers: authHeaders(), body: JSON.stringify({ ativo: false })
+        }).then(function() { load(); });
+    };
+
+    document.getElementById('formNovoPreco').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var base = Math.round(parseFloat(document.getElementById('novoBase').value) * 100);
+        var adic = Math.round(parseFloat(document.getElementById('novoAdicional').value) * 100);
+        var vig = document.getElementById('novoVigencia').value;
+        if (!base || !vig) { document.getElementById('msg').textContent = 'Preencha todos os campos.'; return; }
+        var btn = document.getElementById('btnSalvar');
+        btn.disabled = true;
+        fetch('/api/v1/admin/precos-pdv/', {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ valor_base_centavos: base, valor_pdv_adicional_centavos: adic || 0, vigencia_inicio: vig })
+        })
+        .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || r.status); }); return r.json(); })
+        .then(function() { document.getElementById('msg').textContent = 'Preço criado!'; document.getElementById('msg').className = 'small mt-2 d-block text-success'; load(); })
+        .catch(function(err) { document.getElementById('msg').textContent = 'Erro: ' + err.message; document.getElementById('msg').className = 'small mt-2 d-block text-danger'; })
+        .finally(function() { btn.disabled = false; });
+    });
+
+    load();
+})();
+</script>
+{% endblock %}

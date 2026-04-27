@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}Códigos de Desconto | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <a href="/admin/billing/tenants" class="btn btn-outline-secondary btn-sm me-2">&larr; Voltar</a>
+            <h1 class="h3 d-inline align-middle">Códigos de Desconto</h1>
+        </div>
+        <div class="d-flex gap-2">
+            {% if user_role == 'Superadministrador' %}
+            <button class="btn btn-outline-primary btn-sm" onclick="abrirModalDiv()"><i data-feather="user-plus" style="width:14px;height:14px"></i> Novo Divulgador</button>
+            <button class="btn btn-primary btn-sm" onclick="abrirModalCod()"><i data-feather="tag" style="width:14px;height:14px"></i> Novo Código</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header"><strong>Códigos</strong></div>
+                <div class="card-body">
+                    <div id="loadCod" class="text-muted small">Carregando...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover d-none" id="tblCod">
+                            <thead>
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Tipo</th>
+                                    <th>Desc 1ª (%)</th>
+                                    <th>Desc mens (%)</th>
+                                    <th>Meses</th>
+                                    <th>Divulgador</th>
+                                    <th>Representante</th>
+                                    <th>Status</th>
+                                    {% if user_role == 'Superadministrador' %}<th class="text-end">Ações</th>{% endif %}
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyCod"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header"><strong>Divulgadores</strong></div>
+                <div class="card-body">
+                    <div id="loadDiv" class="text-muted small">Carregando...</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover d-none" id="tblDiv">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>CPF/CNPJ</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbodyDiv"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Código -->
+<div id="modalCod" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:8px;width:95%;max-width:450px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="padding:16px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="margin:0;font-weight:bold;" id="modalCodTitulo">Novo Código de Desconto</h5>
+            <button type="button" onclick="fecharModal('modalCod')" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+        </div>
+        <input type="hidden" id="codIdEdit" value="">
+        <div style="padding:16px;">
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Código *</label>
+                <input type="text" id="codCodigo" maxlength="50" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;" placeholder="EX: PROMO2026">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Tipo promoção *</label>
+                <select id="codTipo" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                    <option value="desconto_primeira_parcela">Desconto primeira parcela</option>
+                    <option value="desconto_mensalidade">Desconto mensalidade</option>
+                    <option value="trial_estendido">Trial estendido</option>
+                </select>
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Desconto 1ª parcela (%)</label>
+                <input type="number" id="codDesc1" min="0" max="100" value="0" style="width:80px;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Desconto mensalidade (%)</label>
+                <input type="number" id="codDescMens" min="0" max="100" value="0" style="width:80px;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Meses de desconto</label>
+                <input type="number" id="codMeses" min="1" style="width:80px;padding:8px;border:1px solid #ccc;border-radius:4px;" placeholder="∞">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Representante (Administrador) *</label>
+                <select id="codRepresentante" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                    <option value="">Selecione um representante</option>
+                    {% for u in usuarios_administradores or [] %}
+                    <option value="{{ u.id }}">{{ u.nome }} ({{ u.email }})</option>
+                    {% endfor %}
+                </select>
+                <small style="color:#6c757d;display:block;margin-top:4px;">O código ficará vinculado a este Representante. Quem se cadastrar com este código será vinculado a ele.</small>
+            </div>
+            <div style="margin-bottom:10px;display:none;" id="codAtivoWrap">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                    <input type="checkbox" id="codAtivo" style="width:18px;height:18px;">
+                    <span style="font-weight:bold;">Ativo</span>
+                </label>
+            </div>
+        </div>
+        <div style="padding:16px;border-top:1px solid #ddd;display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="fecharModal('modalCod')" style="padding:8px 16px;background:#6c757d;color:white;border:none;border-radius:4px;cursor:pointer;">Cancelar</button>
+            <button onclick="salvarCodigo()" id="btnSalvarCod" style="padding:8px 16px;background:#0d6efd;color:white;border:none;border-radius:4px;cursor:pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Divulgador -->
+<div id="modalDiv" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;">
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:white;border-radius:8px;width:95%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div style="padding:16px;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center;">
+            <h5 style="margin:0;font-weight:bold;">Novo Divulgador</h5>
+            <button type="button" onclick="fecharModal('modalDiv')" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:16px;">
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Nome *</label>
+                <input type="text" id="divNome" maxlength="255" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">CPF/CNPJ</label>
+                <input type="text" id="divCpf" maxlength="20" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">E-mail</label>
+                <input type="email" id="divEmail" maxlength="255" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+            </div>
+            <div style="margin-bottom:10px;">
+                <label style="display:block;margin-bottom:4px;font-weight:bold;">Usuário Administrador (opcional)</label>
+                <select id="divUsuarioAdmin" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;">
+                    <option value="">Nenhum</option>
+                    {% for u in usuarios_administradores or [] %}
+                    <option value="{{ u.id }}">{{ u.nome }} ({{ u.email }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div style="padding:16px;border-top:1px solid #ddd;display:flex;justify-content:flex-end;gap:8px;">
+            <button onclick="fecharModal('modalDiv')" style="padding:8px 16px;background:#6c757d;color:white;border:none;border-radius:4px;cursor:pointer;">Cancelar</button>
+            <button onclick="salvarDivulgador()" id="btnSalvarDiv" style="padding:8px 16px;background:#0d6efd;color:white;border:none;border-radius:4px;cursor:pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() { var m=document.cookie.match(/\bpdv_automscale_token=([^;]*)/); return m?m[1]:''; }
+    function authH() { return {'Authorization':'Bearer '+getToken(),'Accept':'application/json','Content-Type':'application/json'}; }
+    var divulgadores = [];
+
+    function loadCodigos() {
+        fetch('/api/v1/codigos-desconto', {headers:authH()})
+            .then(function(r){return r.json();})
+            .then(function(list) {
+                document.getElementById('loadCod').classList.add('d-none');
+                document.getElementById('tblCod').classList.remove('d-none');
+                var tb=document.getElementById('tbodyCod'); tb.innerHTML='';
+                var isSuper = document.querySelector('#tblCod thead th:last-child') && document.querySelector('#tblCod thead th:last-child').textContent.indexOf('Ações') !== -1;
+                list.forEach(function(c) {
+                    var divNome = divulgadores.find(function(d){return d.id===c.divulgador_id;});
+                    var repNome = (c.representante_nome != null && c.representante_nome !== '') ? c.representante_nome : '-';
+                    var tr=document.createElement('tr');
+                    var acoes = isSuper ? '<td class="text-end"><button type="button" class="btn btn-outline-primary btn-sm" onclick="editarCodigo('+c.id+')" title="Editar"><i data-feather="edit-2" style="width:14px;height:14px"></i></button></td>' : '';
+                    tr.innerHTML='<td><code>'+c.codigo+'</code></td><td>'+c.tipo_promocao+'</td><td>'+c.desconto_primeira_parcela_percent+'%</td><td>'+c.desconto_mensalidade_percent+'%</td><td>'+(c.meses_desconto||'∞')+'</td><td>'+(divNome?divNome.nome:'-')+'</td><td>'+repNome+'</td><td>'+(c.ativo?'<span class="badge bg-success">Ativo</span>':'<span class="badge bg-secondary">Inativo</span>')+'</td>'+acoes;
+                    tb.appendChild(tr);
+                });
+                if(!list.length) {
+                    var cols = document.querySelectorAll('#tblCod thead th').length;
+                    tb.innerHTML='<tr><td colspan="'+cols+'" class="text-muted">Nenhum código cadastrado.</td></tr>';
+                }
+                if (typeof feather !== 'undefined') feather.replace();
+            });
+    }
+    function loadDivulgadores() {
+        fetch('/api/v1/divulgadores', {headers:authH()})
+            .then(function(r){return r.json();})
+            .then(function(list) {
+                divulgadores=list;
+                document.getElementById('loadDiv').classList.add('d-none');
+                document.getElementById('tblDiv').classList.remove('d-none');
+                var tb=document.getElementById('tbodyDiv'); tb.innerHTML='';
+                list.forEach(function(d) {
+                    var tr=document.createElement('tr');
+                    tr.innerHTML='<td>'+d.nome+'</td><td>'+(d.cpf_cnpj||'-')+'</td><td>'+(d.ativo?'<span class="badge bg-success">Ativo</span>':'<span class="badge bg-secondary">Inativo</span>')+'</td>';
+                    tb.appendChild(tr);
+                });
+                if(!list.length) tb.innerHTML='<tr><td colspan="3" class="text-muted">Nenhum divulgador.</td></tr>';
+                loadCodigos();
+            });
+    }
+
+    function limparFormCodigo() {
+        document.getElementById('codIdEdit').value = '';
+        document.getElementById('modalCodTitulo').textContent = 'Novo Código de Desconto';
+        document.getElementById('codCodigo').value = '';
+        document.getElementById('codCodigo').readOnly = false;
+        document.getElementById('codTipo').value = 'desconto_primeira_parcela';
+        document.getElementById('codDesc1').value = '0';
+        document.getElementById('codDescMens').value = '0';
+        document.getElementById('codMeses').value = '';
+        document.getElementById('codRepresentante').value = '';
+        document.getElementById('codAtivoWrap').style.display = 'none';
+    }
+
+    window.abrirModalCod = function() {
+        limparFormCodigo();
+        document.getElementById('modalCod').style.display = 'block';
+    };
+
+    window.editarCodigo = function(id) {
+        fetch('/api/v1/codigos-desconto/' + id, { headers: authH() })
+            .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || r.status); }); return r.json(); })
+            .then(function(c) {
+                document.getElementById('codIdEdit').value = c.id;
+                document.getElementById('modalCodTitulo').textContent = 'Editar Código de Desconto';
+                document.getElementById('codCodigo').value = c.codigo || '';
+                document.getElementById('codCodigo').readOnly = true;
+                document.getElementById('codTipo').value = c.tipo_promocao || 'desconto_primeira_parcela';
+                document.getElementById('codDesc1').value = c.desconto_primeira_parcela_percent != null ? c.desconto_primeira_parcela_percent : 0;
+                document.getElementById('codDescMens').value = c.desconto_mensalidade_percent != null ? c.desconto_mensalidade_percent : 0;
+                document.getElementById('codMeses').value = c.meses_desconto != null ? c.meses_desconto : '';
+                var div = divulgadores.find(function(d) { return d.id === c.divulgador_id; });
+                document.getElementById('codRepresentante').value = (div && div.usuario_id) ? String(div.usuario_id) : '';
+                document.getElementById('codAtivoWrap').style.display = 'block';
+                document.getElementById('codAtivo').checked = c.ativo !== false;
+                document.getElementById('modalCod').style.display = 'block';
+                if (typeof feather !== 'undefined') feather.replace();
+            })
+            .catch(function(e) { alert('Erro ao carregar código: ' + e.message); });
+    };
+
+    window.abrirModalDiv = function() { document.getElementById('modalDiv').style.display='block'; };
+    window.fecharModal = function(id) { document.getElementById(id).style.display='none'; };
+
+    window.salvarCodigo = function() {
+        var idEdit = document.getElementById('codIdEdit').value.trim();
+        var isEdit = !!idEdit;
+
+        if (!isEdit) {
+            var codigo = document.getElementById('codCodigo').value.trim();
+            if (!codigo) { alert('Informe o código.'); return; }
+        }
+        var repId = document.getElementById('codRepresentante').value;
+        if (!repId) { alert('Selecione um Representante (Administrador). O código deve ser vinculado a um representante.'); return; }
+
+        var meses = document.getElementById('codMeses').value;
+        var payload = {
+            tipo_promocao: document.getElementById('codTipo').value,
+            desconto_primeira_parcela_percent: parseInt(document.getElementById('codDesc1').value, 10) || 0,
+            desconto_mensalidade_percent: parseInt(document.getElementById('codDescMens').value, 10) || 0,
+            meses_desconto: meses ? parseInt(meses, 10) : null,
+            representante_usuario_id: parseInt(repId, 10)
+        };
+        if (isEdit) {
+            payload.ativo = document.getElementById('codAtivo').checked;
+        } else {
+            payload.codigo = document.getElementById('codCodigo').value.trim();
+        }
+
+        document.getElementById('btnSalvarCod').disabled = true;
+        var url = isEdit ? ('/api/v1/codigos-desconto/' + idEdit) : '/api/v1/codigos-desconto';
+        var method = isEdit ? 'PATCH' : 'POST';
+        fetch(url, { method: method, headers: authH(), body: JSON.stringify(payload) })
+            .then(function(r) { if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || r.status); }); return r.json(); })
+            .then(function() { fecharModal('modalCod'); loadCodigos(); })
+            .catch(function(e) { alert('Erro: ' + e.message); })
+            .finally(function() { document.getElementById('btnSalvarCod').disabled = false; });
+    };
+    window.salvarDivulgador = function() {
+        var nome=document.getElementById('divNome').value.trim();
+        if(!nome) return;
+        var usuarioIdEl = document.getElementById('divUsuarioAdmin');
+        var usuarioId = usuarioIdEl && usuarioIdEl.value ? parseInt(usuarioIdEl.value, 10) : null;
+        var payload={nome:nome, cpf_cnpj:document.getElementById('divCpf').value.trim()||null, email:document.getElementById('divEmail').value.trim()||null, usuario_id:usuarioId||null};
+        document.getElementById('btnSalvarDiv').disabled=true;
+        fetch('/api/v1/divulgadores',{method:'POST',headers:authH(),body:JSON.stringify(payload)})
+            .then(function(r){if(!r.ok) return r.json().then(function(d){throw new Error(d.detail||r.status);}); return r.json();})
+            .then(function(){fecharModal('modalDiv');loadDivulgadores();})
+            .catch(function(e){alert('Erro: '+e.message);})
+            .finally(function(){document.getElementById('btnSalvarDiv').disabled=false;});
+    };
+
+    loadDivulgadores();
+    if(typeof feather!=='undefined') feather.replace();
+})();
+</script>
+{% endblock %}

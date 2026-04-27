@@ -1,0 +1,120 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Meus pedidos{% endblock %}
+
+{% block content %}
+<div class="loja-orders-page">
+  <div class="loja-orders-header">
+    <h1 class="loja-page-title">Meus pedidos</h1>
+    <p class="loja-page-subtitle">
+      Acompanhe seus pedidos e consulte o histórico das suas compras.
+    </p>
+  </div>
+
+  <div id="loja-pedidos-unauth" class="loja-orders-empty" style="display: none;">
+    <div class="loja-orders-empty-card">
+      <h2>Entre para ver seus pedidos</h2>
+      <p>Faça login para acompanhar o histórico das suas compras.</p>
+      <a href="/loja/login" class="btn btn-primary">Entrar</a>
+    </div>
+  </div>
+
+  <div id="loja-pedidos-empty" class="loja-orders-empty" style="display: none;">
+    <div class="loja-orders-empty-card">
+      <h2>Nenhum pedido ainda</h2>
+      <p>Quando você finalizar uma compra, ela aparecerá aqui.</p>
+      <a href="/" class="btn btn-primary">Fazer compras</a>
+    </div>
+  </div>
+
+  <div id="loja-pedidos-list" class="loja-orders-list" style="display: none;"></div>
+
+  <div id="loja-pedidos-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var unauth = document.getElementById("loja-pedidos-unauth");
+  var listEl = document.getElementById("loja-pedidos-list");
+  var emptyEl = document.getElementById("loja-pedidos-empty");
+  var errorEl = document.getElementById("loja-pedidos-error");
+
+  function badgeClass(status) {
+    var s = (status || "").toLowerCase();
+    if (s.includes("pago") || s.includes("aprovado")) return "loja-status loja-status-success";
+    if (s.includes("pendente")) return "loja-status loja-status-warning";
+    if (s.includes("cancelado") || s.includes("falhou") || s.includes("rejeitado")) return "loja-status loja-status-danger";
+    return "loja-status loja-status-neutral";
+  }
+
+  window.Vitrine.getMeusPedidos()
+    .then(function (pedidos) {
+      unauth.style.display = "none";
+      errorEl.style.display = "none";
+
+      if (!pedidos || pedidos.length === 0) {
+        emptyEl.style.display = "block";
+        listEl.style.display = "none";
+        return;
+      }
+
+      emptyEl.style.display = "none";
+      listEl.style.display = "grid";
+
+      var html = "";
+      pedidos.forEach(function (p) {
+        var itens = (p.itens || []).map(function (i) {
+          return (
+            '<li>' +
+              '<span class="loja-order-item-title">' + window.Vitrine.escapeHtml(i.titulo || "") + '</span>' +
+              '<span class="loja-order-item-qty">&times; ' + (i.quantidade || 0) + '</span>' +
+            '</li>'
+          );
+        }).join("");
+
+        var numeroPedido = p.numero_pedido || ("#" + p.id);
+        var acompanharUrl = "/loja/acompanhar-pedido?numero_pedido=" + encodeURIComponent(p.numero_pedido || p.id);
+        html +=
+          '<article class="loja-order-card">' +
+            '<div class="loja-order-card-head">' +
+              '<div>' +
+                '<p class="loja-order-number">Pedido ' + window.Vitrine.escapeHtml(numeroPedido) + '</p>' +
+                '<p class="small text-muted mb-1">Subtotal: ' + window.Vitrine.formatPreco(p.subtotal || p.total) + (p.taxa_entrega > 0 ? ' &bull; Frete: ' + window.Vitrine.formatPreco(p.taxa_entrega) : ' &bull; Frete: Grátis') + '</p>' +
+                '<h2 class="loja-order-total">' + window.Vitrine.formatPreco(p.total) + '</h2>' +
+              '</div>' +
+              '<div class="loja-order-statuses">' +
+                '<span class="' + badgeClass(p.status_pedido || "") + '">' + window.Vitrine.escapeHtml(p.status_pedido || "Sem status") + '</span>' +
+                '<span class="' + badgeClass(p.status_pagamento || "") + '">' + window.Vitrine.escapeHtml(window.Vitrine.statusPagamentoLabel ? window.Vitrine.statusPagamentoLabel(p.status_pagamento) : (p.status_pagamento || "Sem pagamento")) + '</span>' +
+                (p.status_entrega && p.status_entrega !== "pendente" ? '<span class="' + badgeClass(p.status_entrega) + '">Entrega: ' + window.Vitrine.escapeHtml(p.status_entrega) + '</span>' : '') +
+                (p.tipo_entrega ? '<span class="loja-status loja-status-neutral">' + window.Vitrine.escapeHtml(p.tipo_entrega) + '</span>' : '') +
+              '</div>' +
+            '</div>' +
+            (itens
+              ? '<div class="loja-order-card-body">' +
+                  '<p class="loja-order-section-title">Itens do pedido</p>' +
+                  '<ul class="loja-order-items">' + itens + '</ul>' +
+                  (window.Vitrine.canShowPagarAgora && p.id && window.Vitrine.canShowPagarAgora(p.status_pagamento)
+                    ? '<p class="mt-2 mb-1"><a href="/loja/pagamento/cancelado?pedido=' + p.id + '" class="btn btn-sm btn-primary">Pagar agora</a></p>'
+                    : '') +
+                  '<p class="mt-2 mb-0"><a href="' + acompanharUrl + '" class="small">Acompanhar este pedido</a></p>' +
+                '</div>'
+              : '<div class="loja-order-card-body">' +
+                  (window.Vitrine.canShowPagarAgora && p.id && window.Vitrine.canShowPagarAgora(p.status_pagamento)
+                    ? '<p class="mb-1"><a href="/loja/pagamento/cancelado?pedido=' + p.id + '" class="btn btn-sm btn-primary">Pagar agora</a></p>'
+                    : '') +
+                  '<p class="mb-0"><a href="' + acompanharUrl + '" class="small">Acompanhar este pedido</a></p></div>') +
+          '</article>';
+      });
+
+      listEl.innerHTML = html;
+    })
+    .catch(function () {
+      unauth.style.display = "block";
+      listEl.style.display = "none";
+      emptyEl.style.display = "none";
+    });
+})();
+</script>
+{% endblock %}

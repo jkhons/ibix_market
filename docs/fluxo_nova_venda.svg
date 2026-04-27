@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 720" font-family="system-ui, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#333"/>
+    </marker>
+    <style>
+      .box { fill: #f0f4f8; stroke: #4a90a4; stroke-width: 1.5; rx: 6; }
+      .start { fill: #d4edda; stroke: #28a745; }
+      .end { fill: #d4edda; stroke: #28a745; }
+      .decision { fill: #fff3cd; stroke: #856404; }
+      .step { fill: #e7f3ff; stroke: #0066cc; }
+      .popup { fill: #f8e8e8; stroke: #c9302c; }
+      .text-title { font-weight: bold; font-size: 14px; fill: #1a1a1a; }
+      .text-small { font-size: 11px; fill: #555; }
+    </style>
+  </defs>
+  <title>Fluxo de Nova Venda  PDV SOLUMATICA</title>
+
+  <!-- T?tulo -->
+  <text x="260" y="28" text-anchor="middle" class="text-title">Fluxo de Nova Venda</text>
+  <text x="260" y="46" text-anchor="middle" class="text-small">/negocio/venda  Modal Nova Venda</text>
+
+  <!-- In?cio -->
+  <rect x="185" y="58" width="150" height="36" class="box start"/>
+  <text x="260" y="78" text-anchor="middle">In?cio: Clicar em Nova Venda</text>
+  <text x="260" y="90" text-anchor="middle" class="text-small">(abre modal)</text>
+
+  <line x1="260" y1="94" x2="260" y2="118" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Cliente -->
+  <rect x="185" y="118" width="150" height="44" class="box step"/>
+  <text x="260" y="136" text-anchor="middle">Cliente (opcional)</text>
+  <text x="260" y="150" text-anchor="middle" class="text-small">Buscar por nome/CNPJ</text>
+  <text x="260" y="162" text-anchor="middle" class="text-small">ou venda avulsa</text>
+
+  <line x1="260" y1="162" x2="260" y2="186" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Buscar produto -->
+  <rect x="185" y="186" width="150" height="40" class="box step"/>
+  <text x="260" y="204" text-anchor="middle">Buscar Produto</text>
+  <text x="260" y="218" text-anchor="middle" class="text-small">c?digo, nome ou descri??o</text>
+
+  <line x1="260" y1="226" x2="260" y2="250" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Adicionar itens -->
+  <rect x="185" y="250" width="150" height="52" class="box step"/>
+  <text x="260" y="268" text-anchor="middle">Adicionar itens ao carrinho</text>
+  <text x="260" y="282" text-anchor="middle" class="text-small">Produtos dispon?veis ?</text>
+  <text x="260" y="296" text-anchor="middle" class="text-small">Itens da venda (qtd, valor)</text>
+
+  <line x1="260" y1="302" x2="260" y2="326" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Tem itens? -->
+  <path d="M 260 326 L 320 366 L 260 406 L 200 366 Z" class="box decision"/>
+  <text x="260" y="362" text-anchor="middle">Tem itens?</text>
+  <text x="260" y="376" text-anchor="middle" class="text-small">Total &gt; 0</text>
+
+  <line x1="260" y1="366" x2="260" y2="390" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+  <text x="280" y="356" class="text-small" fill="#28a745">Sim</text>
+  <line x1="320" y1="366" x2="380" y2="366" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+  <text x="348" y="358" class="text-small" fill="#856404">N?o</text>
+  <line x1="380" y1="366" x2="380" y2="250" stroke="#856404" stroke-width="1" stroke-dasharray="4 2"/>
+  <line x1="380" y1="250" x2="335" y2="250" stroke="#856404" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arrowhead)"/>
+  <text x="382" y="305" class="text-small" fill="#856404">voltar</text>
+
+  <!-- Resumo -->
+  <rect x="185" y="390" width="150" height="52" class="box step"/>
+  <text x="260" y="408" text-anchor="middle">Resumo da venda</text>
+  <text x="260" y="422" text-anchor="middle" class="text-small">Subtotal, desconto,</text>
+  <text x="260" y="436" text-anchor="middle" class="text-small">acr?scimo, total</text>
+
+  <line x1="260" y1="442" x2="260" y2="466" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Bot?o Finalizar -->
+  <rect x="185" y="466" width="150" height="36" class="box step"/>
+  <text x="260" y="486" text-anchor="middle">Clicar em Finalizar Venda</text>
+
+  <line x1="260" y1="502" x2="260" y2="526" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Popup Finalizar -->
+  <rect x="165" y="526" width="190" height="72" class="box popup"/>
+  <text x="260" y="546" text-anchor="middle">Popup: Finalizar Venda</text>
+  <text x="260" y="562" text-anchor="middle" class="text-small">" Pagamentos (fracionamento: dinheiro, PIX, cart?o&)</text>
+  <text x="260" y="576" text-anchor="middle" class="text-small">" Desconto / Acr?scimo (R$)</text>
+  <text x="260" y="590" text-anchor="middle" class="text-small">" PDV / Caixa (opcional) " Observa??es</text>
+
+  <line x1="260" y1="598" x2="260" y2="622" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Confirmar -->
+  <rect x="185" y="622" width="150" height="40" class="box step"/>
+  <text x="260" y="640" text-anchor="middle">Confirmar Venda</text>
+  <text x="260" y="654" text-anchor="middle" class="text-small">API: vendas + venda_pagamentos</text>
+
+  <line x1="260" y1="662" x2="260" y2="678" stroke="#333" stroke-width="1.2" marker-end="url(#arrowhead)"/>
+
+  <!-- Fim -->
+  <rect x="185" y="678" width="150" height="32" class="box end"/>
+  <text x="260" y="698" text-anchor="middle">Venda conclu?da</text>
+</svg>

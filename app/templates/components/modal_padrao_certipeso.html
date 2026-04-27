@@ -1,0 +1,243 @@
+<!--
+================================================================================
+MODAL PADRÃO PDV AUTOMSCALE - ARQUIVO DE REFERÊNCIA
+================================================================================
+
+Este arquivo contém o template padrão para modais independentes no PDV Ibix.
+Use este arquivo como referência para criar novos modais seguindo o mesmo padrão.
+
+CARACTERÍSTICAS:
+- Completamente independente (sem herança de CSS/JS externo)
+- Estilos inline para isolamento total
+- Cores do padrão PDV Ibix (#2c3e50, #34495e)
+- Cantos retos (sem border-radius)
+- Responsivo e acessível
+- Integração com Feather Icons
+
+COMO USAR:
+1. Copie a estrutura HTML do modal
+2. Adapte o conteúdo conforme necessário
+3. Implemente as funções JavaScript específicas
+4. Mantenha a nomenclatura consistente
+
+================================================================================
+-->
+
+<!-- Modal Padrão PDV Ibix - Estrutura Base -->
+<div id="modalPadraoPDVIbix" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999;">
+    <div style="background: white; border-radius: 0; width: 90%; max-width: 900px; max-height: 90vh; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden;">
+        
+        <!-- Header Padrão -->
+        <div style="background: linear-gradient(180deg, #2c3e50, #34495e); color: white; padding: 20px 25px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.4rem; font-weight: 600; display: flex; align-items: center; gap: 10px;">
+                <i data-feather="info" style="width: 20px; height: 20px;"></i>
+                Título do Modal
+            </h3>
+            <button onclick="fecharModalPadrao()" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 24px; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        
+        <!-- Body Padrão -->
+        <div style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+            
+            <!-- Seção de Informações (Exemplo) -->
+            <div style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e9ecef;">
+                <h4 style="color: #333; font-size: 1.1rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <i data-feather="info" style="width: 18px; height: 18px; color: #2c3e50;"></i>
+                    Seção de Informações
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Campo 1:</label>
+                        <div id="campo1" style="font-size: 0.9rem; color: #333; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #2c3e50; margin-top: 3px;">-</div>
+                    </div>
+                    <div>
+                        <label style="font-size: 0.8rem; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.5px;">Campo 2:</label>
+                        <div id="campo2" style="font-size: 0.9rem; color: #333; padding: 8px 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #2c3e50; margin-top: 3px;">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seção de Lista (Exemplo) -->
+            <div style="margin-bottom: 0;">
+                <h4 style="color: #333; font-size: 1.1rem; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                    <i data-feather="list" style="width: 18px; height: 18px; color: #2c3e50;"></i>
+                    Lista de Itens (<span id="totalItens">0</span>)
+                </h4>
+                <div id="listaItens" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Itens serão listados aqui -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer Padrão -->
+        <div style="background: #f8f9fa; padding: 15px 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #e9ecef;">
+            <button onclick="fecharModalPadrao()" style="background: #6c757d; color: white; border: 1px solid #6c757d; padding: 8px 16px; border-radius: 6px; font-weight: 500; cursor: pointer; transition: all 0.3s; display: flex; align-items: center; gap: 6px; font-size: 0.9rem;">
+                <i data-feather="x" style="width: 16px; height: 16px;"></i> Fechar
+            </button>
+        </div>
+    </div>
+</div>
+
+<!--
+================================================================================
+JAVASCRIPT PADRÃO PARA MODAIS PDV AUTOMSCALE
+================================================================================
+-->
+
+<script>
+// Função para exibir modal padrão - Completamente Isolada
+function exibirModalPadrao(data) {
+    console.log('📋 Dados recebidos para o modal:', data);
+    
+    // Exemplo de preenchimento de campos
+    document.getElementById('campo1').textContent = data.campo1 || '-';
+    document.getElementById('campo2').textContent = data.campo2 || '-';
+    
+    // Exemplo de preenchimento de lista
+    const listaContainer = document.getElementById('listaItens');
+    document.getElementById('totalItens').textContent = data.total || data.itens?.length || 0;
+    
+    if (data.itens && data.itens.length > 0) {
+        listaContainer.innerHTML = data.itens.map((item, index) => {
+            return `
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border-left: 4px solid #2c3e50; display: flex; align-items: center; gap: 15px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);">
+                    <div style="background: #2c3e50; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.9rem;">${index + 1}</div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; color: #333; margin-bottom: 6px; font-size: 1rem;">Item: ${item.nome || 'N/A'}</div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; font-size: 0.85rem; color: #666;">
+                            <div><strong>Descrição:</strong> ${item.descricao || 'N/A'}</div>
+                            <div><strong>Status:</strong> ${item.status || 'N/A'}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } else {
+        listaContainer.innerHTML = '<div style="text-align: center; color: #666; padding: 40px; font-size: 1.1rem;">Nenhum item encontrado</div>';
+    }
+
+    // Mostrar modal
+    const modal = document.getElementById('modalPadraoPDVIbix');
+    modal.style.display = 'flex';
+    modal.style.alignItems = 'center';
+    modal.style.justifyContent = 'center';
+    document.body.style.overflow = 'hidden';
+    
+    // Atualizar ícones Feather
+    setTimeout(() => {
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    }, 100);
+}
+
+// Função para fechar modal padrão - Completamente Isolada
+function fecharModalPadrao() {
+    document.getElementById('modalPadraoPDVIbix').style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+// Fechar modal ao clicar no overlay
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('modalPadraoPDVIbix');
+    if (event.target === modal) {
+        fecharModalPadrao();
+    }
+});
+
+// Fechar modal com tecla ESC
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        fecharModalPadrao();
+    }
+});
+</script>
+
+<!--
+================================================================================
+PALETA DE CORES PDV AUTOMSCALE
+================================================================================
+
+CORES PRINCIPAIS:
+- Primária: #2c3e50 (azul escuro)
+- Secundária: #34495e (azul médio)
+- Gradiente Sidebar: linear-gradient(180deg, #2c3e50, #34495e)
+- Botão Secundário: #6c757d (cinza)
+
+CORES DE STATUS:
+- Sucesso: #28a745 (verde)
+- Erro: #dc3545 (vermelho)
+- Aviso: #ffc107 (amarelo)
+- Info: #17a2b8 (azul claro)
+- Neutro: #6c757d (cinza)
+
+CORES DE FUNDO:
+- Branco: #ffffff
+- Cinza claro: #f8f9fa
+- Borda: #e9ecef
+
+================================================================================
+ESTRUTURA DE DADOS RECOMENDADA
+================================================================================
+
+Para modais de listagem:
+{
+    "campo1": "valor1",
+    "campo2": "valor2",
+    "total": 5,
+    "itens": [
+        {
+            "nome": "Item 1",
+            "descricao": "Descrição do item",
+            "status": "ativo"
+        }
+    ]
+}
+
+Para modais de detalhes:
+{
+    "id": 123,
+    "nome": "Nome do item",
+    "descricao": "Descrição detalhada",
+    "campos": {
+        "campo1": "valor1",
+        "campo2": "valor2"
+    }
+}
+
+================================================================================
+ICONES FEATHER DISPONÍVEIS
+================================================================================
+
+Ícones recomendados para seções:
+- info: Informações gerais
+- user: Dados do usuário/cliente
+- package: Equipamentos/produtos
+- list: Listas de itens
+- settings: Configurações
+- file-text: Documentos
+- calendar: Datas/agendamentos
+- map-pin: Localização
+- phone: Contato
+- mail: Email
+- credit-card: Pagamentos
+- shield: Segurança
+- activity: Relatórios/gráficos
+
+================================================================================
+RESPONSIVIDADE
+================================================================================
+
+O modal é responsivo por padrão:
+- Largura: 90% da tela (máximo 900px)
+- Altura: 90% da tela (máximo 70vh para o body)
+- Grid: repeat(auto-fit, minmax(200px, 1fr))
+- Scroll: Automático quando necessário
+
+Para telas menores, ajuste:
+- max-width: 95% (mobile)
+- padding: 15px (mobile)
+- font-size: 0.8rem (mobile)
+
+================================================================================
+-->

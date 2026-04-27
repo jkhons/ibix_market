@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Painel | Influencer Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3">Meu Painel de Influencer</h1>
+        <p class="text-muted" id="status-msg">Carregando...</p>
+    </div>
+
+    <!-- Cards resumo -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3 text-center">
+                <h6 class="text-muted small mb-1">Minhas Vendas</h6>
+                <h2 class="mb-0" id="my-vendas">-</h2>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3 text-center">
+                <h6 class="text-muted small mb-1">Faturamento</h6>
+                <h2 class="mb-0 text-success" id="my-faturamento">-</h2>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3 text-center">
+                <h6 class="text-muted small mb-1">Cliques</h6>
+                <h2 class="mb-0 text-primary" id="my-cliques">-</h2>
+            </div></div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card"><div class="card-body py-3 text-center">
+                <h6 class="text-muted small mb-1">Campanhas</h6>
+                <h2 class="mb-0" id="my-campanhas">-</h2>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Cupons -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header"><strong>Meus Cupons</strong></div>
+                <div class="card-body">
+                    <div id="loadCupons" class="text-muted small">Carregando...</div>
+                    <div id="lista-cupons"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header"><strong>Meus Links</strong></div>
+                <div class="card-body">
+                    <div id="loadLinks" class="text-muted small">Carregando...</div>
+                    <div id="lista-links"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campanhas -->
+    <div class="card mt-4">
+        <div class="card-header"><strong>Minhas Campanhas</strong></div>
+        <div class="card-body">
+            <div id="loadCamps" class="text-muted small">Carregando...</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover d-none" id="tblCamps">
+                    <thead>
+                        <tr>
+                            <th>Titulo</th>
+                            <th>Tipo</th>
+                            <th>Status</th>
+                            <th>Cupom</th>
+                            <th>Teste</th>
+                            <th>Criado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyCamps"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Centro de conteudo -->
+    <div class="card mt-4">
+        <div class="card-header"><strong>Centro de Conteudo</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6 col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="fw-bold">Como vender melhor</h6>
+                        <p class="text-muted small mb-0">Dicas para aumentar suas conversoes e engajamento com sua audiencia.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="fw-bold">Como usar seus cupons</h6>
+                        <p class="text-muted small mb-0">Copie o codigo do cupom e compartilhe nas redes. Cada uso conta como conversao.</p>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="fw-bold">Sobre a Ibix</h6>
+                        <p class="text-muted small mb-0">Sistema completo de vendas e gestao: PDV, estoque, caixa, fiscal. Ajude lojistas a crescerem.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    var F = window.authenticatedFetch || fetch;
+    var statusBadge = { ativa:'success', pausada:'warning', finalizada:'dark', cancelada:'danger', rascunho:'secondary' };
+    function badge(s){ return '<span class="badge bg-'+(statusBadge[s]||'secondary')+'">'+s+'</span>'; }
+    function fmt(d){ return d ? new Date(d).toLocaleDateString('pt-BR') : '-'; }
+
+    function copiar(text, btn) {
+        navigator.clipboard.writeText(text).then(function(){
+            var orig = btn.textContent;
+            btn.textContent = 'Copiado!';
+            setTimeout(function(){ btn.textContent = orig; }, 1500);
+        });
+    }
+    window.copiarCupom = copiar;
+    window.copiarLink = copiar;
+
+    F('/api/v1/influencers/me').then(function(r){return r.json()}).then(function(d){
+        var statusMap = {
+            pendente: 'Seu perfil esta em analise. Aguarde aprovacao.',
+            teste: 'Voce esta na fase de teste. Mostre seu potencial!',
+            aprovado: 'Voce esta aprovado! Divulgue e ganhe.',
+            parceiro: 'Voce e Parceiro Ibix! Acesso a beneficios exclusivos.',
+            bloqueado: 'Seu perfil esta temporariamente suspenso.'
+        };
+        document.getElementById('status-msg').textContent = statusMap[d.status] || ('Status: ' + d.status);
+    }).catch(function(){
+        document.getElementById('status-msg').textContent = 'Erro ao carregar perfil.';
+    });
+
+    F('/api/v1/influencers/me/metricas').then(function(r){return r.json()}).then(function(d){
+        document.getElementById('my-vendas').textContent = d.total_vendas || 0;
+        document.getElementById('my-faturamento').textContent = 'R$ ' + Number(d.total_faturamento || 0).toFixed(2).replace('.',',');
+        document.getElementById('my-cliques').textContent = d.total_cliques || 0;
+        document.getElementById('my-campanhas').textContent = d.total_campanhas || 0;
+    });
+
+    F('/api/v1/influencers/me/cupons').then(function(r){return r.json()}).then(function(data){
+        document.getElementById('loadCupons').classList.add('d-none');
+        var el = document.getElementById('lista-cupons');
+        if (!data.length) { el.innerHTML = '<p class="text-muted small">Nenhum cupom ainda.</p>'; return; }
+        el.innerHTML = '';
+        data.forEach(function(c){
+            el.innerHTML += '<div class="d-flex justify-content-between align-items-center border-bottom py-2">'
+                + '<div><strong class="font-monospace">' + c.codigo + '</strong><br><span class="text-muted small">' + c.tipo_promocao + '</span></div>'
+                + '<button class="btn btn-outline-primary btn-sm" onclick="copiarCupom(\''+c.codigo+'\',this)">Copiar</button>'
+                + '</div>';
+        });
+    });
+
+    F('/api/v1/influencers/me/links').then(function(r){return r.json()}).then(function(data){
+        document.getElementById('loadLinks').classList.add('d-none');
+        var el = document.getElementById('lista-links');
+        if (!data.length) { el.innerHTML = '<p class="text-muted small">Nenhum link ainda.</p>'; return; }
+        el.innerHTML = '';
+        data.forEach(function(l){
+            var url = window.location.origin + l.url_rastreavel;
+            el.innerHTML += '<div class="d-flex justify-content-between align-items-center border-bottom py-2">'
+                + '<div><code class="small">' + url + '</code><br><span class="text-muted small">Destino: ' + l.url_destino.substring(0,60) + '</span></div>'
+                + '<button class="btn btn-outline-primary btn-sm" onclick="copiarLink(\''+url+'\',this)">Copiar</button>'
+                + '</div>';
+        });
+    });
+
+    F('/api/v1/influencers/me/campanhas').then(function(r){return r.json()}).then(function(data){
+        document.getElementById('loadCamps').classList.add('d-none');
+        document.getElementById('tblCamps').classList.remove('d-none');
+        var tb = document.getElementById('tbodyCamps');
+        tb.innerHTML = '';
+        data.forEach(function(c){
+            tb.innerHTML += '<tr>'
+                + '<td>'+c.titulo+'</td>'
+                + '<td>'+c.tipo+'</td>'
+                + '<td>'+badge(c.status)+'</td>'
+                + '<td>'+(c.cupom_codigo||'-')+'</td>'
+                + '<td>'+(c.is_teste?'Sim':'-')+'</td>'
+                + '<td>'+fmt(c.created_at)+'</td>'
+                + '</tr>';
+        });
+    });
+})();
+</script>
+{% endblock %}

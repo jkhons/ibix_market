@@ -1,0 +1,981 @@
+{% extends "base.html" %}
+
+{% block title %}Tipos de Contratos | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Cabeçalho -->
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle">
+                    <strong>Modelos/Templates</strong> de Contratos
+                </h1>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" onclick="abrirModalCriar()">
+                    <i data-feather="plus" style="width: 18px; height: 18px;"></i>
+                    Criar Novo Template
+                </button>
+                <a href="/contratos" class="btn btn-secondary">
+                    <i data-feather="arrow-left" style="width: 18px; height: 18px;"></i>
+                    Voltar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Total</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-primary">
+                                <i class="align-middle" data-feather="file-text"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="totalTemplates">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Ativos</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-success">
+                                <i class="align-middle" data-feather="check-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="ativosTemplates">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Inativos</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-warning">
+                                <i class="align-middle" data-feather="pause-circle"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="inativosTemplates">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col mt-0">
+                            <h5 class="card-title">Tipos</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="stat text-info">
+                                <i class="align-middle" data-feather="layers"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <h1 class="mt-1 mb-3" id="tiposTemplates">
+                        <div class="spinner-border spinner-border-sm"></div>
+                    </h1>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Templates -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="card-title mb-0">
+                                <i class="align-middle me-2" data-feather="list"></i>
+                                Templates Cadastrados
+                            </h5>
+                        </div>
+                        <div class="col-auto">
+                            <!-- Filtros -->
+                            <select class="form-select form-select-sm d-inline-block w-auto me-2" id="filtroTipo" onchange="carregarTemplates()">
+                                <option value="">Todos os Tipos</option>
+                                <option value="calibracao">Calibração</option>
+                                <option value="afericao">Aferição</option>
+                                <option value="manutencao">Manutenção</option>
+                                <option value="inspecao">Inspeção</option>
+                                <option value="outros">Outros</option>
+                            </select>
+                            <select class="form-select form-select-sm d-inline-block w-auto" id="filtroAtivo" onchange="carregarTemplates()">
+                                <option value="">Todos os Status</option>
+                                <option value="true">Ativos</option>
+                                <option value="false">Inativos</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped" id="tabelaTemplates">
+                            <thead>
+                                <tr>
+                                    <th style="width: 5%;">ID</th>
+                                    <th style="width: 20%;">Nome</th>
+                                    <th style="width: 25%;">Descrição</th>
+                                    <th style="width: 10%;">Tipo</th>
+                                    <th style="width: 10%;">Status</th>
+                                    <th style="width: 15%;">Data Criação</th>
+                                    <th style="width: 15%;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <div class="spinner-border spinner-border-sm me-2"></div>
+                                        Carregando templates...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container para alertas -->
+<div id="alert-container" style="position: fixed; top: 80px; right: 20px; z-index: 9998; max-width: 400px;"></div>
+
+<!-- ============================================ -->
+<!-- MODAL CUSTOMIZADO - CSS E HTML ISOLADOS     -->
+<!-- ============================================ -->
+
+<style>
+/* ===== ESTILOS EXCLUSIVOS DO MODAL - NÃO HERDAM DO PROJETO ===== */
+.modal-template-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 99999;
+    animation: fadeIn 0.3s ease;
+    backdrop-filter: blur(4px);
+}
+
+.modal-template-overlay.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-template-container {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 95%;
+    max-width: 1200px;
+    max-height: 95vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    animation: slideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.modal-template-header {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    padding: 24px 32px;
+    border-radius: 16px 16px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-template-header h3 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-template-close {
+    background: rgba(255, 255, 255, 0.25);
+    border: none;
+    color: white;
+    font-size: 36px;
+    line-height: 1;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+}
+
+.modal-template-close:hover {
+    background: rgba(255, 255, 255, 0.4);
+    transform: rotate(90deg) scale(1.1);
+}
+
+.modal-template-body {
+    padding: 32px;
+    overflow-y: auto;
+    flex: 1;
+    background: #f8f9fa;
+}
+
+.modal-template-form-group {
+    margin-bottom: 24px;
+}
+
+.modal-template-label {
+    display: block;
+    font-weight: 600;
+    font-size: 14px;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal-template-label-required::after {
+    content: " *";
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.modal-template-input,
+.modal-template-select,
+.modal-template-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.modal-template-input:focus,
+.modal-template-select:focus,
+.modal-template-textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.modal-template-textarea {
+    min-height: 400px;
+    resize: vertical;
+    font-family: 'Courier New', Courier, monospace;
+    line-height: 1.6;
+}
+
+.modal-template-info {
+    background: #e3f2fd;
+    border-left: 4px solid #2196f3;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #1565c0;
+}
+
+.modal-template-info strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 15px;
+}
+
+.modal-template-variavel {
+    display: inline-block;
+    background: #ffd54f;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    font-weight: bold;
+    margin: 2px;
+    color: #5d4037;
+}
+
+.modal-template-footer {
+    background: #f8f9fa;
+    padding: 20px 32px;
+    border-radius: 0 0 16px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 2px solid #e9ecef;
+}
+
+.modal-template-stats {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.modal-template-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.modal-template-btn {
+    padding: 12px 28px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.modal-template-btn-cancelar {
+    background: #6c757d;
+    color: white;
+}
+
+.modal-template-btn-cancelar:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modal-template-btn-salvar {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: white;
+}
+
+.modal-template-btn-salvar:hover {
+    background: linear-gradient(135deg, #229954 0%, #1e8449 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(39, 174, 96, 0.3);
+}
+
+.modal-template-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modal-template-switch input[type="checkbox"] {
+    position: relative;
+    width: 56px;
+    height: 28px;
+    appearance: none;
+    background: #ccc;
+    border-radius: 28px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.modal-template-switch input[type="checkbox"]:checked {
+    background: #27ae60;
+}
+
+.modal-template-switch input[type="checkbox"]::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.modal-template-switch input[type="checkbox"]:checked::before {
+    left: 31px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-60px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-template-body::-webkit-scrollbar {
+    width: 10px;
+}
+
+.modal-template-body::-webkit-scrollbar-track {
+    background: #e9ecef;
+    border-radius: 10px;
+}
+
+.modal-template-body::-webkit-scrollbar-thumb {
+    background: #3498db;
+    border-radius: 10px;
+}
+
+.modal-template-body::-webkit-scrollbar-thumb:hover {
+    background: #2980b9;
+}
+</style>
+
+<!-- MODAL HTML -->
+<div id="modalTemplateCustom" class="modal-template-overlay">
+    <div class="modal-template-container">
+        <div class="modal-template-header">
+            <h3 id="modalTitulo">
+                📄 Novo Template de Contrato
+            </h3>
+            <button class="modal-template-close" onclick="fecharModalTemplate()">×</button>
+        </div>
+        
+        <div class="modal-template-body">
+            <div class="modal-template-info">
+                <strong>💡 Variáveis Disponíveis:</strong>
+                Use as seguintes variáveis no conteúdo do contrato. Elas serão substituídas automaticamente pelos dados reais ao gerar um contrato:
+                <div class="mt-2">
+                    <span class="modal-template-variavel">[CLIENTE]</span>
+                    <span class="modal-template-variavel">[CNPJ]</span>
+                    <span class="modal-template-variavel">[ENDERECO]</span>
+                    <span class="modal-template-variavel">[CIDADE_UF]</span>
+                    <span class="modal-template-variavel">[TELEFONE]</span>
+                    <span class="modal-template-variavel">[EMAIL]</span>
+                    <span class="modal-template-variavel">[DATA_INICIO]</span>
+                    <span class="modal-template-variavel">[DATA_FIM]</span>
+                    <span class="modal-template-variavel">[PERIODICIDADE]</span>
+                    <span class="modal-template-variavel">[VALOR_MENSAL]</span>
+                    <span class="modal-template-variavel">[VALOR_TOTAL]</span>
+                    <span class="modal-template-variavel">[EQUIPAMENTOS]</span>
+                    <span class="modal-template-variavel">[DATA_ASSINATURA]</span>
+                </div>
+            </div>
+
+            <input type="hidden" id="templateId">
+
+            <div class="modal-template-form-group">
+                <label class="modal-template-label modal-template-label-required">Nome do Template</label>
+                <input type="text" id="templateNome" class="modal-template-input" placeholder="Ex: Contrato Padrão de Calibração">
+            </div>
+
+            <div class="modal-template-form-group">
+                <label class="modal-template-label">Descrição</label>
+                <input type="text" id="templateDescricao" class="modal-template-input" placeholder="Breve descrição do template (opcional)">
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="modal-template-form-group">
+                        <label class="modal-template-label modal-template-label-required">Tipo de Contrato</label>
+                        <select id="templateTipo" class="modal-template-select">
+                            <option value="calibracao">Calibração</option>
+                            <option value="afericao">Aferição</option>
+                            <option value="manutencao">Manutenção</option>
+                            <option value="inspecao">Inspeção</option>
+                            <option value="outros">Outros</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="modal-template-form-group">
+                        <label class="modal-template-label">Status</label>
+                        <div class="modal-template-switch">
+                            <input type="checkbox" id="templateAtivo" checked>
+                            <label for="templateAtivo" style="margin: 0; cursor: pointer; user-select: none; font-weight: 500;">Template Ativo</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-template-form-group">
+                <label class="modal-template-label modal-template-label-required">Conteúdo do Contrato</label>
+                <textarea id="templateConteudo" class="modal-template-textarea" placeholder="Digite o conteúdo do contrato aqui, usando as variáveis listadas acima..."></textarea>
+            </div>
+        </div>
+
+        <div class="modal-template-footer">
+            <div class="modal-template-stats">
+                <span id="templateCaracteres">0 caracteres</span> | 
+                <span id="templateLinhas">0 linhas</span>
+            </div>
+            <div class="modal-template-actions">
+                <button class="modal-template-btn modal-template-btn-cancelar" onclick="fecharModalTemplate()">
+                    ✕ Cancelar
+                </button>
+                <button class="modal-template-btn modal-template-btn-salvar" onclick="salvarTemplate()">
+                    💾 Salvar Template
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ===== VARIÁVEIS GLOBAIS =====
+let templateAtual = null;
+
+// Token: cookie primeiro, depois localStorage (padrão MAPA_SISTEMA / certipeso.js)
+function getToken() {
+    if (typeof getCookie === 'function') {
+        const t = getCookie('pdv_automscale_token');
+        if (t) return t;
+    }
+    return localStorage.getItem('pdv_automscale_token') || sessionStorage.getItem('pdv_automscale_token') || '';
+}
+
+function authFetch(url, options) {
+    const fetchAuth = window.authenticatedFetch || fetch;
+    const token = getToken();
+    const opts = options || {};
+    opts.headers = opts.headers || {};
+    if (token && fetchAuth === fetch) opts.headers['Authorization'] = 'Bearer ' + token;
+    if (!opts.credentials) opts.credentials = 'include';
+    return fetchAuth(url, opts);
+}
+
+// ===== FUNÇÕES DE CARREGAMENTO =====
+
+async function carregarEstatisticas() {
+    try {
+        const response = await authFetch('/api/v1/templates-contratos/?limit=100');
+        
+        if (!response.ok) throw new Error('Erro ao carregar estatísticas');
+        
+        const data = await response.json();
+        const templates = data.templates || [];
+        
+        const total = templates.length;
+        const ativos = templates.filter(t => t.ativo).length;
+        const inativos = templates.filter(t => !t.ativo).length;
+        const tipos = new Set(templates.map(t => t.tipo_contrato)).size;
+        
+        document.getElementById('totalTemplates').textContent = total;
+        document.getElementById('ativosTemplates').textContent = ativos;
+        document.getElementById('inativosTemplates').textContent = inativos;
+        document.getElementById('tiposTemplates').textContent = tipos;
+        
+    } catch (error) {
+        console.error('Erro ao carregar estatísticas:', error);
+        document.getElementById('totalTemplates').textContent = '0';
+        document.getElementById('ativosTemplates').textContent = '0';
+        document.getElementById('inativosTemplates').textContent = '0';
+        document.getElementById('tiposTemplates').textContent = '0';
+    }
+}
+
+async function carregarTemplates() {
+    try {
+        const filtroTipo = document.getElementById('filtroTipo').value;
+        const filtroAtivo = document.getElementById('filtroAtivo').value;
+        
+        let url = '/api/v1/templates-contratos/?limit=100';
+        if (filtroTipo) url += `&tipo=${filtroTipo}`;
+        if (filtroAtivo) url += `&ativo=${filtroAtivo}`;
+        
+        const response = await authFetch(url);
+        
+        if (!response.ok) throw new Error('Erro ao carregar templates');
+        
+        const data = await response.json();
+        const tbody = document.querySelector('#tabelaTemplates tbody');
+        
+        if (data.templates && data.templates.length > 0) {
+            tbody.innerHTML = '';
+            
+            data.templates.forEach(template => {
+                const dataCriacao = (typeof formatarDataApenas === 'function') ? formatarDataApenas(template.created_at) : template.created_at;
+                
+                const tipoBadge = {
+                    'calibracao': '<span class="badge bg-primary">Calibração</span>',
+                    'afericao': '<span class="badge bg-info">Aferição</span>',
+                    'manutencao': '<span class="badge bg-warning">Manutenção</span>',
+                    'inspecao': '<span class="badge bg-secondary">Inspeção</span>',
+                    'outros': '<span class="badge bg-dark">Outros</span>'
+                };
+                
+                const statusBadge = template.ativo 
+                    ? '<span class="badge bg-success">Ativo</span>'
+                    : '<span class="badge bg-secondary">Inativo</span>';
+                
+                const descricaoTruncada = template.descricao 
+                    ? (template.descricao.length > 50 ? template.descricao.substring(0, 50) + '...' : template.descricao)
+                    : '-';
+                
+                const row = `
+                    <tr>
+                        <td><strong>${template.id}</strong></td>
+                        <td>${template.nome}</td>
+                        <td><small>${descricaoTruncada}</small></td>
+                        <td>${tipoBadge[template.tipo_contrato] || template.tipo_contrato}</td>
+                        <td>${statusBadge}</td>
+                        <td><small>${dataCriacao}</small></td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="visualizarTemplate(${template.id})" title="Visualizar">
+                                <i data-feather="eye" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="btn btn-sm btn-primary" onclick="editarTemplate(${template.id})" title="Editar">
+                                <i data-feather="edit" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" onclick="duplicarTemplate(${template.id})" title="Duplicar">
+                                <i data-feather="copy" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="excluirTemplate(${template.id})" title="Excluir">
+                                <i data-feather="trash-2" style="width: 14px; height: 14px;"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+            
+            // Re-inicializar ícones Feather
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
+        } else {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum template encontrado</td></tr>';
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar templates:', error);
+        const tbody = document.querySelector('#tabelaTemplates tbody');
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar dados</td></tr>';
+    }
+}
+
+// ===== FUNÇÕES DO MODAL =====
+
+function abrirModalCriar() {
+    templateAtual = null;
+    document.getElementById('modalTitulo').textContent = '📄 Novo Template de Contrato';
+    limparFormulario();
+    document.getElementById('modalTemplateCustom').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+async function visualizarTemplate(id) {
+    try {
+        const response = await authFetch(`/api/v1/templates-contratos/${id}`);
+        
+        if (!response.ok) throw new Error('Template não encontrado');
+        
+        const template = await response.json();
+        
+        // Preencher modal
+        document.getElementById('modalTitulo').textContent = '👁️ Visualizar Template';
+        document.getElementById('templateId').value = template.id;
+        document.getElementById('templateNome').value = template.nome;
+        document.getElementById('templateDescricao').value = template.descricao || '';
+        document.getElementById('templateTipo').value = template.tipo_contrato;
+        document.getElementById('templateAtivo').checked = template.ativo;
+        document.getElementById('templateConteudo').value = template.conteudo;
+        
+        // Desabilitar edição
+        document.getElementById('templateNome').disabled = true;
+        document.getElementById('templateDescricao').disabled = true;
+        document.getElementById('templateTipo').disabled = true;
+        document.getElementById('templateAtivo').disabled = true;
+        document.getElementById('templateConteudo').disabled = true;
+        
+        // Ocultar botão salvar
+        document.querySelector('.modal-template-btn-salvar').style.display = 'none';
+        
+        atualizarEstatisticasModal();
+        document.getElementById('modalTemplateCustom').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao carregar template', 'danger');
+    }
+}
+
+async function editarTemplate(id) {
+    try {
+        const response = await authFetch(`/api/v1/templates-contratos/${id}`);
+        
+        if (!response.ok) throw new Error('Template não encontrado');
+        
+        const template = await response.json();
+        templateAtual = template;
+        
+        // Preencher modal
+        document.getElementById('modalTitulo').textContent = '✏️ Editar Template';
+        document.getElementById('templateId').value = template.id;
+        document.getElementById('templateNome').value = template.nome;
+        document.getElementById('templateDescricao').value = template.descricao || '';
+        document.getElementById('templateTipo').value = template.tipo_contrato;
+        document.getElementById('templateAtivo').checked = template.ativo;
+        document.getElementById('templateConteudo').value = template.conteudo;
+        
+        // Habilitar edição
+        document.getElementById('templateNome').disabled = false;
+        document.getElementById('templateDescricao').disabled = false;
+        document.getElementById('templateTipo').disabled = false;
+        document.getElementById('templateAtivo').disabled = false;
+        document.getElementById('templateConteudo').disabled = false;
+        
+        // Mostrar botão salvar
+        document.querySelector('.modal-template-btn-salvar').style.display = 'flex';
+        
+        atualizarEstatisticasModal();
+        document.getElementById('modalTemplateCustom').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao carregar template', 'danger');
+    }
+}
+
+async function salvarTemplate() {
+    try {
+        const nome = document.getElementById('templateNome').value.trim();
+        const descricao = document.getElementById('templateDescricao').value.trim();
+        const tipo = document.getElementById('templateTipo').value;
+        const ativo = document.getElementById('templateAtivo').checked;
+        const conteudo = document.getElementById('templateConteudo').value.trim();
+        
+        if (!nome || !conteudo) {
+            showAlert('Preencha os campos obrigatórios', 'warning');
+            return;
+        }
+        
+        const templateData = {
+            nome,
+            descricao: descricao || null,
+            tipo_contrato: tipo,
+            ativo,
+            conteudo
+        };
+        
+        const templateId = document.getElementById('templateId').value;
+        let response;
+        
+        if (templateId && templateAtual) {
+            // Atualizar
+            response = await authFetch(`/api/v1/templates-contratos/${templateId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(templateData)
+            });
+        } else {
+            // Criar
+            response = await authFetch('/api/v1/templates-contratos/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(templateData)
+            });
+        }
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao salvar template');
+        }
+        
+        fecharModalTemplate();
+        showAlert('✅ Template salvo com sucesso!', 'success');
+        carregarTemplates();
+        carregarEstatisticas();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao salvar: ' + error.message, 'danger');
+    }
+}
+
+async function duplicarTemplate(id) {
+    if (!confirm('Deseja duplicar este template?')) return;
+    
+    try {
+        const response = await authFetch(`/api/v1/templates-contratos/${id}/duplicar`, {
+            method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Erro ao duplicar');
+        
+        showAlert('✅ Template duplicado com sucesso!', 'success');
+        carregarTemplates();
+        carregarEstatisticas();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao duplicar: ' + error.message, 'danger');
+    }
+}
+
+async function excluirTemplate(id) {
+    if (!confirm('Tem certeza que deseja excluir este template? Esta ação não pode ser desfeita.')) return;
+    
+    try {
+        const response = await authFetch(`/api/v1/templates-contratos/${id}`, {
+            method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Erro ao excluir');
+        
+        showAlert('✅ Template excluído com sucesso!', 'success');
+        carregarTemplates();
+        carregarEstatisticas();
+        
+    } catch (error) {
+        console.error('Erro:', error);
+        showAlert('Erro ao excluir: ' + error.message, 'danger');
+    }
+}
+
+function fecharModalTemplate() {
+    document.getElementById('modalTemplateCustom').classList.remove('active');
+    document.body.style.overflow = '';
+    
+    // Resetar formulário após animação
+    setTimeout(() => {
+        limparFormulario();
+    }, 300);
+}
+
+function limparFormulario() {
+    document.getElementById('templateId').value = '';
+    document.getElementById('templateNome').value = '';
+    document.getElementById('templateDescricao').value = '';
+    document.getElementById('templateTipo').value = 'calibracao';
+    document.getElementById('templateAtivo').checked = true;
+    document.getElementById('templateConteudo').value = '';
+    
+    // Reabilitar campos
+    document.getElementById('templateNome').disabled = false;
+    document.getElementById('templateDescricao').disabled = false;
+    document.getElementById('templateTipo').disabled = false;
+    document.getElementById('templateAtivo').disabled = false;
+    document.getElementById('templateConteudo').disabled = false;
+    document.querySelector('.modal-template-btn-salvar').style.display = 'flex';
+    
+    atualizarEstatisticasModal();
+}
+
+function atualizarEstatisticasModal() {
+    const conteudo = document.getElementById('templateConteudo').value;
+    const caracteres = conteudo.length;
+    const linhas = conteudo.split('\n').length;
+    
+    document.getElementById('templateCaracteres').textContent = `${caracteres} caracteres`;
+    document.getElementById('templateLinhas').textContent = `${linhas} linhas`;
+}
+
+// ===== FUNÇÕES AUXILIARES =====
+
+function showAlert(message, type = 'info') {
+    const alertContainer = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.style.animation = 'slideInRight 0.4s ease';
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    alertContainer.appendChild(alert);
+    
+    setTimeout(() => {
+        alert.style.animation = 'slideOutRight 0.4s ease';
+        setTimeout(() => alert.remove(), 400);
+    }, 5000);
+}
+
+// Atualizar estatísticas do modal ao digitar
+document.addEventListener('DOMContentLoaded', function() {
+    const conteudoTextarea = document.getElementById('templateConteudo');
+    if (conteudoTextarea) {
+        conteudoTextarea.addEventListener('input', atualizarEstatisticasModal);
+    }
+    
+    // Fechar modal ao clicar fora
+    document.getElementById('modalTemplateCustom').addEventListener('click', function(e) {
+        if (e.target === this) {
+            fecharModalTemplate();
+        }
+    });
+    
+    // Fechar modal com ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && document.getElementById('modalTemplateCustom').classList.contains('active')) {
+            fecharModalTemplate();
+        }
+    });
+    
+    // Carregar dados iniciais
+    carregarEstatisticas();
+    carregarTemplates();
+});
+
+// Animações CSS adicionais
+const style = document.createElement('style');
+style.textContent = `
+@keyframes slideInRight {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+}
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}
+

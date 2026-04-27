@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Billing - Valor e descontos | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <a href="/admin/billing/tenants" class="btn btn-outline-secondary btn-sm me-2">&larr; Voltar</a>
+        <h1 class="h3 d-inline align-middle">Valor mensal e descontos</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div id="loading" class="text-muted">Carregando...</div>
+            <div id="content" class="d-none">
+                <form id="form-preco">
+                    <h5 class="mb-3">Valor mensal</h5>
+                    <div class="mb-3">
+                        <label for="valor_mensal_reais" class="form-label">Valor da mensalidade (R$)</label>
+                        <input type="number" step="0.01" min="0" class="form-control" id="valor_mensal_reais" placeholder="490.00" style="max-width: 120px;">
+                        <div class="form-text">Valor padrão para novos assinantes (em reais).</div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label">Aplicar valor a</label>
+                        <div class="d-flex gap-3">
+                            <label class="form-check">
+                                <input type="radio" name="valor_aplicar_a" value="novos" class="form-check-input" checked>
+                                <span class="form-check-label">Só novos assinantes</span>
+                            </label>
+                            <label class="form-check">
+                                <input type="radio" name="valor_aplicar_a" value="todos" class="form-check-input">
+                                <span class="form-check-label">Todos (novos e atuais)</span>
+                            </label>
+                        </div>
+                        <div class="form-text">"Todos": clique no botão abaixo para atualizar o valor de todas as assinaturas atuais.</div>
+                        <div class="mt-2 mb-2">
+                            <label class="form-label small fw-bold">Ao aplicar valor a todas:</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                <label class="form-check">
+                                    <input type="radio" name="aplicar_codigos" value="respeitar" id="aplicar_respeitar" class="form-check-input" checked>
+                                    <span class="form-check-label">Respeitar códigos promocionais</span>
+                                </label>
+                                <label class="form-check">
+                                    <input type="radio" name="aplicar_codigos" value="substituir" id="aplicar_substituir" class="form-check-input">
+                                    <span class="form-check-label">Substituir em todas (ignorar códigos)</span>
+                                </label>
+                            </div>
+                            <div class="form-text">Respeitar: quem tem código mantém o desconto sobre o novo valor. Substituir: todas recebem o mesmo valor.</div>
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" id="btn-aplicar-todos" class="btn btn-outline-secondary btn-sm">Aplicar valor a todas as assinaturas atuais</button>
+                            <span id="msg-aplicar" class="ms-2 small"></span>
+                        </div>
+                    </div>
+
+                    <h5 class="mb-3">Desconto</h5>
+                    <div class="mb-3">
+                        <label for="desconto_percent" class="form-label">Desconto (%)</label>
+                        <input type="number" min="0" max="100" class="form-control" id="desconto_percent" placeholder="0" style="max-width: 80px;">
+                        <div class="form-text">0 = sem desconto. O valor cobrado será: valor mensal menos este percentual.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Desconto para</label>
+                        <div class="d-flex flex-column gap-1">
+                            <label class="form-check">
+                                <input type="radio" name="desconto_escopo" value="todos" class="form-check-input" checked>
+                                <span class="form-check-label">Todos</span>
+                            </label>
+                            <label class="form-check">
+                                <input type="radio" name="desconto_escopo" value="ca" class="form-check-input">
+                                <span class="form-check-label">CA (Cliente Administrador)</span>
+                            </label>
+                            <label class="form-check">
+                                <input type="radio" name="desconto_escopo" value="admin_cliente" class="form-check-input">
+                                <span class="form-check-label">Administrador de Cliente</span>
+                            </label>
+                            <label class="form-check">
+                                <input type="radio" name="desconto_escopo" value="especifico" class="form-check-input">
+                                <span class="form-check-label">Específico (selecionar tenants abaixo)</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="wrap-especifico" class="mb-4 d-none">
+                        <label for="tenant_ids" class="form-label">Tenants com desconto</label>
+                        <select id="tenant_ids" class="form-select" multiple size="6" style="max-width: 400px;">
+                            <!-- preenchido via JS com lista de tenants -->
+                        </select>
+                        <div class="form-text">Segure Ctrl (ou Cmd) para selecionar vários.</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="btn-save">Salvar</button>
+                    <span id="msg" class="ms-3 small"></span>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function authHeaders() {
+        return { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    }
+    var tenantsList = [];
+    function loadTenants() {
+        return fetch('/api/v1/admin/billing/tenants?apenas_com_ca=true&per_page=10000', { headers: authHeaders() })
+            .then(function(r) { return r.ok ? r.json() : []; })
+            .then(function(arr) { tenantsList = arr; return arr; });
+    }
+    function fillTenantSelect(selectedIds) {
+        var sel = document.getElementById('tenant_ids');
+        sel.innerHTML = '';
+        tenantsList.forEach(function(t) {
+            var opt = document.createElement('option');
+            opt.value = t.tenant_id;
+            opt.textContent = (t.tenant_nome || '') ? (t.tenant_id + ' - ' + t.tenant_nome) : ('Tenant ' + t.tenant_id);
+            if (selectedIds.indexOf(t.tenant_id) >= 0) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+    function load() {
+        Promise.all([
+            fetch('/api/v1/admin/billing/preco', { headers: authHeaders() }).then(function(r) { return r.json(); }),
+            loadTenants()
+        ]).then(function(results) {
+            var data = results[0];
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('content').classList.remove('d-none');
+            document.getElementById('valor_mensal_reais').value = (data.valor_mensal_centavos / 100).toFixed(2);
+            document.getElementById('desconto_percent').value = data.desconto_percent;
+            var valorAplicar = data.valor_aplicar_a || 'novos';
+            document.querySelector('input[name="valor_aplicar_a"][value="' + valorAplicar + '"]').checked = true;
+            var escopo = data.desconto_escopo || 'todos';
+            document.querySelector('input[name="desconto_escopo"][value="' + escopo + '"]').checked = true;
+            fillTenantSelect(data.desconto_tenant_ids || []);
+            document.getElementById('wrap-especifico').classList.toggle('d-none', escopo !== 'especifico');
+        }).catch(function() {
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('content').classList.remove('d-none');
+        });
+    }
+    document.querySelectorAll('input[name="desconto_escopo"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            document.getElementById('wrap-especifico').classList.toggle('d-none', this.value !== 'especifico');
+        });
+    });
+    document.getElementById('form-preco').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var btn = document.getElementById('btn-save');
+        var msg = document.getElementById('msg');
+        var valorReais = parseFloat(document.getElementById('valor_mensal_reais').value);
+        var centavos = isNaN(valorReais) || valorReais < 0 ? 49000 : Math.round(valorReais * 100);
+        var tenantIdsSel = document.getElementById('tenant_ids');
+        var tenantIds = [];
+        for (var i = 0; i < tenantIdsSel.options.length; i++) {
+            if (tenantIdsSel.options[i].selected) tenantIds.push(parseInt(tenantIdsSel.options[i].value, 10));
+        }
+        var payload = {
+            valor_mensal_centavos: centavos,
+            valor_aplicar_a: document.querySelector('input[name="valor_aplicar_a"]:checked').value,
+            desconto_percent: parseInt(document.getElementById('desconto_percent').value, 10) || 0,
+            desconto_escopo: document.querySelector('input[name="desconto_escopo"]:checked').value,
+            desconto_tenant_ids: tenantIds
+        };
+        btn.disabled = true;
+        msg.textContent = 'Salvando...';
+        msg.className = 'ms-3 small text-muted';
+        fetch('/api/v1/admin/billing/preco', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(payload)
+        })
+            .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function() {
+                msg.textContent = 'Salvo.';
+                msg.className = 'ms-3 small text-success';
+            })
+            .catch(function(err) {
+                msg.textContent = 'Erro ao salvar: ' + err.message;
+                msg.className = 'ms-3 small text-danger';
+            })
+            .finally(function() { btn.disabled = false; });
+    });
+    document.getElementById('btn-aplicar-todos').addEventListener('click', function() {
+        var btn = this;
+        var msg = document.getElementById('msg-aplicar');
+        var respeitar = document.getElementById('aplicar_respeitar').checked;
+        btn.disabled = true;
+        msg.textContent = 'Aplicando...';
+        msg.className = 'ms-2 small text-muted';
+        fetch('/api/v1/admin/billing/preco/aplicar-valor-todos', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ respeitar_codigos_promocionais: respeitar })
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                msg.textContent = data.message || 'Feito.';
+                msg.className = 'ms-2 small text-success';
+            })
+            .catch(function() {
+                msg.textContent = 'Erro.';
+                msg.className = 'ms-2 small text-danger';
+            })
+            .finally(function() { btn.disabled = false; });
+    });
+    load();
+})();
+</script>
+{% endblock %}

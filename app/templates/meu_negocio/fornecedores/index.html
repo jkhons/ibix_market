@@ -1,0 +1,414 @@
+{# PDV Ibix - Cadastro de Fornecedores por Estabelecimento. Modal conforme MAPA_DE_REGRAS: CSS inline, id modalFornecedorCustom, sem Bootstrap modal. #}
+{% extends "base.html" %}
+{% block title %}Fornecedores | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+    <input type="hidden" id="fornecedores_cliente_id_hidden" value="{{ fornecedores_cliente_id or '' }}">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Fornecedores</strong></h1>
+            </div>
+            <div class="col-auto d-flex gap-2 align-items-center">
+                <a href="/negocio/estoque" class="btn btn-outline-secondary"><i data-feather="arrow-left" style="width: 18px; height: 18px;"></i> Voltar ao Estoque</a>
+                <button class="btn btn-primary" id="btn-novo-fornecedor" onclick="abrirModalFornecedor()"><i data-feather="plus" style="width: 18px; height: 18px;"></i> Novo Fornecedor</button>
+            </div>
+        </div>
+    </div>
+    {% if fornecedores_mostrar_seletor %}
+    <div class="card mb-3 border-info">
+        <div class="card-body py-2">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                {% if fornecedores_is_superadmin %}
+                <span class="fw-bold text-info"><i data-feather="shield" style="width:18px;height:18px;"></i> Superadmin</span>
+                {% else %}
+                <span class="fw-bold text-secondary"><i data-feather="layers" style="width:18px;height:18px;"></i> Estabelecimento</span>
+                {% endif %}
+                <div class="d-flex align-items-center gap-2">
+                    <label for="fornecedores_loja_select" class="form-label mb-0 small">Estabelecimento:</label>
+                    {% if fornecedores_lojas %}
+                    <select id="fornecedores_loja_select" class="form-select form-select-sm" style="min-width:260px;max-width:420px;" onchange="trocarLojaFornecedores(this.value)">
+                        {% for loja in fornecedores_lojas %}
+                        <option value="{{ loja.id }}" {% if fornecedores_cliente_id == loja.id %}selected{% endif %}>{{ loja.nome }} (ID {{ loja.id }})</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <span class="text-muted small">Nenhuma loja listável (sem produtos/fornecedores no banco).</span>
+                    {% endif %}
+                </div>
+                {% if fornecedores_cliente_nome %}
+                <span class="badge bg-success">{{ fornecedores_cliente_nome }}</span>
+                {% elif fornecedores_lojas|length == 0 %}
+                <span class="badge bg-warning text-dark">Nenhum estabelecimento com produto ou fornecedor cadastrado — cadastre em um cliente primeiro</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">Selecione o estabelecimento acima</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% elif not fornecedores_cliente_id %}
+    <div class="alert alert-warning mb-3" role="alert">
+        <strong>Estabelecimento não definido.</strong> Associe a empresa fiscal ao usuário ou selecione um estabelecimento com permissão de estoque.
+    </div>
+    {% endif %}
+    <div class="card mb-3">
+        <div class="card-body py-2 d-flex gap-2 align-items-center flex-wrap">
+            <input type="text" class="form-control form-control-sm" id="filtro-busca" placeholder="Buscar por nome ou CNPJ..." style="max-width: 300px;">
+            <select class="form-select form-select-sm w-auto" id="filtro-ativo">
+                <option value="">Todos</option>
+                <option value="true" selected>Ativos</option>
+                <option value="false">Inativos</option>
+            </select>
+            <button class="btn btn-sm btn-outline-primary" onclick="carregarFornecedores()"><i data-feather="search" style="width: 14px; height: 14px;"></i> Filtrar</button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>CNPJ</th>
+                            <th>Contato</th>
+                            <th>Email</th>
+                            <th>Telefone</th>
+                            <th>Ativo</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-fornecedores">
+                        <tr><td colspan="7" class="text-center text-muted">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Novo/Editar Fornecedor (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap) -->
+<div id="modalFornecedorCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 750px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modalFornecedorTitulo" style="margin: 0; font-size: 1.5rem; font-weight: 700;">Novo Fornecedor</h3>
+            <button type="button" onclick="window.fecharModalFornecedor()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="fornecedor_id_modal" value="">
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="fornecedor_nome" class="form-label">Nome *</label>
+                    <input type="text" class="form-control" id="fornecedor_nome" placeholder="Razão social ou nome fantasia" required>
+                </div>
+                <div class="col-md-4">
+                    <label for="fornecedor_cnpj" class="form-label">CNPJ</label>
+                    <input type="text" class="form-control" id="fornecedor_cnpj" placeholder="00.000.000/0000-00" maxlength="18">
+                </div>
+                <div class="col-md-4">
+                    <label for="fornecedor_contato" class="form-label">Contato</label>
+                    <input type="text" class="form-control" id="fornecedor_contato" placeholder="Nome do contato">
+                </div>
+                <div class="col-md-4">
+                    <label for="fornecedor_email" class="form-label">E-mail</label>
+                    <input type="email" class="form-control" id="fornecedor_email" placeholder="email@fornecedor.com">
+                </div>
+                <div class="col-md-4">
+                    <label for="fornecedor_telefone" class="form-label">Telefone</label>
+                    <input type="text" class="form-control" id="fornecedor_telefone" placeholder="(00) 00000-0000">
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="fornecedor_ativo" checked>
+                        <label class="form-check-label" for="fornecedor_ativo">Ativo</label>
+                    </div>
+                </div>
+            </div>
+            <div id="secao-produtos-vinculados" style="display: none;" class="mt-4">
+                <hr>
+                <h5 class="mb-2">Produtos Vinculados (mapa fornecedor)</h5>
+                <p class="text-muted small mb-2">Produtos vinculados automaticamente pela conciliação de NF-e de entrada.</p>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Produto</th>
+                                <th>Cód. Fornecedor</th>
+                                <th>Preço Compra</th>
+                                <th>Desc. XML</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-produtos-vinculados">
+                            <tr><td colspan="5" class="text-center text-muted small">Nenhum produto vinculado</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <p class="text-danger small mt-2 mb-0" id="fornecedor-erro-msg"></p>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="window.fecharModalFornecedor()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="salvarFornecedor()">Salvar</button>
+        </div>
+    </div>
+</div>
+<!-- Modal Confirmar exclusão -->
+<div id="modalConfirmExcluirCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 450px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0;">
+            <h3 style="margin: 0; font-size: 1.3rem; font-weight: 700;">Confirmar Exclusão</h3>
+        </div>
+        <div style="padding: 30px; background: #f8f9fa;">
+            <p id="confirm-excluir-msg">Deseja realmente excluir este fornecedor?</p>
+        </div>
+        <div style="background: #f8f9fa; padding: 15px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharConfirmExcluir()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button type="button" id="btn-confirmar-excluir" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; background: #e74c3c; color: white;">Excluir</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function() {
+
+function getFornecedoresClienteId() {
+    var el = document.getElementById('fornecedores_cliente_id_hidden');
+    return el ? String(el.value || '').trim() : '';
+}
+
+function atualizarBotoesEstabelecimento() {
+    var cid = getFornecedoresClienteId();
+    var btn = document.getElementById('btn-novo-fornecedor');
+    if (btn) {
+        btn.disabled = !cid;
+        btn.title = cid ? '' : 'Defina ou selecione um estabelecimento para cadastrar fornecedor';
+    }
+}
+
+window.trocarLojaFornecedores = function(valor) {
+    window.location.href = '/negocio/fornecedores?cliente_id=' + encodeURIComponent(valor);
+};
+
+function getToken() {
+    var c = document.cookie.split(';');
+    for (var i = 0; i < c.length; i++) {
+        var parts = c[i].trim().split('=');
+        if (parts[0] === 'pdv_solumatica_token' || parts[0] === 'pdv_automscale_token') return decodeURIComponent(parts.slice(1).join('=').trim());
+    }
+    return null;
+}
+function fetchApi(url, opts) {
+    var t = getToken();
+    var headers = Object.assign({ 'Accept': 'application/json' }, (opts && opts.headers) || {});
+    if (t) headers['Authorization'] = 'Bearer ' + t;
+    return fetch(url, Object.assign({ credentials: 'include', headers: headers }, opts || {}));
+}
+
+function esc(s) { return (s || '').toString().replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function formatarCnpjExibicao(cnpj) {
+    if (!cnpj || cnpj.length !== 14) return cnpj || '';
+    return cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+}
+
+function limparCnpj(v) {
+    return (v || '').replace(/\D/g, '');
+}
+
+function mascaraCnpj(el) {
+    el.addEventListener('input', function() {
+        var v = el.value.replace(/\D/g, '').slice(0, 14);
+        if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})/, '$1.$2.$3/$4-$5');
+        else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{1,4})/, '$1.$2.$3/$4');
+        else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{1,3})/, '$1.$2.$3');
+        else if (v.length > 2) v = v.replace(/^(\d{2})(\d{1,3})/, '$1.$2');
+        el.value = v;
+    });
+}
+
+window.carregarFornecedores = carregarFornecedores;
+window.abrirModalFornecedor = abrirModalFornecedor;
+window.fecharModalFornecedor = fecharModalFornecedor;
+window.salvarFornecedor = salvarFornecedor;
+
+document.addEventListener('DOMContentLoaded', function() {
+    mascaraCnpj(document.getElementById('fornecedor_cnpj'));
+    atualizarBotoesEstabelecimento();
+    carregarFornecedores();
+    var modal = document.getElementById('modalFornecedorCustom');
+    if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) fecharModalFornecedor(); });
+    var modalConfirm = document.getElementById('modalConfirmExcluirCustom');
+    if (modalConfirm) modalConfirm.addEventListener('click', function(e) { if (e.target === modalConfirm) fecharConfirmExcluir(); });
+    document.getElementById('filtro-busca').addEventListener('keydown', function(e) { if (e.key === 'Enter') carregarFornecedores(); });
+});
+
+function carregarFornecedores() {
+    var tbody = document.getElementById('tabela-fornecedores');
+    var clienteId = getFornecedoresClienteId();
+    if (!clienteId) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-warning">Selecione um estabelecimento acima ou configure a empresa fiscal para listar fornecedores.</td></tr>';
+        return;
+    }
+    var busca = (document.getElementById('filtro-busca').value || '').trim();
+    var ativoFiltro = document.getElementById('filtro-ativo').value;
+    var url = '/api/v1/fornecedores-cliente/?';
+    url += 'cliente_id=' + encodeURIComponent(clienteId) + '&';
+    if (ativoFiltro) url += 'ativo=' + ativoFiltro + '&';
+    if (busca) url += 'busca=' + encodeURIComponent(busca) + '&';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Carregando...</td></tr>';
+    fetchApi(url).then(function(r) { return r.json(); }).then(function(data) {
+        if (!Array.isArray(data)) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar</td></tr>'; return; }
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Nenhum fornecedor encontrado</td></tr>'; return; }
+        tbody.innerHTML = data.map(function(f) {
+            return '<tr>' +
+                '<td><strong>' + esc(f.nome) + '</strong></td>' +
+                '<td>' + formatarCnpjExibicao(f.cnpj) + '</td>' +
+                '<td>' + esc(f.contato || '-') + '</td>' +
+                '<td>' + esc(f.email || '-') + '</td>' +
+                '<td>' + esc(f.telefone || '-') + '</td>' +
+                '<td><span class="badge ' + (f.ativo ? 'bg-success' : 'bg-secondary') + '">' + (f.ativo ? 'Sim' : 'Não') + '</span></td>' +
+                '<td class="text-nowrap">' +
+                    '<button class="btn btn-sm btn-outline-primary me-1" onclick="editarFornecedor(' + f.id + ')" title="Editar"><i data-feather="edit" style="width:14px;height:14px;"></i></button>' +
+                    '<button class="btn btn-sm btn-outline-danger" onclick="confirmarExcluir(' + f.id + ',\'' + esc(f.nome).replace(/'/g, "\\'") + '\')" title="Excluir"><i data-feather="trash-2" style="width:14px;height:14px;"></i></button>' +
+                '</td></tr>';
+        }).join('');
+        if (typeof feather !== 'undefined') feather.replace();
+    }).catch(function() { tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erro ao carregar fornecedores</td></tr>'; });
+}
+
+function abrirModalFornecedor() {
+    if (!getFornecedoresClienteId()) {
+        alert('Selecione ou defina um estabelecimento antes de cadastrar um fornecedor.');
+        return;
+    }
+    document.getElementById('fornecedor_id_modal').value = '';
+    document.getElementById('modalFornecedorTitulo').textContent = 'Novo Fornecedor';
+    document.getElementById('fornecedor_nome').value = '';
+    document.getElementById('fornecedor_cnpj').value = '';
+    document.getElementById('fornecedor_contato').value = '';
+    document.getElementById('fornecedor_email').value = '';
+    document.getElementById('fornecedor_telefone').value = '';
+    document.getElementById('fornecedor_ativo').checked = true;
+    document.getElementById('fornecedor-erro-msg').textContent = '';
+    document.getElementById('secao-produtos-vinculados').style.display = 'none';
+    abrirModal();
+}
+
+function abrirModal() {
+    var m = document.getElementById('modalFornecedorCustom');
+    if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+}
+
+function fecharModalFornecedor() {
+    var m = document.getElementById('modalFornecedorCustom');
+    if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
+}
+
+window.editarFornecedor = function(id) {
+    document.getElementById('fornecedor-erro-msg').textContent = '';
+    fetchApi('/api/v1/fornecedores-cliente/' + id).then(function(r) { return r.json(); }).then(function(f) {
+        document.getElementById('fornecedor_id_modal').value = f.id;
+        document.getElementById('modalFornecedorTitulo').textContent = 'Editar Fornecedor';
+        document.getElementById('fornecedor_nome').value = f.nome || '';
+        document.getElementById('fornecedor_cnpj').value = formatarCnpjExibicao(f.cnpj);
+        document.getElementById('fornecedor_contato').value = f.contato || '';
+        document.getElementById('fornecedor_email').value = f.email || '';
+        document.getElementById('fornecedor_telefone').value = f.telefone || '';
+        document.getElementById('fornecedor_ativo').checked = f.ativo !== false;
+        document.getElementById('secao-produtos-vinculados').style.display = 'block';
+        carregarProdutosVinculados(f.id);
+        abrirModal();
+    }).catch(function() { alert('Erro ao carregar fornecedor'); });
+};
+
+function salvarFornecedor() {
+    var id = document.getElementById('fornecedor_id_modal').value.trim();
+    var nome = document.getElementById('fornecedor_nome').value.trim();
+    var cnpjRaw = limparCnpj(document.getElementById('fornecedor_cnpj').value);
+    var erroEl = document.getElementById('fornecedor-erro-msg');
+    erroEl.textContent = '';
+    if (!nome) { erroEl.textContent = 'Preencha o nome do fornecedor.'; return; }
+    if (cnpjRaw && cnpjRaw.length !== 14) { erroEl.textContent = 'CNPJ deve ter 14 dígitos.'; return; }
+    var payload = {
+        nome: nome,
+        cnpj: cnpjRaw || null,
+        contato: document.getElementById('fornecedor_contato').value.trim() || null,
+        email: document.getElementById('fornecedor_email').value.trim() || null,
+        telefone: document.getElementById('fornecedor_telefone').value.trim() || null,
+        ativo: document.getElementById('fornecedor_ativo').checked
+    };
+    if (!id) {
+        var cidNovo = parseInt(getFornecedoresClienteId(), 10);
+        if (!cidNovo || isNaN(cidNovo)) {
+            erroEl.textContent = 'Estabelecimento inválido. Recarregue a página ou selecione um cliente.';
+            return;
+        }
+        payload.cliente_id = cidNovo;
+    }
+    var url = id ? '/api/v1/fornecedores-cliente/' + id : '/api/v1/fornecedores-cliente/';
+    var method = id ? 'PATCH' : 'POST';
+    fetchApi(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(function(r) {
+        if (r.ok) { fecharModalFornecedor(); carregarFornecedores(); }
+        else return r.json().then(function(e) {
+            var msg = e.detail || 'Erro ao salvar';
+            if (Array.isArray(msg)) msg = msg.map(function(x) { return x.msg || x; }).join('; ');
+            throw new Error(msg);
+        });
+    }).catch(function(e) { erroEl.textContent = e.message || 'Erro ao salvar fornecedor'; });
+}
+
+function carregarProdutosVinculados(fornecedorId) {
+    var tbody = document.getElementById('tabela-produtos-vinculados');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted small">Carregando...</td></tr>';
+    fetchApi('/api/v1/produtos-fornecedor/?fornecedor_cliente_id=' + fornecedorId).then(function(r) { return r.json(); }).then(function(data) {
+        if (!Array.isArray(data) || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted small">Nenhum produto vinculado</td></tr>';
+            return;
+        }
+        tbody.innerHTML = data.map(function(pf) {
+            var preco = pf.preco_compra != null ? ('R$ ' + Number(pf.preco_compra).toFixed(2).replace('.', ',')) : '-';
+            return '<tr>' +
+                '<td class="small">' + esc(pf.produto_nome || '-') + ' <span class="text-muted">(' + esc(pf.produto_codigo || '') + ')</span></td>' +
+                '<td class="small">' + esc(pf.codigo_fornecedor || '-') + '</td>' +
+                '<td class="small">' + preco + '</td>' +
+                '<td class="small text-truncate" style="max-width: 200px;" title="' + esc(pf.xprod_amostra || '') + '">' + esc(pf.xprod_amostra || '-') + '</td>' +
+                '<td><button class="btn btn-sm btn-outline-danger" onclick="desvincularProduto(' + pf.id + ',' + fornecedorId + ')" title="Desvincular"><i data-feather="x" style="width:13px;height:13px;"></i></button></td>' +
+                '</tr>';
+        }).join('');
+        if (typeof feather !== 'undefined') feather.replace();
+    }).catch(function() { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger small">Erro ao carregar</td></tr>'; });
+}
+
+window.desvincularProduto = function(vinculoId, fornecedorId) {
+    if (!confirm('Desvincular este produto do fornecedor? O vínculo pode ser recriado na próxima importação de NF-e.')) return;
+    fetchApi('/api/v1/produtos-fornecedor/' + vinculoId, { method: 'DELETE' }).then(function(r) {
+        if (r.ok || r.status === 204) carregarProdutosVinculados(fornecedorId);
+        else r.json().then(function(e) { alert(e.detail || 'Erro ao desvincular'); }).catch(function() { alert('Erro ao desvincular'); });
+    }).catch(function() { alert('Erro ao desvincular'); });
+};
+
+var _excluirId = null;
+window.confirmarExcluir = function(id, nome) {
+    _excluirId = id;
+    document.getElementById('confirm-excluir-msg').innerHTML = 'Deseja realmente excluir o fornecedor <strong>' + esc(nome) + '</strong>? Esta ação não pode ser desfeita.';
+    var m = document.getElementById('modalConfirmExcluirCustom');
+    m.style.display = 'block';
+    document.getElementById('btn-confirmar-excluir').onclick = function() {
+        if (!_excluirId) return;
+        fetchApi('/api/v1/fornecedores-cliente/' + _excluirId, { method: 'DELETE' }).then(function(r) {
+            if (r.ok || r.status === 204) { fecharConfirmExcluir(); carregarFornecedores(); }
+            else r.json().then(function(e) { alert(e.detail || 'Erro ao excluir'); }).catch(function() { alert('Erro ao excluir'); });
+        }).catch(function() { alert('Erro ao excluir'); });
+    };
+};
+
+window.fecharConfirmExcluir = fecharConfirmExcluir;
+function fecharConfirmExcluir() {
+    _excluirId = null;
+    var m = document.getElementById('modalConfirmExcluirCustom');
+    if (m) m.style.display = 'none';
+}
+
+})();
+</script>
+{% endblock %}

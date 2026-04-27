@@ -1,0 +1,778 @@
+{% extends "base.html" %}
+
+{% block title %}Recebíveis | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Recebíveis</strong></h1>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" type="button" id="btnNovaConfig" onclick="abrirModalConfigPagamentoCustom()" style="display:none;">
+                    <i data-feather="plus" style="width: 18px; height: 18px;"></i>
+                    Nova configuração
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <label class="form-label">Estabelecimento (cliente)</label>
+                <select id="filtroEstabelecimento" class="form-select" style="max-width: 400px;">
+                    <option value="">Selecione um estabelecimento</option>
+                </select>
+            </div>
+            <p class="text-muted small">Selecione o estabelecimento para listar e cadastrar a integração de recebimento (gateway). Gateways disponíveis: Mercado Pago, PagBank e Pagar.me. O valor das vendas vai diretamente para a conta conectada.</p>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Provedor</th>
+                            <th>Ativo</th>
+                            <th>Padrão</th>
+                            <th>Teste</th>
+                            <th>Criado em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyConfigs"></tbody>
+                </table>
+            </div>
+            <p id="msgLista" class="text-muted mb-0"></p>
+        </div>
+    </div>
+
+    <div id="alerta-modo-plataforma" class="alert alert-warning mt-3" style="display:none;">
+        <i class="align-middle me-2" data-feather="alert-triangle"></i>
+        <strong>Modo Plataforma ativo:</strong> Este estabelecimento está configurado para que a plataforma receba os valores das vendas. A configuração de gateway próprio está desabilitada. Para alterar, entre em contato com o administrador da plataforma.
+    </div>
+
+    <div id="alerta-gateway-so-superadmin" class="alert alert-secondary mt-3" style="display:none;">
+        <i class="align-middle me-2" data-feather="lock"></i>
+        <strong>Configuração centralizada:</strong> A plataforma desativou a edição pelas lojas de <strong>qualquer</strong> gateway em Recebíveis (<strong>Mercado Pago</strong>, <strong>PagBank</strong> e <strong>Pagar.me</strong>). Somente o <strong>Super Administrador</strong> pode criar ou alterar essas integrações (tela ou API). Em <strong>Admin → Billing → Config</strong>, marque <strong>Liberado para lojas</strong> para liberar de novo Cliente Administrador e Administrador.
+    </div>
+
+    <div class="alert alert-info mt-4 mb-0">
+        Nesta fase, o processamento real ocorre automaticamente ao finalizar a venda no PDV e na Nova Venda.
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Transações</h5>
+            <button class="btn btn-sm btn-outline-primary" type="button" id="btnAtualizarPendencias">Atualizar</button>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">Transações do estabelecimento. Use o filtro para ver pendentes, pagos ou todas. Para pagos, use "Comprovante" para imprimir.</p>
+            <div class="row g-2 mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select id="filtroPendenciaStatus" class="form-select">
+                        <option value="all">Todas</option>
+                        <option value="paid,authorized">Pagas</option>
+                        <option value="pending,failed">Pendentes e falhas</option>
+                        <option value="pending">Somente pendentes</option>
+                        <option value="failed">Somente falhas</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data inicial</label>
+                    <input type="date" id="filtroPendenciaInicio" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Data final</label>
+                    <input type="date" id="filtroPendenciaFim" class="form-control" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="button" class="btn btn-outline-secondary w-100" id="btnAplicarFiltroPendencia">Aplicar filtros</button>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Referência</th>
+                            <th>Status</th>
+                            <th>Método</th>
+                            <th>Valor</th>
+                            <th>Criado em</th>
+                            <th>Pago em</th>
+                            <th>Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyPendencias">
+                        <tr><td colspan="7">Selecione um estabelecimento para carregar as pendências.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <button class="btn btn-sm btn-outline-secondary" type="button" id="btnPendenciasAnterior">Anterior</button>
+                <small id="pendenciasPaginaInfo" class="text-muted">Página 1</small>
+                <button class="btn btn-sm btn-outline-secondary" type="button" id="btnPendenciasProxima">Próxima</button>
+            </div>
+            <p id="msgPendencias" class="text-muted mb-0"></p>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova configuração (padrão MAPA_DE_REGRAS: inline, sem Bootstrap) -->
+<div id="modalConfigPagamentoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 520px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 id="modalConfigTitulo" style="margin: 0; font-size: 18px; font-weight: bold;">Nova configuração de recebimento</h5>
+            <button type="button" onclick="fecharModalConfigPagamentoCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <input type="hidden" id="configEstabId" />
+            <input type="hidden" id="configEditId" value="" />
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Estabelecimento (cliente) *</label><select id="configClienteId" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select></div>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Gateway *</label><select id="configProviderCode" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" onchange="window._onProviderChange && window._onProviderChange()"><option value="mercadopago">Mercado Pago</option><option value="pagbank">PagBank</option><option value="pagarme">Pagar.me</option></select></div>
+            <div id="divCredentials" style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Credenciais (JSON)</label><textarea id="configCredentials" rows="3" placeholder='{"access_token": "APP_USR-xxx"}' style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 13px;"></textarea><small id="hintMercadoPago" style="display: none; color: #666;">Mercado Pago: informe o <strong>access_token</strong> (credenciais em <a href="https://www.mercadopago.com.br/developers/panel/app" target="_blank" rel="noopener">developers.mercadopago.com</a>). Obrigatório para o checkout da sua loja na vitrine.</small></div>
+            <div id="divSecretKey" style="margin-bottom: 12px; display: none;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Secret Key (Pagar.me)</label><input type="text" id="configSecretKey" placeholder="sk_test_..." style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 13px;" /><small style="color: #666;">Obtenha em <a href="https://id.pagar.me/" target="_blank">id.pagar.me</a> &rarr; Desenvolvimento &rarr; Chaves</small></div>
+            <div id="divPagbankOAuth" style="margin-bottom: 12px; display: none;"><p style="color: #333; margin-bottom: 8px;">Clique abaixo para conectar sua conta PagBank. Você será redirecionado para o PagBank para autorizar o acesso.</p><button type="button" id="btnConectarPagbank" style="padding: 10px 20px; background: #00a650; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Conectar conta PagBank</button></div>
+            <div style="margin-bottom: 12px;"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="configAtivo" checked style="width: auto;" /> Ativo</label></div>
+            <div style="margin-bottom: 12px;"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="configPadrao" style="width: auto;" /> Padrão</label></div>
+            <div style="margin-bottom: 12px;"><label style="display: flex; align-items: center; gap: 8px; cursor: pointer;"><input type="checkbox" id="configTestMode" style="width: auto;" /> Modo teste</label></div>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalConfigPagamentoCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnSalvarConfig" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    window._recebiveisModoPlataforma = false;
+    window._recebiveisGatewayEdicaoPermitida = true;
+    window._recebiveisConfigsList = [];
+
+    function atualizarVisibilidadeBtnNova(temEstabelecimentos) {
+        const btn = document.getElementById('btnNovaConfig');
+        if (!btn) return;
+        if (!temEstabelecimentos) {
+            btn.style.display = 'none';
+            return;
+        }
+        if (window._recebiveisModoPlataforma || !window._recebiveisGatewayEdicaoPermitida) {
+            btn.style.display = 'none';
+            return;
+        }
+        btn.style.display = 'inline-block';
+    }
+
+    const pendingState = {
+        page: 0,
+        limit: 20,
+        hasMore: false,
+    };
+    const RETRY_LOCK_PREFIX = 'pdv_retry_lock:';
+    const RETRY_LOCK_TTL_MS = 45000;
+
+    function retryLockKey(uuid) {
+        return RETRY_LOCK_PREFIX + uuid;
+    }
+
+    function isRetryLocked(uuid) {
+        try {
+            const raw = localStorage.getItem(retryLockKey(uuid));
+            if (!raw) return false;
+            const until = Number(raw);
+            if (!Number.isFinite(until)) return false;
+            if (Date.now() > until) {
+                localStorage.removeItem(retryLockKey(uuid));
+                return false;
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function setRetryLock(uuid) {
+        try {
+            localStorage.setItem(retryLockKey(uuid), String(Date.now() + RETRY_LOCK_TTL_MS));
+        } catch (e) {}
+    }
+
+    function clearRetryLock(uuid) {
+        try {
+            localStorage.removeItem(retryLockKey(uuid));
+        } catch (e) {}
+    }
+
+    const authFetch = (...args) => {
+        const fetchFn = window.authenticatedFetch || fetch;
+        return fetchFn(...args);
+    };
+    function getToken() {
+        const m = document.cookie.match(/\bpdv_solumatica_token=([^;]+)/) || document.cookie.match(/\bpdv_automscale_token=([^;]+)/);
+        return m ? m[1] : '';
+    }
+    function headers() {
+        const t = getToken();
+        const h = { 'Content-Type': 'application/json' };
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    }
+
+    async function carregarClientes() {
+        const sel = document.getElementById('filtroEstabelecimento');
+        const selModal = document.getElementById('configClienteId');
+        try {
+            const r = await authFetch('/api/v1/clientes/?por_pagina=500&empresa_fiscal=true', { headers: headers() });
+            const data = r.ok ? await r.json() : {};
+            const items = data.clientes || data.itens || data.data || (Array.isArray(data) ? data : []);
+            const opts = '<option value="">Selecione um estabelecimento</option>';
+            [sel, selModal].forEach(s => {
+                if (!s) return;
+                const v = s.value;
+                s.innerHTML = s === sel ? opts : '<option value="">Selecione</option>';
+                items.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.nome || c.razao_social || 'Cliente #' + c.id;
+                    s.appendChild(opt);
+                });
+                if (v) s.value = v;
+            });
+            atualizarVisibilidadeBtnNova(items.length > 0);
+            // Pré-selecionar estabelecimento do CA (cliente padrão PDV) quando disponível
+            try {
+                const rPadrao = await authFetch('/api/v1/clientes/pdv-cliente-padrao/', { headers: headers() });
+                if (rPadrao.ok) {
+                    const dataPadrao = await rPadrao.json();
+                    const cid = dataPadrao && dataPadrao.cliente_id != null ? Number(dataPadrao.cliente_id) : null;
+                    if (cid && items.some(function(c) { return c.id === cid; })) {
+                        if (sel) sel.value = String(cid);
+                        if (selModal) selModal.value = String(cid);
+                        var configEstab = document.getElementById('configEstabId');
+                        if (configEstab) configEstab.value = String(cid);
+                        await verificarModoRecebimento(String(cid));
+                        await carregarConfigs();
+                        if (typeof carregarPendencias === 'function') carregarPendencias();
+                    }
+                }
+            } catch (ePadrao) { console.warn('pdv-cliente-padrao:', ePadrao); }
+        } catch (e) { console.error(e); }
+    }
+
+    function fmtDt(d) {
+        if (!d) return '-';
+        return new Date(d).toLocaleString('pt-BR');
+    }
+
+    async function carregarConfigs() {
+        const estabId = document.getElementById('filtroEstabelecimento').value;
+        const tbody = document.getElementById('tbodyConfigs');
+        const msg = document.getElementById('msgLista');
+        if (!estabId) {
+            tbody.innerHTML = '<tr><td colspan="7">Selecione um estabelecimento.</td></tr>';
+            msg.textContent = '';
+            return;
+        }
+        try {
+            const r = await authFetch('/api/v1/payments/configs?estabelecimentoId=' + estabId, { headers: headers() });
+            if (!r.ok) { tbody.innerHTML = ''; msg.textContent = 'Erro ao carregar.'; return; }
+            const list = await r.json();
+            window._recebiveisConfigsList = list;
+            var showEdit = window._recebiveisGatewayEdicaoPermitida && !window._recebiveisModoPlataforma;
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhuma configuração. Use "Nova configuração" para adicionar.</td></tr>'; msg.textContent = ''; return; }
+            var providerNames = {mercadopago: 'Mercado Pago', pagbank: 'PagBank', pagarme: 'Pagar.me'};
+            tbody.innerHTML = list.map(c => {
+                var pName = providerNames[c.provider_code] || c.provider_code || '-';
+                var connBadge = '';
+                if (c.provider_code === 'pagbank') {
+                    var cs = (c.connection_status || 'pending').toLowerCase();
+                    if (cs === 'connected') connBadge = ' <span class="badge bg-success">Conectado</span>';
+                    else connBadge = ' <span class="badge bg-warning text-dark">Pendente</span>';
+                } else if (c.credentials_encrypted && c.credentials_encrypted !== '***') {
+                    connBadge = ' <span class="badge bg-info text-dark">Credenciais</span>';
+                } else if (c.credentials_encrypted === '***') {
+                    connBadge = ' <span class="badge bg-info text-dark">Credenciais</span>';
+                }
+                var acaoEdit = showEdit
+                    ? '<button type="button" class="btn btn-sm btn-outline-primary btn-edit-recebivel-config" data-id="' + c.id + '">Editar</button>'
+                    : '—';
+                return '<tr>' +
+                    '<td>' + c.id + '</td>' +
+                    '<td><strong>' + pName + '</strong>' + connBadge + '</td>' +
+                    '<td><span class="badge bg-' + (c.is_active ? 'success' : 'secondary') + '">' + (c.is_active ? 'Sim' : 'Não') + '</span></td>' +
+                    '<td>' + (c.is_default ? 'Sim' : '-') + '</td>' +
+                    '<td>' + (c.test_mode ? 'Sim' : '-') + '</td>' +
+                    '<td>' + fmtDt(c.created_at) + '</td>' +
+                    '<td>' + acaoEdit + '</td>' +
+                '</tr>';
+            }).join('');
+            msg.textContent = list.length + ' configuração(ões).';
+            if (typeof feather !== 'undefined') feather.replace();
+        } catch (e) {
+            tbody.innerHTML = '';
+            msg.textContent = 'Erro.';
+            console.error(e);
+        }
+    }
+
+    function badgeStatus(status) {
+        const s = String(status || '').toLowerCase();
+        if (s === 'paid' || s === 'authorized') return '<span class="badge bg-success">' + s + '</span>';
+        if (s === 'failed' || s === 'cancelled') return '<span class="badge bg-danger">' + s + '</span>';
+        if (s === 'pending' || s === 'processing') return '<span class="badge bg-warning text-dark">' + s + '</span>';
+        return '<span class="badge bg-secondary">' + (s || '-') + '</span>';
+    }
+
+    function escHtml(v) {
+        return String(v == null ? '' : v)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    async function fetchPendencias(estabId, statusValue, skip, limit, dataInicio, dataFim) {
+        let url = '/api/v1/payments/transactions?estabelecimentoId=' + estabId + '&limit=' + limit + '&skip=' + skip;
+        if (statusValue && statusValue !== 'all') url += '&status=' + encodeURIComponent(statusValue);
+        if (dataInicio) url += '&data_inicio=' + encodeURIComponent(dataInicio);
+        if (dataFim) url += '&data_fim=' + encodeURIComponent(dataFim);
+        const r = await authFetch(url, { headers: headers() });
+        if (!r.ok) return [];
+        return await r.json();
+    }
+
+    function getPendenciaFilters() {
+        return {
+            status: document.getElementById('filtroPendenciaStatus').value || 'all',
+            dataInicio: document.getElementById('filtroPendenciaInicio').value || '',
+            dataFim: document.getElementById('filtroPendenciaFim').value || ''
+        };
+    }
+
+    function renderPendencias(rows) {
+        const tbody = document.getElementById('tbodyPendencias');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7">Nenhuma transação encontrada.</td></tr>';
+            return;
+        }
+        const isPaid = function(s) { const x = (s || '').toLowerCase(); return x === 'paid' || x === 'authorized'; };
+        tbody.innerHTML = rows.map(tx => {
+            var ref = tx.numero_pedido || (tx.venda_id ? 'Venda #' + tx.venda_id : '') || tx.uuid;
+            if (tx.numero_pedido) ref = escHtml(tx.numero_pedido);
+            else if (tx.venda_id) ref = 'Venda #' + tx.venda_id;
+            else ref = '<code>' + escHtml(tx.uuid) + '</code>';
+            var paidDt = tx.paid_at ? fmtDt(tx.paid_at) : '-';
+            var acoes = '';
+            if (isPaid(tx.status)) {
+                acoes += '<button type="button" class="btn btn-sm btn-outline-success me-1" data-action="comprovante-tx" data-tx-uuid="' + escHtml(tx.uuid) + '" title="Ver e imprimir comprovante">Comprovante</button>';
+            }
+            if ((tx.status || '').toLowerCase() === 'pending' || (tx.status || '').toLowerCase() === 'processing') {
+                acoes += '<button type="button" class="btn btn-sm btn-outline-info me-1" data-action="reconcile-tx" data-tx-uuid="' + escHtml(tx.uuid) + '" title="Verificar status no gateway">Verificar status</button>';
+                acoes += '<button type="button" class="btn btn-sm btn-outline-warning" data-action="retry-tx" data-tx-uuid="' + escHtml(tx.uuid) + '" ' + (isRetryLocked(tx.uuid) ? 'disabled' : '') + '>' + (isRetryLocked(tx.uuid) ? 'Aguarde...' : 'Retentar') + '</button>';
+            }
+            return '<tr><td>' + ref + '</td><td>' + badgeStatus(tx.status) + '</td><td>' + escHtml(tx.payment_method || '-') + '</td><td>R$ ' + (tx.amount != null ? Number(tx.amount).toFixed(2) : '-') + '</td><td>' + fmtDt(tx.created_at) + '</td><td>' + paidDt + '</td><td>' + (acoes || '-') + '</td></tr>';
+        }).join('');
+    }
+
+    function renderPendenciaPaginacaoInfo() {
+        const el = document.getElementById('pendenciasPaginaInfo');
+        const pagina = pendingState.page + 1;
+        if (el) el.textContent = 'Página ' + pagina;
+        const btnPrev = document.getElementById('btnPendenciasAnterior');
+        const btnNext = document.getElementById('btnPendenciasProxima');
+        if (btnPrev) btnPrev.disabled = pendingState.page === 0;
+        if (btnNext) btnNext.disabled = !pendingState.hasMore;
+    }
+
+    async function carregarPendencias() {
+        const estabId = document.getElementById('filtroEstabelecimento').value;
+        const msg = document.getElementById('msgPendencias');
+        if (!estabId) {
+            document.getElementById('tbodyPendencias').innerHTML = '<tr><td colspan="7">Selecione um estabelecimento para carregar as transações.</td></tr>';
+            msg.textContent = '';
+            return;
+        }
+        try {
+            const filters = getPendenciaFilters();
+            const skip = pendingState.page * pendingState.limit;
+            let rows = [];
+            rows = await fetchPendencias(estabId, filters.status, skip, pendingState.limit, filters.dataInicio, filters.dataFim);
+            pendingState.hasMore = rows.length >= pendingState.limit;
+            renderPendencias(rows);
+            renderPendenciaPaginacaoInfo();
+            msg.textContent = rows.length + ' transação(ões) encontrada(s).';
+        } catch (e) {
+            document.getElementById('tbodyPendencias').innerHTML = '<tr><td colspan="7">Erro ao carregar pendências.</td></tr>';
+            msg.textContent = '';
+            console.error(e);
+        }
+    }
+
+    document.getElementById('filtroEstabelecimento').addEventListener('change', async function() {
+        document.getElementById('configEstabId').value = this.value;
+        document.getElementById('configClienteId').value = this.value;
+        await verificarModoRecebimento(this.value);
+        carregarConfigs();
+        carregarPendencias();
+    });
+
+    async function verificarModoRecebimento(clienteId) {
+        const alerta = document.getElementById('alerta-modo-plataforma');
+        const alertaBloq = document.getElementById('alerta-gateway-so-superadmin');
+        const selEst = document.getElementById('filtroEstabelecimento');
+        window._recebiveisModoPlataforma = false;
+        window._recebiveisGatewayEdicaoPermitida = true;
+        if (!clienteId) {
+            if (alerta) alerta.style.display = 'none';
+            if (alertaBloq) alertaBloq.style.display = 'none';
+            atualizarVisibilidadeBtnNova(selEst && selEst.options && selEst.options.length > 1);
+            return;
+        }
+        try {
+            const r = await authFetch('/api/v1/payments/modo-recebimento?clienteId='+clienteId, {headers:headers()});
+            if (!r.ok) return;
+            const d = await r.json();
+            window._recebiveisModoPlataforma = (d.modo_recebimento === 'plataforma');
+            window._recebiveisGatewayEdicaoPermitida = (d.gateway_configuracao_permitida === true);
+            if (window._recebiveisModoPlataforma) {
+                if (alerta) alerta.style.display = 'block';
+                if (alertaBloq) alertaBloq.style.display = 'none';
+            } else {
+                if (alerta) alerta.style.display = 'none';
+                if (alertaBloq) alertaBloq.style.display = window._recebiveisGatewayEdicaoPermitida ? 'none' : 'block';
+            }
+            atualizarVisibilidadeBtnNova(selEst && selEst.options && selEst.options.length > 1);
+            if (typeof feather !== 'undefined') feather.replace();
+        } catch(e) { console.warn('modo_recebimento:', e); }
+    }
+
+    document.getElementById('btnAtualizarPendencias').addEventListener('click', function() {
+        pendingState.page = 0;
+        carregarPendencias();
+    });
+
+    document.getElementById('btnAplicarFiltroPendencia').addEventListener('click', function() {
+        pendingState.page = 0;
+        carregarPendencias();
+    });
+
+    document.getElementById('btnPendenciasAnterior').addEventListener('click', function() {
+        if (pendingState.page <= 0) return;
+        pendingState.page -= 1;
+        carregarPendencias();
+    });
+
+    document.getElementById('btnPendenciasProxima').addEventListener('click', function() {
+        if (!pendingState.hasMore) return;
+        pendingState.page += 1;
+        carregarPendencias();
+    });
+
+    document.getElementById('tbodyPendencias').addEventListener('click', async function(e) {
+        const btnComprovante = e.target.closest('[data-action="comprovante-tx"]');
+        if (btnComprovante) {
+            const uuid = btnComprovante.getAttribute('data-tx-uuid');
+            if (!uuid) return;
+            btnComprovante.disabled = true;
+            btnComprovante.textContent = 'Carregando...';
+            try {
+                const opts = { headers: headers(), credentials: 'include' };
+                const r = await authFetch('/api/v1/payments/transactions/' + encodeURIComponent(uuid) + '/comprovante', opts);
+                if (!r.ok) {
+                    const err = await r.json().catch(function() { return {}; });
+                    alert('Erro ao carregar comprovante: ' + (err.detail || r.statusText));
+                    return;
+                }
+                const html = await r.text();
+                const w = window.open('', '_blank');
+                if (w) {
+                    w.document.write(html);
+                    w.document.close();
+                } else {
+                    alert('Permita pop-ups para abrir o comprovante.');
+                }
+            } catch (err) {
+                alert('Erro ao carregar comprovante: ' + (err.message || err));
+            } finally {
+                btnComprovante.disabled = false;
+                btnComprovante.textContent = 'Comprovante';
+            }
+            return;
+        }
+        const btnReconcile = e.target.closest('[data-action="reconcile-tx"]');
+        if (btnReconcile) {
+            const uuid = btnReconcile.getAttribute('data-tx-uuid');
+            if (!uuid) return;
+            btnReconcile.disabled = true;
+            btnReconcile.textContent = 'Verificando...';
+            try {
+                const r = await authFetch('/api/v1/payments/reconcile/' + encodeURIComponent(uuid), {
+                    method: 'POST',
+                    headers: headers()
+                });
+                const data = r.ok ? await r.json() : null;
+                if (!r.ok) {
+                    const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                    alert('Falha na verificação: ' + err);
+                    return;
+                }
+                alert('Status atualizado: ' + (data.status || '-') + (data.provider_status ? ' (gateway: ' + data.provider_status + ')' : ''));
+                carregarPendencias();
+            } catch (err) {
+                alert('Erro ao verificar status: ' + err.message);
+            } finally {
+                btnReconcile.disabled = false;
+                btnReconcile.textContent = 'Verificar status';
+            }
+            return;
+        }
+
+        const btn = e.target.closest('[data-action="retry-tx"]');
+        if (!btn) return;
+        const uuid = btn.getAttribute('data-tx-uuid');
+        if (!uuid) return;
+        if (isRetryLocked(uuid)) {
+            alert('Esta transação já está em retentativa. Aguarde alguns segundos.');
+            return;
+        }
+        setRetryLock(uuid);
+        btn.disabled = true;
+        try {
+            const r = await authFetch('/api/v1/payments/retry/' + encodeURIComponent(uuid), {
+                method: 'POST',
+                headers: headers()
+            });
+            const data = r.ok ? await r.json() : null;
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Falha na retentativa: ' + err);
+                return;
+            }
+            alert('Retentativa enviada. Novo status: ' + (data.status || '-'));
+            carregarPendencias();
+            carregarConfigs();
+        } catch (err) {
+            alert('Erro ao retentar transação: ' + err.message);
+        } finally {
+            clearRetryLock(uuid);
+            btn.disabled = false;
+        }
+    });
+
+    function resetModalConfigForm() {
+        var editEl = document.getElementById('configEditId');
+        var titulo = document.getElementById('modalConfigTitulo');
+        var selCli = document.getElementById('configClienteId');
+        var selProv = document.getElementById('configProviderCode');
+        var cred = document.getElementById('configCredentials');
+        var sk = document.getElementById('configSecretKey');
+        if (editEl) editEl.value = '';
+        if (titulo) titulo.textContent = 'Nova configuração de recebimento';
+        if (selCli) selCli.disabled = false;
+        if (selProv) { selProv.disabled = false; selProv.value = 'mercadopago'; }
+        if (cred) { cred.value = ''; cred.placeholder = '{"access_token": "APP_USR-xxx"}'; }
+        if (sk) { sk.value = ''; sk.placeholder = 'sk_test_...'; }
+    }
+
+    function abrirModalConfigPagamentoCustom() {
+        resetModalConfigForm();
+        var m = document.getElementById('modalConfigPagamentoCustom');
+        if (m) {
+            m.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            var estabId = document.getElementById('filtroEstabelecimento').value;
+            if (estabId) document.getElementById('configClienteId').value = estabId;
+            if (window._onProviderChange) window._onProviderChange();
+        }
+    }
+
+    function abrirModalEditarConfig(c) {
+        if (!c || !c.id) return;
+        var m = document.getElementById('modalConfigPagamentoCustom');
+        if (!m) return;
+        document.getElementById('configEditId').value = String(c.id);
+        document.getElementById('modalConfigTitulo').textContent = 'Editar configuração de recebimento';
+        document.getElementById('configClienteId').value = String(c.cliente_id);
+        document.getElementById('configClienteId').disabled = true;
+        document.getElementById('configProviderCode').value = c.provider_code || 'mercadopago';
+        document.getElementById('configProviderCode').disabled = true;
+        document.getElementById('configAtivo').checked = !!c.is_active;
+        document.getElementById('configPadrao').checked = !!c.is_default;
+        document.getElementById('configTestMode').checked = !!c.test_mode;
+        document.getElementById('configCredentials').value = '';
+        document.getElementById('configSecretKey').value = '';
+        m.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        if (window._onProviderChange) window._onProviderChange();
+    }
+
+    function fecharModalConfigPagamentoCustom() {
+        var m = document.getElementById('modalConfigPagamentoCustom');
+        if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
+        resetModalConfigForm();
+        if (window._onProviderChange) window._onProviderChange();
+    }
+    window.abrirModalConfigPagamentoCustom = abrirModalConfigPagamentoCustom;
+    window.fecharModalConfigPagamentoCustom = fecharModalConfigPagamentoCustom;
+    (function() {
+        var modal = document.getElementById('modalConfigPagamentoCustom');
+        if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) fecharModalConfigPagamentoCustom(); });
+    })();
+    window._onProviderChange = function() {
+        var code = document.getElementById('configProviderCode').value;
+        var divCred = document.getElementById('divCredentials');
+        var divSK = document.getElementById('divSecretKey');
+        var divPB = document.getElementById('divPagbankOAuth');
+        var hintMP = document.getElementById('hintMercadoPago');
+        var btnSalvar = document.getElementById('btnSalvarConfig');
+        var editMode = !!(document.getElementById('configEditId').value || '').trim();
+        divCred.style.display = 'none';
+        divSK.style.display = 'none';
+        divPB.style.display = 'none';
+        if (hintMP) hintMP.style.display = 'none';
+        btnSalvar.style.display = 'inline-block';
+        if (code === 'mercadopago') {
+            divCred.style.display = 'block';
+            if (hintMP) hintMP.style.display = 'block';
+            document.getElementById('configCredentials').placeholder = editMode
+                ? 'Deixe em branco para manter as credenciais atuais (JSON).'
+                : '{"access_token": "APP_USR-xxx"}';
+        } else if (code === 'pagbank') {
+            divPB.style.display = 'block';
+            btnSalvar.style.display = 'none';
+        } else if (code === 'pagarme') {
+            divSK.style.display = 'block';
+            document.getElementById('configSecretKey').placeholder = editMode
+                ? 'Deixe em branco para manter a Secret Key atual'
+                : 'sk_test_...';
+        }
+    };
+    window._onProviderChange();
+
+    document.getElementById('btnConectarPagbank').addEventListener('click', function() {
+        var estabId = document.getElementById('configClienteId').value;
+        if (!estabId) { alert('Selecione um estabelecimento antes de conectar.'); return; }
+        window.location.href = '/api/v1/payments/connect/pagbank/start?estabelecimentoId=' + encodeURIComponent(estabId);
+    });
+
+    document.getElementById('btnSalvarConfig').addEventListener('click', async function() {
+        const editId = (document.getElementById('configEditId').value || '').trim();
+        const clienteId = document.getElementById('configClienteId').value;
+        const providerCode = document.getElementById('configProviderCode').value.trim();
+        const is_active = document.getElementById('configAtivo').checked;
+        const is_default = document.getElementById('configPadrao').checked;
+        const test_mode = document.getElementById('configTestMode').checked;
+        if (!clienteId || !providerCode) { alert('Preencha Estabelecimento e Gateway.'); return; }
+
+        if (editId) {
+            const patchBody = { is_active: is_active, is_default: is_default, test_mode: test_mode };
+            if (providerCode === 'mercadopago') {
+                var credRawE = (document.getElementById('configCredentials').value || '').trim();
+                if (credRawE) {
+                    try { patchBody.credentials = JSON.parse(credRawE); }
+                    catch (e) { alert('Credenciais devem ser um JSON válido.'); return; }
+                }
+            } else if (providerCode === 'pagarme') {
+                var skE = (document.getElementById('configSecretKey').value || '').trim();
+                if (skE) patchBody.credentials = { secret_key: skE };
+            }
+            try {
+                const r = await authFetch('/api/v1/payments/configs/item/' + encodeURIComponent(editId), {
+                    method: 'PATCH',
+                    headers: headers(),
+                    body: JSON.stringify(patchBody)
+                });
+                const data = r.ok ? await r.json() : null;
+                if (!r.ok) {
+                    const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                    alert('Erro: ' + err);
+                    return;
+                }
+                fecharModalConfigPagamentoCustom();
+                carregarConfigs();
+            } catch (e) {
+                alert('Erro ao salvar.');
+                console.error(e);
+            }
+            return;
+        }
+
+        let credentials = null;
+        if (providerCode === 'pagarme') {
+            var sk = (document.getElementById('configSecretKey').value || '').trim();
+            if (!sk) { alert('Informe a Secret Key do Pagar.me.'); return; }
+            credentials = { secret_key: sk };
+        } else if (providerCode === 'mercadopago') {
+            var credRaw = (document.getElementById('configCredentials').value || '').trim();
+            if (credRaw) {
+                try { credentials = JSON.parse(credRaw); }
+                catch (e) { alert('Credenciais devem ser um JSON válido.'); return; }
+            }
+        }
+
+        const body = { cliente_id: parseInt(clienteId, 10), provider_code: providerCode, is_active, is_default, test_mode };
+        if (credentials) body.credentials = credentials;
+        try {
+            const r = await authFetch('/api/v1/payments/configs', { method: 'POST', headers: headers(), body: JSON.stringify(body) });
+            const data = r.ok ? await r.json() : null;
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Erro: ' + err);
+                return;
+            }
+            fecharModalConfigPagamentoCustom();
+            carregarConfigs();
+        } catch (e) {
+            alert('Erro ao salvar.');
+            console.error(e);
+        }
+    });
+
+    document.getElementById('tbodyConfigs').addEventListener('click', function(e) {
+        var btn = e.target.closest('.btn-edit-recebivel-config');
+        if (!btn) return;
+        var id = parseInt(btn.getAttribute('data-id'), 10);
+        if (!id) return;
+        var list = window._recebiveisConfigsList || [];
+        var c = list.find(function(x) { return x.id === id; });
+        if (!c) return;
+        abrirModalEditarConfig(c);
+    });
+
+    (function checkConnectFeedback() {
+        var params = new URLSearchParams(window.location.search);
+        var connectStatus = params.get('connect');
+        if (connectStatus === 'pagbank_success') {
+            var alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+            alertDiv.innerHTML = '<strong>PagBank conectado!</strong> Sua conta PagBank foi vinculada ao estabelecimento. <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+            document.querySelector('.container-fluid').prepend(alertDiv);
+            window.history.replaceState({}, '', window.location.pathname);
+        } else if (connectStatus === 'pagbank_error') {
+            var msg = params.get('msg') || 'Erro ao conectar PagBank.';
+            var alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-2';
+            alertDiv.innerHTML = '<strong>Erro PagBank:</strong> ' + decodeURIComponent(msg.replace(/\+/g, ' ')) + ' <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+            document.querySelector('.container-fluid').prepend(alertDiv);
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    })();
+
+    carregarClientes().then(async function() {
+        const sel = document.getElementById('filtroEstabelecimento');
+        if (sel.options.length > 1 && !sel.value) sel.selectedIndex = 1;
+        if (sel.value) {
+            await verificarModoRecebimento(sel.value);
+            await carregarConfigs();
+            carregarPendencias();
+        }
+    });
+    if (typeof feather !== 'undefined') feather.replace();
+})();
+</script>
+{% endblock %}

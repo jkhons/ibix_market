@@ -1,0 +1,470 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}{{ ssr_titulo|default('Produto', true) }}{% endblock %}
+
+{% block seo_description %}{% if ssr_titulo %}{{ ssr_titulo }} - Compre na Ibix Marketplace com entrega segura e pagamento protegido.{% else %}Produto disponível na Ibix Marketplace.{% endif %}{% endblock %}
+
+{% block seo_og_title %}{{ ssr_titulo|default('Produto', true) }} | Ibix{% endblock %}
+
+{% block seo_og_description %}{% if ssr_titulo %}{{ ssr_titulo }}{% if ssr_preco %} - R$ {{ "%.2f"|format(ssr_preco) }}{% endif %}. Compre na Ibix.{% else %}Produto disponível na Ibix Marketplace.{% endif %}{% endblock %}
+
+{% if ssr_titulo %}
+{% block seo_extra %}
+{% set _base = base_url|default('', true) %}
+{% set _canonical = _base ~ ssr_canonical_path|default(request.url.path, true) %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "{{ ssr_titulo|e }}",
+  {% if ssr_descricao %}"description": "{{ ssr_descricao|e }}",{% endif %}
+  {% if ssr_imagem %}"image": "{{ ssr_imagem }}",{% endif %}
+  {% if ssr_sku %}"sku": "{{ ssr_sku|e }}",{% endif %}
+  {% if ssr_brand %}"brand": {"@type": "Brand", "name": "{{ ssr_brand|e }}"},{% endif %}
+  {% if ssr_category_name %}"category": "{{ ssr_category_name|e }}",{% endif %}
+  "offers": {
+    "@type": "Offer",
+    "priceCurrency": "BRL",
+    "price": "{{ "%.2f"|format(ssr_preco|default(0, true)) }}",
+    {% if ssr_preco_original and ssr_preco_original > ssr_preco|default(0, true) %}"priceValidUntil": "{{ ssr_price_valid_until|default('2026-12-31', true) }}",{% endif %}
+    "availability": "https://schema.org/{% if ssr_disponivel %}InStock{% else %}OutOfStock{% endif %}",
+    "itemCondition": "https://schema.org/NewCondition",
+    "url": "{{ _canonical }}",
+    {% if ssr_seller_name %}"seller": {"@type": "Organization", "name": "{{ ssr_seller_name|e }}"},{% endif %}
+    "shippingDetails": {
+      "@type": "OfferShippingDetails",
+      "shippingDestination": {"@type": "DefinedRegion", "addressCountry": "BR"}
+    },
+    "hasMerchantReturnPolicy": {
+      "@type": "MerchantReturnPolicy",
+      "applicableCountry": "BR",
+      "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+      "merchantReturnDays": 7
+    }
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Início", "item": "{{ _base }}/"},
+    {"@type": "ListItem", "position": 2, "name": "Loja", "item": "{{ _base }}/loja"}
+    {% if ssr_category_name and ssr_category_slug %},{"@type": "ListItem", "position": 3, "name": "{{ ssr_category_name|e }}", "item": "{{ _base }}/loja/categoria/{{ ssr_category_slug }}"}
+    ,{"@type": "ListItem", "position": 4, "name": "{{ ssr_titulo|e }}", "item": "{{ _canonical }}"}
+    {% else %},{"@type": "ListItem", "position": 3, "name": "{{ ssr_titulo|e }}", "item": "{{ _canonical }}"}
+    {% endif %}
+  ]
+}
+</script>
+{% endblock %}
+{% endif %}
+
+{% block content %}
+<div id="loja-produto-detalhe" class="loja-produto">
+    {% if ssr_titulo %}
+    <noscript>
+    <div class="row">
+        {% if ssr_imagem %}<div class="col-md-5 mb-3"><img src="{{ ssr_imagem }}" alt="{{ ssr_titulo }}{% if ssr_brand %} - {{ ssr_brand }}{% endif %}" style="max-width:100%;border-radius:8px" fetchpriority="high"></div>{% endif %}
+        <div class="col-md-7">
+            <h1>{{ ssr_titulo }}</h1>
+            {% if ssr_preco %}<p style="font-size:1.5rem;font-weight:700;color:#2c3e50">R$ {{ "%.2f"|format(ssr_preco) }}</p>{% endif %}
+            {% if ssr_descricao %}<p>{{ ssr_descricao }}</p>{% endif %}
+        </div>
+    </div>
+    </noscript>
+    {% endif %}
+    <p class="text-muted loja-produto-loading">Carregando...</p>
+</div>
+<div id="loja-produto-error" class="loja-error-box" style="display: none;" role="alert">
+    <p class="mb-2" id="loja-produto-error-msg"></p>
+    <a href="/" class="btn btn-sm btn-outline-primary">Voltar à loja</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var anuncioId = {{ anuncio_id | tojson }};
+  var container = document.getElementById("loja-produto-detalhe");
+  var errorEl = document.getElementById("loja-produto-error");
+
+  function hideError() {
+    errorEl.style.display = "none";
+    var msgEl = document.getElementById("loja-produto-error-msg");
+    if (msgEl) msgEl.textContent = "";
+  }
+
+  function showError(msg) {
+    var msgEl = document.getElementById("loja-produto-error-msg");
+    if (msgEl) msgEl.textContent = msg;
+    errorEl.style.display = "block";
+    container.innerHTML = "";
+  }
+
+  function addToCart(anuncio, quantidade) {
+    var loja = anuncio.loja || {};
+    var lojaId = loja && (loja.id != null) ? loja.id : null;
+    if (lojaId == null) {
+      if (typeof alert !== "undefined") alert("Não foi possível adicionar: dados da loja indisponíveis.");
+      return;
+    }
+    var qty = Math.max(1, parseInt(quantidade, 10) || 1);
+    window.Vitrine.addToCart({
+      anuncio_id: anuncio.id,
+      titulo: anuncio.titulo,
+      preco: window.Vitrine.precoEfetivo(anuncio),
+      quantidade: qty,
+      loja_id: lojaId,
+      slug_loja: loja.slug,
+      nome_loja: loja.nome_loja,
+      imagem_url: window.Vitrine.imagemCarrinhoAnuncio(anuncio),
+    });
+    window.VitrineUpdateCartBadge();
+  }
+
+  function addToCartClick(anuncio, goToCart) {
+    var qtyEl = document.getElementById("loja-produto-qty");
+    var qty = qtyEl ? (parseInt(qtyEl.value, 10) || 1) : 1;
+    addToCart(anuncio, qty);
+    if (goToCart) {
+      window.location.href = "/loja/carrinho";
+      return;
+    }
+    var btn = document.getElementById("loja-btn-add-cart");
+    if (btn) {
+      var orig = btn.innerHTML;
+      btn.innerHTML = '<i data-feather="check" style="width:1.1em;height:1.1em;vertical-align:-0.2em"></i> Adicionado!';
+      if (typeof feather !== "undefined" && feather.replace) feather.replace();
+      btn.classList.add("btn-success");
+      btn.classList.remove("btn-primary");
+      setTimeout(function () {
+        btn.innerHTML = orig;
+        if (typeof feather !== "undefined" && feather.replace) feather.replace();
+        btn.classList.remove("btn-success");
+        btn.classList.add("btn-primary");
+      }, 1800);
+    }
+  }
+
+  function discountBadgeClassSem(d) {
+    if (d <= 0) return "";
+    if (d < 10) return "loja-card-badge loja-card-badge--low";
+    if (d < 40) return "loja-card-badge loja-card-badge--mid";
+    return "loja-card-badge loja-card-badge--high";
+  }
+
+  function renderSemelhanteCard(item) {
+    var img = window.Vitrine.imagemPrincipalAnuncio(item) || window.Vitrine.PLACEHOLDER_IMG;
+    var imgCarrinho = window.Vitrine.imagemCarrinhoAnuncio(item) || img;
+    var precoAtual = window.Vitrine.formatPrecoCard(window.Vitrine.precoEfetivo(item));
+    var desconto = window.Vitrine.calcDescontoPercent(item);
+    var badge = desconto > 0 ? '<span class="' + discountBadgeClassSem(desconto) + '">-' + desconto + "%</span>" : "";
+    var badgeFrete = item.frete_gratis ? '<span class="loja-card-badge-frete">Frete grátis</span>' : "";
+    var precoOriginal = "";
+    if (item.preco_promocional != null && item.preco_promocional > 0) {
+      precoOriginal = '<span class="loja-card-price-old">' + window.Vitrine.formatPreco(item.preco_original) + "</span>";
+    }
+    var lojaId = item && item.loja_id != null ? Number(item.loja_id) : null;
+    var cartBtnHtml =
+      '<button type="button" class="loja-card-cart-btn" data-action="add-cart-semelhante" data-anuncio-id="' + Number(item.id) + '" data-loja-id="' + (lojaId || "") + '" data-titulo="' + window.Vitrine.escapeHtml(item.titulo || "") + '" data-imagem-url="' + window.Vitrine.escapeHtml(imgCarrinho) + '" data-preco="' + window.Vitrine.precoEfetivo(item) + '" data-slug-loja="' + window.Vitrine.escapeHtml(item.slug_loja || "") + '" data-nome-loja="' + window.Vitrine.escapeHtml(item.nome_loja || "") + '" aria-label="Adicionar ao carrinho">' +
+        '<i data-feather="shopping-cart"></i>' +
+      "</button>";
+    return (
+      '<div class="loja-produto-semelhante-item">' +
+        '<article class="loja-card">' +
+          '<a class="loja-card-link" href="' + window.Vitrine.produtoUrl(item.titulo, item.id) + '">' +
+            '<div class="loja-card-img-wrap">' +
+              badge + badgeFrete +
+              '<img src="' + window.Vitrine.escapeHtml(img) + '" alt="' + window.Vitrine.escapeHtml(item.titulo || "Produto") + '">' +
+            "</div>" +
+            '<div class="loja-card-body">' +
+              '<h3 class="loja-card-title">' + window.Vitrine.escapeHtml(item.titulo || "") + "</h3>" +
+              '<div class="loja-card-price-row">' +
+                '<div class="loja-card-price-block">' + precoOriginal + '<span class="loja-card-price">' + precoAtual + "</span></div>" +
+                cartBtnHtml +
+              "</div>" +
+            "</div>" +
+          "</a>" +
+        "</article>" +
+      "</div>"
+    );
+  }
+
+  function renderSemelhantes(items) {
+    var section = document.getElementById("loja-produto-semelhantes");
+    var grid = document.getElementById("loja-produto-semelhantes-grid");
+    var prevBtn = document.getElementById("loja-produto-semelhantes-prev");
+    var nextBtn = document.getElementById("loja-produto-semelhantes-next");
+    if (!section || !grid) return;
+    var arr = Array.isArray(items) ? items : [];
+    if (arr.length === 0) {
+      section.style.display = "none";
+      return;
+    }
+    section.style.display = "";
+    grid.innerHTML = arr.map(renderSemelhanteCard).join("");
+    if (!prevBtn || !nextBtn) return;
+
+    function getStep() {
+      var first = grid.querySelector(".loja-produto-semelhante-item");
+      if (!first) return 180;
+      var rect = first.getBoundingClientRect();
+      var styles = window.getComputedStyle(grid);
+      var gap = parseFloat(styles.columnGap || styles.gap || "8") || 8;
+      return Math.max(120, Math.round(rect.width + gap));
+    }
+
+    function updateButtons() {
+      var max = Math.max(0, grid.scrollWidth - grid.clientWidth);
+      var left = Math.max(0, Math.round(grid.scrollLeft));
+      prevBtn.disabled = left <= 0;
+      nextBtn.disabled = left >= (max - 1);
+    }
+
+    prevBtn.onclick = function () {
+      grid.scrollBy({ left: -getStep(), behavior: "smooth" });
+    };
+    nextBtn.onclick = function () {
+      grid.scrollBy({ left: getStep(), behavior: "smooth" });
+    };
+    grid.addEventListener("scroll", updateButtons, { passive: true });
+    window.addEventListener("resize", updateButtons);
+    updateButtons();
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+  }
+
+  function loadSemelhantes(anuncioId) {
+    return window.Vitrine.getAnunciosSemelhantes(anuncioId, 8)
+      .then(function (data) {
+        var items = (data && data.items) || [];
+        renderSemelhantes(items);
+      })
+      .catch(function () {
+        renderSemelhantes([]);
+      });
+  }
+
+  function renderAnuncio(anuncio) {
+    hideError();
+    var preco = window.Vitrine.formatPrecoCard(window.Vitrine.precoEfetivo(anuncio));
+    var temPromo = anuncio.preco_promocional != null && anuncio.preco_promocional > 0;
+    var precoOriginalHtml = temPromo
+      ? '<span class="loja-card-price-old">' + window.Vitrine.formatPreco(anuncio.preco_original) + "</span>"
+      : "";
+    var descontoPct = window.Vitrine.calcDescontoPercent(anuncio);
+    var badgeDescHtml = descontoPct > 0
+      ? '<span class="' + discountBadgeClassSem(descontoPct) + ' loja-produto-gallery-badge-pos">-' + descontoPct + "%</span>"
+      : "";
+    var badgeFreteGal = anuncio.frete_gratis
+      ? '<span class="loja-card-badge-frete loja-produto-gallery-frete-pos' + (descontoPct > 0 ? "" : " loja-produto-gallery-frete-first") + '">Frete grátis</span>'
+      : "";
+    var estoquePillHtml = window.Vitrine.isEstoqueBaixo(anuncio)
+      ? '<p class="loja-produto-estoque-pill-wrap"><span class="loja-card-pill">Últimas unidades</span></p>'
+      : "";
+    var imagens = window.Vitrine.ensureImagensArray(anuncio.imagens);
+    var imgPrincipal = window.Vitrine.imagemPrincipalAnuncio(anuncio) || window.Vitrine.PLACEHOLDER_IMG;
+    var thumbsHtml = "";
+    if (imagens.length > 1) {
+      thumbsHtml = imagens.map(function (url, i) {
+        var active = i === 0 ? " active" : "";
+        return '<button type="button" class="loja-produto-thumb' + active + '" data-src="' + window.Vitrine.escapeHtml(url) + '" aria-label="Ver imagem ' + (i + 1) + '"><img src="' + window.Vitrine.escapeHtml(url) + '" alt="' + window.Vitrine.escapeHtml(anuncio.titulo || 'Produto') + ' - imagem ' + (i + 1) + '"></button>';
+      }).join("");
+    }
+    var lojaHtml = "";
+    if (anuncio.loja && anuncio.loja.nome_loja) {
+      lojaHtml = '<p class="loja-produto-seller">Vendido por <span>' + window.Vitrine.escapeHtml(anuncio.loja.nome_loja) + "</span></p>";
+    }
+    var caracteristicasHtml = "";
+    if (anuncio.atributos && anuncio.atributos.trim()) {
+      try {
+        var arr = JSON.parse(anuncio.atributos);
+        if (Array.isArray(arr) && arr.length > 0) {
+          var rows = arr.map(function (item) {
+            var n = (item && item.nome) ? window.Vitrine.escapeHtml(String(item.nome)) : "";
+            var v = (item && item.valor) ? window.Vitrine.escapeHtml(String(item.valor)) : "";
+            return "<tr><td class=\"loja-spec-name\">" + n + "</td><td>" + v + "</td></tr>";
+          }).join("");
+          caracteristicasHtml =
+            '<div class="loja-produto-desc loja-caracteristicas">' +
+              "<h3>Características do produto</h3>" +
+              '<table class="loja-spec-table"><tbody>' + rows + "</tbody></table>" +
+            "</div>";
+        }
+      } catch (e) {}
+    }
+    var descHtml = "";
+    if (anuncio.descricao && anuncio.descricao.trim()) {
+      descHtml =
+        '<div class="loja-produto-desc">' +
+          "<h3>Descrição do anúncio</h3>" +
+          '<div class="loja-produto-desc-content">' + window.Vitrine.escapeHtml(anuncio.descricao).replace(/\n/g, "<br>") + "</div>" +
+        "</div>";
+    }
+    var descricaoCaConteudo = (anuncio.produto_ca_descricao && anuncio.produto_ca_descricao.trim())
+      ? (window.Vitrine.escapeHtml(anuncio.produto_ca_descricao).replace(/\n/g, "<br>"))
+      : '<span class="loja-produto-desc-empty">Este produto ainda não possui descrição cadastrada pelo vendedor.</span>';
+    var descricaoCaHtml =
+      '<div class="loja-buy-box loja-produto-desc-ca-box loja-produto-card-equal">' +
+        "<h3>Descrição do Produto</h3>" +
+        '<div class="loja-produto-desc-content">' + descricaoCaConteudo + "</div>" +
+      "</div>";
+    var semelhantesHtml =
+      '<section class="loja-produto-extra-card loja-produto-semelhantes" id="loja-produto-semelhantes" style="display:none;">' +
+        '<div class="loja-produto-semelhantes-head">' +
+          "<h3>Produtos semelhantes</h3>" +
+          '<div class="loja-produto-semelhantes-nav">' +
+            '<button type="button" class="loja-produto-semelhantes-btn" id="loja-produto-semelhantes-prev" aria-label="Ver produtos semelhantes anteriores"><i data-feather="chevron-left"></i></button>' +
+            '<button type="button" class="loja-produto-semelhantes-btn" id="loja-produto-semelhantes-next" aria-label="Ver mais produtos semelhantes"><i data-feather="chevron-right"></i></button>' +
+          "</div>" +
+        "</div>" +
+        '<div class="loja-produto-semelhantes-grid" id="loja-produto-semelhantes-grid"></div>' +
+      "</section>";
+    container.innerHTML =
+      '<nav class="loja-breadcrumb" aria-label="Navegação">' +
+        '<a href="/">Início</a><span>›</span><span>' + window.Vitrine.escapeHtml(anuncio.titulo || "Produto") + "</span>" +
+      "</nav>" +
+      '<div class="row loja-produto-main-row">' +
+        '<div class="col-md-5 col-lg-4 mb-4 mb-md-0">' +
+          '<div class="loja-produto-gallery">' +
+            '<div class="loja-produto-img-main">' +
+              badgeDescHtml + badgeFreteGal +
+              '<img src="' + window.Vitrine.escapeHtml(imgPrincipal) + '" alt="' + window.Vitrine.escapeHtml(anuncio.titulo || 'Produto') + '" id="loja-produto-img-main" fetchpriority="high" onerror="this.style.background=\'#eee\'">' +
+            "</div>" +
+            (thumbsHtml ? '<div class="loja-produto-thumbs" role="tablist">' + thumbsHtml + "</div>" : "") +
+          "</div>" +
+        "</div>" +
+        '<div class="col-md-7 col-lg-5 loja-produto-main-col">' +
+          '<div class="loja-buy-box loja-produto-card-equal">' +
+            "<h1 class=\"loja-produto-title\">" + window.Vitrine.escapeHtml(anuncio.titulo || "") + "</h1>" +
+            lojaHtml +
+            '<div class="loja-price-block loja-produto-price-v2">' +
+              (temPromo ? '<div class="loja-produto-price-old-line">' + precoOriginalHtml + "</div>" : "") +
+              '<span class="loja-price-current">' + preco + "</span>" +
+              '<p class="loja-price-label">À vista no PIX e cartão</p>' +
+            "</div>" +
+            estoquePillHtml +
+            '<div class="loja-qty-row">' +
+              '<label for="loja-produto-qty">Quantidade:</label>' +
+              '<input type="number" id="loja-produto-qty" class="form-control form-control-sm loja-qty-input" min="1" max="99" value="1" aria-label="Quantidade">' +
+            "</div>" +
+            '<div class="loja-cta-row loja-cta-row--produto">' +
+              '<button type="button" class="btn btn-primary btn-lg loja-btn-buy-now-primary" id="loja-btn-buy-now">Comprar agora</button>' +
+              '<button type="button" class="btn btn-outline-primary btn-lg loja-btn-add-cart" id="loja-btn-add-cart"><i data-feather="shopping-cart" style="width:1.1em;height:1.1em;vertical-align:-0.2em"></i> Adicionar ao carrinho</button>' +
+            "</div>" +
+            '<div class="loja-share-row" role="group" aria-label="Compartilhar produto">' +
+              '<span class="loja-share-label">Compartilhar</span>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--copy" id="loja-btn-share-copy" aria-label="Copiar link do produto" title="Copiar link"><i data-feather="link"></i></button>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--facebook" id="loja-btn-share-fb" aria-label="Compartilhar no Facebook" title="Facebook"><i data-feather="facebook"></i></button>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--instagram" id="loja-btn-share-ig" aria-label="Compartilhar no Instagram" title="Instagram"><i data-feather="instagram"></i></button>' +
+              '<button type="button" class="loja-share-btn loja-share-btn--social loja-share-btn--whatsapp" id="loja-btn-share-wa" aria-label="Enviar link no WhatsApp" title="WhatsApp">' +
+                '<svg class="loja-share-svg-wa" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.718 2.006-1.413.248-.695.248-1.29.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.881 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>' +
+              "</button>" +
+            "</div>" +
+            '<div class="loja-trust">' +
+              '<span class="loja-trust-item"><i data-feather="shield"></i> Compra segura</span>' +
+              '<span class="loja-trust-item"><i data-feather="truck"></i> Entrega para todo o Brasil</span>' +
+            "</div>" +
+          "</div>" +
+        "</div>" +
+        '<div class="col-12 col-lg-3 loja-produto-desc-side">' +
+          descricaoCaHtml +
+        "</div>" +
+      "</div>" +
+      '<div class="row loja-produto-semelhantes-row">' +
+        '<div class="col-12">' +
+          semelhantesHtml +
+        "</div>" +
+      "</div>" +
+      caracteristicasHtml +
+      descHtml;
+    if (typeof feather !== "undefined" && feather.replace) feather.replace();
+
+    var pageUrlClean = window.Vitrine.produtoPublicPageUrl();
+    var pageUrlShare = window.Vitrine.vitrineUrlComUtmCompartilhamento(pageUrlClean);
+    var shareText = window.Vitrine.buildProductShareText(anuncio, pageUrlShare);
+    var btnCopy = document.getElementById("loja-btn-share-copy");
+    if (btnCopy) btnCopy.addEventListener("click", function () { window.Vitrine.copyProductLink(pageUrlShare); });
+    var btnFb = document.getElementById("loja-btn-share-fb");
+    if (btnFb) btnFb.addEventListener("click", function () { window.Vitrine.openFacebookShareProduct(pageUrlShare); });
+    var btnWa = document.getElementById("loja-btn-share-wa");
+    if (btnWa) btnWa.addEventListener("click", function () { window.Vitrine.openWhatsAppShareProduct(shareText); });
+    var btnIg = document.getElementById("loja-btn-share-ig");
+    if (btnIg) btnIg.addEventListener("click", function () { window.Vitrine.openInstagramShareProduct({ text: shareText, imageUrl: imgPrincipal }); });
+
+    document.getElementById("loja-btn-add-cart").addEventListener("click", function () {
+      addToCartClick(anuncio, false);
+    });
+    var btnBuyNow = document.getElementById("loja-btn-buy-now");
+    if (btnBuyNow) {
+      btnBuyNow.addEventListener("click", function (e) {
+        e.preventDefault();
+        addToCartClick(anuncio, true);
+      });
+    }
+    var qtyInput = document.getElementById("loja-produto-qty");
+    if (qtyInput) {
+      qtyInput.addEventListener("change", function () {
+        var v = parseInt(this.value, 10);
+        if (isNaN(v) || v < 1) this.value = 1;
+        else if (v > 99) this.value = 99;
+      });
+    }
+    var mainImg = document.getElementById("loja-produto-img-main");
+    container.querySelectorAll(".loja-produto-thumb").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var src = this.getAttribute("data-src");
+        if (src && mainImg) mainImg.src = src;
+        container.querySelectorAll(".loja-produto-thumb").forEach(function (b) { b.classList.remove("active"); });
+        this.classList.add("active");
+      });
+    });
+    document.title = (anuncio.titulo || "Produto") + " | Ibix";
+    loadSemelhantes(anuncio.id);
+  }
+
+  container.addEventListener("click", function (ev) {
+    var btn = ev.target && ev.target.closest ? ev.target.closest('[data-action="add-cart-semelhante"]') : null;
+    if (!btn) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    var anuncioId = Number(btn.getAttribute("data-anuncio-id") || 0);
+    var lojaId = Number(btn.getAttribute("data-loja-id") || 0);
+    if (!anuncioId || !lojaId) return;
+    var titulo = btn.getAttribute("data-titulo") || "";
+    var preco = Number(btn.getAttribute("data-preco") || 0);
+    var slugLoja = btn.getAttribute("data-slug-loja") || null;
+    var nomeLoja = btn.getAttribute("data-nome-loja") || null;
+    var imagemUrl = btn.getAttribute("data-imagem-url") || null;
+    window.Vitrine.addToCart({
+      anuncio_id: anuncioId,
+      titulo: titulo,
+      preco: preco,
+      quantidade: 1,
+      loja_id: lojaId,
+      slug_loja: slugLoja,
+      nome_loja: nomeLoja,
+      imagem_url: imagemUrl,
+    });
+    window.VitrineUpdateCartBadge();
+    btn.classList.add("is-added");
+    setTimeout(function () {
+      btn.classList.remove("is-added");
+    }, 900);
+  });
+
+  function loadProduto() {
+    hideError();
+    container.innerHTML = "<p class=\"text-muted\">Carregando...</p>";
+    window.Vitrine.getAnuncio(anuncioId)
+      .then(renderAnuncio)
+      .catch(function (err) {
+        showError(err.message || "Produto não encontrado.");
+      });
+  }
+
+  loadProduto();
+})();
+</script>
+{% endblock %}

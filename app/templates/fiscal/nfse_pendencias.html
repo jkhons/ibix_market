@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Pendências NFS-e - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div id="alert-container" class="mb-3"></div>
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Pendências NFS-e</h1>
+    </div>
+    <p class="text-muted">Notas em fila (QUEUED) ou rejeitadas (REJECTED). Use "Tentar novamente" para reenviar quando for reprocessável.</p>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Lista de pendências</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-atualizar">Atualizar</button>
+        </div>
+        <div class="card-body">
+            <div id="loading" class="text-muted">Carregando...</div>
+            <div id="content" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Origem</th>
+                                <th>Status</th>
+                                <th>Valor</th>
+                                <th>Erro</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody"></tbody>
+                    </table>
+                </div>
+                <p id="empty-msg" class="text-muted small d-none">Nenhuma pendência.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function api(path, opts) {
+        opts = opts || {};
+        var h = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+        if (getToken()) h['Authorization'] = 'Bearer ' + getToken();
+        return fetch('/api/v1/nfse' + path, Object.assign({ headers: h }, opts));
+    }
+    function alertMsg(msg, isError) {
+        var el = document.getElementById('alert-container');
+        el.innerHTML = '<div class="alert alert-' + (isError ? 'danger' : 'success') + '">' + msg + '</div>';
+        setTimeout(function() { el.innerHTML = ''; }, 5000);
+    }
+
+    function loadPendencias() {
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('content').classList.add('d-none');
+        api('/pendencias').then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { alertMsg(d.detail || 'Erro', true); });
+            return r.json();
+        }).then(function(data) {
+            document.getElementById('loading').classList.add('d-none');
+            document.getElementById('content').classList.remove('d-none');
+            if (!data || !data.items || data.items.length === 0) {
+                document.getElementById('tbody').innerHTML = '';
+                document.getElementById('empty-msg').classList.remove('d-none');
+                return;
+            }
+            document.getElementById('empty-msg').classList.add('d-none');
+            var tbody = document.getElementById('tbody');
+            tbody.innerHTML = data.items.map(function(i) {
+                var origin = (i.origin_type || '') + (i.origin_id ? ' #' + i.origin_id : '');
+                var err = (i.last_error_code || '') + (i.last_error_msg ? ': ' + i.last_error_msg : '');
+                var canRetry = (i.status === 'REJECTED' || i.status === 'QUEUED');
+                var btn = canRetry
+                    ? '<button type="button" class="btn btn-sm btn-outline-primary btn-retry" data-id="' + i.id + '">Tentar novamente</button>'
+                    : '';
+                return '<tr><td>' + i.id + '</td><td>' + origin + '</td><td>' + i.status + '</td><td>' + (i.valor_servicos != null ? i.valor_servicos : '-') + '</td><td class="small">' + (err || '-') + '</td><td>' + btn + '</td></tr>';
+            }).join('');
+            tbody.querySelectorAll('.btn-retry').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var id = parseInt(this.getAttribute('data-id'), 10);
+                    api('/issue', { method: 'POST', body: JSON.stringify({ invoice_id: id }) })
+                        .then(function(r) {
+                            if (!r.ok) return r.json().then(function(d) { alertMsg(d.detail || 'Erro', true); });
+                            alertMsg('Emissão enfileirada.');
+                            loadPendencias();
+                        });
+                });
+            });
+        });
+    }
+
+    document.getElementById('btn-atualizar').addEventListener('click', loadPendencias);
+    loadPendencias();
+})();
+</script>
+{% endblock %}

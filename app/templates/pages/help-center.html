@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block title %}Central de Ajuda | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    .help-section {
+        background: #fff;
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .help-section h3 {
+        color: #2c3e50;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+        border-bottom: 2px solid #3b7ddd;
+        padding-bottom: 0.5rem;
+    }
+
+    .contact-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .contact-item {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .contact-item i {
+        color: #3b7ddd;
+        font-size: 1.5rem;
+    }
+
+    .contact-item-content h4 {
+        margin: 0;
+        font-size: 1rem;
+        color: #495057;
+    }
+
+    .contact-item-content p {
+        margin: 0.25rem 0 0 0;
+        font-size: 1.1rem;
+        color: #2c3e50;
+        font-weight: 600;
+    }
+
+    .contact-item-content p a {
+        color: #3b7ddd;
+        text-decoration: none;
+    }
+
+    .contact-item-content p a:hover {
+        text-decoration: underline;
+    }
+
+    .faq-item {
+        margin-bottom: 1.5rem;
+    }
+
+    .faq-item h4 {
+        color: #3b7ddd;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .faq-item p {
+        color: #6c757d;
+        margin-bottom: 0;
+        line-height: 1.6;
+    }
+
+    .contact-form {
+        margin-top: 2rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+        padding: 0.75rem;
+        font-size: 1rem;
+    }
+
+    .form-control:focus {
+        border-color: #3b7ddd;
+        box-shadow: 0 0 0 0.2rem rgba(59, 125, 221, 0.25);
+    }
+
+    .btn-submit {
+        background: #3b7ddd;
+        color: white;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.3s ease;
+    }
+
+    .btn-submit:hover {
+        background: #2c5aa0;
+    }
+
+    .alert {
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    @media (max-width: 768px) {
+        .help-section {
+            padding: 1.5rem;
+        }
+
+        .contact-item {
+            flex-direction: column;
+            text-align: center;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <h1 class="h3 mb-3">
+        <i data-feather="help-circle"></i> Central de Ajuda
+    </h1>
+
+    <div class="help-section">
+        <h3><i data-feather="phone"></i> Informações de Contato</h3>
+        <div class="contact-info">
+            <div class="contact-item">
+                <i data-feather="mail"></i>
+                <div class="contact-item-content">
+                    <h4>Email</h4>
+                    <p><a href="mailto:automscale@automscale.com.br">automscale@automscale.com.br</a></p>
+                </div>
+            </div>
+            <div class="contact-item">
+                <i data-feather="phone"></i>
+                <div class="contact-item-content">
+                    <h4>Telefone / WhatsApp</h4>
+                    <p><a href="https://wa.me/5514998062084" target="_blank" rel="noopener">(14) 99806-2084</a></p>
+                </div>
+            </div>
+            <div class="contact-item">
+                <i data-feather="clock"></i>
+                <div class="contact-item-content">
+                    <h4>Horário de Atendimento</h4>
+                    <p>Segunda a Sexta: 8h às 18h</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="help-section">
+        <h3><i data-feather="help-circle"></i> Perguntas Frequentes</h3>
+
+        <div class="faq-item">
+            <h4>Como realizar uma venda no PDV?</h4>
+            <p>Acesse o menu "Negócios" &gt; "Venda" para abrir o PDV. Adicione os itens ao carrinho, informe a forma de pagamento e finalize a venda. Você pode registrar vendas à vista ou a prazo conforme a configuração do seu negócio.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Como cadastrar um novo cliente?</h4>
+            <p>Vá até o menu "Gestão" &gt; "Clientes" e clique em "Novo Cliente". Preencha as informações de contato, endereço e dados fiscais para cadastrá-lo no sistema.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Como controlar o estoque?</h4>
+            <p>No menu "Negócios" &gt; "Estoque" você visualiza e gerencia os produtos. É possível dar entrada, baixa e acompanhar o saldo. O sistema também permite vincular itens às ordens de serviço e vendas.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Como criar uma Ordem de Serviço?</h4>
+            <p>Acesse "Negócios" &gt; "Ordem de Serviço", clique em "Nova OS" e preencha os dados do cliente e do serviço. Após concluir o atendimento, você pode enviar para vendas ou emitir nota de serviço.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Como configurar a empresa e usuários?</h4>
+            <p>Em "Sistema" &gt; "Configurações" você ajusta dados da empresa, e-mail e preferências. Para gerenciar usuários e permissões, use "Sistema" &gt; "Gerenciamento de Usuários" (conforme seu perfil de acesso).</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Como gerar relatórios e acompanhar o financeiro?</h4>
+            <p>No "Dashboard" e em "Negócios" &gt; "Resumo financeiro" você acompanha indicadores e gráficos. Para relatórios detalhados, acesse o menu "Relatórios" ou a área do contador, conforme suas permissões.</p>
+        </div>
+    </div>
+
+    <div class="help-section">
+        <h3><i data-feather="message-square"></i> Envie sua Dúvida</h3>
+
+        <div id="formAlert" style="display: none;"></div>
+
+        <form id="contactForm" class="contact-form">
+            <div class="form-group">
+                <label for="nome">Nome Completo *</label>
+                <input
+                    type="text"
+                    id="nome"
+                    name="nome"
+                    class="form-control"
+                    placeholder="Digite seu nome completo"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="form-control"
+                    placeholder="seu.email@exemplo.com"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="telefone">Telefone</label>
+                <input
+                    type="tel"
+                    id="telefone"
+                    name="telefone"
+                    class="form-control"
+                    placeholder="(14) 99806-2084"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="assunto">Assunto *</label>
+                <select id="assunto" name="assunto" class="form-control" required>
+                    <option value="">Selecione um assunto</option>
+                    <option value="duvida_tecnica">Dúvida Técnica</option>
+                    <option value="problema_sistema">Problema no Sistema</option>
+                    <option value="solicitacao_suporte">Solicitação de Suporte</option>
+                    <option value="sugestao">Sugestão de Melhoria</option>
+                    <option value="outros">Outros</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="mensagem">Mensagem *</label>
+                <textarea
+                    id="mensagem"
+                    name="mensagem"
+                    class="form-control"
+                    rows="6"
+                    placeholder="Descreva sua dúvida ou problema detalhadamente..."
+                    required
+                ></textarea>
+            </div>
+
+            <button type="submit" class="btn-submit" id="btnSubmit">
+                <i data-feather="send"></i> Enviar Mensagem
+            </button>
+        </form>
+    </div>
+
+    <div class="help-section">
+        <h3><i data-feather="book-open"></i> Recursos Adicionais</h3>
+
+        <div class="faq-item">
+            <h4>Documentação do PDV Ibix</h4>
+            <p>O PDV Ibix é o sistema de vendas e gestão PDV da Automscale. Aqui você gerencia vendas, estoque, ordens de serviço, clientes, notas fiscais e financeiro em um só lugar.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Vídeos Tutoriais</h4>
+            <p>Em breve disponibilizaremos vídeos tutoriais para vendas, estoque e ordem de serviço. Enquanto isso, utilize o e-mail ou WhatsApp para tirar dúvidas.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Suporte</h4>
+            <p>Entre em contato pelo e-mail <strong>automscale@automscale.com.br</strong> ou pelo WhatsApp <strong>(14) 99806-2084</strong>. Nossa equipe está à disposição no horário de atendimento.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/certipeso.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+    });
+
+    document.getElementById('contactForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const btnSubmit = document.getElementById('btnSubmit');
+        const formAlert = document.getElementById('formAlert');
+
+        const formData = {
+            nome: document.getElementById('nome').value,
+            email: document.getElementById('email').value,
+            telefone: document.getElementById('telefone').value,
+            assunto: document.getElementById('assunto').value,
+            mensagem: document.getElementById('mensagem').value
+        };
+
+        if (!formData.nome || !formData.email || !formData.assunto || !formData.mensagem) {
+            showAlert('Por favor, preencha todos os campos obrigatórios.', 'error');
+            return;
+        }
+
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i data-feather="loader"></i> Enviando...';
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+        }
+
+        try {
+            const response = await fetch('/api/v1/help-center/contato', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showAlert('Mensagem enviada com sucesso! Entraremos em contato em breve.', 'success');
+                document.getElementById('contactForm').reset();
+            } else {
+                showAlert(result.message || 'Erro ao enviar mensagem. Tente novamente.', 'error');
+            }
+        } catch (error) {
+            console.error('Erro ao enviar formulário:', error);
+            showAlert('Erro ao enviar mensagem. Por favor, tente novamente mais tarde ou entre em contato pelo e-mail automscale@automscale.com.br ou WhatsApp (14) 99806-2084.', 'error');
+        } finally {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i data-feather="send"></i> Enviar Mensagem';
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
+        }
+    });
+
+    function showAlert(message, type) {
+        const formAlert = document.getElementById('formAlert');
+        formAlert.className = `alert alert-${type}`;
+        formAlert.textContent = message;
+        formAlert.style.display = 'block';
+
+        formAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        if (type === 'success') {
+            setTimeout(() => {
+                formAlert.style.display = 'none';
+            }, 5000);
+        }
+    }
+</script>
+{% endblock %}

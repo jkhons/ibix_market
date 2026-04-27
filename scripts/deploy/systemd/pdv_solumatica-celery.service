@@ -1,0 +1,41 @@
+# PDV SOLUMATICA - Celery worker + beat (produção)
+# --beat: agenda tasks periódicas (billing 03:00, reconciliação MP a cada 10min, etc.)
+# Pré-requisitos: Redis rodando, REDIS_URL ou CELERY_BROKER_URL no .env
+# Instalar: sudo ./scripts/install_systemd.sh
+# Habilitar no boot: sudo systemctl enable --now pdv_solumatica pdv_solumatica-celery
+[Unit]
+Description=PDV SOLUMATICA Celery Worker - Relatórios, PDFs, tarefas assíncronas
+Documentation=https://www.solumatica.com.br
+After=network.target postgresql.service redis-server.service pdv_solumatica.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/central_solumatica/pdv_solumatica
+
+# Carregar variáveis do .env (REDIS_URL, CELERY_BROKER_URL, DB_*)
+EnvironmentFile=-/central_solumatica/pdv_solumatica/.env
+Environment="PATH=/central_solumatica/pdv_solumatica/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="PYTHONPATH=/central_solumatica/pdv_solumatica"
+Environment="TZ=America/Sao_Paulo"
+
+ExecStart=/central_solumatica/pdv_solumatica/.venv/bin/celery -A app.worker.celery_app worker \
+    --beat \
+    -l info \
+    --concurrency=2 \
+    --max-tasks-per-child=500
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pdv_solumatica-celery
+
+# Limites de recursos
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

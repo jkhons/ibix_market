@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}{% if orcamento_id %}Editar orçamento{% else %}Novo orçamento{% endif %} | PDV Ibix{% endblock %}
+{% block extra_css %}
+<style>
+  .item-row { border-bottom: 1px solid #eee; }
+  .item-row td { vertical-align: middle; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+  <div class="mb-3">
+    <a href="/negocio/orcamentos" class="btn btn-outline-secondary btn-sm"><i data-feather="arrow-left"></i> Voltar</a>
+    <h1 class="h3 d-inline align-middle ms-2"><strong>{% if orcamento_id %}Editar orçamento{% else %}Novo orçamento{% endif %}</strong></h1>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <form id="form-orcamento">
+        <input type="hidden" id="orcamento-id" value="{{ orcamento_id or '' }}">
+        <div class="row mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Estabelecimento <span class="text-danger">*</span></label>
+            <select class="form-select" id="cliente_id" required></select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Destinatário (cliente final)</label>
+            <select class="form-select" id="destinatario_id">
+              <option value="">— Nenhum —</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Data de validade <span class="text-danger">*</span></label>
+            <input type="date" class="form-control" id="data_validade" required>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12">
+            <label class="form-label">Observações</label>
+            <textarea class="form-control" id="observacoes" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="row mb-3">
+          <div class="col-12">
+            <label class="form-label">Condições de pagamento</label>
+            <textarea class="form-control" id="condicoes_pagamento" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Itens</h5>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-add-item"><i data-feather="plus"></i> Adicionar item</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm" id="tabela-itens">
+              <thead><tr><th>Produto</th><th>Qtd</th><th>Preço unit.</th><th>Desconto (R$)</th><th>Total</th><th></th></tr></thead>
+              <tbody id="tbody-itens"></tbody>
+            </table>
+          </div>
+          <p class="text-muted small mb-0" id="msg-itens">Adicione ao menos um item.</p>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary" id="btn-salvar">Salvar</button>
+          <a href="/negocio/orcamentos" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Modal busca produto -->
+<div class="modal fade" id="modalProduto" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Selecionar produto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" class="form-control mb-2" id="busca-produto" placeholder="Buscar por código ou nome...">
+        <div id="lista-produtos" class="list-group" style="max-height: 300px; overflow-y: auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  const orcamentoId = document.getElementById('orcamento-id').value ? parseInt(document.getElementById('orcamento-id').value, 10) : null;
+  let clientes = [], produtosPorCliente = {}, rowIndex = 0, modalRowIndex = null;
+
+  function getToken() {
+    const c = document.cookie.split(';');
+    for (const x of c) {
+      const [n, v] = x.trim().split('=');
+      if (n === 'pdv_solumatica_token' || n === 'pdv_automscale_token') return v || null;
+    }
+    return null;
+  }
+  function api(url, opts) {
+    const t = getToken();
+    return fetch(url, {
+      ...opts,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(t ? { 'Authorization': 'Bearer ' + t } : {}),
+        ...(opts && opts.headers || {}),
+      },
+    });
+  }
+
+  async function carregarClientes() {
+    const r = await api('/api/v1/clientes/todos');
+    if (!r.ok) return;
+    clientes = await r.json();
+    const sel = document.getElementById('cliente_id');
+    const dest = document.getElementById('destinatario_id');
+    sel.innerHTML = '<option value="">— Selecione —</option>';
+            dest.innerHTML = '<option value="">— Nenhum —</option>';
+    clientes.forEach(c => {
+      sel.innerHTML += `<option value="${c.id}">${(c.nome || '').substring(0, 50)}</option>`;
+      dest.innerHTML += `<option value="${c.id}">${(c.nome || '').substring(0, 50)}</option>`;
+    });
+    if (clientes.length === 1) sel.value = clientes[0].id;
+  }
+
+  async function carregarProdutos(clienteId) {
+    if (!clienteId) return [];
+    if (produtosPorCliente[clienteId]) return produtosPorCliente[clienteId];
+    const r = await api('/api/v1/produtos-cliente/?cliente_id=' + clienteId + '&limit=500');
+    if (!r.ok) return [];
+    const data = await r.json();
+    const items = data.items || [];
+    produtosPorCliente[clienteId] = items;
+    return items;
+  }
+
+  function recalcularLinha(tr) {
+    const qtd = parseFloat(tr.querySelector('.qtd').value) || 0;
+    const preco = parseFloat(tr.querySelector('.preco').value) || 0;
+    const desc = parseFloat(tr.querySelector('.desc').value) || 0;
+    const total = Math.max(0, qtd * preco - desc);
+    tr.querySelector('.total-item').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+  }
+
+  function adicionarLinha(produto) {
+    const tbody = document.getElementById('tbody-itens');
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
+    tr.dataset.produtoId = produto.id;
+    tr.innerHTML = `
+      <td><span class="nome-produto">${(produto.nome || '').substring(0, 40)}</span> <small class="text-muted">${produto.codigo || ''}</small></td>
+      <td><input type="number" class="form-control form-control-sm qtd" min="0.001" step="0.001" value="1" style="width:80px"></td>
+      <td><input type="number" class="form-control form-control-sm preco" min="0" step="0.01" value="${produto.valor_venda || 0}" style="width:100px"></td>
+      <td><input type="number" class="form-control form-control-sm desc" min="0" step="0.01" value="0" style="width:80px"></td>
+      <td><span class="total-item">R$ ${(produto.valor_venda || 0).toFixed(2).replace('.', ',')}</span></td>
+      <td><button type="button" class="btn btn-sm btn-outline-danger btn-remover"><i data-feather="trash-2" style="width:14px;height:14px"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('.qtd').addEventListener('input', () => recalcularLinha(tr));
+    tr.querySelector('.preco').addEventListener('input', () => recalcularLinha(tr));
+    tr.querySelector('.desc').addEventListener('input', () => recalcularLinha(tr));
+    tr.querySelector('.btn-remover').addEventListener('click', () => tr.remove());
+    if (typeof feather !== 'undefined') feather.replace();
+    document.getElementById('msg-itens').classList.add('d-none');
+  }
+
+  document.getElementById('btn-add-item').addEventListener('click', async () => {
+    const cid = document.getElementById('cliente_id').value;
+    if (!cid) { alert('Selecione o estabelecimento primeiro.'); return; }
+    await carregarProdutos(parseInt(cid, 10));
+    const produtos = produtosPorCliente[cid] || [];
+    const lista = document.getElementById('lista-produtos');
+    lista.innerHTML = produtos.length ? produtos.map(p =>
+      `<a href="#" class="list-group-item list-group-item-action" data-id="${p.id}" data-nome="${(p.nome||'').replace(/"/g,'')}" data-codigo="${(p.codigo||'')}" data-valor="${p.valor_venda || 0}">${p.codigo || ''} — ${(p.nome||'').substring(0, 50)} — R$ ${(p.valor_venda||0)}</a>`
+    ).join('') : '<p class="text-muted p-2">Nenhum produto cadastrado.</p>';
+    lista.querySelectorAll('a[data-id]').forEach(a => {
+      a.addEventListener('click', function(e) { e.preventDefault(); adicionarLinha({ id: parseInt(this.dataset.id), nome: this.dataset.nome, codigo: this.dataset.codigo, valor_venda: parseFloat(this.dataset.valor) || 0 }); document.getElementById('modalProduto').querySelector('.btn-close').click(); });
+    });
+    document.getElementById('busca-produto').value = '';
+    new bootstrap.Modal(document.getElementById('modalProduto')).show();
+  });
+
+  document.getElementById('busca-produto').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#lista-produtos a[data-id]').forEach(a => {
+      a.style.display = (a.dataset.nome.toLowerCase().includes(q) || (a.dataset.codigo || '').toLowerCase().includes(q)) ? '' : 'none';
+    });
+  });
+
+  document.getElementById('form-orcamento').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const clienteId = parseInt(document.getElementById('cliente_id').value, 10);
+    const destinatarioId = document.getElementById('destinatario_id').value ? parseInt(document.getElementById('destinatario_id').value, 10) : null;
+    const dataValidade = document.getElementById('data_validade').value;
+    const observacoes = document.getElementById('observacoes').value || null;
+    const condicoesPagamento = document.getElementById('condicoes_pagamento').value || null;
+    const itens = [];
+    document.querySelectorAll('#tbody-itens tr.item-row').forEach(tr => {
+      const qtd = parseFloat(tr.querySelector('.qtd').value);
+      const preco = parseFloat(tr.querySelector('.preco').value);
+      const desc = parseFloat(tr.querySelector('.desc').value) || 0;
+      if (qtd > 0 && preco >= 0)
+        itens.push({ produto_cliente_id: parseInt(tr.dataset.produtoId, 10), quantidade: qtd, preco_unitario: preco, desconto_valor: desc });
+    });
+    if (!itens.length) { alert('Adicione ao menos um item.'); return; }
+    const btn = document.getElementById('btn-salvar');
+    btn.disabled = true;
+    try {
+      const body = { cliente_id: clienteId, destinatario_id: destinatarioId, data_validade: dataValidade, observacoes, condicoes_pagamento: condicoesPagamento, itens };
+      if (orcamentoId) {
+        const r = await api('/api/v1/orcamentos/' + orcamentoId, { method: 'PUT', body: JSON.stringify(body) });
+        if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || r.statusText); }
+        window.location.href = '/negocio/orcamentos';
+      } else {
+        const r = await api('/api/v1/orcamentos', { method: 'POST', body: JSON.stringify(body) });
+        if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || r.statusText); }
+        window.location.href = '/negocio/orcamentos';
+      }
+    } catch (err) {
+      alert(err.message || 'Erro ao salvar.');
+      btn.disabled = false;
+    }
+  });
+
+  async function carregarEdicao() {
+    if (!orcamentoId) return;
+    const r = await api('/api/v1/orcamentos/' + orcamentoId);
+    if (!r.ok) return;
+    const o = await r.json();
+    document.getElementById('cliente_id').value = o.cliente_id;
+    document.getElementById('destinatario_id').value = o.destinatario_id || '';
+    document.getElementById('data_validade').value = (o.data_validade || '').substring(0, 10);
+    document.getElementById('observacoes').value = o.observacoes || '';
+    document.getElementById('condicoes_pagamento').value = o.condicoes_pagamento || '';
+    await carregarProdutos(o.cliente_id);
+    (o.itens || []).forEach(i => {
+      adicionarLinha({
+        id: i.produto_cliente_id,
+        nome: i.descricao_produto || '',
+        codigo: i.codigo_produto || '',
+        valor_venda: parseFloat(i.preco_unitario) || 0,
+      });
+      const tr = document.getElementById('tbody-itens').lastElementChild;
+      if (tr) {
+        tr.querySelector('.qtd').value = i.quantidade;
+        tr.querySelector('.preco').value = i.preco_unitario;
+        tr.querySelector('.desc').value = i.desconto_valor || 0;
+        recalcularLinha(tr);
+      }
+    });
+  }
+
+  (async function init() {
+    await carregarClientes();
+    if (orcamentoId) await carregarEdicao();
+    if (!orcamentoId) {
+      const d = new Date();
+      d.setDate(d.getDate() + 7);
+      document.getElementById('data_validade').value = d.toISOString().slice(0, 10);
+    }
+    if (typeof feather !== 'undefined') feather.replace();
+  })();
+})();
+</script>
+{% endblock %}

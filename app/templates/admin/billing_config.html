@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Billing - Config | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <a href="/admin/billing/tenants" class="btn btn-outline-secondary btn-sm me-2">&larr; Voltar</a>
+        <h1 class="h3 d-inline align-middle">Configuração Billing</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div id="loading" class="text-muted">Carregando...</div>
+            <div id="content" class="d-none">
+                <p class="mb-3"><strong>Status:</strong> <span id="mp-status" class="badge bg-secondary">-</span></p>
+                <p class="text-muted small mb-3">"Não configurado" significa que o <strong>Access Token do Mercado Pago</strong> não está definido. Preencha o campo abaixo e clique em Salvar, ou defina a variável de ambiente <code>MP_ACCESS_TOKEN</code> no servidor.</p>
+                <form id="form-config">
+                    <div class="mb-3">
+                        <label for="mp_access_token" class="form-label">Access Token (Mercado Pago)</label>
+                        <p class="mb-1 small text-muted">Valor atual: <code id="mp_access_token_atual" class="text-break" style="word-break: break-all;">—</code></p>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="mp_access_token" name="mp_access_token" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-visualizar-token" title="Visualizar valor digitado" aria-label="Visualizar"><i data-feather="eye" style="width:1.1rem;height:1.1rem"></i></button>
+                        </div>
+                        <div class="form-text">Suas integrações → sua aplicação → Credenciais de teste ou Credenciais de produção → Access Token. Chave privada; usar apenas no backend.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="mp_webhook_secret" class="form-label">Webhook Secret (Mercado Pago)</label>
+                        <p class="mb-1 small text-muted">Valor atual: <code id="mp_webhook_secret_atual" class="text-break" style="word-break: break-all;">—</code></p>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="mp_webhook_secret" name="mp_webhook_secret" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-visualizar-secret" title="Visualizar valor digitado" aria-label="Visualizar"><i data-feather="eye" style="width:1.1rem;height:1.1rem"></i></button>
+                        </div>
+                        <div class="form-text">Suas integrações → Webhooks → Configurar notificações → revelar Secret (para validar assinatura das notificações de pagamento). Deve ser o Secret da <strong>mesma aplicação</strong> MP em que a URL do webhook está cadastrada (teste e produção têm secrets diferentes). Se o estabelecimento usar Mercado Pago próprio em Recebíveis, o secret pode também estar na conexão do CA (coluna ou credenciais do provedor).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="app_url" class="form-label">URL base da aplicação (APP_URL)</label>
+                        <input type="url" class="form-control" id="app_url" name="app_url" placeholder="https://pdv.automscale.com.br">
+                        <div class="form-text">URL do seu site (ex.: https://pdv.automscale.com.br, sem barra no final). Obrigatória para notification_url e back_urls do Checkout Pro.</div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="mb-3">PagBank Connect (OAuth) <span id="pb-status" class="badge bg-secondary ms-2" style="font-size:.75rem">-</span></h5>
+                    <p class="text-muted small mb-3">Credenciais da aplicação PagBank Connect usada para o fluxo OAuth dos CAs. Configurável aqui ou via variáveis de ambiente <code>PAGBANK_CONNECT_CLIENT_ID</code> / <code>PAGBANK_CONNECT_CLIENT_SECRET</code>.</p>
+
+                    <div class="mb-3">
+                        <label for="pagbank_client_id" class="form-label">Client ID (PagBank Connect)</label>
+                        <p class="mb-1 small text-muted">Valor atual: <code id="pb_client_id_atual" class="text-break" style="word-break: break-all;">—</code></p>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="pagbank_client_id" name="pagbank_client_id" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-visualizar-pb-id" title="Visualizar valor digitado" aria-label="Visualizar"><i data-feather="eye" style="width:1.1rem;height:1.1rem"></i></button>
+                        </div>
+                        <div class="form-text">Obtido no painel PagBank → Minha conta → Integrações → Aplicações Connect → Client ID.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="pagbank_client_secret" class="form-label">Client Secret (PagBank Connect)</label>
+                        <p class="mb-1 small text-muted">Valor atual: <code id="pb_client_secret_atual" class="text-break" style="word-break: break-all;">—</code></p>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="pagbank_client_secret" name="pagbank_client_secret" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-visualizar-pb-secret" title="Visualizar valor digitado" aria-label="Visualizar"><i data-feather="eye" style="width:1.1rem;height:1.1rem"></i></button>
+                        </div>
+                        <div class="form-text">Obtido no painel PagBank → Minha conta → Integrações → Aplicações Connect → Client Secret.</div>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="pagbank_sandbox" name="pagbank_sandbox">
+                        <label class="form-check-label" for="pagbank_sandbox">Sandbox (ambiente de testes)</label>
+                        <div class="form-text">Quando marcado, o OAuth do PagBank usará o ambiente sandbox (connect.sandbox.pagbank.com.br). Desmarque para produção.</div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="mb-3">Marketplace — modo plataforma (PagBank / Pagar.me)</h5>
+                    <p class="text-muted small mb-3">Credenciais da <strong>conta da plataforma</strong> usadas quando a empresa fiscal está em modo Plataforma e o gateway escolhido é PagBank ou Pagar.me (Fiscal &gt; Empresa). O Mercado Pago em modo plataforma usa o Access Token do Mercado Pago acima.</p>
+                    <div class="mb-3">
+                        <label for="plataforma_pagbank_access_token" class="form-label">Access token PagBank (conta plataforma)</label>
+                        <p class="mb-1 small text-muted">Valor atual: <code id="plat_pb_atual" class="text-break" style="word-break: break-all;">—</code></p>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="plataforma_pagbank_access_token" name="plataforma_pagbank_access_token" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-visualizar-plat-pb" title="Visualizar valor digitado" aria-label="Visualizar"><i data-feather="eye" style="width:1.1rem;height:1.1rem"></i></button>
+                        </div>
+                        <div class="form-text">Alternativa por ambiente: <code>PLATAFORMA_PAGBANK_ACCESS_TOKEN</code></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="plataforma_pagarme_secret_key" class="form-label">Secret key Pagar.me (conta plataforma)</label>
+                        <p class="mb-1 small text-muted">Valor atual: <code id="plat_pg_atual" class="text-break" style="word-break: break-all;">—</code></p>
+                        <div class="input-group">
+                            <input type="password" class="form-control" id="plataforma_pagarme_secret_key" name="plataforma_pagarme_secret_key" placeholder="Deixe em branco para não alterar" autocomplete="off">
+                            <button type="button" class="btn btn-outline-secondary" id="btn-visualizar-plat-pg" title="Visualizar valor digitado" aria-label="Visualizar"><i data-feather="eye" style="width:1.1rem;height:1.1rem"></i></button>
+                        </div>
+                        <div class="form-text">Alternativa por ambiente: <code>PLATAFORMA_PAGARME_SECRET_KEY</code></div>
+                    </div>
+
+                    <hr class="my-4">
+                    <h5 class="mb-3">Recebíveis — permissão das lojas (CAs)</h5>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="payment_lojas_gateway_self_service" name="payment_lojas_gateway_self_service" checked>
+                        <label class="form-check-label" for="payment_lojas_gateway_self_service"><strong>Liberado para lojas</strong></label>
+                        <div class="form-text">Quando <strong>marcado</strong>, Cliente Administrador e Administrador podem cadastrar e editar <strong>todos</strong> os gateways em <strong>Negócios → Recebíveis</strong>: <strong>Mercado Pago</strong> (JSON), <strong>PagBank</strong> (OAuth) e <strong>Pagar.me</strong> (Secret Key). Quando <strong>desmarcado</strong>, apenas o <strong>Super Administrador</strong> pode criar ou alterar qualquer uma dessas integrações (tela Recebíveis ou API).</div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" id="btn-save">Salvar</button>
+                    <span id="msg" class="ms-3 small"></span>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/) || document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : (sessionStorage.getItem('pdv_automscale_token') || sessionStorage.getItem('pdv_solumatica_token') || '');
+    }
+    function authHeaders() {
+        return { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    }
+    function load() {
+        fetch('/api/v1/admin/billing/config', { headers: authHeaders(), credentials: 'same-origin' })
+            .then(function(r) {
+                return r.json().then(function(data) {
+                    if (!r.ok) {
+                        throw new Error(data.detail || data.message || 'Erro ' + r.status);
+                    }
+                    return data;
+                });
+            })
+            .then(function(data) {
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('content').classList.remove('d-none');
+                document.getElementById('mp-status').textContent = data.mp_configured ? 'Configurado' : 'Não configurado';
+                document.getElementById('mp-status').className = 'badge ' + (data.mp_configured ? 'bg-success' : 'bg-warning');
+                if (data.app_url) document.getElementById('app_url').value = data.app_url;
+                document.getElementById('mp_access_token_atual').textContent = (data.mp_access_token != null && data.mp_access_token !== '') ? data.mp_access_token : (data.mp_access_token_masked || '—');
+                document.getElementById('mp_webhook_secret_atual').textContent = (data.mp_webhook_secret != null && data.mp_webhook_secret !== '') ? data.mp_webhook_secret : (data.mp_webhook_secret_masked || '—');
+                document.getElementById('pb-status').textContent = data.pagbank_configured ? 'Configurado' : 'Não configurado';
+                document.getElementById('pb-status').className = 'badge ms-2 ' + (data.pagbank_configured ? 'bg-success' : 'bg-warning');
+                document.getElementById('pb_client_id_atual').textContent = (data.pagbank_client_id != null && data.pagbank_client_id !== '') ? data.pagbank_client_id : (data.pagbank_client_id_masked || '—');
+                document.getElementById('pb_client_secret_atual').textContent = data.pagbank_client_secret_masked || '—';
+                document.getElementById('pagbank_sandbox').checked = !!data.pagbank_sandbox;
+                document.getElementById('plat_pb_atual').textContent = (data.plataforma_pagbank_access_token != null && data.plataforma_pagbank_access_token !== '') ? data.plataforma_pagbank_access_token : (data.plataforma_pagbank_access_token_masked || '—');
+                document.getElementById('plat_pg_atual').textContent = (data.plataforma_pagarme_secret_key != null && data.plataforma_pagarme_secret_key !== '') ? data.plataforma_pagarme_secret_key : (data.plataforma_pagarme_secret_key_masked || '—');
+                var chkLojasLoad = document.getElementById('payment_lojas_gateway_self_service');
+                if (chkLojasLoad) chkLojasLoad.checked = data.payment_lojas_gateway_self_service !== false;
+                if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+            })
+            .catch(function(err) {
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('content').classList.remove('d-none');
+                document.getElementById('mp-status').textContent = 'Erro ao carregar';
+                document.getElementById('mp-status').className = 'badge bg-danger';
+                var msgEl = document.getElementById('msg');
+                if (msgEl) { msgEl.textContent = (err && err.message) ? err.message : 'Verifique o console.'; msgEl.className = 'ms-3 small text-danger d-block mt-1'; }
+                console.error('Billing config load:', err);
+            });
+    }
+    document.getElementById('form-config').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var btn = document.getElementById('btn-save');
+        var msg = document.getElementById('msg');
+        var tokenVal = document.getElementById('mp_access_token').value.trim();
+        var secretVal = document.getElementById('mp_webhook_secret').value.trim();
+        var urlVal = document.getElementById('app_url').value.trim().replace(/\/+$/, '');
+        var pbIdVal = document.getElementById('pagbank_client_id').value.trim();
+        var pbSecretVal = document.getElementById('pagbank_client_secret').value.trim();
+        var pbSandbox = document.getElementById('pagbank_sandbox').checked;
+        var platPbVal = document.getElementById('plataforma_pagbank_access_token').value.trim();
+        var platPgVal = document.getElementById('plataforma_pagarme_secret_key').value.trim();
+        var payload = {};
+        if (tokenVal) payload.mp_access_token = tokenVal;
+        if (secretVal) payload.mp_webhook_secret = secretVal;
+        if (urlVal) payload.app_url = urlVal;
+        if (pbIdVal) payload.pagbank_client_id = pbIdVal;
+        if (pbSecretVal) payload.pagbank_client_secret = pbSecretVal;
+        payload.pagbank_sandbox = pbSandbox;
+        if (platPbVal) payload.plataforma_pagbank_access_token = platPbVal;
+        if (platPgVal) payload.plataforma_pagarme_secret_key = platPgVal;
+        payload.payment_lojas_gateway_self_service = document.getElementById('payment_lojas_gateway_self_service').checked;
+        btn.disabled = true;
+        msg.textContent = 'Salvando...';
+        msg.className = 'ms-3 small text-muted';
+        fetch('/api/v1/admin/billing/config', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(payload)
+        })
+            .then(function(r) {
+                if (!r.ok) throw new Error(r.status);
+                return r.json();
+            })
+            .then(function(data) {
+                msg.textContent = 'Salvo.';
+                msg.className = 'ms-3 small text-success';
+                document.getElementById('mp-status').textContent = data.mp_configured ? 'Configurado' : 'Não configurado';
+                document.getElementById('mp-status').className = 'badge ' + (data.mp_configured ? 'bg-success' : 'bg-warning');
+                if (data.app_url) document.getElementById('app_url').value = data.app_url;
+                document.getElementById('mp_access_token').value = '';
+                document.getElementById('mp_webhook_secret').value = '';
+                if (data.mp_access_token != null && data.mp_access_token !== '') document.getElementById('mp_access_token_atual').textContent = data.mp_access_token;
+                else if (data.mp_access_token_masked !== undefined) document.getElementById('mp_access_token_atual').textContent = data.mp_access_token_masked || '—';
+                if (data.mp_webhook_secret != null && data.mp_webhook_secret !== '') document.getElementById('mp_webhook_secret_atual').textContent = data.mp_webhook_secret;
+                else if (data.mp_webhook_secret_masked !== undefined) document.getElementById('mp_webhook_secret_atual').textContent = data.mp_webhook_secret_masked || '—';
+                document.getElementById('pb-status').textContent = data.pagbank_configured ? 'Configurado' : 'Não configurado';
+                document.getElementById('pb-status').className = 'badge ms-2 ' + (data.pagbank_configured ? 'bg-success' : 'bg-warning');
+                document.getElementById('pagbank_client_id').value = '';
+                document.getElementById('pagbank_client_secret').value = '';
+                document.getElementById('pb_client_id_atual').textContent = (data.pagbank_client_id != null && data.pagbank_client_id !== '') ? data.pagbank_client_id : (data.pagbank_client_id_masked || '—');
+                document.getElementById('pb_client_secret_atual').textContent = data.pagbank_client_secret_masked || '—';
+                document.getElementById('pagbank_sandbox').checked = !!data.pagbank_sandbox;
+                document.getElementById('plataforma_pagbank_access_token').value = '';
+                document.getElementById('plataforma_pagarme_secret_key').value = '';
+                document.getElementById('plat_pb_atual').textContent = (data.plataforma_pagbank_access_token != null && data.plataforma_pagbank_access_token !== '') ? data.plataforma_pagbank_access_token : (data.plataforma_pagbank_access_token_masked || '—');
+                document.getElementById('plat_pg_atual').textContent = (data.plataforma_pagarme_secret_key != null && data.plataforma_pagarme_secret_key !== '') ? data.plataforma_pagarme_secret_key : (data.plataforma_pagarme_secret_key_masked || '—');
+                var chkLojasSave = document.getElementById('payment_lojas_gateway_self_service');
+                if (chkLojasSave) chkLojasSave.checked = data.payment_lojas_gateway_self_service !== false;
+                if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+            })
+            .catch(function(err) {
+                msg.textContent = 'Erro ao salvar: ' + err.message;
+                msg.className = 'ms-3 small text-danger';
+            })
+            .finally(function() { btn.disabled = false; });
+    });
+    function setupVisualizar(inputId, btnId) {
+        var input = document.getElementById(inputId);
+        var btn = document.getElementById(btnId);
+        if (!input || !btn) return;
+        btn.addEventListener('click', function() {
+            var icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                if (icon) { icon.setAttribute('data-feather', 'eye-off'); if (typeof feather !== 'undefined' && feather.replace) feather.replace(); }
+                btn.title = 'Ocultar valor';
+            } else {
+                input.type = 'password';
+                if (icon) { icon.setAttribute('data-feather', 'eye'); if (typeof feather !== 'undefined' && feather.replace) feather.replace(); }
+                btn.title = 'Visualizar valor digitado';
+            }
+        });
+    }
+    setupVisualizar('mp_access_token', 'btn-visualizar-token');
+    setupVisualizar('mp_webhook_secret', 'btn-visualizar-secret');
+    setupVisualizar('pagbank_client_id', 'btn-visualizar-pb-id');
+    setupVisualizar('pagbank_client_secret', 'btn-visualizar-pb-secret');
+    setupVisualizar('plataforma_pagbank_access_token', 'btn-visualizar-plat-pb');
+    setupVisualizar('plataforma_pagarme_secret_key', 'btn-visualizar-plat-pg');
+    load();
+})();
+</script>
+{% endblock %}

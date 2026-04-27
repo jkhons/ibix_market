@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Billing - Tenants | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="h3 d-inline align-middle mb-0">Cobranças - Tenants</h1>
+        <div class="d-flex align-items-center gap-2">
+            <span id="gateway-status" class="badge bg-secondary align-middle">Gateway: ...</span>
+            <a href="/admin/billing/preco" class="btn btn-outline-primary btn-sm">Valor e descontos</a>
+            <a href="/admin/billing/codigos-desconto" class="btn btn-outline-primary btn-sm"><i data-feather="tag" style="width:14px;height:14px" class="me-1"></i> Códigos de desconto</a>
+            <a href="/admin/billing/config" class="btn btn-outline-secondary btn-sm">Config</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                <input type="text" id="q" class="form-control form-control-sm" placeholder="Buscar por nome..." style="max-width: 300px;">
+            </div>
+            <div id="loading" class="text-muted small">Carregando...</div>
+            <div id="content" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tenant</th>
+                                <th>Status</th>
+                                <th>Vencimento</th>
+                                <th>Dias atraso</th>
+                                <th>Ativo</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="error" class="text-danger small d-none"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function fetchTenants() {
+        var q = document.getElementById('q').value;
+        var url = '/api/v1/admin/billing/tenants?per_page=100';
+        if (q) url += '&q=' + encodeURIComponent(q);
+        fetch(url, { headers: { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json' } })
+            .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(function(data) {
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('error').classList.add('d-none');
+                document.getElementById('content').classList.remove('d-none');
+                var tbody = document.getElementById('tbody');
+                tbody.innerHTML = data.map(function(row) {
+                    var period = row.period_end ? new Date(row.period_end).toLocaleDateString('pt-BR') : '-';
+                    var overdue = row.days_overdue != null ? row.days_overdue : '-';
+                    return '<tr><td>' + row.tenant_id + '</td><td><a href="/admin/billing/tenant/' + row.tenant_id + '">' + (row.tenant_nome || '') + '</a></td><td>' + (row.subscription_status || 'none') + '</td><td>' + period + '</td><td>' + overdue + '</td><td>' + (row.ativo ? 'Sim' : 'Não') + '</td><td><a href="/admin/billing/tenant/' + row.tenant_id + '" class="btn btn-sm btn-outline-primary">Ver</a></td></tr>';
+                }).join('');
+            })
+            .catch(function(e) {
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('content').classList.add('d-none');
+                document.getElementById('error').textContent = 'Erro ao carregar: ' + e.message;
+                document.getElementById('error').classList.remove('d-none');
+            });
+    }
+    function fetchGatewayStatus() {
+        var el = document.getElementById('gateway-status');
+        var auth = { 'Authorization': 'Bearer ' + getToken(), 'Accept': 'application/json' };
+        fetch('/api/v1/admin/billing/config', { headers: auth })
+            .then(function(r) { return r.ok ? r.json() : {}; })
+            .then(function(data) {
+                if (!data.mp_configured) {
+                    el.textContent = 'Mercado Pago: Não configurado';
+                    el.className = 'badge bg-danger align-middle';
+                    return;
+                }
+                if (!data.app_url) {
+                    el.textContent = 'Mercado Pago: Credenciais definidas, falta APP_URL';
+                    el.className = 'badge bg-warning text-dark align-middle';
+                    return;
+                }
+                // Validação real: chamada à API do MP para verificar se o token é aceito
+                el.textContent = 'Mercado Pago: Validando…';
+                el.className = 'badge bg-secondary align-middle';
+                fetch('/api/v1/admin/billing/config/validate', { headers: auth })
+                    .then(function(r) { return r.ok ? r.json() : { mp_valid: false, mp_message: 'Erro na requisição' }; })
+                    .then(function(v) {
+                        if (v.mp_valid) {
+                            el.textContent = 'Mercado Pago: Conectado';
+                            el.className = 'badge bg-success align-middle';
+                        } else {
+                            el.textContent = 'Mercado Pago: Token inválido ou sem permissão';
+                            el.className = 'badge bg-danger align-middle';
+                            if (v.mp_message) el.title = v.mp_message;
+                        }
+                    })
+                    .catch(function() {
+                        el.textContent = 'Mercado Pago: Erro ao validar';
+                        el.className = 'badge bg-warning text-dark align-middle';
+                    });
+            })
+            .catch(function() {
+                el.textContent = 'Gateway: Erro ao verificar';
+                el.className = 'badge bg-secondary align-middle';
+            });
+    }
+    fetchGatewayStatus();
+    document.getElementById('q').addEventListener('change', fetchTenants);
+    document.getElementById('q').addEventListener('keyup', function(e) { if (e.key === 'Enter') fetchTenants(); });
+    fetchTenants();
+})();
+</script>
+{% endblock %}

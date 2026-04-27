@@ -1,0 +1,87 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Completar cadastro{% endblock %}
+
+{% block content %}
+<div class="loja-auth-page">
+  <div class="loja-auth-card">
+    <h1 class="loja-auth-title">Criar conta</h1>
+    <p class="loja-auth-subtitle">Você comprou como visitante. Defina uma senha para acessar sua conta e acompanhar pedidos.</p>
+    <form id="form-completar-cadastro" class="needs-validation" novalidate>
+      <input type="hidden" id="email" name="email" value="{{ request.query_params.get('email', '') }}">
+      <input type="hidden" id="numero_pedido" name="numero_pedido" value="{{ request.query_params.get('numero_pedido', '') }}">
+      <div class="mb-3">
+        <label for="email_display" class="form-label">E-mail</label>
+        <input type="text" class="form-control" id="email_display" readonly disabled>
+      </div>
+      <div class="mb-3">
+        <label for="numero_pedido_display" class="form-label">Número do pedido</label>
+        <input type="text" class="form-control" id="numero_pedido_display" readonly disabled>
+      </div>
+      <div class="mb-3">
+        <label for="senha" class="form-label">Senha *</label>
+        <input type="password" class="form-control" id="senha" name="senha" minlength="6" required placeholder="Mínimo 6 caracteres">
+      </div>
+      <div class="mb-3">
+        <label for="senha_confirm" class="form-label">Confirmar senha *</label>
+        <input type="password" class="form-control" id="senha_confirm" required placeholder="Repita a senha">
+      </div>
+      <div id="msg-erro" class="alert alert-danger" style="display: none;"></div>
+      <div class="loja-auth-actions">
+        <button type="submit" class="btn btn-primary" id="btn-submit">Criar conta</button>
+        <a href="/loja/login" class="loja-auth-link">Já tenho conta</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  var email = document.getElementById("email").value;
+  var numeroPedido = document.getElementById("numero_pedido").value;
+  document.getElementById("email_display").value = email || "(informe na URL: ?email=...)";
+  document.getElementById("numero_pedido_display").value = numeroPedido || "(informe na URL: ?numero_pedido=...)";
+  var form = document.getElementById("form-completar-cadastro");
+  var msgErro = document.getElementById("msg-erro");
+  var btn = document.getElementById("btn-submit");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    msgErro.style.display = "none";
+    if (!email || !numeroPedido) {
+      msgErro.textContent = "Acesse pelo link enviado após a compra (e-mail e número do pedido).";
+      msgErro.style.display = "block";
+      return;
+    }
+    var senha = document.getElementById("senha").value;
+    var senhaConfirm = document.getElementById("senha_confirm").value;
+    if (senha.length < 6) {
+      msgErro.textContent = "A senha deve ter no mínimo 6 caracteres.";
+      msgErro.style.display = "block";
+      return;
+    }
+    if (senha !== senhaConfirm) {
+      msgErro.textContent = "As senhas não conferem.";
+      msgErro.style.display = "block";
+      return;
+    }
+    btn.disabled = true;
+    fetch("/api/v1/loja/completar-cadastro", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, numero_pedido: numeroPedido, senha: senha }),
+    })
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail || "Erro ao completar cadastro"); });
+        return r.json();
+      })
+      .then(function () {
+        window.location.href = "/loja/login?msg=conta_criada";
+      })
+      .catch(function (err) {
+        msgErro.textContent = err.message || "Erro ao completar cadastro.";
+        msgErro.style.display = "block";
+        btn.disabled = false;
+      });
+  });
+})();
+</script>
+{% endblock %}

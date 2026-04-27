@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}Áreas de Entrega | Marketplace | Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex align-items-center justify-content-between">
+        <h1 class="h3 d-inline align-middle"><strong>Áreas de Entrega</strong></h1>
+        <a href="/negocio/marketplace" class="btn btn-outline-secondary btn-sm">Voltar ao Marketplace</a>
+    </div>
+
+    <div class="card mb-3" id="card-selector-loja" style="{% if user_role != 'Superadministrador' %}display:none;{% endif %}">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                    <label class="form-label fw-bold">Selecione a loja</label>
+                    <select class="form-select" id="select-loja">
+                        <option value="">Carregando lojas...</option>
+                    </select>
+                </div>
+                <div class="col-md-6 text-end">
+                    <button class="btn btn-primary" id="btn-adicionar" disabled>
+                        <i data-feather="plus" style="width:16px;height:16px;"></i> Adicionar cidade
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% if user_role != 'Superadministrador' %}
+    <div class="alert alert-info mb-3" id="info-ca-areas">
+        <i data-feather="info" style="width:18px;height:18px;"></i>
+        Áreas de entrega da sua loja (configuração feita pelo administrador da plataforma).
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="tabela-areas">
+                    <thead>
+                        <tr>
+                            <th>Cidade</th>
+                            <th>UF</th>
+                            <th>Taxa (R$)</th>
+                            <th>Prazo (dias)</th>
+                            <th>Ativo</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="areas-tbody">
+                        <tr><td colspan="6" class="text-center text-muted" id="areas-placeholder">{% if user_role == 'Superadministrador' %}Selecione uma loja acima{% else %}Carregando...{% endif %}</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar/Editar (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap Modal) -->
+<div id="modalAreaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modal-area-title" style="margin: 0; font-size: 1.5rem; font-weight: 700;">Adicionar cidade</h3>
+            <button type="button" onclick="window.fecharModalArea()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="modal-area-id">
+            <div class="mb-3">
+                <label class="form-label">CEP auxiliar (preenche cidade/UF)</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="modal-cep" maxlength="9" placeholder="00000-000">
+                    <button class="btn btn-outline-secondary" type="button" id="modal-cep-btn">Buscar</button>
+                </div>
+                <span id="modal-cep-status" class="small text-muted"></span>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-8">
+                    <label class="form-label">Cidade *</label>
+                    <input type="text" class="form-control" id="modal-cidade" required>
+                </div>
+                <div class="col-4">
+                    <label class="form-label">UF *</label>
+                    <input type="text" class="form-control" id="modal-uf" maxlength="2" required>
+                </div>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-6">
+                    <label class="form-label">Taxa entrega (R$)</label>
+                    <input type="number" class="form-control" id="modal-taxa" step="0.01" min="0" value="0">
+                </div>
+                <div class="col-6">
+                    <label class="form-label">Prazo (dias)</label>
+                    <input type="number" class="form-control" id="modal-prazo" min="0">
+                </div>
+            </div>
+            <div class="mb-3 form-check" id="modal-ativo-wrap" style="display:none;">
+                <input type="checkbox" class="form-check-input" id="modal-ativo" checked>
+                <label class="form-check-label" for="modal-ativo">Ativo</label>
+            </div>
+            <div id="modal-error" class="alert alert-danger" style="display:none;"></div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="window.fecharModalArea()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button type="button" id="modal-salvar" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #3498db; color: white;">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var userRole = {{ (user_role or '')|tojson }};
+  var isSuperAdmin = userRole === "Superadministrador";
+  var selectLoja = document.getElementById("select-loja");
+  var btnAdicionar = document.getElementById("btn-adicionar");
+  var tbody = document.getElementById("areas-tbody");
+  var currentLojaId = null;
+
+  function abrirModalArea() {
+    var modal = document.getElementById("modalAreaCustom");
+    if (modal) {
+      modal.style.display = "block";
+      document.body.style.overflow = "hidden";
+    }
+  }
+  function fecharModalArea() {
+    var modal = document.getElementById("modalAreaCustom");
+    if (modal) {
+      modal.style.display = "none";
+      document.body.style.overflow = "";
+    }
+  }
+  window.fecharModalArea = fecharModalArea;
+
+  function getToken() {
+    var c = document.cookie.split(";");
+    for (var i = 0; i < c.length; i++) {
+      var p = c[i].trim().split("=");
+      if (p[0] === "pdv_solumatica_token" || p[0] === "pdv_automscale_token") return p[1] || null;
+    }
+    return sessionStorage.getItem("pdv_solumatica_token") || sessionStorage.getItem("pdv_automscale_token") || null;
+  }
+  function getHeaders() {
+    var token = (typeof window.getAuthToken === "function" ? window.getAuthToken() : null) || getToken() || "";
+    return { "Content-Type": "application/json", "Authorization": "Bearer " + token };
+  }
+
+  function loadLojas() {
+    fetch("/api/v1/marketplace/lojas?limit=200", {
+      credentials: "include",
+      headers: getHeaders(),
+    })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(err) { return { _error: r.status, _detail: err }; });
+        return r.json();
+      })
+      .then(function(data) {
+        if (data && data._error) {
+          selectLoja.innerHTML = '<option value="">Erro ' + data._error + (data._detail && data._detail.detail ? ': ' + (typeof data._detail.detail === 'string' ? data._detail.detail : 'sem permissão') : '') + '</option>';
+          return;
+        }
+        var lojas = Array.isArray(data) ? data : (data && data.items) || [];
+        selectLoja.innerHTML = '<option value="">-- Selecione --</option>';
+        lojas.forEach(function(l) {
+          var opt = document.createElement("option");
+          opt.value = l.id;
+          opt.textContent = (l.nome_loja || l.slug || "Loja #" + l.id) + " (ID: " + l.id + ")";
+          selectLoja.appendChild(opt);
+        });
+      })
+      .catch(function(err) {
+        selectLoja.innerHTML = '<option value="">Erro ao carregar lojas</option>';
+        console.error("loadLojas:", err);
+      });
+  }
+
+  function renderAreas(areas, readOnly) {
+    if (!areas || !areas.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhuma área cadastrada</td></tr>';
+      return;
+    }
+    var html = "";
+    areas.forEach(function(a) {
+      var acoes = readOnly
+        ? '<span class="text-muted small">—</span>'
+        : '<button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="' + a.id + '" data-cidade="' + esc(a.cidade) + '" data-uf="' + esc(a.uf) + '" data-taxa="' + a.taxa_entrega + '" data-prazo="' + (a.prazo_dias || '') + '" data-ativo="' + a.ativo + '">Editar</button>' +
+          '<button class="btn btn-sm btn-outline-danger btn-remover" data-id="' + a.id + '" data-cidade="' + esc(a.cidade) + '">Remover</button>';
+      html += '<tr>' +
+        '<td>' + esc(a.cidade) + '</td>' +
+        '<td>' + esc(a.uf) + '</td>' +
+        '<td>R$ ' + parseFloat(a.taxa_entrega).toFixed(2) + '</td>' +
+        '<td>' + (a.prazo_dias != null ? a.prazo_dias : '-') + '</td>' +
+        '<td>' + (a.ativo ? '<span class="badge bg-success">Sim</span>' : '<span class="badge bg-secondary">Não</span>') + '</td>' +
+        '<td>' + acoes + '</td></tr>';
+    });
+    tbody.innerHTML = html;
+    if (!readOnly) bindButtons();
+  }
+
+  function loadMinhaLojaAreas() {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Carregando...</td></tr>';
+    fetch("/api/v1/marketplace/minha-loja/areas-entrega", { credentials: "include", headers: getHeaders() })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(err) { throw new Error(err.detail || "Erro ao carregar"); });
+        return r.json();
+      })
+      .then(function(areas) {
+        renderAreas(Array.isArray(areas) ? areas : [], true);
+      })
+      .catch(function(err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
+      });
+  }
+
+  function loadAreas(lojaId) {
+    currentLojaId = lojaId;
+    if (!lojaId) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Selecione uma loja acima</td></tr>';
+      btnAdicionar.disabled = true;
+      return;
+    }
+    btnAdicionar.disabled = false;
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Carregando...</td></tr>';
+    fetch("/api/v1/marketplace/loja/" + lojaId + "/areas-entrega", { credentials: "include", headers: getHeaders() })
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .then(function(areas) {
+        renderAreas(areas, false);
+      });
+  }
+
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  function bindButtons() {
+    tbody.querySelectorAll(".btn-editar").forEach(function(btn) {
+      btn.addEventListener("click", function() { openEdit(btn.dataset); });
+    });
+    tbody.querySelectorAll(".btn-remover").forEach(function(btn) {
+      btn.addEventListener("click", function() { remover(btn.dataset.id, btn.dataset.cidade); });
+    });
+  }
+
+  function openModal(isEdit, data) {
+    document.getElementById("modal-area-title").textContent = isEdit ? "Editar área" : "Adicionar cidade";
+    document.getElementById("modal-area-id").value = data.id || "";
+    document.getElementById("modal-cidade").value = data.cidade || "";
+    document.getElementById("modal-uf").value = data.uf || "";
+    document.getElementById("modal-taxa").value = data.taxa || "0";
+    document.getElementById("modal-prazo").value = data.prazo || "";
+    document.getElementById("modal-cep").value = "";
+    document.getElementById("modal-cep-status").textContent = "";
+    document.getElementById("modal-error").style.display = "none";
+    var ativoWrap = document.getElementById("modal-ativo-wrap");
+    if (isEdit) {
+      ativoWrap.style.display = "block";
+      document.getElementById("modal-ativo").checked = data.ativo === "true" || data.ativo === true;
+    } else {
+      ativoWrap.style.display = "none";
+    }
+    document.getElementById("modal-cidade").readOnly = isEdit;
+    document.getElementById("modal-uf").readOnly = isEdit;
+    abrirModalArea();
+  }
+
+  function openEdit(data) { openModal(true, data); }
+
+  btnAdicionar.addEventListener("click", function() { openModal(false, {}); });
+
+  document.getElementById("modal-cep-btn").addEventListener("click", function() {
+    var cep = document.getElementById("modal-cep").value.replace(/\D/g, "");
+    var statusEl = document.getElementById("modal-cep-status");
+    if (cep.length !== 8) { statusEl.textContent = "CEP inválido"; return; }
+    statusEl.textContent = "Buscando...";
+    fetch("https://viacep.com.br/ws/" + cep + "/json/", {credentials: "omit"})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.erro) { statusEl.textContent = "CEP não encontrado"; return; }
+        statusEl.textContent = data.localidade + " - " + data.uf;
+        document.getElementById("modal-cidade").value = data.localidade || "";
+        document.getElementById("modal-uf").value = data.uf || "";
+      })
+      .catch(function() { statusEl.textContent = "Erro ao buscar CEP"; });
+  });
+
+  document.getElementById("modal-salvar").addEventListener("click", function() {
+    var errEl = document.getElementById("modal-error");
+    errEl.style.display = "none";
+    var areaId = document.getElementById("modal-area-id").value;
+    var cidade = document.getElementById("modal-cidade").value.trim();
+    var uf = document.getElementById("modal-uf").value.trim().toUpperCase();
+    var taxa = parseFloat(document.getElementById("modal-taxa").value) || 0;
+    var prazo = parseInt(document.getElementById("modal-prazo").value) || null;
+    if (!cidade || !uf) { errEl.textContent = "Cidade e UF são obrigatórios."; errEl.style.display = "block"; return; }
+
+    var url, method, body;
+    if (areaId) {
+      url = "/api/v1/marketplace/areas-entrega/" + areaId;
+      method = "PATCH";
+      body = { taxa_entrega: taxa, prazo_dias: prazo, ativo: document.getElementById("modal-ativo").checked };
+    } else {
+      url = "/api/v1/marketplace/loja/" + currentLojaId + "/areas-entrega";
+      method = "POST";
+      body = { cidade: cidade, uf: uf, taxa_entrega: taxa, prazo_dias: prazo };
+    }
+
+    fetch(url, { method: method, credentials: "include", headers: getHeaders(), body: JSON.stringify(body) })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || "Erro"); });
+        return r.json();
+      })
+      .then(function() {
+        fecharModalArea();
+        loadAreas(currentLojaId);
+      })
+      .catch(function(err) { errEl.textContent = err.message; errEl.style.display = "block"; });
+  });
+
+  function remover(areaId, cidade) {
+    if (!confirm("Remover a cidade " + cidade + "?")) return;
+    fetch("/api/v1/marketplace/areas-entrega/" + areaId, { method: "DELETE", credentials: "include", headers: getHeaders() })
+      .then(function(r) {
+        if (!r.ok && r.status !== 204) throw new Error("Erro ao remover");
+        loadAreas(currentLojaId);
+      })
+      .catch(function(err) { alert(err.message); });
+  }
+
+  selectLoja.addEventListener("change", function() { loadAreas(this.value); });
+  if (isSuperAdmin) {
+    loadLojas();
+  } else {
+    loadMinhaLojaAreas();
+  }
+})();
+</script>
+{% endblock %}

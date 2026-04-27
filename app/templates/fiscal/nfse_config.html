@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Configuração NFS-e - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div id="alert-container" class="mb-3"></div>
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Configuração NFS-e</h1>
+    </div>
+    <p class="text-muted">O sistema usa a empresa fiscal e o cliente do seu cadastro como padrão para emissão de NFS-e a partir da assinatura. Quando há apenas uma empresa e um cliente no seu escopo, eles são definidos automaticamente. Preencha o código IBGE do município na empresa e no cliente quando necessário.</p>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Configuração do tenant</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label">Empresa emissora padrão</label>
+                    <select class="form-select" id="default_empresa_id">
+                        <option value="">-- Selecione --</option>
+                    </select>
+                    <small class="text-muted d-block" id="help-empresa">Usada para NFS-e de assinatura (recorrente)</small>
+                    <small class="text-success d-none" id="auto-empresa">Definida automaticamente (empresa do seu cadastro)</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Cliente tomador padrão (CA)</label>
+                    <select class="form-select" id="ca_cliente_id">
+                        <option value="">-- Selecione --</option>
+                    </select>
+                    <small class="text-muted d-block" id="help-cliente">Tomador padrão nas NFS-e de assinatura</small>
+                    <small class="text-success d-none" id="auto-cliente">Definido automaticamente (cliente do seu cadastro)</small>
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-salvar-config">Salvar</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Assistente IBGE</h5>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">Informe UF e (opcionalmente) parte do nome do município para obter o código IBGE. Use esse código nos cadastros de Empresa e Cliente (campo Código IBGE do município).</p>
+            <div class="row g-2 mb-3">
+                <div class="col-md-2">
+                    <input type="text" class="form-control" id="ibge-uf" placeholder="UF" maxlength="2">
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control" id="ibge-cidade" placeholder="Nome do município (opcional)">
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-secondary" id="btn-buscar-ibge">Buscar</button>
+                </div>
+            </div>
+            <div id="ibge-result" class="small"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function getToken() {
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/);
+        return m ? m[1] : '';
+    }
+    function api(path, opts) {
+        opts = opts || {};
+        var h = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
+        if (getToken()) h['Authorization'] = 'Bearer ' + getToken();
+        return fetch('/api/v1/nfse' + path, Object.assign({ credentials: 'same-origin', headers: h }, opts));
+    }
+    function alertMsg(msg, isError) {
+        var el = document.getElementById('alert-container');
+        el.innerHTML = '<div class="alert alert-' + (isError ? 'danger' : 'success') + '">' + msg + '</div>';
+        setTimeout(function() { el.innerHTML = ''; }, 5000);
+    }
+
+    function loadConfig() {
+        api('/tenant-config').then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { alertMsg(d.detail || 'Erro', true); return null; });
+            return r.json();
+        }).then(function(data) {
+            if (!data) return;
+            var emp = document.getElementById('default_empresa_id');
+            var cli = document.getElementById('ca_cliente_id');
+            var empresas = data.empresas || [];
+            var clientes = data.clientes || [];
+            var defaultEmpId = data.default_empresa_id != null ? Number(data.default_empresa_id) : null;
+            var defaultCliId = data.ca_cliente_id != null ? Number(data.ca_cliente_id) : null;
+            emp.innerHTML = '<option value="">-- Selecione --</option>';
+            empresas.forEach(function(e) {
+                var opt = document.createElement('option');
+                opt.value = e.id;
+                opt.textContent = e.razao_social + (e.municipio_ibge ? ' (IBGE: ' + e.municipio_ibge + ')' : '');
+                if (defaultEmpId !== null && Number(e.id) === defaultEmpId) opt.selected = true;
+                emp.appendChild(opt);
+            });
+            cli.innerHTML = '<option value="">-- Selecione --</option>';
+            clientes.forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nome + (c.municipio_ibge ? ' (IBGE: ' + c.municipio_ibge + ')' : '');
+                if (defaultCliId !== null && Number(c.id) === defaultCliId) opt.selected = true;
+                cli.appendChild(opt);
+            });
+            var empUnica = empresas.length === 1;
+            var cliUnico = clientes.length === 1;
+            emp.disabled = empUnica;
+            cli.disabled = cliUnico;
+            document.getElementById('help-empresa').classList.toggle('d-none', empUnica);
+            document.getElementById('auto-empresa').classList.toggle('d-none', !empUnica);
+            document.getElementById('help-cliente').classList.toggle('d-none', cliUnico);
+            document.getElementById('auto-cliente').classList.toggle('d-none', !cliUnico);
+        });
+    }
+
+    document.getElementById('btn-salvar-config').addEventListener('click', function() {
+        var emp = document.getElementById('default_empresa_id').value;
+        var cli = document.getElementById('ca_cliente_id').value;
+        api('/tenant-config', {
+            method: 'PATCH',
+            body: JSON.stringify({
+                default_empresa_id: emp ? parseInt(emp, 10) : null,
+                ca_cliente_id: cli ? parseInt(cli, 10) : null
+            })
+        }).then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { alertMsg(d.detail || 'Erro', true); });
+            alertMsg('Configuração salva.');
+        });
+    });
+
+    document.getElementById('btn-buscar-ibge').addEventListener('click', function() {
+        var uf = document.getElementById('ibge-uf').value.trim();
+        var cidade = document.getElementById('ibge-cidade').value.trim();
+        if (!uf) { document.getElementById('ibge-result').innerHTML = '<span class="text-warning">Informe a UF.</span>'; return; }
+        var q = '?uf=' + encodeURIComponent(uf);
+        if (cidade) q += '&cidade=' + encodeURIComponent(cidade);
+        api('/ibge-assist' + q).then(function(r) { return r.json(); }).then(function(arr) {
+            var el = document.getElementById('ibge-result');
+            if (!arr || arr.length === 0) { el.innerHTML = 'Nenhum município encontrado.'; return; }
+            el.innerHTML = '<table class="table table-sm"><thead><tr><th>Código IBGE</th><th>Nome</th><th>UF</th></tr></thead><tbody>' +
+                arr.map(function(m) { return '<tr><td>' + m.codigo_ibge + '</td><td>' + m.nome + '</td><td>' + m.uf + '</td></tr>'; }).join('') + '</tbody></table>';
+        });
+    });
+
+    loadConfig();
+})();
+</script>
+{% endblock %}

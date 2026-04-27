@@ -1,0 +1,140 @@
+{# Origem: criada no plano tabelas_tipo_e_categoria_material_estoque. Referência de layout: mesmo padrão do módulo Estoque (meu_negocio/estoque/index.html) e estrutura listagem+modal de contratos/tipos_contratos.html. Modal conforme MAPA_DE_REGRAS: CSS inline, id modalTipoCustom, sem Bootstrap; fechar/abrir expostos em window. #}
+{% extends "base.html" %}
+{% block title %}Tipos de Material | Estoque | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Tipos de Material</strong></h1>
+            </div>
+            <div class="col-auto">
+                <a href="/negocio/estoque" class="btn btn-outline-secondary me-2"><i data-feather="arrow-left" style="width: 18px; height: 18px;"></i> Voltar ao Estoque</a>
+                <button class="btn btn-primary" onclick="abrirModalTipo()"><i data-feather="plus" style="width: 18px; height: 18px;"></i> Novo Tipo</button>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr><th>Código</th><th>Nome</th><th>Ativo</th><th>Ações</th></tr>
+                    </thead>
+                    <tbody id="tabela-tipos">
+                        <tr><td colspan="4" class="text-center text-muted">Carregando...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Novo/Editar Tipo (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap) -->
+<div id="modalTipoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modalTipoTitulo" style="margin: 0; font-size: 1.5rem; font-weight: 700;">Novo Tipo de Material</h3>
+            <button type="button" onclick="window.fecharModalTipo()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="tipo_id_modal" value="">
+            <div class="mb-3">
+                <label for="tipo_codigo" class="form-label">Código *</label>
+                <input type="text" class="form-control" id="tipo_codigo" placeholder="Ex: PECA" required>
+            </div>
+            <div class="mb-3">
+                <label for="tipo_nome" class="form-label">Nome *</label>
+                <input type="text" class="form-control" id="tipo_nome" placeholder="Ex: Peça" required>
+            </div>
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="tipo_ativo" checked>
+                <label class="form-check-label" for="tipo_ativo">Ativo</label>
+            </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="window.fecharModalTipo()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="salvarTipo()">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function getToken() {
+    const c = document.cookie.split(';').find(x => x.trim().startsWith('pdv_solumatica_token=') || x.trim().startsWith('pdv_automscale_token='));
+    return c ? decodeURIComponent(c.split('=').slice(1).join('=').trim()) : null;
+}
+function fetchApi(url, opts) {
+    const t = getToken();
+    return fetch(url, { credentials: 'include', headers: { 'Accept': 'application/json', ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(opts && opts.headers || {}) }, ...(opts || {}) });
+}
+function abrirModalTipoCustom() {
+    const modal = document.getElementById('modalTipoCustom');
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+}
+function fecharModalTipo() {
+    const modal = document.getElementById('modalTipoCustom');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+window.fecharModalTipo = fecharModalTipo;
+window.abrirModalTipo = abrirModalTipo;
+
+document.addEventListener('DOMContentLoaded', function() {
+    carregarTipos();
+    const modal = document.getElementById('modalTipoCustom');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) fecharModalTipo();
+        });
+    }
+});
+function carregarTipos() {
+    const tbody = document.getElementById('tabela-tipos');
+    fetchApi('/api/v1/tipo-material/?limit=500').then(r => r.json()).then(data => {
+        if (!Array.isArray(data)) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Erro ao carregar</td></tr>'; return; }
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Nenhum tipo cadastrado</td></tr>'; return; }
+        tbody.innerHTML = data.map(t => '<tr><td><strong>' + (t.codigo || '').replace(/</g,'&lt;') + '</strong></td><td>' + (t.nome || '').replace(/</g,'&lt;') + '</td><td><span class="badge ' + (t.ativo ? 'bg-success' : 'bg-secondary') + '">' + (t.ativo ? 'Sim' : 'Não') + '</span></td><td><button class="btn btn-sm btn-outline-primary" onclick="editarTipo(' + t.id + ')">Editar</button></td></tr>').join('');
+        if (typeof feather !== 'undefined') feather.replace();
+    }).catch(() => { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Erro ao carregar</td></tr>'; });
+}
+function abrirModalTipo() {
+    document.getElementById('tipo_id_modal').value = '';
+    document.getElementById('modalTipoTitulo').textContent = 'Novo Tipo de Material';
+    document.getElementById('tipo_codigo').value = '';
+    document.getElementById('tipo_nome').value = '';
+    document.getElementById('tipo_ativo').checked = true;
+    document.getElementById('tipo_codigo').disabled = false;
+    abrirModalTipoCustom();
+}
+function editarTipo(id) {
+    fetchApi('/api/v1/tipo-material/' + id).then(r => r.json()).then(t => {
+        document.getElementById('tipo_id_modal').value = t.id;
+        document.getElementById('modalTipoTitulo').textContent = 'Editar Tipo de Material';
+        document.getElementById('tipo_codigo').value = t.codigo || '';
+        document.getElementById('tipo_nome').value = t.nome || '';
+        document.getElementById('tipo_ativo').checked = t.ativo !== false;
+        document.getElementById('tipo_codigo').disabled = true;
+        abrirModalTipoCustom();
+    }).catch(() => alert('Erro ao carregar tipo'));
+}
+function salvarTipo() {
+    const id = document.getElementById('tipo_id_modal').value.trim();
+    const codigo = document.getElementById('tipo_codigo').value.trim().toUpperCase();
+    const nome = document.getElementById('tipo_nome').value.trim();
+    if (!codigo || !nome) { alert('Preencha código e nome'); return; }
+    const payload = { codigo: codigo, nome: nome, ativo: document.getElementById('tipo_ativo').checked };
+    const url = id ? '/api/v1/tipo-material/' + id : '/api/v1/tipo-material/';
+    const method = id ? 'PATCH' : 'POST';
+    fetchApi(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(r => {
+        if (r.ok) { fecharModalTipo(); carregarTipos(); alert('Salvo com sucesso!'); }
+        else return r.json().then(e => { throw new Error(e.detail || 'Erro ao salvar'); });
+    }).catch(e => alert(e.message || 'Erro ao salvar'));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Acompanhar entrega | Marketplace{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <a href="/negocio/marketplace/minha-loja" class="btn btn-outline-secondary btn-sm">← Minha loja</a>
+    </div>
+    <h2 class="h5 mb-3">Entrega #<span id="entrega-id"></span></h2>
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="mb-1"><strong>Status:</strong> <span id="entrega-status" class="badge bg-secondary">—</span></p>
+            <p class="mb-1"><strong>Pedido:</strong> #<span id="pedido-id">—</span></p>
+            <p class="mb-1"><strong>Valor frete:</strong> R$ <span id="valor-frete">—</span></p>
+            <p class="mb-1"><strong>Destinatário:</strong> <span id="destinatario">—</span></p>
+            <p class="mb-0"><strong>Telefone:</strong> <span id="telefone-dest">—</span></p>
+            <p class="mt-2 mb-0" id="wrap-cancelar" style="display:none;">
+                <button type="button" class="btn btn-sm btn-outline-danger" id="btn-cancelar-entrega">Cancelar entrega</button>
+            </p>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header py-2"><strong>Timeline</strong></div>
+        <div class="card-body py-2">
+            <ul class="list-unstyled mb-0" id="timeline-eventos"></ul>
+            <p class="text-muted small mb-0" id="msg-eventos">Carregando…</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function() {
+  function getToken() {
+    var c = document.cookie.split(';');
+    for (var i = 0; i < c.length; i++) {
+      var x = c[i].trim().split('=');
+      if (x[0] === 'pdv_solumatica_token' || x[0] === 'pdv_automscale_token') return x[1] || null;
+    }
+    return null;
+  }
+  var path = window.location.pathname;
+  var match = path.match(/\/negocio\/marketplace\/logistica\/entrega\/(\d+)/);
+  var entregaId = match ? match[1] : null;
+  if (!entregaId) {
+    document.getElementById('msg-eventos').textContent = 'ID da entrega não encontrado.';
+    return;
+  }
+  document.getElementById('entrega-id').textContent = entregaId;
+  var token = getToken();
+  if (!token) {
+    document.getElementById('msg-eventos').textContent = 'Faça login para ver a entrega.';
+    return;
+  }
+  fetch('/api/v1/logistica/entregas/' + entregaId, {
+    headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
+    credentials: 'include'
+  }).then(function(r) {
+    if (r.status === 401 || r.status === 403) {
+      document.getElementById('msg-eventos').textContent = 'Sem permissão para ver esta entrega.';
+      return null;
+    }
+    if (r.status === 404) {
+      document.getElementById('msg-eventos').textContent = 'Entrega não encontrada.';
+      return null;
+    }
+    return r.json();
+  }).then(function(e) {
+    if (!e) return;
+    document.getElementById('entrega-status').textContent = e.status || '—';
+    document.getElementById('pedido-id').textContent = e.pedido_id || '—';
+    document.getElementById('valor-frete').textContent = (e.valor_frete != null ? Number(e.valor_frete).toFixed(2) : '—');
+    document.getElementById('destinatario').textContent = e.nome_destinatario || '—';
+    document.getElementById('telefone-dest').textContent = e.telefone_destinatario || '—';
+    var eventos = e.eventos || [];
+    var ul = document.getElementById('timeline-eventos');
+    var msg = document.getElementById('msg-eventos');
+    if (eventos.length === 0) {
+      msg.textContent = 'Nenhum evento ainda.';
+    } else {
+      msg.style.display = 'none';
+      eventos.forEach(function(ev) {
+        var li = document.createElement('li');
+        li.className = 'py-1 small';
+        var d = ev.created_at ? new Date(ev.created_at).toLocaleString('pt-BR') : '';
+        li.textContent = (ev.tipo_evento || ev.tipo || '') + ' — ' + d;
+        ul.appendChild(li);
+      });
+    }
+    var status = (e.status || '');
+    var podeCancelar = status !== 'cancelada' && status !== 'entregue' && status !== 'expirada';
+    if (podeCancelar) {
+      document.getElementById('wrap-cancelar').style.display = 'block';
+      document.getElementById('btn-cancelar-entrega').onclick = function() {
+        if (!confirm('Cancelar esta entrega?')) return;
+        fetch('/api/v1/logistica/entregas/' + entregaId + '/cancelar', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+          credentials: 'include'
+        }).then(function(r) {
+          if (r.ok) window.location.reload();
+          else r.json().then(function(d) { alert(d.detail || 'Erro ao cancelar.'); });
+        });
+      };
+    }
+  });
+})();
+</script>
+{% endblock %}

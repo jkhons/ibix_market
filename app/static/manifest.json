@@ -1,0 +1,22 @@
+{
+  "name": "PDV Ibix - Calibração",
+  "short_name": "PDV Ibix",
+  "description": "Sistema de calibração, certificação e PDV - PDV Ibix (desenvolvido por automscale)",
+  "start_url": "/procedimentos/calibracao",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
+  "theme_color": "#2c3e50",
+  "background_color": "#2c3e50",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/static/img/icons/icon-48x48.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["business", "productivity"]
+}

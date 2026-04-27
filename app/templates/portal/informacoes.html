@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Informações | Portal | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h1 class="h3 mb-4">Informações</h1>
+    <p class="text-muted">Resumo de gastos e valores vinculados ao seu cadastro.</p>
+    <div class="row mb-4">
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-1">Total em vendas</h6>
+                    <h4 class="mb-0" id="info-total-vendas">-</h4>
+                    <small class="text-muted" id="info-qtd-vendas">0 itens</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-1">Ordens de serviço</h6>
+                    <h4 class="mb-0" id="info-total-os">-</h4>
+                    <small class="text-muted" id="info-qtd-os">0 ordens</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-1">Notas fiscais</h6>
+                    <h4 class="mb-0" id="info-total-notas">-</h4>
+                    <small class="text-muted" id="info-qtd-notas">0 notas</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-uppercase text-muted mb-1">Total geral</h6>
+                    <h4 class="mb-0" id="info-total-geral">-</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-header"><h5 class="mb-0">Acesso rápido</h5></div>
+        <div class="card-body">
+            <a href="/portal/ordens-servico" class="btn btn-outline-primary me-2 mb-2">Ordens de serviço</a>
+            <a href="/portal/notas-fiscais" class="btn btn-outline-primary me-2 mb-2">Notas fiscais</a>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof feather !== "undefined") feather.replace();
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)pdv_automscale_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    var headers = { "Authorization": "Bearer " + token };
+    function fmt(v) { return (v != null && !isNaN(v)) ? "R$ " + Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "-"; }
+    fetch("/api/v1/portal/resumo-gastos", { headers: headers })
+        .then(function(r) { return r.ok ? r.json() : {}; })
+        .then(function(d) {
+            var v = d.vendas; var o = d.ordens_servico; var n = d.notas_fiscais;
+            var elV = document.getElementById("info-total-vendas"); if (elV) elV.textContent = fmt(v && v.total);
+            var elVq = document.getElementById("info-qtd-vendas"); if (elVq) elVq.textContent = (v && v.quantidade != null ? v.quantidade : 0) + " itens";
+            var elO = document.getElementById("info-total-os"); if (elO) elO.textContent = fmt(o && o.total);
+            var elOq = document.getElementById("info-qtd-os"); if (elOq) elOq.textContent = (o && o.quantidade != null ? o.quantidade : 0) + " ordens";
+            var elN = document.getElementById("info-total-notas"); if (elN) elN.textContent = fmt(n && n.total);
+            var elNq = document.getElementById("info-qtd-notas"); if (elNq) elNq.textContent = (n && n.quantidade != null ? n.quantidade : 0) + " notas";
+            var elG = document.getElementById("info-total-geral"); if (elG) elG.textContent = fmt(d.total_geral);
+        });
+});
+</script>
+{% endblock %}

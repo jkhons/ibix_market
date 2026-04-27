@@ -1,0 +1,109 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Carrinho{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Carrinho</h1>
+<div id="loja-carrinho-multi-loja" class="alert alert-warning" style="display: none;" role="alert">
+    Há itens de mais de uma loja no carrinho. O checkout é feito por loja. Remova itens ou finalize um pedido por vez.
+</div>
+<div id="loja-carrinho-toolbar" class="mb-2 text-end" style="display: none;">
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="loja-carrinho-limpar">Limpar carrinho</button>
+</div>
+<div id="loja-carrinho-list"></div>
+<div id="loja-carrinho-empty" class="text-muted text-center py-5" style="display: none;">
+    Seu carrinho está vazio. <a href="/">Continuar comprando</a>
+</div>
+<div id="loja-carrinho-footer" class="border-top pt-3 mt-3" style="display: none;">
+    <p class="mb-2"><strong>Total: <span id="loja-carrinho-total">0</span></strong></p>
+    <a href="/loja/checkout" class="btn btn-primary" id="loja-carrinho-checkout">Ir ao checkout</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var listEl = document.getElementById("loja-carrinho-list");
+  var emptyEl = document.getElementById("loja-carrinho-empty");
+  var footerEl = document.getElementById("loja-carrinho-footer");
+  var totalEl = document.getElementById("loja-carrinho-total");
+  var multiLojaEl = document.getElementById("loja-carrinho-multi-loja");
+  var toolbarEl = document.getElementById("loja-carrinho-toolbar");
+
+  function render() {
+    var cart = window.Vitrine.getCart();
+    var items = cart.items || [];
+    if (items.length === 0) {
+      listEl.innerHTML = "";
+      emptyEl.style.display = "block";
+      footerEl.style.display = "none";
+      multiLojaEl.style.display = "none";
+      if (toolbarEl) toolbarEl.style.display = "none";
+      return;
+    }
+    emptyEl.style.display = "none";
+    footerEl.style.display = "block";
+    if (toolbarEl) toolbarEl.style.display = "block";
+
+    var lojaIds = {};
+    items.forEach(function (i) {
+      lojaIds[i.loja_id] = true;
+    });
+    var numLojas = Object.keys(lojaIds).length;
+    multiLojaEl.style.display = numLojas > 1 ? "block" : "none";
+
+    var total = 0;
+    var html = '<div class="list-group">';
+    items.forEach(function (item) {
+      var subtotal = (item.preco || 0) * (item.quantidade || 0);
+      total += subtotal;
+      html +=
+        '<div class="list-group-item d-flex justify-content-between align-items-center" data-anuncio-id="' + item.anuncio_id + '">' +
+          '<div>' +
+            '<a href="' + window.Vitrine.produtoUrl(item.titulo, item.anuncio_id) + '">' + window.Vitrine.escapeHtml(item.titulo || "") + "</a>" +
+            " &times; " + (item.quantidade || 0) +
+          "</div>" +
+          '<div class="d-flex align-items-center gap-2">' +
+            "<span>" + window.Vitrine.formatPreco(subtotal) + "</span>" +
+            '<input type="number" min="1" class="form-control form-control-sm" style="width: 70px;" value="' + (item.quantidade || 1) + '" data-anuncio-id="' + item.anuncio_id + '">' +
+            '<button type="button" class="btn btn-sm btn-outline-danger" data-anuncio-id="' + item.anuncio_id + '" aria-label="Remover">Remover</button>' +
+          "</div>" +
+        "</div>";
+    });
+    html += "</div>";
+    listEl.innerHTML = html;
+    totalEl.textContent = window.Vitrine.formatPreco(total);
+
+    listEl.querySelectorAll("input[type=number]").forEach(function (input) {
+      input.addEventListener("change", function () {
+        var id = parseInt(input.getAttribute("data-anuncio-id"), 10);
+        var q = parseInt(input.value, 10);
+        window.Vitrine.setCartItemQty(id, isNaN(q) || q < 1 ? 0 : q);
+        window.VitrineUpdateCartBadge();
+        render();
+      });
+    });
+    listEl.querySelectorAll("button[data-anuncio-id]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = parseInt(btn.getAttribute("data-anuncio-id"), 10);
+        window.Vitrine.setCartItemQty(id, 0);
+        window.VitrineUpdateCartBadge();
+        render();
+      });
+    });
+  }
+
+  var btnLimpar = document.getElementById("loja-carrinho-limpar");
+  if (btnLimpar) {
+    btnLimpar.addEventListener("click", function () {
+      if (!window.confirm("Remover todos os itens do carrinho?")) return;
+      window.Vitrine.clearCart();
+      window.VitrineUpdateCartBadge();
+      render();
+    });
+  }
+
+  render();
+})();
+</script>
+{% endblock %}

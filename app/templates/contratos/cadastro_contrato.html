@@ -1,0 +1,1036 @@
+{% extends "base.html" %}
+
+{% block title %}Novo Contrato de Aferição | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    /* Diminuir tamanho do campo de seleção */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 34px !important;
+        font-size: 0.875rem;
+    }
+    
+    /* Diminuir fonte dentro do campo */
+    .select2-container--bootstrap-5 .select2-selection__rendered {
+        line-height: 32px !important;
+        font-size: 0.875rem;
+        padding-left: 8px;
+    }
+    
+    /* Diminuir fonte do dropdown */
+    .select2-container--bootstrap-5 .select2-results__option {
+        font-size: 0.875rem;
+        padding: 6px 12px;
+    }
+    
+    /* Diminuir fonte da busca */
+    .select2-container--bootstrap-5 .select2-search__field {
+        font-size: 0.875rem;
+    }
+    
+    /* Aumentar altura máxima do dropdown */
+    .select2-container--bootstrap-5 .select2-results > .select2-results__options {
+        max-height: 400px !important;
+    }
+</style>
+<!-- Tribute.js para @ equipamentos -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tributejs@5.1.3/dist/tribute.css" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <!-- Cabeçalho -->
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Novo Contrato de Aferição</h1>
+        <a href="/contratos" class="btn btn-outline-secondary float-end">
+            <i class="align-middle me-1" data-feather="arrow-left"></i> Voltar
+        </a>
+    </div>
+
+    <!-- Formulário -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="align-middle me-2" data-feather="file-text"></i>
+                        Dados do Contrato
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="formNovoContrato">
+                        <!-- Informações Básicas -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="align-middle me-1" data-feather="info"></i>
+                                    Informações Básicas
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="cliente_id" class="form-label">Cliente *</label>
+                                    <select class="form-select" id="cliente_id" name="cliente_id" required>
+                                        <option value="">Carregando clientes...</option>
+                                    </select>
+                                    <div class="form-text">Digite para buscar o cliente (nome ou CNPJ)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="numero_contrato" class="form-label">Número do Contrato *</label>
+                                    <input type="text" class="form-control" id="numero_contrato" name="numero_contrato" 
+                                           required maxlength="100" placeholder="Ex: CTR-2025-001">
+                                    <div class="form-text">Número único do contrato</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vigência e Periodicidade -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="align-middle me-1" data-feather="calendar"></i>
+                                    Vigência e Periodicidade
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="data_inicio" class="form-label">Data de Início *</label>
+                                    <input type="date" class="form-control" id="data_inicio" name="data_inicio" required>
+                                    <div class="form-text">Data de início da vigência</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="data_fim" class="form-label">Data de Término *</label>
+                                    <input type="date" class="form-control" id="data_fim" name="data_fim" required>
+                                    <div class="form-text">Data de término da vigência</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="periodicidade" class="form-label">Periodicidade *</label>
+                                    <select class="form-select" id="periodicidade" name="periodicidade" required>
+                                        <option value="">Selecione...</option>
+                                        <option value="mensal">Mensal</option>
+                                        <option value="bimestral">Bimestral</option>
+                                        <option value="trimestral">Trimestral</option>
+                                        <option value="semestral">Semestral</option>
+                                        <option value="anual">Anual</option>
+                                    </select>
+                                    <div class="form-text">Frequência das aferições</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Valores e Status -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="align-middle me-1" data-feather="dollar-sign"></i>
+                                    Valores e Status
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="valor_mensal" class="form-label">Valor Mensal (R$) *</label>
+                                    <input type="text" inputmode="decimal" class="form-control" id="valor_mensal" 
+                                           name="valor_mensal" required placeholder="0,00" autocomplete="off">
+                                    <div class="form-text">Formato: 1.550,00 (Real brasileiro)</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="status" class="form-label">Status *</label>
+                                    <select class="form-select" id="status" name="status" required>
+                                        <option value="ativo" selected>Ativo</option>
+                                        <option value="suspenso">Suspenso</option>
+                                        <option value="cancelado">Cancelado</option>
+                                        <option value="finalizado">Finalizado</option>
+                                    </select>
+                                    <div class="form-text">Status atual do contrato</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Equipamentos e Observações -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="align-middle me-1" data-feather="settings"></i>
+                                    Informações Complementares
+                                </h6>
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="equipamentos_contratados" class="form-label">Equipamentos Contratados</label>
+                                    <textarea class="form-control" id="equipamentos_contratados" name="equipamentos_contratados" 
+                                              rows="4" placeholder="Digite @ para listar equipamentos do cliente ou @todos para inserir todos..."></textarea>
+                                    <div class="form-text">Digite <kbd>@</kbd> para inserir um equipamento ou <kbd>@todos</kbd> para listar todos do cliente (selecione o cliente antes).</div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="observacoes" class="form-label">Observações</label>
+                                    <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                              placeholder="Observações adicionais sobre o contrato..."></textarea>
+                                    <div class="form-text">Informações complementares (opcional)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contrato Descritivo -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h6 class="text-primary mb-3">
+                                    <i class="align-middle me-1" data-feather="file-text"></i>
+                                    Contrato Descritivo
+                                </h6>
+                            </div>
+                            
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="align-middle me-1" data-feather="info"></i>
+                                    <strong>Contrato Personalizado:</strong> Crie ou edite o texto do contrato que será vinculado a este cliente.
+                                </div>
+                                
+                                <button type="button" class="btn btn-outline-primary" onclick="abrirEditorContrato()">
+                                    <i class="align-middle me-1" data-feather="edit-3"></i> 
+                                    <span id="btnContratoTexto">Criar/Editar Contrato Descritivo</span>
+                                </button>
+                                
+                                <div id="contratoPreview" class="mt-3 d-none">
+                                    <div class="card">
+                                        <div class="card-body bg-light">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <small class="text-muted">
+                                                    <i class="align-middle me-1" data-feather="check-circle"></i>
+                                                    Contrato descritivo definido
+                                                </small>
+                                                <button type="button" class="btn btn-sm btn-link text-danger" onclick="limparContrato()">
+                                                    <i class="align-middle" data-feather="trash-2"></i> Limpar
+                                                </button>
+                                            </div>
+                                            <div id="contratoPreviewTexto" class="small text-truncate"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <input type="hidden" id="contrato_descritivo" name="contrato_descritivo">
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="row">
+                            <div class="col-12">
+                                <hr class="my-4">
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-secondary" onclick="window.location.href='/contratos'">
+                                        <i class="align-middle me-1" data-feather="x"></i> Cancelar
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="align-middle me-1" data-feather="check"></i> Salvar Contrato
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editor de Contrato - Customizado e Isolado -->
+<style>
+    /* CSS exclusivo do modal - Não herda estilos do projeto */
+    #modalContratoCustom {
+        display: none;
+        position: fixed;
+        z-index: 99999;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(3px);
+        animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    #modalContratoCustom.show {
+        display: block;
+    }
+    
+    .modal-contrato-content {
+        position: relative;
+        background-color: #ffffff;
+        margin: 2% auto;
+        padding: 0;
+        border: none;
+        width: 95%;
+        max-width: 1400px;
+        border-radius: 12px;
+        box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            transform: translateY(-50px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    .modal-contrato-header {
+        padding: 20px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px 12px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-contrato-header h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 600;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    .modal-contrato-close {
+        background: rgba(255, 255, 255, 0.2);
+        border: none;
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-contrato-close:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: rotate(90deg);
+    }
+    
+    .modal-contrato-body {
+        padding: 30px;
+        max-height: calc(100vh - 300px);
+        overflow-y: auto;
+    }
+    
+    .modal-contrato-info {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+        padding: 15px 20px;
+        margin-bottom: 25px;
+        border-radius: 6px;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 14px;
+        color: #1565c0;
+    }
+    
+    .modal-contrato-info strong {
+        font-weight: 600;
+    }
+    
+    #contratoEditorCustom {
+        width: 100%;
+        min-height: 500px;
+        padding: 20px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.8;
+        resize: vertical;
+        transition: border-color 0.3s ease;
+        background: #fafafa;
+    }
+    
+    #contratoEditorCustom:focus {
+        outline: none;
+        border-color: #667eea;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .modal-contrato-footer {
+        padding: 20px 30px;
+        background-color: #f5f5f5;
+        border-radius: 0 0 12px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .modal-contrato-stats {
+        font-size: 13px;
+        color: #666;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    .modal-contrato-btn {
+        padding: 12px 30px;
+        border: none;
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .modal-contrato-btn-cancelar {
+        background-color: #ffffff;
+        color: #666;
+        border: 2px solid #ddd;
+    }
+    
+    .modal-contrato-btn-cancelar:hover {
+        background-color: #f5f5f5;
+        border-color: #999;
+        transform: translateY(-1px);
+    }
+    
+    .modal-contrato-btn-salvar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+    
+    .modal-contrato-btn-salvar:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    
+    .modal-contrato-btn-salvar:active {
+        transform: translateY(0);
+    }
+    
+    /* Scrollbar customizada */
+    .modal-contrato-body::-webkit-scrollbar,
+    #contratoEditorCustom::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    .modal-contrato-body::-webkit-scrollbar-track,
+    #contratoEditorCustom::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    
+    .modal-contrato-body::-webkit-scrollbar-thumb,
+    #contratoEditorCustom::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 10px;
+    }
+    
+    .modal-contrato-body::-webkit-scrollbar-thumb:hover,
+    #contratoEditorCustom::-webkit-scrollbar-thumb:hover {
+        background: #764ba2;
+    }
+</style>
+
+<div id="modalContratoCustom">
+    <div class="modal-contrato-content">
+        <div class="modal-contrato-header">
+            <h2>📄 Editor de Contrato Descritivo</h2>
+            <button class="modal-contrato-close" onclick="fecharModalContrato()">&times;</button>
+        </div>
+        
+        <div class="modal-contrato-body">
+            <div class="modal-contrato-info">
+                <strong>💡 Dica:</strong> Edite o texto do contrato abaixo. Use variáveis entre colchetes como [CLIENTE], [CNPJ], [DATA_INICIO], [DATA_FIM], [VALOR_TOTAL] que serão substituídas automaticamente pelos dados do contrato.
+            </div>
+            
+            <textarea id="contratoEditorCustom" placeholder="Digite o texto do contrato aqui...">CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE CALIBRAÇÃO E AFERIÇÃO
+
+Por este instrumento particular, de um lado:
+
+CONTRATANTE: [CLIENTE]
+CNPJ: [CNPJ]
+Endereço: [ENDERECO]
+
+E de outro lado:
+
+CONTRATADA: CERTILOG CERTIFICAÇÃO E LOGÍSTICA LTDA
+CNPJ: XX.XXX.XXX/XXXX-XX
+
+Têm entre si justo e contratado o seguinte:
+
+CLÁUSULA PRIMEIRA - DO OBJETO
+O presente contrato tem por objeto a prestação de serviços de gestão comercial e operacional (sistema PDV Ibix — PDV, caixa, estoque, fiscal e demais módulos), conforme especificações e periodicidade estabelecidas neste documento.
+
+CLÁUSULA SEGUNDA - DA VIGÊNCIA
+O presente contrato terá vigência de [VIGENCIA], com início em [DATA_INICIO] e término em [DATA_FIM], podendo ser renovado mediante acordo entre as partes.
+
+CLÁUSULA TERCEIRA - DOS SERVIÇOS
+A CONTRATADA se compromete a:
+- Disponibilizar acesso ao sistema PDV Ibix conforme plano contratado
+- Garantir disponibilidade e manutenção da plataforma durante a vigência do contrato
+- Prestar suporte técnico conforme condições estabelecidas: [PERIODICIDADE]
+- Manter a segurança e confidencialidade dos dados do CONTRATANTE
+- Realizar atualizações e melhorias do sistema conforme política da CONTRATADA
+
+CLÁUSULA QUARTA - DO VALOR
+O valor total dos serviços será de R$ [VALOR_TOTAL], conforme detalhamento em anexo, a ser pago em [PERIODICIDADE_PAGAMENTO].
+
+CLÁUSULA QUINTA - DAS OBRIGAÇÕES DO CONTRATANTE
+O CONTRATANTE se compromete a:
+- Utilizar o sistema de forma adequada e em conformidade com os termos de uso
+- Efetuar os pagamentos nas datas acordadas
+- Comunicar qualquer alteração nos dados cadastrais
+- Manter o sigilo de credenciais de acesso ao sistema
+- Não ceder ou sublicenciar o uso do sistema a terceiros sem anuência da CONTRATADA
+
+CLÁUSULA SEXTA - DA RESCISÃO
+O presente contrato poderá ser rescindido por qualquer das partes mediante aviso prévio de 30 (trinta) dias, sem prejuízo das obrigações já assumidas.
+
+CLÁUSULA SÉTIMA - DAS DISPOSIÇÕES GERAIS
+As partes elegem o foro da comarca de [CIDADE] para dirimir quaisquer questões oriundas deste contrato.
+
+E por estarem assim justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
+
+[CIDADE], [DATA]
+
+
+_______________________________          _______________________________
+CONTRATANTE                              CONTRATADA
+[CLIENTE]                                CERTILOG CERTIFICAÇÃO E LOGÍSTICA LTDA</textarea>
+        </div>
+        
+        <div class="modal-contrato-footer">
+            <div class="modal-contrato-stats">
+                <span id="contratoCaracteres">0 caracteres</span> | 
+                <span id="contratoLinhas">0 linhas</span>
+            </div>
+            <div>
+                <button class="modal-contrato-btn modal-contrato-btn-cancelar" onclick="fecharModalContrato()">
+                    ✕ Cancelar
+                </button>
+                <button class="modal-contrato-btn modal-contrato-btn-salvar" onclick="salvarContratoDescritivo()">
+                    💾 Salvar Contrato
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container para alertas -->
+<div id="alert-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery (necessário para Select2) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/pt-BR.js"></script>
+<!-- Tribute.js para @ equipamentos -->
+<script src="https://cdn.jsdelivr.net/npm/tributejs@5.1.3/dist/tribute.min.js"></script>
+
+<script>
+// ===== FUNÇÕES DO MODAL CUSTOMIZADO DE CONTRATO DESCRITIVO =====
+
+// Abrir modal do editor de contrato
+function abrirEditorContrato() {
+    const modal = document.getElementById('modalContratoCustom');
+    const editor = document.getElementById('contratoEditorCustom');
+    const hiddenInput = document.getElementById('contrato_descritivo');
+    
+    // Carregar o texto existente se houver
+    if (hiddenInput.value) {
+        editor.value = hiddenInput.value;
+    }
+    
+    // Mostrar o modal
+    modal.classList.add('show');
+    document.body.style.overflow = 'hidden'; // Prevenir scroll da página
+    
+    // Atualizar estatísticas iniciais
+    atualizarEstatisticasContrato();
+    
+    // Adicionar listener para atualizar estatísticas em tempo real
+    editor.addEventListener('input', atualizarEstatisticasContrato);
+    
+    // Focar no editor
+    setTimeout(() => editor.focus(), 300);
+    
+    console.log('✅ Modal do editor de contrato aberto');
+}
+
+// Fechar modal
+function fecharModalContrato() {
+    const modal = document.getElementById('modalContratoCustom');
+    modal.classList.remove('show');
+    document.body.style.overflow = ''; // Restaurar scroll da página
+    console.log('✅ Modal do editor de contrato fechado');
+}
+
+// Salvar contrato descritivo
+function salvarContratoDescritivo() {
+    const editor = document.getElementById('contratoEditorCustom');
+    const hiddenInput = document.getElementById('contrato_descritivo');
+    const btnTexto = document.getElementById('btnContratoTexto');
+    const preview = document.getElementById('contratoPreview');
+    const previewTexto = document.getElementById('contratoPreviewTexto');
+    
+    const textoContrato = editor.value.trim();
+    
+    if (!textoContrato) {
+        alert('⚠️ Por favor, digite o texto do contrato antes de salvar.');
+        return;
+    }
+    
+    // Salvar no campo hidden
+    hiddenInput.value = textoContrato;
+    
+    // Atualizar preview
+    const preview50chars = textoContrato.substring(0, 150) + '...';
+    previewTexto.textContent = preview50chars;
+    preview.classList.remove('d-none');
+    
+    // Atualizar texto do botão
+    btnTexto.textContent = 'Editar Contrato Descritivo';
+    
+    // Fechar modal
+    fecharModalContrato();
+    
+    // Feedback visual
+    showAlert('✅ Contrato descritivo salvo com sucesso!', 'success');
+    
+    console.log('✅ Contrato descritivo salvo:', textoContrato.length, 'caracteres');
+}
+
+// Limpar contrato
+function limparContrato() {
+    if (!confirm('⚠️ Deseja realmente limpar o contrato descritivo?')) {
+        return;
+    }
+    
+    const editor = document.getElementById('contratoEditorCustom');
+    const hiddenInput = document.getElementById('contrato_descritivo');
+    const btnTexto = document.getElementById('btnContratoTexto');
+    const preview = document.getElementById('contratoPreview');
+    
+    // Restaurar texto padrão no editor
+    editor.value = `CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE CALIBRAÇÃO E AFERIÇÃO
+
+Por este instrumento particular, de um lado:
+
+CONTRATANTE: [CLIENTE]
+CNPJ: [CNPJ]
+Endereço: [ENDERECO]
+
+E de outro lado:
+
+CONTRATADA: CERTILOG CERTIFICAÇÃO E LOGÍSTICA LTDA
+CNPJ: XX.XXX.XXX/XXXX-XX
+
+Têm entre si justo e contratado o seguinte:
+
+CLÁUSULA PRIMEIRA - DO OBJETO
+O presente contrato tem por objeto a prestação de serviços de gestão comercial e operacional (sistema PDV Ibix — PDV, caixa, estoque, fiscal e demais módulos), conforme especificações e periodicidade estabelecidas neste documento.
+
+CLÁUSULA SEGUNDA - DA VIGÊNCIA
+O presente contrato terá vigência de [VIGENCIA], com início em [DATA_INICIO] e término em [DATA_FIM], podendo ser renovado mediante acordo entre as partes.
+
+CLÁUSULA TERCEIRA - DOS SERVIÇOS
+A CONTRATADA se compromete a:
+- Disponibilizar acesso ao sistema PDV Ibix conforme plano contratado
+- Garantir disponibilidade e manutenção da plataforma durante a vigência do contrato
+- Prestar suporte técnico conforme condições estabelecidas: [PERIODICIDADE]
+- Manter a segurança e confidencialidade dos dados do CONTRATANTE
+- Realizar atualizações e melhorias do sistema conforme política da CONTRATADA
+
+CLÁUSULA QUARTA - DO VALOR
+O valor total dos serviços será de R$ [VALOR_TOTAL], conforme detalhamento em anexo, a ser pago em [PERIODICIDADE_PAGAMENTO].
+
+CLÁUSULA QUINTA - DAS OBRIGAÇÕES DO CONTRATANTE
+O CONTRATANTE se compromete a:
+- Utilizar o sistema de forma adequada e em conformidade com os termos de uso
+- Efetuar os pagamentos nas datas acordadas
+- Comunicar qualquer alteração nos dados cadastrais
+- Manter o sigilo de credenciais de acesso ao sistema
+- Não ceder ou sublicenciar o uso do sistema a terceiros sem anuência da CONTRATADA
+
+CLÁUSULA SEXTA - DA RESCISÃO
+O presente contrato poderá ser rescindido por qualquer das partes mediante aviso prévio de 30 (trinta) dias, sem prejuízo das obrigações já assumidas.
+
+CLÁUSULA SÉTIMA - DAS DISPOSIÇÕES GERAIS
+As partes elegem o foro da comarca de [CIDADE] para dirimir quaisquer questões oriundas deste contrato.
+
+E por estarem assim justos e contratados, assinam o presente instrumento em 2 (duas) vias de igual teor e forma.
+
+[CIDADE], [DATA]
+
+
+_______________________________          _______________________________
+CONTRATANTE                              CONTRATADA
+[CLIENTE]                                CERTILOG CERTIFICAÇÃO E LOGÍSTICA LTDA`;
+    
+    // Limpar campo hidden
+    hiddenInput.value = '';
+    
+    // Ocultar preview
+    preview.classList.add('d-none');
+    
+    // Restaurar texto do botão
+    btnTexto.textContent = 'Criar/Editar Contrato Descritivo';
+    
+    showAlert('✅ Contrato descritivo restaurado ao padrão!', 'info');
+    console.log('✅ Contrato descritivo limpo');
+}
+
+// Atualizar estatísticas do contrato (caracteres e linhas)
+function atualizarEstatisticasContrato() {
+    const editor = document.getElementById('contratoEditorCustom');
+    const texto = editor.value;
+    
+    // Contar caracteres
+    const caracteres = texto.length;
+    
+    // Contar linhas
+    const linhas = texto.split('\n').length;
+    
+    // Atualizar UI
+    document.getElementById('contratoCaracteres').textContent = caracteres + ' caracteres';
+    document.getElementById('contratoLinhas').textContent = linhas + ' linhas';
+}
+
+// Fechar modal ao clicar fora dele
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('modalContratoCustom');
+    if (event.target === modal) {
+        fecharModalContrato();
+    }
+});
+
+// Fechar modal com tecla ESC
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('modalContratoCustom');
+        if (modal.classList.contains('show')) {
+            fecharModalContrato();
+        }
+    }
+});
+
+// ===== FIM DAS FUNÇÕES DO MODAL CUSTOMIZADO =====
+
+// Token: cookie primeiro, depois localStorage (padrão MAPA_SISTEMA / certipeso.js)
+function getToken() {
+    if (typeof getCookie === 'function') {
+        const t = getCookie('pdv_automscale_token');
+        if (t) return t;
+    }
+    return localStorage.getItem('pdv_automscale_token') || sessionStorage.getItem('pdv_automscale_token') || '';
+}
+
+// Carregar e inicializar Select2 para clientes
+async function carregarClientes() {
+    try {
+        const fetchAuth = window.authenticatedFetch || fetch;
+        const token = getToken();
+        const opts = { headers: { 'Content-Type': 'application/json' } };
+        if (token && fetchAuth === fetch) opts.headers['Authorization'] = 'Bearer ' + token;
+        const response = await fetchAuth('/api/v1/clientes/?por_pagina=100', opts);
+        
+        if (!response.ok) throw new Error('Erro ao carregar clientes');
+        
+        const data = await response.json();
+        const clientes = data.clientes || [];
+        
+        const select = document.getElementById('cliente_id');
+        select.innerHTML = '<option value="">Selecione um cliente...</option>';
+        
+        if (clientes.length > 0) {
+            clientes.forEach(cliente => {
+                const option = document.createElement('option');
+                option.value = cliente.id;
+                option.textContent = `${cliente.nome} - ${cliente.cnpj || 'S/CNPJ'}`;
+                select.appendChild(option);
+            });
+        }
+        
+        // Inicializar Select2 após carregar os dados
+        if (typeof jQuery !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+            $('#cliente_id').select2({
+                theme: 'bootstrap-5',
+                language: 'pt-BR',
+                placeholder: 'Selecione ou busque um cliente...',
+                allowClear: true,
+                width: '100%',
+                matcher: matchCustom,
+                minimumResultsForSearch: 0,
+            });
+            console.log('✅ Select2 inicializado com sucesso');
+        } else {
+            console.error('❌ jQuery ou Select2 não carregado');
+            showAlert('Erro ao inicializar busca de clientes', 'warning');
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar clientes:', error);
+        document.getElementById('cliente_id').innerHTML = '<option value="">Erro ao carregar clientes</option>';
+        showAlert('Erro ao carregar clientes', 'danger');
+    }
+}
+
+// Cache de equipamentos por cliente (para @ e @todos)
+let cacheEquipamentosPorCliente = {};
+async function fetchEquipamentosCliente(clienteId) {
+    if (cacheEquipamentosPorCliente[clienteId]) return cacheEquipamentosPorCliente[clienteId];
+    const fetchAuth = window.authenticatedFetch || fetch;
+    const token = getToken();
+    const opts = {};
+    if (token && fetchAuth === fetch) opts.headers = { 'Authorization': 'Bearer ' + token };
+    const response = await fetchAuth(`/api/v1/equipamentos/?cliente_id=${clienteId}&per_page=10000`, opts);
+    if (!response.ok) return [];
+    const data = await response.json();
+    const list = data.equipamentos || data.items || [];
+    cacheEquipamentosPorCliente[clienteId] = list;
+    return list;
+}
+function formatEquipamentoLinha(e) {
+    const parts = [];
+    if (e.patrimonio) parts.push('Patrimônio ' + e.patrimonio);
+    if (e.inventario) parts.push('Inv. ' + e.inventario);
+    parts.push('Série ' + (e.numero_serie || '-'));
+    if (e.modelo) parts.push(e.modelo);
+    return parts.join(' - ');
+}
+function formatEquipamentoLabel(e) {
+    return (e.patrimonio || e.inventario || 'ID ' + e.id) + ' — ' + (e.numero_serie || '') + ' — ' + (e.modelo || '');
+}
+function formatAllEquipamentos(equipamentos) {
+    return equipamentos.map(formatEquipamentoLinha).join('\n');
+}
+
+// Inicializar Tribute (@ e @todos) no textarea de equipamentos contratados
+function initTributeEquipamentos() {
+    const textarea = document.getElementById('equipamentos_contratados');
+    if (!textarea || typeof Tribute === 'undefined') return;
+    if (textarea._tribute) return; // já inicializado
+    const tribute = new Tribute({
+        trigger: '@',
+        allowSpaces: true,
+        menuItemLimit: 20,
+        lookup: 'key',
+        fillAttr: 'value',
+        values: function (text, cb) {
+            const clienteId = $('#cliente_id').val();
+            if (!clienteId) {
+                cb([{ key: 'Selecione um cliente antes', value: '' }]);
+                return;
+            }
+            fetchEquipamentosCliente(clienteId).then(function (equipamentos) {
+                const items = [{ key: '@todos — Inserir todos os equipamentos do cliente', value: formatAllEquipamentos(equipamentos) }];
+                equipamentos.forEach(function (e) { items.push({ key: formatEquipamentoLabel(e), value: formatEquipamentoLinha(e) }); });
+                cb(items);
+            }).catch(function () { cb([{ key: 'Erro ao carregar equipamentos', value: '' }]); });
+        }
+    });
+    tribute.attach(textarea);
+}
+
+// Função de busca customizada para Select2 (busca em nome e CNPJ)
+function matchCustom(params, data) {
+    // Se não houver termo de busca, retorna todos
+    if ($.trim(params.term) === '') {
+        return data;
+    }
+    
+    // Se não houver texto no option, ignora
+    if (typeof data.text === 'undefined') {
+        return null;
+    }
+    
+    // Busca case-insensitive
+    const termo = params.term.toLowerCase();
+    const texto = data.text.toLowerCase();
+    
+    // Retorna se encontrou o termo no texto
+    if (texto.indexOf(termo) > -1) {
+        return data;
+    }
+    
+    return null;
+}
+
+// Formatar valor para exibição em Real (ex: 1550 -> "1.550,00")
+function formatBRL(val) {
+    if (val === '' || val === null || val === undefined) return '';
+    const n = typeof val === 'string' ? parseBRL(val) : Number(val);
+    if (isNaN(n)) return '';
+    return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+// Converter string BRL para número (ex: "1.550,00" -> 1550.00)
+function parseBRL(str) {
+    if (!str || typeof str !== 'string') return 0;
+    const s = String(str).replace(/\./g, '').replace(',', '.').trim();
+    const n = parseFloat(s);
+    return isNaN(n) ? 0 : n;
+}
+
+// Salvar contrato
+async function salvarContrato(formData) {
+    try {
+        const valorMensalEl = document.getElementById('valor_mensal');
+        const valorMensalNum = valorMensalEl ? parseBRL(valorMensalEl.value) : 0;
+        const data = {
+            cliente_id: parseInt(formData.get('cliente_id')),
+            numero_contrato: formData.get('numero_contrato'),
+            data_inicio: formData.get('data_inicio'),
+            data_fim: formData.get('data_fim'),
+            periodicidade: formData.get('periodicidade'),
+            valor_mensal: valorMensalNum,
+            equipamentos_contratados: formData.get('equipamentos_contratados') || null,
+            status: formData.get('status'),
+            observacoes: formData.get('observacoes') || null,
+            contrato_descritivo: formData.get('contrato_descritivo') || null
+        };
+        
+        const fetchAuth = window.authenticatedFetch || fetch;
+        const token = getToken();
+        const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) };
+        if (token && fetchAuth === fetch) opts.headers['Authorization'] = 'Bearer ' + token;
+        const response = await fetchAuth('/api/v1/contratos-afericao/', opts);
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.detail || 'Erro ao salvar contrato');
+        }
+        
+        showAlert('Contrato criado com sucesso!', 'success');
+        
+        setTimeout(() => {
+            window.location.href = '/contratos';
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Erro ao salvar:', error);
+        showAlert(error.message || 'Erro ao salvar contrato', 'danger');
+        throw error;
+    }
+}
+
+// Mostrar alertas
+function showAlert(message, type = 'info') {
+    const alertContainer = document.getElementById('alert-container');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    alertContainer.appendChild(alert);
+    
+    setTimeout(() => {
+        alert.remove();
+    }, 5000);
+}
+
+// Validar datas
+function validarDatas() {
+    const dataInicio = document.getElementById('data_inicio').value;
+    const dataFim = document.getElementById('data_fim').value;
+    
+    if (dataInicio && dataFim && new Date(dataFim) < new Date(dataInicio)) {
+        showAlert('A data de término deve ser maior que a data de início', 'warning');
+        return false;
+    }
+    return true;
+}
+
+// Formatar valor mensal em BRL ao sair do campo
+document.getElementById('valor_mensal').addEventListener('blur', function() {
+    const v = parseBRL(this.value);
+    if (v > 0) this.value = formatBRL(v);
+});
+
+// Submissão do formulário
+document.getElementById('formNovoContrato').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    if (!validarDatas()) return;
+    const valorMensal = parseBRL(document.getElementById('valor_mensal').value);
+    if (valorMensal <= 0) {
+        showAlert('Informe um valor mensal válido (maior que zero).', 'warning');
+        return;
+    }
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Salvando...';
+        
+        const formData = new FormData(this);
+        await salvarContrato(formData);
+        
+    } catch (error) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+    }
+});
+
+// Event listeners para validação de datas
+document.getElementById('data_inicio').addEventListener('change', validarDatas);
+document.getElementById('data_fim').addEventListener('change', validarDatas);
+
+// Carregar dados ao iniciar
+document.addEventListener('DOMContentLoaded', function() {
+    carregarClientes();
+    
+    // Definir data de hoje como padrão para data de início
+    const hoje = new Date().toISOString().split('T')[0];
+    document.getElementById('data_inicio').value = hoje;
+    
+    // Definir data +1 ano como padrão para data de término
+    const umAnoDepois = new Date();
+    umAnoDepois.setFullYear(umAnoDepois.getFullYear() + 1);
+    document.getElementById('data_fim').value = umAnoDepois.toISOString().split('T')[0];
+    
+    // @ e @todos no campo Equipamentos Contratados (após Select2 estar pronto)
+    setTimeout(initTributeEquipamentos, 300);
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,950 @@
+{% extends "base.html" %}
+
+{% block title %}Marketing Vitrine | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="h3 d-inline align-middle mb-0">Marketing — Home da vitrine</h1>
+        <a href="/negocio/marketplace" class="btn btn-outline-secondary btn-sm">Marketplace</a>
+    </div>
+    <div class="alert alert-secondary border py-2 px-3 small mb-3" role="status">
+      <strong>Regra do sistema (documentada em MAPA_SISTEMA — MAPA_DE_API § 19 e MAPA_DO_SISTEMA § 12):</strong>
+      todos os cards da vitrine pública (<strong>Destaques</strong>, <strong>Ofertas da semana</strong> e <strong>cabeçalho</strong> da seção ofertas) são <strong>configurados e parametrizados apenas aqui</strong>, pelo <strong>Superadministrador</strong>, e gravados nas tabelas <code>marketing_vitrine_cards</code> e <code>marketing_vitrine_config</code>. Não existe cadastro paralelo em outra rota.
+    </div>
+    <p class="text-muted small mb-2"><strong>Parametrização dos cards da vitrine:</strong> a home pública (<code>/loja</code>) monta a faixa «Destaques» e a grade «Ofertas da semana» a partir dos registros abaixo e da <strong>Configuração global</strong> — não há lista fixa de cards no código; tudo vem do banco via API. Use <strong>Cards da vitrine</strong> para cada item (livre, anúncio vinculado ou cabeçalho de ofertas). O tipo <strong>Cabeçalho da seção Ofertas</strong> define título, limite, tenants (CAs), embaralhar e só com desconto; se não houver cards de produto na seção ofertas, a home pode preencher automaticamente com anúncios promocionais usando essas regras. <strong>Configuração global</strong>: liga/desliga módulo, seções (hero, em alta, lojas) e textos. Anúncios em cards: <strong>publicados</strong>, loja <strong>ativa</strong>, imagem válida. Cards precisam estar <strong>Ativos</strong> e, se usarem vigência, dentro da janela de datas. Apenas Superadministrador.</p>
+    <p class="small mb-3">
+      <a href="#secao-mv-cards" class="text-decoration-none">↓ Cards da vitrine</a>
+      <span class="text-muted mx-1">·</span>
+      <a href="#secao-mv-config" class="text-decoration-none">↓ Configuração global</a>
+    </p>
+
+    <div id="alert-mv"></div>
+
+    <div class="row">
+        <div class="col-lg-7 mb-3 order-first" id="secao-mv-cards">
+            <div class="card border-primary">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 bg-light">
+                    <div>
+                        <h6 class="card-title mb-0">Cards da vitrine</h6>
+                        <p class="small text-muted mb-0 mt-1">Tabela + formulário «Novo card» / editar. Bloco <em>Destaque</em> = faixa na home (layout e setas em <strong>Configuração global</strong>); <em>Oferta da semana</em> = coluna «Ofertas da semana».</p>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-primary" id="btn-novo-card">Novo card</button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Bloco</th>
+                                    <th>Tipo</th>
+                                    <th>Resumo</th>
+                                    <th>Ordem</th>
+                                    <th>Ativo</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="mv-cards-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3" id="mv-card-editor" style="display: none;">
+                <div class="card-header"><h6 class="card-title mb-0" id="mv-editor-title">Novo card</h6></div>
+                <div class="card-body">
+                    <form id="form-mv-card">
+                        <input type="hidden" id="mv-card-id" value="">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label">Bloco</label>
+                                <select class="form-select" id="mv-card-tipo-bloco" required>
+                                    <option value="destaque">Destaque (faixa horizontal «Destaques»)</option>
+                                    <option value="oferta_semana">Oferta da semana (seção «Ofertas da semana»)</option>
+                                </select>
+                                <div class="form-text">Só aparece na home se o bloco corresponder: destaques ≠ ofertas.</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Tipo de card</label>
+                                <select class="form-select" id="mv-card-tipo-card" required>
+                                    <option value="livre">Livre (imagem + link)</option>
+                                    <option value="anuncio">Anúncio (vínculo)</option>
+                                    <option value="cabecalho_ofertas">Cabeçalho da seção Ofertas (título, subtítulo, limite)</option>
+                                </select>
+                                <div class="form-text" id="mv-cabecalho-only-hint" style="display:none;">Tipo «Cabeçalho» só no bloco «Oferta da semana».</div>
+                            </div>
+                            <div class="col-12 mv-cabecalho-ofertas-fields" style="display: none;">
+                                <label class="form-label" for="mv-card-desc-cab">Subtítulo da seção</label>
+                                <textarea class="form-control" id="mv-card-desc-cab" rows="2" placeholder="Texto abaixo do título" autocomplete="off"></textarea>
+                                <label class="form-label mt-2" for="mv-card-limite-exibicao">Quantidade de produtos exibidos (1 a 8)</label>
+                                <input type="number" class="form-control" id="mv-card-limite-exibicao" min="1" max="8" step="1" value="8" autocomplete="off">
+                                <div class="form-text mb-2">Ordem recomendada: <strong>0</strong> para o cabeçalho vir antes dos cards de produto.</div>
+                                <hr class="my-2">
+                                <label class="form-label" for="mv-card-clientes-ca">Clientes (tenant / CA)</label>
+                                <select class="form-select" id="mv-card-clientes-ca" multiple size="8" aria-describedby="mv-card-clientes-ca-help"></select>
+                                <div class="form-text" id="mv-card-clientes-ca-help">Segure <kbd>Ctrl</kbd> (ou <kbd>Cmd</kbd>) para selecionar vários <strong>clientes</strong> (cadastro do CA). Vazio = <strong>todas</strong> as lojas na vitrine. Se existir mais de um card «Cabeçalho» neste bloco, os tenants são <strong>unidos</strong> e limite/flags vêm do cabeçalho de <strong>maior ordem</strong> que tenha clientes selecionados. Lista: <code>GET /api/v1/clientes/todos</code>.</div>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" id="mv-card-embaralhar">
+                                    <label class="form-check-label" for="mv-card-embaralhar">Embaralhar a cada atualização da página</label>
+                                </div>
+                                <div class="form-check mb-0">
+                                    <input class="form-check-input" type="checkbox" id="mv-card-somente-desconto" checked>
+                                    <label class="form-check-label" for="mv-card-somente-desconto">Somente produtos com desconto (preço promocional) no sistema</label>
+                                </div>
+                                <p class="small text-muted mt-2 mb-0">Estes parâmetros valem quando a seção usa o <strong>preenchimento automático</strong> (sem cards de anúncio na grade). Com cards manuais, o limite acima ainda limita quantos itens entram.</p>
+                            </div>
+                            <div class="col-12 mv-livre-titulo">
+                                <label class="form-label" for="mv-card-titulo">Título</label>
+                                <input type="text" class="form-control" id="mv-card-titulo" maxlength="200" autocomplete="off">
+                            </div>
+                            <div class="col-12 mv-livre-media">
+                                <label class="form-label" for="mv-card-imagem">URL da imagem</label>
+                                <input type="text" class="form-control" id="mv-card-imagem" placeholder="https://…" autocomplete="off">
+                            </div>
+                            <div class="col-12 mv-livre-media">
+                                <label class="form-label" for="mv-card-link">URL do link</label>
+                                <input type="text" class="form-control" id="mv-card-link" placeholder="https://… ou /loja/produto/123" autocomplete="off">
+                            </div>
+                            <div class="col-12 mv-livre-desc" style="display: none;">
+                                <label class="form-label" for="mv-card-desc-livre">Subtítulo / texto curto (opcional)</label>
+                                <textarea class="form-control" id="mv-card-desc-livre" rows="2" maxlength="500" placeholder="Aparece abaixo do título na faixa Destaques (card livre)" autocomplete="off"></textarea>
+                                <div class="form-text">Somente para tipo <strong>Livre</strong>. Gravado em <code>marketing_vitrine_cards.descricao</code> e exposto em <code>GET …/vitrine-home</code>.</div>
+                            </div>
+                            <div class="col-12 mv-anuncio-fields" style="display: none;">
+                                <label class="form-label" for="mv-card-anuncio-select">Anúncio (publicado, loja ativa, com imagem)</label>
+                                <label class="form-label" for="mv-card-anuncio-ca">Clientes (CA) para filtrar produtos</label>
+                                <select class="form-select mb-2" id="mv-card-anuncio-ca" multiple size="6">
+                                    <option value="">— Selecione o CA primeiro —</option>
+                                </select>
+                                <div class="input-group mb-2">
+                                    <input type="search" class="form-control" id="mv-card-anuncio-q" placeholder="Buscar no título…" autocomplete="off">
+                                    <button type="button" class="btn btn-outline-secondary" id="mv-card-anuncio-search-btn" title="Atualizar lista">Buscar</button>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="mv-card-anuncio-embaralhar">
+                                    <label class="form-check-label" for="mv-card-anuncio-embaralhar">Embaralhar produtos da vitrine a cada atualização da página</label>
+                                </div>
+                                <select class="form-select" id="mv-card-anuncio-select" multiple size="8" style="max-height: 14rem;">
+                                    <option value="">— Carregando anúncios… —</option>
+                                </select>
+                                <label class="form-label mt-2" for="mv-card-anuncio-id-manual">ID do anúncio (manual)</label>
+                                <input type="number" class="form-control" id="mv-card-anuncio-id-manual" min="1" step="1" placeholder="Use se o anúncio não aparecer na lista">
+                                <div class="form-text mb-0">Fluxo padrão: selecione um ou mais <strong>CAs</strong>, carregue os produtos (anúncios), e então selecione um ou vários itens na lista. Use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> para multi-seleção.</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label" for="mv-card-ordem">Ordem</label>
+                                <input type="number" class="form-control" id="mv-card-ordem" min="0" value="100">
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="mv-card-ativo" checked>
+                                    <label class="form-check-label" for="mv-card-ativo">Ativo</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="mv-card-inicio">Início (opcional, UTC)</label>
+                                <input type="datetime-local" class="form-control" id="mv-card-inicio">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label" for="mv-card-fim">Fim (opcional, UTC)</label>
+                                <input type="datetime-local" class="form-control" id="mv-card-fim">
+                            </div>
+                        </div>
+                        <div class="mt-3 d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary btn-sm" id="btn-salvar-card">Salvar card</button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cancelar-card">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5 mb-3" id="secao-mv-config">
+            <div class="card">
+                <div class="card-header"><h6 class="card-title mb-0">Configuração global</h6></div>
+                <div class="card-body">
+                    <form id="form-mv-config">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="mv-ativo" checked>
+                            <label class="form-check-label" for="mv-ativo">Módulo ativo (desliga destaques/ofertas na API pública)</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="mv-mostrar-todos" checked>
+                            <label class="form-check-label" for="mv-mostrar-todos">Mostrar seção &quot;Todos os produtos&quot; na home</label>
+                        </div>
+                        <hr class="my-3">
+                        <p class="text-muted small mb-2">Seções da home pública (<code>/loja</code>)</p>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="mv-hero" checked>
+                            <label class="form-check-label" for="mv-hero">Mostrar hero (carrossel)</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="mv-em-alta" checked>
+                            <label class="form-check-label" for="mv-em-alta">Mostrar seção &quot;Em alta&quot; (mais procurados)</label>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="mv-lojas" checked>
+                            <label class="form-check-label" for="mv-lojas">Mostrar seção &quot;Lojas em destaque&quot;</label>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="mv-titulo-faixa">Título — faixa Destaques (cards marketing)</label>
+                            <input type="text" class="form-control" id="mv-titulo-faixa" maxlength="200" placeholder="Destaques" autocomplete="off">
+                        </div>
+                        <hr class="my-2">
+                        <p class="text-muted small mb-2 mb-1">Faixa Destaques — comportamento na home (<code>GET/ PATCH /api/v1/marketing-vitrine/config</code>)</p>
+                        <div class="mb-2">
+                            <label class="form-label" for="mv-destaque-layout">Layout da faixa Destaques</label>
+                            <select class="form-select" id="mv-destaque-layout">
+                                <option value="carrossel">Carrossel (rolagem horizontal)</option>
+                                <option value="grade">Grade (várias linhas, como Ofertas da semana)</option>
+                            </select>
+                            <div class="form-text">Gravado em <code>marketing_vitrine_config.destaque_layout</code>.</div>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="mv-destaque-setas" checked>
+                            <label class="form-check-label" for="mv-destaque-setas">Mostrar setas de navegação (apenas modo carrossel)</label>
+                        </div>
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="mv-destaque-snap" checked>
+                            <label class="form-check-label" for="mv-destaque-snap">Scroll snap no carrossel (encaixe por card)</label>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="mv-titulo-em-alta">Título — Em alta</label>
+                            <input type="text" class="form-control" id="mv-titulo-em-alta" maxlength="200" placeholder="Mais procurados" autocomplete="off">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="mv-sub-em-alta">Subtítulo — Em alta</label>
+                            <textarea class="form-control" id="mv-sub-em-alta" rows="2" placeholder="Produtos que estão chamando atenção."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm" id="btn-salvar-config">Salvar configuração</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  /** Mesma política do certipeso.js: Bearer + cookies (evita GET /cards 401 com fetch “nu”). */
+  function mvFetch(url, options) {
+    if (typeof window.authenticatedFetch === 'function') {
+      return window.authenticatedFetch(url, options || {});
+    }
+    var opts = options || {};
+    var headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    var token = typeof window.getAuthToken === 'function' ? window.getAuthToken() : null;
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return fetch(url, Object.assign({}, opts, { credentials: 'include', headers: headers }));
+  }
+
+  var cards = [];
+  var mvClientesCaSelectReady = false;
+  var mvClientesCaList = [];
+  var mvAnuncioTituloById = {};
+  var mvAnuncioSearchTimer = null;
+  var mvDestaqueEmbaralharCfg = false;
+
+  function mergePicklistIntoCache(items) {
+    items.forEach(function (x) {
+      if (x && x.id != null) mvAnuncioTituloById[x.id] = x.titulo || '';
+    });
+  }
+
+  function fillAnuncioSelect(items) {
+    var sel = document.getElementById('mv-card-anuncio-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = '— Selecione um anúncio —';
+    sel.appendChild(opt0);
+    items.forEach(function (x) {
+      var opt = document.createElement('option');
+      opt.value = String(x.id);
+      var tit = (x.titulo || '').slice(0, 80);
+      var loja = (x.nome_loja || '').slice(0, 40);
+      opt.textContent = '#' + x.id + (tit ? ' — ' + tit : '') + (loja ? ' · ' + loja : '');
+      sel.appendChild(opt);
+    });
+  }
+
+  function setAnuncioSelectMessage(msg) {
+    var sel = document.getElementById('mv-card-anuncio-select');
+    if (!sel) return;
+    sel.innerHTML = '';
+    var o = document.createElement('option');
+    o.value = '';
+    o.textContent = msg;
+    sel.appendChild(o);
+  }
+
+  function getSelectedAnuncioCaIds() {
+    var caSel = document.getElementById('mv-card-anuncio-ca');
+    var out = [];
+    if (!caSel) return out;
+    for (var ci = 0; ci < caSel.options.length; ci++) {
+      if (!caSel.options[ci].selected) continue;
+      var cval = parseInt(caSel.options[ci].value, 10);
+      if (!isNaN(cval) && cval > 0) out.push(cval);
+    }
+    return out;
+  }
+
+  function getSelectedAnuncioIdsFromSelect() {
+    var sel = document.getElementById('mv-card-anuncio-select');
+    var out = [];
+    if (!sel) return out;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (!sel.options[i].selected) continue;
+      var v = parseInt(sel.options[i].value, 10);
+      if (!isNaN(v) && v > 0 && out.indexOf(v) === -1) out.push(v);
+    }
+    return out;
+  }
+
+  function fetchAnunciosPicklist(q, done, opts) {
+    opts = opts || {};
+    var embSel = document.getElementById('mv-card-anuncio-embaralhar');
+    var caIds = getSelectedAnuncioCaIds();
+    var anuncioIds = Array.isArray(opts.anuncioIds) ? opts.anuncioIds : [];
+    var useShuffle = embSel ? embSel.checked === true : false;
+    var url = '/api/v1/marketing-vitrine/anuncios-picklist?limit=200';
+    caIds.forEach(function (idv) {
+      url += '&cliente_id=' + idv;
+    });
+    anuncioIds.forEach(function (idv) {
+      var n = parseInt(idv, 10);
+      if (!isNaN(n) && n > 0) url += '&anuncio_id=' + n;
+    });
+    if (q && String(q).trim()) url += '&q=' + encodeURIComponent(String(q).trim());
+    if (useShuffle) url += '&embaralhar=true';
+    mvFetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then(function (data) {
+        var items = data && data.items ? data.items : [];
+        mergePicklistIntoCache(items);
+        fillAnuncioSelect(items);
+        if (done) done(items);
+      })
+      .catch(function () {
+        setAnuncioSelectMessage('— Erro ao carregar anúncios —');
+        if (done) done([]);
+      });
+  }
+
+  function applyAnuncioCaSelectionFromItems(items) {
+    var selCa = document.getElementById('mv-card-anuncio-ca');
+    if (!selCa) return;
+    var idset = {};
+    (Array.isArray(items) ? items : []).forEach(function (x) {
+      var cid = x && x.cliente_id != null ? parseInt(x.cliente_id, 10) : NaN;
+      if (!isNaN(cid) && cid > 0) idset[cid] = true;
+    });
+    if (!Object.keys(idset).length) return;
+    for (var i = 0; i < selCa.options.length; i++) {
+      var v = parseInt(selCa.options[i].value, 10);
+      selCa.options[i].selected = !!idset[v];
+    }
+  }
+
+  function applyAnuncioSelectionAfterPicklist(row) {
+    var sel = document.getElementById('mv-card-anuncio-select');
+    var manual = document.getElementById('mv-card-anuncio-id-manual');
+    if (!sel || !manual) return;
+    manual.value = '';
+    var targets = [];
+    if (row && Array.isArray(row.anuncio_ids) && row.anuncio_ids.length) {
+      for (var t = 0; t < row.anuncio_ids.length; t++) {
+        var tv = parseInt(row.anuncio_ids[t], 10);
+        if (!isNaN(tv) && tv > 0 && targets.indexOf(tv) === -1) targets.push(tv);
+      }
+    } else if (row && row.anuncio_id) {
+      targets.push(parseInt(row.anuncio_id, 10));
+    }
+    if (!targets.length) return;
+    var foundCount = 0;
+    for (var i = 0; i < sel.options.length; i++) {
+      var oid = parseInt(sel.options[i].value, 10);
+      if (!isNaN(oid) && targets.indexOf(oid) !== -1) {
+        sel.options[i].selected = true;
+        foundCount += 1;
+      }
+    }
+    if (foundCount === 0 && targets.length === 1) manual.value = String(targets[0]);
+  }
+
+  function loadPicklistForEditor(row, done) {
+    var rowIds = [];
+    if (row && Array.isArray(row.anuncio_ids) && row.anuncio_ids.length) rowIds = row.anuncio_ids.slice();
+    else if (row && row.anuncio_id) rowIds = [row.anuncio_id];
+    var caSel = getSelectedAnuncioCaIds();
+    if (!caSel.length && !rowIds.length) {
+      setAnuncioSelectMessage('— Selecione um ou mais CAs para listar produtos —');
+      if (done) done();
+      return;
+    }
+    fetchAnunciosPicklist('', function (items) {
+      if (!caSel.length && rowIds.length) {
+        applyAnuncioCaSelectionFromItems(items);
+      }
+      applyAnuncioSelectionAfterPicklist(row);
+      if (done) done();
+    }, rowIds.length ? { anuncioIds: rowIds } : {});
+  }
+
+  function persistDestaqueEmbaralharFromAnuncio(done) {
+    var bloco = document.getElementById('mv-card-tipo-bloco');
+    var tipo = document.getElementById('mv-card-tipo-card');
+    var emb = document.getElementById('mv-card-anuncio-embaralhar');
+    if (!bloco || !tipo || !emb) return done();
+    if (bloco.value !== 'destaque' || tipo.value !== 'anuncio') return done();
+    mvFetch('/api/v1/marketing-vitrine/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destaque_embaralhar: emb.checked === true })
+    }).then(function (r) {
+      if (!r.ok) throw new Error();
+      mvDestaqueEmbaralharCfg = emb.checked === true;
+      done();
+    }).catch(function () {
+      showAlert('Não foi possível salvar "Embaralhar" da faixa Destaques.', false);
+    });
+  }
+
+  function applyClientesCaSelectionFromRow(row) {
+    var sel = document.getElementById('mv-card-clientes-ca');
+    if (!sel) return;
+    var ids = row && row.cliente_ids && Array.isArray(row.cliente_ids) ? row.cliente_ids : [];
+    var idset = {};
+    ids.forEach(function (x) {
+      if (x == null) return;
+      var n = parseInt(x, 10);
+      if (!isNaN(n)) idset[n] = true;
+    });
+    for (var i = 0; i < sel.options.length; i++) {
+      var o = sel.options[i];
+      o.selected = !!idset[parseInt(o.value, 10)];
+    }
+  }
+
+  function ensureClientesCaSelect(done) {
+    var sel = document.getElementById('mv-card-clientes-ca');
+    var selAn = document.getElementById('mv-card-anuncio-ca');
+    if (!sel) {
+      if (done) done();
+      return;
+    }
+    if (mvClientesCaSelectReady) {
+      if (done) done();
+      return;
+    }
+    mvFetch('/api/v1/marketing-vitrine/clientes-ca-picklist')
+      .then(function (r) {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
+      .then(function (list) {
+        sel.innerHTML = '';
+        mvClientesCaList = Array.isArray(list) ? list : [];
+        var arr = mvClientesCaList;
+        arr.forEach(function (c) {
+          var opt = document.createElement('option');
+          opt.value = String(c.id);
+          opt.textContent = (c.nome && String(c.nome).trim()) ? c.nome : ('Cliente #' + c.id);
+          sel.appendChild(opt);
+        });
+        if (selAn) {
+          selAn.innerHTML = '';
+          var opt0 = document.createElement('option');
+          opt0.value = '';
+          opt0.textContent = '— Selecione um ou mais CAs —';
+          selAn.appendChild(opt0);
+          arr.forEach(function (c) {
+            var oa = document.createElement('option');
+            oa.value = String(c.id);
+            oa.textContent = (c.nome && String(c.nome).trim()) ? c.nome : ('Cliente #' + c.id);
+            selAn.appendChild(oa);
+          });
+        }
+        mvClientesCaSelectReady = true;
+        if (done) done();
+      })
+      .catch(function () {
+        sel.innerHTML = '';
+        if (selAn) selAn.innerHTML = '<option value="">— Erro ao carregar CAs —</option>';
+        mvClientesCaSelectReady = true;
+        if (done) done();
+      });
+  }
+
+  function syncDestaqueLayoutFields() {
+    var dl = document.getElementById('mv-destaque-layout');
+    var ds = document.getElementById('mv-destaque-setas');
+    var dsn = document.getElementById('mv-destaque-snap');
+    if (!dl || !ds || !dsn) return;
+    var isGrade = dl.value === 'grade';
+    ds.disabled = isGrade;
+    dsn.disabled = isGrade;
+  }
+
+  function showAlert(msg, ok) {
+    var el = document.getElementById('alert-mv');
+    if (!el) return;
+    el.innerHTML = '<div class="alert alert-' + (ok ? 'success' : 'danger') + ' py-2">' + msg + '</div>';
+    if (ok) setTimeout(function () { el.innerHTML = ''; }, 4000);
+  }
+
+  function syncCabecalhoOptionVisibility() {
+    var bloco = document.getElementById('mv-card-tipo-bloco').value;
+    var sel = document.getElementById('mv-card-tipo-card');
+    var optCab = sel && sel.querySelector ? sel.querySelector('option[value="cabecalho_ofertas"]') : null;
+    var hint = document.getElementById('mv-cabecalho-only-hint');
+    if (optCab) optCab.disabled = bloco !== 'oferta_semana';
+    if (hint) hint.style.display = (bloco !== 'oferta_semana') ? '' : 'none';
+    if (bloco !== 'oferta_semana' && sel && sel.value === 'cabecalho_ofertas') {
+      sel.value = 'livre';
+    }
+  }
+
+  function toggleTipoFields() {
+    var tc = document.getElementById('mv-card-tipo-card').value;
+    var titRows = document.querySelectorAll('.mv-livre-titulo');
+    var mediaRows = document.querySelectorAll('.mv-livre-media');
+    var descLivre = document.querySelector('.mv-livre-desc');
+    var an = document.querySelector('.mv-anuncio-fields');
+    var cab = document.querySelector('.mv-cabecalho-ofertas-fields');
+    var titLab = document.querySelector('label[for="mv-card-titulo"]');
+    var showTit = tc === 'livre' || tc === 'cabecalho_ofertas';
+    for (var i = 0; i < titRows.length; i++) titRows[i].style.display = showTit ? '' : 'none';
+    for (var j = 0; j < mediaRows.length; j++) mediaRows[j].style.display = tc === 'livre' ? '' : 'none';
+    if (descLivre) descLivre.style.display = tc === 'livre' ? '' : 'none';
+    if (an) an.style.display = tc === 'anuncio' ? '' : 'none';
+    if (cab) cab.style.display = tc === 'cabecalho_ofertas' ? '' : 'none';
+    if (titLab) titLab.textContent = tc === 'cabecalho_ofertas' ? 'Título da seção' : 'Título';
+  }
+
+  function loadConfig() {
+    mvFetch('/api/v1/marketing-vitrine/config').then(function (r) {
+      if (!r.ok) throw new Error();
+      return r.json();
+    }).then(function (c) {
+      document.getElementById('mv-ativo').checked = c.ativo !== false;
+      document.getElementById('mv-mostrar-todos').checked = c.mostrar_todos_produtos !== false;
+      document.getElementById('mv-hero').checked = c.mostrar_hero_carrossel !== false;
+      document.getElementById('mv-em-alta').checked = c.mostrar_secao_em_alta === true;
+      document.getElementById('mv-lojas').checked = c.mostrar_secao_lojas_destaque === true;
+      document.getElementById('mv-titulo-faixa').value = c.titulo_faixa_destaques || '';
+      var dl = document.getElementById('mv-destaque-layout');
+      if (dl) {
+        dl.value = (c.destaque_layout === 'grade') ? 'grade' : 'carrossel';
+      }
+      var ds = document.getElementById('mv-destaque-setas');
+      if (ds) ds.checked = c.destaque_mostrar_setas !== false;
+      var dsn = document.getElementById('mv-destaque-snap');
+      if (dsn) dsn.checked = c.destaque_scroll_snap !== false;
+      mvDestaqueEmbaralharCfg = c.destaque_embaralhar === true;
+      var dea = document.getElementById('mv-card-anuncio-embaralhar');
+      if (dea) dea.checked = mvDestaqueEmbaralharCfg;
+      syncDestaqueLayoutFields();
+      document.getElementById('mv-titulo-em-alta').value = c.titulo_em_alta || '';
+      document.getElementById('mv-sub-em-alta').value = c.subtitulo_em_alta || '';
+    }).catch(function () {
+      showAlert('Erro ao carregar configuração.', false);
+    });
+  }
+
+  document.getElementById('form-mv-config').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var body = {
+      ativo: document.getElementById('mv-ativo').checked,
+      mostrar_todos_produtos: document.getElementById('mv-mostrar-todos').checked,
+      mostrar_hero_carrossel: document.getElementById('mv-hero').checked,
+      mostrar_secao_em_alta: document.getElementById('mv-em-alta').checked,
+      mostrar_secao_lojas_destaque: document.getElementById('mv-lojas').checked,
+      titulo_faixa_destaques: document.getElementById('mv-titulo-faixa').value.trim() || null,
+      destaque_layout: document.getElementById('mv-destaque-layout').value === 'grade' ? 'grade' : 'carrossel',
+      destaque_mostrar_setas: document.getElementById('mv-destaque-setas').checked,
+      destaque_scroll_snap: document.getElementById('mv-destaque-snap').checked,
+      titulo_em_alta: document.getElementById('mv-titulo-em-alta').value.trim() || null,
+      subtitulo_em_alta: document.getElementById('mv-sub-em-alta').value.trim() || null
+    };
+    mvFetch('/api/v1/marketing-vitrine/config', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+    }).then(function (res) {
+      if (res.ok) showAlert('Configuração salva.', true);
+      else {
+        var d = res.data && res.data.detail;
+        showAlert(typeof d === 'string' ? d : 'Erro ao salvar.', false);
+      }
+    }).catch(function () { showAlert('Erro de rede.', false); });
+  });
+
+  function fmtResumo(row) {
+    if (row.tipo_card === 'anuncio') {
+      var aids = Array.isArray(row.anuncio_ids) ? row.anuncio_ids : [];
+      if (aids.length > 1) return 'Anúncios: ' + aids.length + ' itens';
+      var tid = row.anuncio_id != null ? mvAnuncioTituloById[row.anuncio_id] : '';
+      if (tid) {
+        var s = String(tid).slice(0, 36);
+        return 'Anúncio: ' + s + (String(tid).length > 36 ? '…' : '') + ' (#' + row.anuncio_id + ')';
+      }
+      return 'Anúncio #' + (row.anuncio_id || '—');
+    }
+    if (row.tipo_card === 'cabecalho_ofertas') return 'Cabeçalho: ' + ((row.titulo || '').slice(0, 28) || '—');
+    return (row.titulo || '').slice(0, 40) || '—';
+  }
+
+  function renderTable() {
+    var tb = document.getElementById('mv-cards-tbody');
+    tb.innerHTML = '';
+    if (!cards.length) {
+      var empty = document.createElement('tr');
+      empty.innerHTML = '<td colspan="7" class="text-muted text-center py-4">Nenhum card cadastrado. Use o botão <strong>Novo card</strong> acima para criar entradas na faixa «Destaques» ou na seção «Ofertas da semana» da home pública.</td>';
+      tb.appendChild(empty);
+      return;
+    }
+    cards.forEach(function (row) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + row.id + '</td>' +
+        '<td>' + row.tipo_bloco + '</td>' +
+        '<td>' + row.tipo_card + '</td>' +
+        '<td>' + fmtResumo(row) + '</td>' +
+        '<td>' + row.ordem + '</td>' +
+        '<td>' + (row.ativo ? 'Sim' : 'Não') + '</td>' +
+        '<td class="text-nowrap">' +
+          '<button type="button" class="btn btn-sm btn-outline-primary me-1" data-edit="' + row.id + '">Editar</button>' +
+          '<button type="button" class="btn btn-sm btn-outline-danger" data-del="' + row.id + '">Excluir</button>' +
+        '</td>';
+      tb.appendChild(tr);
+    });
+  }
+
+  function loadCards() {
+    mvFetch('/api/v1/marketing-vitrine/cards')
+      .then(function (r) {
+        var ct = (r.headers.get('content-type') || '').toLowerCase();
+        if (!r.ok) {
+          return r.text().then(function (text) {
+            var msg = 'HTTP ' + r.status;
+            try {
+              var data = JSON.parse(text);
+              if (data && data.detail !== undefined) {
+                msg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+              }
+            } catch (_) {}
+            throw new Error(msg);
+          });
+        }
+        if (ct.indexOf('application/json') === -1) {
+          throw new Error('Resposta não é JSON. Atualize a página ou verifique o proxy.');
+        }
+        return r.json();
+      })
+      .then(function (list) {
+        cards = Array.isArray(list) ? list : [];
+        renderTable();
+        mvFetch('/api/v1/marketing-vitrine/anuncios-picklist?limit=300')
+          .then(function (r) {
+            return r.ok ? r.json() : { items: [] };
+          })
+          .then(function (data) {
+            var items = data && data.items ? data.items : [];
+            mergePicklistIntoCache(items);
+            renderTable();
+          })
+          .catch(function () {});
+      })
+      .catch(function (err) {
+        showAlert('Erro ao carregar cards: ' + (err && err.message ? err.message : String(err)), false);
+      });
+  }
+
+  function openEditor(row) {
+    var ed = document.getElementById('mv-card-editor');
+    ed.style.display = '';
+    document.getElementById('mv-editor-title').textContent = row ? 'Editar card #' + row.id : 'Novo card';
+    document.getElementById('mv-card-id').value = row ? String(row.id) : '';
+    document.getElementById('mv-card-tipo-bloco').value = row ? row.tipo_bloco : 'destaque';
+    document.getElementById('mv-card-tipo-card').value = row ? row.tipo_card : 'livre';
+    document.getElementById('mv-card-titulo').value = row && row.titulo ? row.titulo : '';
+    document.getElementById('mv-card-imagem').value = row && row.imagem_url ? row.imagem_url : '';
+    document.getElementById('mv-card-link').value = row && row.link_url ? row.link_url : '';
+    document.getElementById('mv-card-anuncio-id-manual').value = '';
+    document.getElementById('mv-card-anuncio-q').value = '';
+    var anuncioCa = document.getElementById('mv-card-anuncio-ca');
+    if (anuncioCa) anuncioCa.value = '';
+    var anuncioEmb = document.getElementById('mv-card-anuncio-embaralhar');
+    if (anuncioEmb) anuncioEmb.checked = mvDestaqueEmbaralharCfg === true;
+    var descLivreEl = document.getElementById('mv-card-desc-livre');
+    if (descLivreEl) {
+      descLivreEl.value = row && row.tipo_card === 'livre' && row.descricao ? row.descricao : '';
+    }
+    document.getElementById('mv-card-desc-cab').value =
+      row && row.tipo_card === 'cabecalho_ofertas' && row.descricao ? row.descricao : '';
+    document.getElementById('mv-card-limite-exibicao').value = row && row.limite_exibicao != null ? row.limite_exibicao : 8;
+    var emb = document.getElementById('mv-card-embaralhar');
+    var sd = document.getElementById('mv-card-somente-desconto');
+    if (emb) emb.checked = row ? row.embaralhar_produtos === true : false;
+    if (sd) sd.checked = row ? row.somente_com_desconto !== false : true;
+    document.getElementById('mv-card-ordem').value = row ? row.ordem : 100;
+    document.getElementById('mv-card-ativo').checked = row ? row.ativo !== false : true;
+    function toLocalInput(dt) {
+      if (!dt) return '';
+      var d = new Date(dt);
+      if (isNaN(d.getTime())) return '';
+      var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
+    document.getElementById('mv-card-inicio').value = row ? toLocalInput(row.inicio_em) : '';
+    document.getElementById('mv-card-fim').value = row ? toLocalInput(row.fim_em) : '';
+    syncCabecalhoOptionVisibility();
+    toggleTipoFields();
+    function finishOpen() {
+      ensureClientesCaSelect(function () {
+        applyClientesCaSelectionFromRow(row);
+      });
+      ed.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (document.getElementById('mv-card-tipo-card').value === 'anuncio') {
+      loadPicklistForEditor(row, finishOpen);
+    } else {
+      finishOpen();
+    }
+  }
+
+  function closeEditor() {
+    document.getElementById('mv-card-editor').style.display = 'none';
+  }
+
+  document.getElementById('btn-novo-card').addEventListener('click', function () { openEditor(null); });
+  document.getElementById('btn-cancelar-card').addEventListener('click', closeEditor);
+
+  document.getElementById('mv-cards-tbody').addEventListener('click', function (e) {
+    var t = e.target;
+    if (t.getAttribute('data-edit')) {
+      var id = parseInt(t.getAttribute('data-edit'), 10);
+      var row = cards.find(function (x) { return x.id === id; });
+      if (row) openEditor(row);
+    }
+    if (t.getAttribute('data-del')) {
+      var idd = parseInt(t.getAttribute('data-del'), 10);
+      if (!confirm('Excluir card #' + idd + '?')) return;
+      mvFetch('/api/v1/marketing-vitrine/cards/' + idd, { method: 'DELETE' }).then(function (r) {
+        if (r.status === 204) { showAlert('Card excluído.', true); loadCards(); }
+        else return r.json().then(function (d) { throw new Error(d.detail || 'Erro'); });
+      }).catch(function (err) { showAlert(err.message || 'Erro ao excluir.', false); });
+    }
+  });
+
+  function parseOptionalUtc(val) {
+    if (!val || !String(val).trim()) return null;
+    var d = new Date(val);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  }
+
+  document.getElementById('form-mv-card').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var id = document.getElementById('mv-card-id').value.trim();
+    var tipoCard = document.getElementById('mv-card-tipo-card').value;
+    var tipoBloco = document.getElementById('mv-card-tipo-bloco').value;
+    if (tipoCard === 'cabecalho_ofertas' && tipoBloco !== 'oferta_semana') {
+      showAlert('Cabeçalho «Ofertas da semana» só pode ser usado no bloco «Oferta da semana».', false);
+      return;
+    }
+    var body = {
+      tipo_bloco: document.getElementById('mv-card-tipo-bloco').value,
+      tipo_card: tipoCard,
+      ordem: parseInt(document.getElementById('mv-card-ordem').value, 10) || 100,
+      ativo: document.getElementById('mv-card-ativo').checked,
+      inicio_em: parseOptionalUtc(document.getElementById('mv-card-inicio').value),
+      fim_em: parseOptionalUtc(document.getElementById('mv-card-fim').value),
+      anuncio_ids: null
+    };
+    if (tipoCard === 'livre') {
+      body.titulo = document.getElementById('mv-card-titulo').value.trim();
+      body.imagem_url = document.getElementById('mv-card-imagem').value.trim();
+      body.link_url = document.getElementById('mv-card-link').value.trim();
+      body.anuncio_id = null;
+      var dl = document.getElementById('mv-card-desc-livre');
+      var dlt = dl && String(dl.value).trim();
+      body.descricao = dlt ? dlt : null;
+      body.limite_exibicao = null;
+      body.cliente_ids = null;
+      body.embaralhar_produtos = null;
+      body.somente_com_desconto = null;
+    } else if (tipoCard === 'cabecalho_ofertas') {
+      body.titulo = document.getElementById('mv-card-titulo').value.trim() || null;
+      body.descricao = document.getElementById('mv-card-desc-cab').value.trim() || null;
+      body.imagem_url = null;
+      body.link_url = null;
+      body.anuncio_id = null;
+      body.limite_exibicao = (function () {
+        var v = parseInt(document.getElementById('mv-card-limite-exibicao').value, 10);
+        return isNaN(v) ? 8 : v;
+      })();
+      body.cliente_ids = (function () {
+        var sel = document.getElementById('mv-card-clientes-ca');
+        var out = [];
+        if (!sel) return null;
+        for (var i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].selected) out.push(parseInt(sel.options[i].value, 10));
+        }
+        return out.length ? out : null;
+      })();
+      body.embaralhar_produtos = document.getElementById('mv-card-embaralhar').checked;
+      body.somente_com_desconto = document.getElementById('mv-card-somente-desconto').checked;
+    } else {
+      body.titulo = null;
+      body.descricao = null;
+      body.imagem_url = null;
+      body.link_url = null;
+      body.limite_exibicao = null;
+      body.cliente_ids = null;
+      body.embaralhar_produtos = null;
+      body.somente_com_desconto = null;
+      var manualEl = document.getElementById('mv-card-anuncio-id-manual');
+      var selectedAnuncioIds = getSelectedAnuncioIdsFromSelect();
+      var aid = NaN;
+      if (manualEl && String(manualEl.value).trim()) {
+        aid = parseInt(manualEl.value, 10);
+      } else if (selectedAnuncioIds.length === 1) {
+        aid = selectedAnuncioIds[0];
+      }
+      if (isNaN(aid) || aid < 1) {
+        if (!selectedAnuncioIds.length) {
+          showAlert('Selecione um ou mais anúncios na lista ou informe o ID manual.', false);
+          return;
+        }
+      }
+      if (!isNaN(aid) && aid > 0) selectedAnuncioIds = [aid];
+      body.anuncio_ids = selectedAnuncioIds.length ? selectedAnuncioIds : null;
+      body.anuncio_id = selectedAnuncioIds.length ? selectedAnuncioIds[0] : null;
+    }
+    var url = '/api/v1/marketing-vitrine/cards';
+    var method = 'POST';
+    if (id) {
+      url += '/' + id;
+      method = 'PATCH';
+    }
+    function submitCardRequest() {
+      if (tipoCard === 'anuncio') {
+        var selectedIds = getSelectedAnuncioIdsFromSelect();
+        var manualEl2 = document.getElementById('mv-card-anuncio-id-manual');
+        var manualId = manualEl2 && String(manualEl2.value).trim() ? parseInt(manualEl2.value, 10) : NaN;
+        if (!isNaN(manualId) && manualId > 0) selectedIds = [manualId];
+        if (!selectedIds.length) {
+          showAlert('Selecione um ou mais anúncios na lista ou informe o ID manual.', false);
+          return;
+        }
+        body.anuncio_ids = selectedIds;
+        body.anuncio_id = selectedIds[0];
+      }
+      mvFetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, data: data, status: r.status }; });
+      }).then(function (res) {
+        if (res.ok) {
+          showAlert('Card salvo.', true);
+          closeEditor();
+          loadCards();
+        } else {
+          var d = res.data && res.data.detail;
+          var msg = Array.isArray(d) ? d.map(function (x) { return x.msg || JSON.stringify(x); }).join('; ') : (typeof d === 'string' ? d : 'Erro ao salvar');
+          showAlert(msg, false);
+        }
+      }).catch(function () { showAlert('Erro de rede.', false); });
+    }
+    persistDestaqueEmbaralharFromAnuncio(submitCardRequest);
+  });
+
+  function initMarketingVitrineAdmin() {
+    var tipoCardEl = document.getElementById('mv-card-tipo-card');
+    if (tipoCardEl) tipoCardEl.addEventListener('change', function () {
+      toggleTipoFields();
+      if (document.getElementById('mv-card-tipo-card').value === 'cabecalho_ofertas') {
+        var cid = document.getElementById('mv-card-id').value.trim();
+        var erow = cid ? cards.find(function (x) { return String(x.id) === cid; }) : null;
+        ensureClientesCaSelect(function () {
+          applyClientesCaSelectionFromRow(erow);
+        });
+      }
+      if (document.getElementById('mv-card-tipo-card').value === 'anuncio') {
+        ensureClientesCaSelect(function () {
+          setAnuncioSelectMessage('— Selecione um ou mais CAs e clique em Buscar —');
+        });
+      }
+    });
+    var selAn = document.getElementById('mv-card-anuncio-select');
+    var manAn = document.getElementById('mv-card-anuncio-id-manual');
+    if (selAn && manAn) {
+      selAn.addEventListener('change', function () {
+        if (getSelectedAnuncioIdsFromSelect().length) manAn.value = '';
+      });
+      manAn.addEventListener('input', function () {
+        if (String(this.value).trim()) {
+          for (var i = 0; i < selAn.options.length; i++) selAn.options[i].selected = false;
+        }
+      });
+    }
+    var qAn = document.getElementById('mv-card-anuncio-q');
+    var btnAn = document.getElementById('mv-card-anuncio-search-btn');
+    var caAn = document.getElementById('mv-card-anuncio-ca');
+    var embAn = document.getElementById('mv-card-anuncio-embaralhar');
+    function hasSelectedCa() { return getSelectedAnuncioCaIds().length > 0; }
+    function runAnuncioSearch() {
+      if (!hasSelectedCa()) {
+        setAnuncioSelectMessage('— Selecione um ou mais CAs para listar produtos —');
+        return;
+      }
+      var qv = qAn ? qAn.value : '';
+      fetchAnunciosPicklist(qv, function () {
+        var cid = document.getElementById('mv-card-id').value.trim();
+        var erow = cid ? cards.find(function (x) { return String(x.id) === cid; }) : null;
+        if (erow && erow.tipo_card === 'anuncio') applyAnuncioSelectionAfterPicklist(erow);
+      });
+    }
+    if (btnAn) btnAn.addEventListener('click', function () { runAnuncioSearch(); });
+    if (caAn) caAn.addEventListener('change', function () { runAnuncioSearch(); });
+    if (embAn) embAn.addEventListener('change', function () { runAnuncioSearch(); });
+    var mvDl = document.getElementById('mv-destaque-layout');
+    if (mvDl) mvDl.addEventListener('change', syncDestaqueLayoutFields);
+
+    if (qAn) {
+      qAn.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runAnuncioSearch();
+        }
+      });
+      qAn.addEventListener('input', function () {
+        if (mvAnuncioSearchTimer) clearTimeout(mvAnuncioSearchTimer);
+        mvAnuncioSearchTimer = setTimeout(runAnuncioSearch, 400);
+      });
+    }
+    var blocoEl = document.getElementById('mv-card-tipo-bloco');
+    if (blocoEl) blocoEl.addEventListener('change', function () { syncCabecalhoOptionVisibility(); toggleTipoFields(); });
+    loadConfig();
+    loadCards();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMarketingVitrineAdmin);
+  } else {
+    initMarketingVitrineAdmin();
+  }
+})();
+</script>
+{% endblock %}

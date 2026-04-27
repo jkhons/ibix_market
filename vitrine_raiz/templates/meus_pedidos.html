@@ -1,0 +1,59 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Meus pedidos{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Meus pedidos</h1>
+<div id="loja-pedidos-unauth" class="alert alert-info" style="display: none;">
+    <a href="/loja/login">Entrar</a> para ver seus pedidos.
+</div>
+<div id="loja-pedidos-list" style="display: none;"></div>
+<div id="loja-pedidos-empty" class="text-muted" style="display: none;">
+    Nenhum pedido ainda. <a href="/">Fazer compras</a>
+</div>
+<div id="loja-pedidos-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var unauth = document.getElementById("loja-pedidos-unauth");
+  var listEl = document.getElementById("loja-pedidos-list");
+  var emptyEl = document.getElementById("loja-pedidos-empty");
+  var errorEl = document.getElementById("loja-pedidos-error");
+
+  window.Vitrine.getMeusPedidos()
+    .then(function (pedidos) {
+      unauth.style.display = "none";
+      if (!pedidos || pedidos.length === 0) {
+        emptyEl.style.display = "block";
+        return;
+      }
+      emptyEl.style.display = "none";
+      listEl.style.display = "block";
+      var html = '<div class="list-group">';
+      pedidos.forEach(function (p) {
+        var itens = (p.itens || []).map(function (i) {
+          return window.Vitrine.escapeHtml(i.titulo || "") + " &times; " + i.quantidade;
+        }).join(", ");
+        html +=
+          '<div class="list-group-item">' +
+            '<div class="d-flex justify-content-between">' +
+              "<strong>Pedido #" + p.id + "</strong>" +
+              "<span>" + window.Vitrine.formatPreco(p.total) + "</span>" +
+            "</div>" +
+            "<small class=\"text-muted\">" + (p.status_pedido || "") + " &middot; " + (p.status_pagamento || "") + "</small>" +
+            (itens ? "<p class=\"mb-0 mt-1 small\">" + itens + "</p>" : "") +
+          "</div>";
+      });
+      html += "</div>";
+      listEl.innerHTML = html;
+    })
+    .catch(function () {
+      unauth.style.display = "block";
+      listEl.style.display = "none";
+      emptyEl.style.display = "none";
+    });
+})();
+</script>
+{% endblock %}

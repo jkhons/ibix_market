@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Meu Dashboard | Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    .admin-dashboard .card-stat { min-height: 120px; }
+    .admin-dashboard .card-stat .stat { width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center; border-radius: 0.375rem; }
+    .admin-dashboard .card-stat .stat.text-primary { background: rgba(13, 110, 253, 0.12); }
+    .admin-dashboard .card-stat .stat.text-success { background: rgba(25, 135, 84, 0.12); }
+    .admin-dashboard .card-stat .stat.text-warning { background: rgba(255, 193, 7, 0.2); }
+    .admin-dashboard .section-title { font-size: 0.875rem; font-weight: 600; color: #6c757d; text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 0.75rem; }
+    .admin-dashboard .card-table .card-header { background: #f8f9fa; font-weight: 600; }
+    .admin-dashboard .card-table .table { font-size: 0.8125rem; }
+    .admin-dashboard .card-table .table thead th { border-bottom-width: 1px; font-weight: 600; color: #495057; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 admin-dashboard">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+        <div>
+            <h1 class="h3 mb-1"><strong>Meu Dashboard</strong></h1>
+            <p class="text-muted small mb-0">CAs vinculados e sua participação (comissão)</p>
+        </div>
+    </div>
+
+    <p class="section-title mb-0">Participação</p>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Percentual de participação</h5>
+                        <div class="stat text-primary">
+                            <i class="align-middle" data-feather="percent" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="adminPercentualParticipacao"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small">Comissão sobre mensalidades dos CAs</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Comissão pendente</h5>
+                        <div class="stat text-warning">
+                            <i class="align-middle" data-feather="clock" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="adminComissaoPendente"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small" id="adminComissaoPendenteQtd"></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card h-100 card-stat">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 small text-muted fw-normal">Comissão paga</h5>
+                        <div class="stat text-success">
+                            <i class="align-middle" data-feather="check-circle" style="width: 1.25rem; height: 1.25rem;"></i>
+                        </div>
+                    </div>
+                    <h2 class="mb-1 fw-bold" id="adminComissaoPaga"><span class="spinner-border spinner-border-sm"></span></h2>
+                    <span class="text-muted small" id="adminComissaoPagaQtd"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="section-title mb-0">CAs vinculados</p>
+    <div class="card card-table mb-4">
+        <div class="card-header">Listagem de Clientes Administradores</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>E-mail</th>
+                            <th>Status assinatura</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminTabelaCAs">
+                        <tr><td colspan="3" class="text-center text-muted py-4">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    function authFetch(url) {
+        if (typeof window.authenticatedFetch === 'function') return window.authenticatedFetch(url);
+        return fetch(url, { credentials: 'same-origin' });
+    }
+    function set(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+    function formatBRL(centavos) {
+        if (centavos == null) return 'R$ 0,00';
+        return 'R$ ' + (centavos / 100).toFixed(2).replace('.', ',');
+    }
+    function load() {
+        authFetch('/api/v1/admin/dashboard')
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Erro ' + r.status)); })
+            .then(function(data) {
+                if (data.tipo !== 'administrador') {
+                    set('adminPercentualParticipacao', '—');
+                    set('adminComissaoPendente', '—');
+                    set('adminComissaoPaga', '—');
+                    document.getElementById('adminTabelaCAs').innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">Resposta inesperada.</td></tr>';
+                    return;
+                }
+                var pct = data.percentual_participacao;
+                set('adminPercentualParticipacao', pct != null ? pct + '%' : 'Não configurado');
+                var resumo = data.resumo_comissoes || {};
+                set('adminComissaoPendente', formatBRL(resumo.pendente_centavos));
+                set('adminComissaoPendenteQtd', (resumo.total_pendente || 0) + ' lançamento(s) pendente(s)');
+                set('adminComissaoPaga', formatBRL(resumo.pago_centavos));
+                set('adminComissaoPagaQtd', (resumo.total_pago || 0) + ' lançamento(s) pago(s)');
+                var cas = data.cas || [];
+                var tbody = document.getElementById('adminTabelaCAs');
+                if (cas.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted py-4">Nenhum CA vinculado.</td></tr>';
+                } else {
+                    tbody.innerHTML = cas.map(function(ca) {
+                        var status = ca.subscription_status != null ? ca.subscription_status : '—';
+                        return '<tr><td>' + (ca.nome || '—') + '</td><td>' + (ca.email || '—') + '</td><td><span class="badge bg-secondary">' + status + '</span></td></tr>';
+                    }).join('');
+                }
+                if (typeof feather !== 'undefined') feather.replace();
+            })
+            .catch(function() {
+                set('adminPercentualParticipacao', '—');
+                set('adminComissaoPendente', '—');
+                set('adminComissaoPaga', '—');
+                document.getElementById('adminTabelaCAs').innerHTML = '<tr><td colspan="3" class="text-center text-danger py-4">Erro ao carregar dados.</td></tr>';
+            });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof feather !== 'undefined') feather.replace();
+        load();
+    });
+})();
+</script>
+{% endblock %}

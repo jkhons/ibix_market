@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Relatório Conversão Orçamentos | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Relatório de conversão: Orçamentos → Pedidos</strong></h1>
+            </div>
+            <div class="col-auto">
+                <a href="/negocio/orcamentos" class="btn btn-outline-secondary">Orçamentos</a>
+                <a href="/negocio/pedidos" class="btn btn-outline-secondary">Pedidos</a>
+            </div>
+        </div>
+    </div>
+    <div class="card mb-3">
+        <div class="card-body">
+            <div class="row g-2">
+                <div class="col-md-2">
+                    <label class="form-label">Data início</label>
+                    <input type="date" class="form-control" id="data-inicio">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data fim</label>
+                    <input type="date" class="form-control" id="data-fim">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary" id="btn-atualizar">
+                        <i data-feather="refresh-cw"></i> Atualizar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total de orçamentos</h5>
+                    <h2 id="total-orcamentos">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h5 class="card-title">Orçamentos convertidos em pedido</h5>
+                    <h2 id="orcamentos-convertidos">-</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <h5 class="card-title">Taxa de conversão</h5>
+                    <h2 id="taxa-conversao">-</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    async function carregar() {
+        let url = '/api/v1/relatorios/conversao-orcamentos?';
+        const di = document.getElementById('data-inicio').value;
+        const df = document.getElementById('data-fim').value;
+        if (di) url += 'data_inicio=' + encodeURIComponent(di) + '&';
+        if (df) url += 'data_fim=' + encodeURIComponent(df) + '&';
+        const res = await fetch(url, { credentials: 'include', headers: { 'Accept': 'application/json' } });
+        if (!res.ok) {
+            document.getElementById('total-orcamentos').textContent = 'Erro';
+            document.getElementById('orcamentos-convertidos').textContent = '-';
+            document.getElementById('taxa-conversao').textContent = '-';
+            return;
+        }
+        const data = await res.json();
+        document.getElementById('total-orcamentos').textContent = data.total_orcamentos != null ? data.total_orcamentos : '-';
+        document.getElementById('orcamentos-convertidos').textContent = data.orcamentos_convertidos != null ? data.orcamentos_convertidos : '-';
+        document.getElementById('taxa-conversao').textContent = data.taxa_conversao_percentual != null ? data.taxa_conversao_percentual + '%' : '-';
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+    document.getElementById('btn-atualizar').addEventListener('click', carregar);
+    document.addEventListener('DOMContentLoaded', function() {
+        carregar();
+        if (typeof feather !== 'undefined') feather.replace();
+    });
+})();
+</script>
+{% endblock %}

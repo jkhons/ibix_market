@@ -1,0 +1,756 @@
+Return-Path: <xml@transportadorafloresta.com.br>
+Delivered-To: bjpneus@terra.com.br
+Received: from prd-mail-dir01-eus2.az.terra.com.br ([10.10.34.9])
+	by prd-mail-dov16-eus02.az.terra.com.br with LMTP
+	id YETNGozwE2mf1ioAjJjMsA:T44:P1
+	(envelope-from <xml@transportadorafloresta.com.br>)
+	for <bjpneus@terra.com.br>; Wed, 12 Nov 2025 02:29:02 +0000
+Received: from prd-mail-rlin05-eus2 ([10.10.34.9])
+	(using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits))
+	by prd-mail-dir01-eus2.az.terra.com.br with LMTPS
+	id YETNGozwE2mf1ioAjJjMsA:T44
+	(envelope-from <xml@transportadorafloresta.com.br>)
+	for <bjpneus@terra.com.br>; Wed, 12 Nov 2025 02:29:02 +0000
+ARC-Seal: i=1; a=rsa-sha256; d=terra.com.br; s=arcselectoraz01; t=1762914541; cv=none; b=Bj+rpdlfO+ZkgL3rwI738EJfk748fmhGQbvm6MXtuCa96zogG3VuvyXz2ukfF6c3fTzwrcxKQq8Kvun9OxmllSxoSHnwfd/egMKR0bcdPBnldGLlFR+qQkzGJXNLQ/ba0DZOYZ5SFpQOYyShWWB9grKetjesgvVPKJHqXx+px9CCOsEK3qNN3v/dnRunYLfj2sko1GFDORzeNCdv27UgUbrmTN2WmV08Rqm9FQ7Wh5supGTuYrfnnUujMM80Aa/zIetSaxucLCsr8r1VZ8Juw3rEXpol1oilkRDR5J2urzvzAwZ+3zFWyDUd1ndHktR1+SUZQy0aQxafs8yN4pCqgg==
+ARC-Message-Signature: i=1; a=rsa-sha256; d=terra.com.br; s=arcselectoraz01; t=1762914541; c=relaxed/relaxed; h=from:reply-to:subject:date:to:cc:resent-date:resent-from:resent-to:resent-cc:in-reply-to:references:list-id:list-help:list-unsubscribe:list-unsubscribe-post:list-subscribe:list-post:list-owner:list-archive; x=1763519341; bh=JEql2p+kL2/PKdITN6HUlB9LE6bOhO0CTfv+TisId58=; b=fi7ohQc8hdiiklGj6EDg0Cu9Iw+17b7t2LunqrGXVlsaKv5HN5/HgFm408gHByZoFKZ+UaNUX2H/RpolKhfKToKJKbnueqehqBcrbV48i2305dCNop7lH8vSsqJdU/SbEQpxgcpPHzQrFBNgAlkeBGqjPCvbstdrPfkFlobDtviDbiFSD+SUclLmW24kOlwxtpf1lZTrWlC62OXkDumpkbdBz2TqX8y/K55Qehm3L2C13asxlyfbUlYmybCOWrk+z8+k9+85PdiARmQDPL1TmOZ/8MBwB4o9RdporKm0OBrc4eEy5Ry8AUsxI851JtHZuVvankMEPe8qQCvUpFMR3A==
+ARC-Authentication-Results: i=1; terra.com.br; iprev=pass policy.iprev=187.45.189.162; spf=pass ip=187.45.189.162 smtp.mailfrom=xml@transportadorafloresta.com.br; dkim=pass header.i=@transportadorafloresta.com.br header.d=transportadorafloresta.com.br header.s=default; dmarc=fail; arc=none;
+Authentication-Results: terra.com.br;
+ iprev=pass policy.iprev=187.45.189.162;
+ spf=pass ip=187.45.189.162 smtp.mailfrom=xml@transportadorafloresta.com.br;
+ dkim=pass header.i=@transportadorafloresta.com.br header.d=transportadorafloresta.com.br header.s=default;
+ dmarc=fail;
+ arc=none;
+X-Vade-Status: clean
+X-Vade-Score: 30
+X-Vade-Cause: gggruggvucftvghtrhhoucdtuddrgeeffedrtdeggddvtddvkeejucetufdotegg
+ odetrfdotffvucfrrhhofhhilhgvmecuvffgtfftteenuceurghilhhouhhtmecufedtudenucgot
+ ffhvedqqdfpohetthfknhfkffculdeftddmnecujfgurhepfffhvffkufggtgfgsegrjeerredttd
+ ejnecuhfhrohhmpeigmhhlsehtrhgrnhhsphhorhhtrgguohhrrghflhhorhgvshhtrgdrtghomhd
+ rsghrnecuggftrfgrthhtvghrnhepgffggeelleeljeekleduvdekleeltdduhfelieetkeeuffet
+ vdeghfegjeegheffnecukfhppedukeejrdeghedrudekledrudeivddpheegrddvtdehrdduiedtr
+ ddvtddvnecuvehluhhsthgvrhfuihiivgeptdenucfrrghrrghmpehinhgvthepudekjedrgeehrd
+ dukeelrdduiedvpdhhvghlohepshhrvhdurdhsuhhnlhhinhgvrdgtohhmrdgsrhdpmhgrihhlfhh
+ rohhmpeigmhhlsehtrhgrnhhsphhorhhtrgguohhrrghflhhorhgvshhtrgdrtghomhdrsghrpdhm
+ ohguvgepshhmthhppdhgvghokffrpeeutfdprghsnhepheeftdehhedprhgunhhspehsrhhvuddrs
+ hhunhhlihhnvgdrtghomhdrsghrpdgumhgrrhgtpehfrghilhdpshhpfhepphgrshhspdgukhhimh
+ epphgrshhspdgrrhgtpehnohhnvgdpnhgspghrtghpthhtohepud
+Received: from srv1.sunline.com.br ([187.45.189.162])
+ by prd-mail-rlin05-eus2 with ngmta
+ id 3a28aaca-1877216f42a9a816; Wed, 12 Nov 2025 02:29:01 +0000
+DKIM-Signature: v=1; a=rsa-sha256; q=dns/txt; c=relaxed/relaxed;
+	d=transportadorafloresta.com.br; s=default; h=Content-Transfer-Encoding:
+	Content-Type:Mime-Version:Subject:Message-ID:To:From:Date:Sender:Reply-To:Cc:
+	Content-ID:Content-Description:Resent-Date:Resent-From:Resent-Sender:
+	Resent-To:Resent-Cc:Resent-Message-ID:In-Reply-To:References:List-Id:
+	List-Help:List-Unsubscribe:List-Subscribe:List-Post:List-Owner:List-Archive;
+	bh=JEql2p+kL2/PKdITN6HUlB9LE6bOhO0CTfv+TisId58=; b=SzybmLZkMaBOJQnU/QbdWqZugb
+	M9w/eImiaWGAk2vXMuHOCVJOJBIR8V8RczsS6wyUbQuhvPplU9HXd4rFlWcqSoXEY/ra7lZDbU0FP
+	FIqXDURdwlje+lMI6MN4PzXJkTY9ZCHk5/5LrewVqn308SQdrx+ttOLFwv2hewMTw4cqAiplqO4UQ
+	eJU2ffIn5Ib4ghOyuyiLA7FL7F3pOL6CZnbzy8SxxJphVwmkEWBMIZq/LyioslxIi8v0Mt9Gpynyv
+	t88R8S+GdGtdydxs8PU7B20c+hwf3jSwJeqhNNWbp1IscdxRATZ2Ovj1QxhMbeNaUS1ZRCAimLIdi
+	4jI2blOw==;
+Received: from ec2-54-205-160-202.compute-1.amazonaws.com ([54.205.160.202]:48290 helo=)
+	by srv1.sunline.com.br with esmtpsa  (TLS1.2) tls TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	(Exim 4.96.2)
+	(envelope-from <xml@transportadorafloresta.com.br>)
+	id 1vJ0bM-005N4f-20
+	for bjpneus@terra.com.br;
+	Tue, 11 Nov 2025 23:28:57 -0300
+Date: Wed, 12 Nov 2025 02:28:57 +0000
+From: xml@transportadorafloresta.com.br
+To: bjpneus@terra.com.br
+Message-ID: <54676575-54909930>
+Subject: =?UTF-8?Q?Notifica=C3=A7=C3=A3o_de_status_de_transporte?=
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+ boundary="--==_mimepart_6913f0e93c926_23a9d4c4321269"
+Content-Transfer-Encoding: 7bit
+X-AntiAbuse: This header was added to track abuse, please include it with any abuse report
+X-AntiAbuse: Primary Hostname - srv1.sunline.com.br
+X-AntiAbuse: Original Domain - terra.com.br
+X-AntiAbuse: Originator/Caller UID/GID - [47 12] / [47 12]
+X-AntiAbuse: Sender Address Domain - transportadorafloresta.com.br
+X-Get-Message-Sender-Via: srv1.sunline.com.br: authenticated_id: xml@transportadorafloresta.com.br
+X-Authenticated-Sender: srv1.sunline.com.br: xml@transportadorafloresta.com.br
+X-Source: 
+X-Source-Args: 
+X-Source-Dir: 
+
+
+----==_mimepart_6913f0e93c926_23a9d4c4321269
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+#occurrence-notification{-webkit-font-smoothing:antialiased;-webkit-text-=
+size-adjust:none;background-color:#f6f6f6;font-family:'Helvetica
+Neue', 'Helvetica', Helvetica, Arial,
+sans-serif;font-size:14px;height:100%;line-height:1.6;margin:0;padding:0;=
+width:100%
+!important}#occurrence-notification
+.margin-0{margin:0}#occurrence-notification
+.padding-0{padding:0}#occurrence-notification #header
+.content-block{padding:0 0 20px}#occurrence-notification #header
+h1{color:#003399;font-size:32px;font-weight:500;margin:10px
+0;text-align:center}#occurrence-notification #header
+h2{font-size:21px;margin:10px
+0;text-align:center}#occurrence-notification #header
+img{height:100px}#occurrence-notification #footer
+.content-block{background:#dadada;color:#555;font-size:13px;line-height:1=
+.6;padding:32px
+0;text-align:center;text-transform:uppercase}#occurrence-notification
+table.main{background:#fff;border:1px solid
+#e9e9e9;border-radius:3px;margin:0;padding:0;width:100%}#occurrence-notif=
+ication
+table.section{border:1px solid
+#e5e5e5;border-collapse:collapse;width:100%}#occurrence-notification
+table.no-border{border:none}#occurrence-notification
+table.no-border tr,#occurrence-notification table.no-border
+th,#occurrence-notification table.no-border
+td{border:none}#occurrence-notification
+table.timeline{list-style-type:none;width:100%}#occurrence-notification
+.section-title{background-color:#cad0ec;font-family:Arial,
+Helvetica, sans-serif;font-size:14px;height:25px;margin:0.83em
+0;text-align:center;text-transform:uppercase}#occurrence-notification
+.section-title
+span{position:relative;top:5px}#occurrence-notification
+.section-content{border:1px solid
+#e5e5e5;font-size:11px;padding:4px
+5px;text-align:left}#occurrence-notification
+.section-content.title{color:#374271}#occurrence-notification
+.timeline-info{height:50px;overflow:hidden;text-align:center;text-overflo=
+w:ellipsis;white-space:nowrap;width:16.66%}#occurrence-notification
+.timeline-info span{font-size:12px}#occurrence-notification
+.timeline-info
+span.title{font-weight:bold}#occurrence-notification
+.timeline-info
+span.title.progtrckr-todo{color:#ccc}#occurrence-notification
+.timeline-info
+span.subtitle{font-weight:normal;position:relative;top:5%}#occurrence-not=
+ification
+.timeline-content{height:35px;text-align:center;width:16.66%}
+
+*****************************
+CENTRO AUTOMOTIVO BJ LIMITADA
+*****************************
+
+-----------------------------------------------------------------
+Gostar=C3=ADamos de inform=C3=A1-lo que sua encomenda est=C3=A1 com uma n=
+ova
+atualiza=C3=A7=C3=A3o.
+-----------------------------------------------------------------
+
+Cota=C3=A7=C3=A3o
+
+Coleta
+
+Doc/Minuta 33340/
+10/11/2025 14:17
+
+Em Transfer=C3=AAncia
+10/11/2025 19:28
+
+Em Entrega
+11/11/2025 10:40
+
+Entregue/Finalizado
+11/11/2025 18:30
+
+----------
+Ocorr=C3=AAncia
+----------
+
+Data ocorr=C3=AAncia
+Descri=C3=A7=C3=A3o
+
+11/11/2025 18:30
+001 - Entrega/Coleta Realizada Normalmente
+
+-------------------
+Dados do Transporte
+-------------------
+
+Remetente
+Cidade Origem
+Destinat=C3=A1rio
+Cidade Destino
+Data Coleta
+Emiss=C3=A3o CT-e
+
+71 DISEMP  DISTR. EMP. PNEUS ACESS. LTDA - SEMANAL 71
+Limeira
+CENTRO AUTOMOTIVO BJ LIMITADA
+Len=C3=A7=C3=B3is Paulista
+
+10/11/2025
+
+Pedido Coleta
+Minuta
+CT-e
+Refer=C3=AAncia
+Previs=C3=A3o de entrega
+Valor NF
+
+33340
+
+10/11/2025 23:59
+R$ 3.838,80
+
+Volume
+Peso Real
+Peso Taxado
+Natureza
+Observa=C3=A7=C3=B5es
+
+12
+108,00
+108,00
+Outros
+
+----------------
+Dados da Entrega
+----------------
+
+Data
+Recebedor
+Documento
+Coment=C3=A1rio
+
+11/11/2025 18:30
+
+-------------
+Notas Fiscais
+-------------
+
+N=C3=BAmero
+S=C3=A9rie
+Valor
+Volumes
+Peso
+Data
+Pedido
+
+367929
+1
+R$ 3.838,80
+12
+108,00
+07/11/2025 00:00
+
+FLORESTA LOGISTICA LTDA - RIB. PRETO
+Rua Professor Ant=C3=B4nio Palocci, 611 - BLOCO B - BOX 07
+Jardim Ouro Branco - Ribeir=C3=A3o Preto - SP
+CEP 14079-800
+CNPJ 22.163.228/0003-05 - Insc. Estadual 797755258112=
+
+----==_mimepart_6913f0e93c926_23a9d4c4321269
+Content-Type: text/html;
+ charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www=
+.w3.org/TR/REC-html40/loose.dtd">
+<html style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif=
+;">
+<head><meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3DU=
+TF-8"></head>
+<body style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif=
+;"><div style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-ser=
+if;">
+<style type=3D"text/css" style=3D"font-size: 14px; font-family: Arial, He=
+lvetica, sans-serif;">#occurrence-notification{-webkit-font-smoothing:ant=
+ialiased;-webkit-text-size-adjust:none;background-color:#f6f6f6;font-fami=
+ly:'Helvetica Neue', 'Helvetica', Helvetica, Arial, sans-serif;font-size:=
+14px;height:100%;line-height:1.6;margin:0;padding:0;width:100% !important=
+}#occurrence-notification .margin-0{margin:0}#occurrence-notification .pa=
+dding-0{padding:0}#occurrence-notification #header .content-block{padding=
+:0 0 20px}#occurrence-notification #header h1{color:#003399;font-size:32p=
+x;font-weight:500;margin:10px 0;text-align:center}#occurrence-notificatio=
+n #header h2{font-size:21px;margin:10px 0;text-align:center}#occurrence-n=
+otification #header img{height:100px}#occurrence-notification #footer .co=
+ntent-block{background:#dadada;color:#555;font-size:13px;line-height:1.6;=
+padding:32px 0;text-align:center;text-transform:uppercase}#occurrence-not=
+ification table.main{background:#fff;border:1px solid #e9e9e9;border-radi=
+us:3px;margin:0;padding:0;width:100%}#occurrence-notification table.secti=
+on{border:1px solid #e5e5e5;border-collapse:collapse;width:100%}#occurren=
+ce-notification table.no-border{border:none}#occurrence-notification tabl=
+e.no-border tr,#occurrence-notification table.no-border th,#occurrence-no=
+tification table.no-border td{border:none}#occurrence-notification table.=
+timeline{list-style-type:none;width:100%}#occurrence-notification .sectio=
+n-title{background-color:#cad0ec;font-family:Arial, Helvetica, sans-serif=
+;font-size:14px;height:25px;margin:0.83em 0;text-align:center;text-transf=
+orm:uppercase}#occurrence-notification .section-title span{position:relat=
+ive;top:5px}#occurrence-notification .section-content{border:1px solid #e=
+5e5e5;font-size:11px;padding:4px 5px;text-align:left}#occurrence-notifica=
+tion .section-content.title{color:#374271}#occurrence-notification .timel=
+ine-info{height:50px;overflow:hidden;text-align:center;text-overflow:elli=
+psis;white-space:nowrap;width:16.66%}#occurrence-notification .timeline-i=
+nfo span{font-size:12px}#occurrence-notification .timeline-info span.titl=
+e{font-weight:bold}#occurrence-notification .timeline-info span.title.pro=
+gtrckr-todo{color:#ccc}#occurrence-notification .timeline-info span.subti=
+tle{font-weight:normal;position:relative;top:5%}#occurrence-notification =
+.timeline-content{height:35px;text-align:center;width:16.66%}</style>
+<div style=3D"font-size: 14px; font-family: 'Helvetica Neue', 'Helvetica'=
+, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; -web=
+kit-text-size-adjust: none; background-color: #f6f6f6; height: 100%; line=
+-height: 1.6; width: 100% !important; margin: 0; padding: 0;"><table clas=
+s=3D"body-wrap" style=3D"width: 100%; font-size: 14px; font-family: Arial=
+, Helvetica, sans-serif; margin: 0; padding: 0;" bgcolor=3D"#f6f6f6"><tbo=
+dy style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+<tr class=3D"margin-0 padding-0" style=3D"font-size: 14px; font-family: A=
+rial, Helvetica, sans-serif; margin: 0; padding: 0;">
+<td class=3D"margin-0 padding-0" style=3D"font-size: 14px; font-family: A=
+rial, Helvetica, sans-serif; margin: 0; padding: 0;"></td>
+<td class=3D"container" style=3D"clear: both !important; font-size: 14px;=
+ font-family: Arial, Helvetica, sans-serif; padding: 0;"><div class=3D"co=
+ntent" style=3D"display: block; font-size: 14px; font-family: Arial, Helv=
+etica, sans-serif; margin: 0 auto; padding: 20px;"><table cellpadding=3D"=
+0" cellspacing=3D"0" class=3D"main" style=3D"font-size: 14px; font-family=
+: Arial, Helvetica, sans-serif; border-radius: 3px; width: 100%; margin: =
+0; padding: 0; border: 1px solid #e9e9e9;" bgcolor=3D"#fff"><tbody style=3D=
+"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">
+<tr class=3D"margin-0 padding-0" style=3D"font-size: 14px; font-family: A=
+rial, Helvetica, sans-serif; margin: 0; padding: 0;"><td class=3D"content=
+-wrap" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-seri=
+f; margin: 0; padding: 20px;" align=3D"center"><table cellpadding=3D"0" c=
+ellspacing=3D"0" class=3D"margin-0 padding-0" width=3D"100%" style=3D"fon=
+t-size: 14px; font-family: Arial, Helvetica, sans-serif; margin: 0; paddi=
+ng: 0;"><tbody style=3D"font-size: 14px; font-family: Arial, Helvetica, s=
+ans-serif;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td class=3D"content-block" style=3D"font-size: 14px; font-family: Arial=
+, Helvetica, sans-serif; padding: 0 0 20px;">
+<div class=3D"corporation-logo" style=3D"font-size: 14px; font-family: Ar=
+ial, Helvetica, sans-serif; width: 100%;"><img src=3D"https://eslcloud.s3=
+.sa-east-1.amazonaws.com/transportadorafloresta/avatars/56dedb4e41c19c309=
+2f679a1f82cbde67afaafbf/original/Logo_Floresta_reduzida.jpg?X-Amz-Algorit=
+hm=3DAWS4-HMAC-SHA256&amp;X-Amz-Credential=3DAKIAJ3CMAACACKNEDO6A%2F20251=
+112%2Fsa-east-1%2Fs3%2Faws4_request&amp;X-Amz-Date=3D20251112T022857Z&amp=
+;X-Amz-Expires=3D604800&amp;X-Amz-SignedHeaders=3Dhost&amp;X-Amz-Signatur=
+e=3Dfcc2fa4b8ad4b43e6fd304768a5b02902593a8905e49a7d3d6f6a00fc6f7db4e" sty=
+le=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif; display=
+: block; height: 100px; margin: 0 auto;"></div>
+<h1 style=3D"font-size: 32px; font-family: Arial, Helvetica, sans-serif; =
+color: #003399; font-weight: 500; margin: 10px 0;" align=3D"center">CENTR=
+O AUTOMOTIVO BJ LIMITADA</h1>
+<h2 style=3D"font-size: 21px; font-family: Arial, Helvetica, sans-serif; =
+margin: 10px 0;" align=3D"center">Gostar=C3=ADamos de inform=C3=A1-lo que=
+ sua encomenda est=C3=A1 com uma nova atualiza=C3=A7=C3=A3o.</h2>
+</td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table cellpadding=3D"0" cellspacing=3D"0" class=3D"timeline" style=3D"=
+font-size: 14px; font-family: Arial, Helvetica, sans-serif; list-style-ty=
+pe: none; width: 100%;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"timeline-info" style=3D"font-size: 14px; font-family: Arial,=
+ Helvetica, sans-serif; height: 50px; overflow: hidden; text-overflow: el=
+lipsis; white-space: nowrap; width: 16.66%;" align=3D"center">
+<span class=3D"progtrckr-todo title" style=3D"font-size: 12px; font-famil=
+y: Arial, Helvetica, sans-serif; font-weight: bold; color: #ccc;">Cota=C3=
+=A7=C3=A3o </span><br style=3D"font-size: 14px; font-family: Arial, Helve=
+tica, sans-serif;"><span class=3D"progtrckr-todo subtitle" style=3D"font-=
+size: 12px; font-family: Arial, Helvetica, sans-serif; font-weight: norma=
+l; position: relative; top: 5%;">=C2=A0</span><br style=3D"font-size: 14p=
+x; font-family: Arial, Helvetica, sans-serif;">
+</td>
+<td class=3D"timeline-info" style=3D"font-size: 14px; font-family: Arial,=
+ Helvetica, sans-serif; height: 50px; overflow: hidden; text-overflow: el=
+lipsis; white-space: nowrap; width: 16.66%;" align=3D"center">
+<span class=3D"progtrckr-todo title" style=3D"font-size: 12px; font-famil=
+y: Arial, Helvetica, sans-serif; font-weight: bold; color: #ccc;">Coleta =
+</span><br style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-=
+serif;"><span class=3D"progtrckr-todo subtitle" style=3D"font-size: 12px;=
+ font-family: Arial, Helvetica, sans-serif; font-weight: normal; position=
+: relative; top: 5%;">=C2=A0</span><br style=3D"font-size: 14px; font-fam=
+ily: Arial, Helvetica, sans-serif;">
+</td>
+<td class=3D"timeline-info" style=3D"font-size: 14px; font-family: Arial,=
+ Helvetica, sans-serif; height: 50px; overflow: hidden; text-overflow: el=
+lipsis; white-space: nowrap; width: 16.66%;" align=3D"center">
+<span class=3D"progtrckr-done title" style=3D"font-size: 12px; font-famil=
+y: Arial, Helvetica, sans-serif; font-weight: bold;">Doc/Minuta 33340/</s=
+pan><br style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-ser=
+if;"><span class=3D"progtrckr-done subtitle" style=3D"font-size: 12px; fo=
+nt-family: Arial, Helvetica, sans-serif; font-weight: normal; position: r=
+elative; top: 5%;">10/11/2025 14:17=C2=A0</span><br style=3D"font-size: 1=
+4px; font-family: Arial, Helvetica, sans-serif;">
+</td>
+<td class=3D"timeline-info" style=3D"font-size: 14px; font-family: Arial,=
+ Helvetica, sans-serif; height: 50px; overflow: hidden; text-overflow: el=
+lipsis; white-space: nowrap; width: 16.66%;" align=3D"center">
+<span class=3D"progtrckr-done title" style=3D"font-size: 12px; font-famil=
+y: Arial, Helvetica, sans-serif; font-weight: bold;">Em Transfer=C3=AAnci=
+a</span><br style=3D"font-size: 14px; font-family: Arial, Helvetica, sans=
+-serif;"><span class=3D"progtrckr-done subtitle" style=3D"font-size: 12px=
+; font-family: Arial, Helvetica, sans-serif; font-weight: normal; positio=
+n: relative; top: 5%;">10/11/2025 19:28=C2=A0</span><br style=3D"font-siz=
+e: 14px; font-family: Arial, Helvetica, sans-serif;">
+</td>
+<td class=3D"timeline-info" style=3D"font-size: 14px; font-family: Arial,=
+ Helvetica, sans-serif; height: 50px; overflow: hidden; text-overflow: el=
+lipsis; white-space: nowrap; width: 16.66%;" align=3D"center">
+<span class=3D"progtrckr-done title" style=3D"font-size: 12px; font-famil=
+y: Arial, Helvetica, sans-serif; font-weight: bold;">Em Entrega</span><br=
+ style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"><s=
+pan class=3D"progtrckr-done subtitle" style=3D"font-size: 12px; font-fami=
+ly: Arial, Helvetica, sans-serif; font-weight: normal; position: relative=
+; top: 5%;">11/11/2025 10:40=C2=A0</span><br style=3D"font-size: 14px; fo=
+nt-family: Arial, Helvetica, sans-serif;">
+</td>
+<td class=3D"timeline-info" style=3D"font-size: 14px; font-family: Arial,=
+ Helvetica, sans-serif; height: 50px; overflow: hidden; text-overflow: el=
+lipsis; white-space: nowrap; width: 16.66%;" align=3D"center">
+<span class=3D"progtrckr-done title" style=3D"font-size: 12px; font-famil=
+y: Arial, Helvetica, sans-serif; font-weight: bold;">Entregue/Finalizado<=
+/span><br style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-s=
+erif;"><span class=3D"progtrckr-done subtitle" style=3D"font-size: 12px; =
+font-family: Arial, Helvetica, sans-serif; font-weight: normal; position:=
+ relative; top: 5%;">11/11/2025 18:30=C2=A0</span><br style=3D"font-size:=
+ 14px; font-family: Arial, Helvetica, sans-serif;">
+</td>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"timeline-content" style=3D"font-size: 14px; font-family: Ari=
+al, Helvetica, sans-serif; height: 35px; width: 16.66%;" align=3D"center"=
+><img src=3D"https://d16fnh4kiggo7m.cloudfront.net/assets/icons/timeline_=
+solid-64b5ec5fc22585f277c87e21b6a41026373bb127cf691ac9b2972761f8d63467.pn=
+g" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+</td>
+<td class=3D"timeline-content" style=3D"font-size: 14px; font-family: Ari=
+al, Helvetica, sans-serif; height: 35px; width: 16.66%;" align=3D"center"=
+><img src=3D"https://d16fnh4kiggo7m.cloudfront.net/assets/icons/timeline_=
+solid-64b5ec5fc22585f277c87e21b6a41026373bb127cf691ac9b2972761f8d63467.pn=
+g" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+</td>
+<td class=3D"timeline-content" style=3D"font-size: 14px; font-family: Ari=
+al, Helvetica, sans-serif; height: 35px; width: 16.66%;" align=3D"center"=
+><img src=3D"https://d16fnh4kiggo7m.cloudfront.net/assets/icons/timeline_=
+check-2e30e2190ee516ba9f2ec575e74e4d595ce819b7babcb48e65501f2e2263874a.pn=
+g" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+</td>
+<td class=3D"timeline-content" style=3D"font-size: 14px; font-family: Ari=
+al, Helvetica, sans-serif; height: 35px; width: 16.66%;" align=3D"center"=
+><img src=3D"https://d16fnh4kiggo7m.cloudfront.net/assets/icons/timeline_=
+check-2e30e2190ee516ba9f2ec575e74e4d595ce819b7babcb48e65501f2e2263874a.pn=
+g" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+</td>
+<td class=3D"timeline-content" style=3D"font-size: 14px; font-family: Ari=
+al, Helvetica, sans-serif; height: 35px; width: 16.66%;" align=3D"center"=
+><img src=3D"https://d16fnh4kiggo7m.cloudfront.net/assets/icons/timeline_=
+check-2e30e2190ee516ba9f2ec575e74e4d595ce819b7babcb48e65501f2e2263874a.pn=
+g" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+</td>
+<td class=3D"timeline-content" style=3D"font-size: 14px; font-family: Ari=
+al, Helvetica, sans-serif; height: 35px; width: 16.66%;" align=3D"center"=
+><img src=3D"https://d16fnh4kiggo7m.cloudfront.net/assets/icons/timeline_=
+check-2e30e2190ee516ba9f2ec575e74e4d595ce819b7babcb48e65501f2e2263874a.pn=
+g" style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">=
+</td>
+</tr>
+</table></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><h2 class=3D"section-title" style=3D"font-size: 14px; font-family: Aria=
+l, Helvetica, sans-serif; background-color: #cad0ec; height: 25px; text-t=
+ransform: uppercase; margin: 0.83em 0;" align=3D"center"><span style=3D"f=
+ont-size: 14px; font-family: Arial, Helvetica, sans-serif; position: rela=
+tive; top: 5px;">Ocorr=C3=AAncia</span></h2></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table class=3D"section" style=3D"font-size: 14px; font-family: Arial, =
+Helvetica, sans-serif; border-collapse: collapse; width: 100%; border: 1p=
+x solid #e5e5e5;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Data ocorr=C3=AAncia</=
+th>
+<th class=3D"section-content title" style=3D"font-size: 11px; font-family=
+: Arial, Helvetica, sans-serif; color: #374271; padding: 4px 5px; border:=
+ 1px solid #e5e5e5;" align=3D"left">Descri=C3=A7=C3=A3o</th>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">11/11/2025 18:30</td>
+<td class=3D"section-content" style=3D"font-size: 11px; font-family: Aria=
+l, Helvetica, sans-serif; padding: 4px 5px; border: 1px solid #e5e5e5;" a=
+lign=3D"left">001 - Entrega/Coleta Realizada Normalmente</td>
+</tr>
+</table></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><h2 class=3D"section-title" style=3D"font-size: 14px; font-family: Aria=
+l, Helvetica, sans-serif; background-color: #cad0ec; height: 25px; text-t=
+ransform: uppercase; margin: 0.83em 0;" align=3D"center"><span style=3D"f=
+ont-size: 14px; font-family: Arial, Helvetica, sans-serif; position: rela=
+tive; top: 5px;">Dados do Transporte</span></h2></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table class=3D"section" style=3D"font-size: 14px; font-family: Arial, =
+Helvetica, sans-serif; border-collapse: collapse; width: 100%; border: 1p=
+x solid #e5e5e5;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Remetente</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Cidade Origem</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Destinat=C3=A1rio</th>=
+
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Cidade Destino</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Data Coleta</th>
+<th class=3D"section-content title" style=3D"font-size: 11px; font-family=
+: Arial, Helvetica, sans-serif; color: #374271; padding: 4px 5px; border:=
+ 1px solid #e5e5e5;" align=3D"left">Emiss=C3=A3o CT-e</th>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">71 DISEMP  DISTR. EMP. PNEUS ACESS. LTDA - S=
+EMANAL 71</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">Limeira</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">CENTRO AUTOMOTIVO BJ LIMITADA</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">Len=C3=A7=C3=B3is Paulista</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left"></td>
+<td class=3D"section-content" style=3D"font-size: 11px; font-family: Aria=
+l, Helvetica, sans-serif; padding: 4px 5px; border: 1px solid #e5e5e5;" a=
+lign=3D"left">10/11/2025</td>
+</tr>
+</table></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table class=3D"section" style=3D"margin-top: 10px; font-size: 14px; fo=
+nt-family: Arial, Helvetica, sans-serif; border-collapse: collapse; width=
+: 100%; border: 1px solid #e5e5e5;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Pedido Coleta</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Minuta</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">CT-e</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Refer=C3=AAncia</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Previs=C3=A3o de entre=
+ga</th>
+<th class=3D"section-content title" style=3D"font-size: 11px; font-family=
+: Arial, Helvetica, sans-serif; color: #374271; padding: 4px 5px; border:=
+ 1px solid #e5e5e5;" align=3D"left">Valor NF</th>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left"></td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left"></td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">33340</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left"></td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">10/11/2025 23:59</td>
+<td class=3D"section-content" style=3D"font-size: 11px; font-family: Aria=
+l, Helvetica, sans-serif; padding: 4px 5px; border: 1px solid #e5e5e5;" a=
+lign=3D"left">R$ 3.838,80</td>
+</tr>
+</table></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table class=3D"section" style=3D"margin-top: 10px; font-size: 14px; fo=
+nt-family: Arial, Helvetica, sans-serif; border-collapse: collapse; width=
+: 100%; border: 1px solid #e5e5e5;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Volume</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Peso Real</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Peso Taxado</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Natureza</th>
+<th class=3D"section-content title" style=3D"font-size: 11px; font-family=
+: Arial, Helvetica, sans-serif; color: #374271; padding: 4px 5px; border:=
+ 1px solid #e5e5e5;" align=3D"left">Observa=C3=A7=C3=B5es</th>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">12</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">108,00</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">108,00</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">Outros</td>
+<td class=3D"section-content" style=3D"font-size: 11px; font-family: Aria=
+l, Helvetica, sans-serif; padding: 4px 5px; border: 1px solid #e5e5e5;" a=
+lign=3D"left"></td>
+</tr>
+</table></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><h2 class=3D"section-title" style=3D"font-size: 14px; font-family: Aria=
+l, Helvetica, sans-serif; background-color: #cad0ec; height: 25px; text-t=
+ransform: uppercase; margin: 0.83em 0;" align=3D"center"><span style=3D"f=
+ont-size: 14px; font-family: Arial, Helvetica, sans-serif; position: rela=
+tive; top: 5px;">Dados da Entrega</span></h2></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table class=3D"section" style=3D"font-size: 14px; font-family: Arial, =
+Helvetica, sans-serif; border-collapse: collapse; width: 100%; border: 1p=
+x solid #e5e5e5;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Data</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Recebedor</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Documento</th>
+<th class=3D"section-content title" style=3D"font-size: 11px; font-family=
+: Arial, Helvetica, sans-serif; color: #374271; padding: 4px 5px; border:=
+ 1px solid #e5e5e5;" align=3D"left">Coment=C3=A1rio</th>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">11/11/2025 18:30=C2=A0</td>
+<td class=3D"section-content" style=3D"width: 10.71%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">=C2=A0</td>
+<td class=3D"section-content" style=3D"width: 10.71%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">=C2=A0</td>
+<td class=3D"section-content" style=3D"font-size: 11px; font-family: Aria=
+l, Helvetica, sans-serif; padding: 4px 5px; border: 1px solid #e5e5e5;" a=
+lign=3D"left"></td>
+</tr>
+</table></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><h2 class=3D"section-title" style=3D"font-size: 14px; font-family: Aria=
+l, Helvetica, sans-serif; background-color: #cad0ec; height: 25px; text-t=
+ransform: uppercase; margin: 0.83em 0;" align=3D"center"><span style=3D"f=
+ont-size: 14px; font-family: Arial, Helvetica, sans-serif; position: rela=
+tive; top: 5px;">Notas Fiscais</span></h2></td></tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+><td style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;=
+"><table class=3D"section" style=3D"font-size: 14px; font-family: Arial, =
+Helvetica, sans-serif; border-collapse: collapse; width: 100%; border: 1p=
+x solid #e5e5e5;">
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">N=C3=BAmero</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">S=C3=A9rie</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"right">Valor</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"right">Volumes</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"right">Peso</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Data</th>
+<th class=3D"section-content title" style=3D"width: 14.28%; font-size: 11=
+px; font-family: Arial, Helvetica, sans-serif; color: #374271; padding: 4=
+px 5px; border: 1px solid #e5e5e5;" align=3D"left">Pedido</th>
+</tr>
+<tr style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;"=
+>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">367929</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">1</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"right">R$ 3.838,80</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"right">12</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"right">108,00</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left">07/11/2025 00:00</td>
+<td class=3D"section-content" style=3D"width: 14.28%; font-size: 11px; fo=
+nt-family: Arial, Helvetica, sans-serif; padding: 4px 5px; border: 1px so=
+lid #e5e5e5;" align=3D"left"></td>
+</tr>
+</table></td></tr>
+</tbody></table></td></tr>
+<tr class=3D"margin-0 padding-0" style=3D"font-size: 14px; font-family: A=
+rial, Helvetica, sans-serif; margin: 0; padding: 0;"><td class=3D"content=
+-block" style=3D"font-size: 13px; font-family: Arial, Helvetica, sans-ser=
+if; color: #555; line-height: 1.6; text-transform: uppercase; padding: 32=
+px 0;" align=3D"center" bgcolor=3D"#dadada">FLORESTA LOGISTICA LTDA - RIB=
+. PRETO<br style=3D"font-size: 14px; font-family: Arial, Helvetica, sans-=
+serif;">Rua Professor Ant=C3=B4nio Palocci, 611 - BLOCO B - BOX 07<br sty=
+le=3D"font-size: 14px; font-family: Arial, Helvetica, sans-serif;">Jardim=
+ Ouro Branco - Ribeir=C3=A3o Preto - SP<br style=3D"font-size: 14px; font=
+-family: Arial, Helvetica, sans-serif;">CEP 14079-800<br style=3D"font-si=
+ze: 14px; font-family: Arial, Helvetica, sans-serif;">CNPJ 22.163.228/000=
+3-05 - Insc. Estadual 797755258112</td></tr>
+</tbody></table></div></td>
+</tr></tbody></table></div>
+</div></body>
+</html>
+
+----==_mimepart_6913f0e93c926_23a9d4c4321269--

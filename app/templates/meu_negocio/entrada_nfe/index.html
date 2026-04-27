@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+{% block title %}Entrada de Notas NFe | PDV Ibix{% endblock %}
+{% block extra_css %}{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+  <div class="mb-3">
+    <a href="/negocio/estoque" class="btn btn-outline-secondary btn-sm"><i data-feather="arrow-left"></i> Voltar</a>
+    <h1 class="h3 d-inline align-middle ms-2"><strong>Entrada de Notas NFe</strong></h1>
+  </div>
+  <div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">Importar XML</h5>
+    </div>
+    <div class="card-body">
+      <input type="hidden" id="cliente_id" value="{{ entrada_nfe_cliente_id or '' }}">
+      <div class="row align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Empresa fiscal</label>
+          <div class="form-control-plaintext fw-semibold">{{ entrada_nfe_cliente_nome or '—' }}</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="arquivo_xml">Arquivos XML da NF-e</label>
+          <input type="file" class="form-control" id="arquivo_xml" name="arquivo" accept=".xml,application/xml" multiple>
+        </div>
+        <div class="col-md-4">
+          <button type="button" class="btn btn-primary" id="btn-importar">
+            <i data-feather="upload"></i> Importar
+          </button>
+        </div>
+      </div>
+      <div id="import-msg" class="mt-2 small"></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="card-title mb-0">Notas importadas</h5>
+      <select class="form-select form-select-sm w-auto" id="filtro-status">
+        <option value="">Todos os status</option>
+        <option value="IMPORTADO">Importado</option>
+        <option value="PENDENTE_CONCILIACAO">Pendente conciliação</option>
+        <option value="CONCILIADO">Conciliado</option>
+      </select>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover">
+          <thead>
+            <tr>
+              <th>Emissor</th>
+              <th>NF</th>
+              <th>Série</th>
+              <th>Emissão</th>
+              <th>Valor</th>
+              <th>Itens vinculados</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-docs"></tbody>
+        </table>
+      </div>
+      <p class="text-muted small mb-0" id="msg-lista">{{ 'Carregando…' if entrada_nfe_cliente_id else 'Estabelecimento não definido.' }}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function() {
+  function getToken() {
+    const c = document.cookie.split(';');
+    for (const x of c) {
+      const [n, v] = x.trim().split('=');
+      if (n === 'pdv_solumatica_token' || n === 'pdv_automscale_token') return v || null;
+    }
+    return null;
+  }
+  function api(url, opts) {
+    const t = getToken();
+    return fetch(url, {
+      ...opts,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        ...(opts && opts.headers || {}),
+      },
+      ...(t ? { headers: { ...(opts && opts.headers || {}), 'Authorization': 'Bearer ' + t } } : {}),
+    });
+  }
+  document.getElementById('filtro-status').addEventListener('change', listarDocumentos);
+  async function listarDocumentos() {
+    const cid = (document.getElementById('cliente_id') && document.getElementById('cliente_id').value) ? document.getElementById('cliente_id').value.trim() : '';
+    const statusFiltro = document.getElementById('filtro-status').value;
+    const tbody = document.getElementById('tbody-docs');
+    const msg = document.getElementById('msg-lista');
+    if (!tbody || !msg) return;
+    if (!cid) {
+      tbody.innerHTML = '';
+      msg.textContent = 'Estabelecimento não definido.';
+      return;
+    }
+    msg.textContent = 'Carregando…';
+    tbody.innerHTML = '';
+    try {
+      let url = '/api/v1/nfe-entrada/documentos?cliente_id=' + encodeURIComponent(cid) + '&limit=100';
+      if (statusFiltro) url += '&status_filtro=' + encodeURIComponent(statusFiltro);
+      const r = await api(url);
+      const data = r.ok ? (await r.json().catch(function() { return {}; })) : {};
+      if (!r.ok) {
+        const errMsg = r.status === 403 ? 'Sem permissão para este estabelecimento.' : (r.status === 422 ? 'Parâmetro cliente_id inválido.' : 'Erro ao carregar lista.');
+        tbody.innerHTML = '<tr><td colspan="8" class="text-danger">' + errMsg + '</td></tr>';
+        msg.textContent = '';
+        return;
+      }
+      var items = (data && data.items) ? data.items : (Array.isArray(data) ? data : []);
+      if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-muted">Nenhuma nota importada.</td></tr>';
+        msg.textContent = '';
+        return;
+      }
+      function fmtValor(v) {
+        if (v == null || v === '' || isNaN(Number(v))) return '—';
+        var n = Number(v);
+        return 'R$ ' + n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      tbody.innerHTML = items.map(function(d) {
+        var jaConciliado = (d.status || '') === 'CONCILIADO';
+        var emissao = d.emissao_em ? (function() { try { return new Date(d.emissao_em).toLocaleDateString('pt-BR'); } catch (e) { return d.emissao_em; } })() : '—';
+        var emissor = (d.emitente_nome || '').toString().trim() || '—';
+        var valor = fmtValor(d.total_nota);
+        var totalItens = d.total_itens != null ? d.total_itens : 0;
+        var vinculados = d.itens_vinculados != null ? d.itens_vinculados : 0;
+        var itensInfo = totalItens > 0 ? (vinculados + ' / ' + totalItens) : '—';
+        var conciliarLabel = jaConciliado ? 'Ver conciliação' : 'Conciliação';
+        var conciliarIcon = jaConciliado ? 'eye' : 'link';
+        return '<tr>' +
+          '<td>' + emissor + '</td>' +
+          '<td>' + (d.numero != null ? d.numero : '—') + '</td>' +
+          '<td>' + (d.serie != null ? d.serie : '—') + '</td>' +
+          '<td>' + emissao + '</td>' +
+          '<td>' + valor + '</td>' +
+          '<td>' + itensInfo + '</td>' +
+          '<td><span class="badge ' + (jaConciliado ? 'bg-success' : 'bg-warning') + '">' + (d.status || '') + '</span></td>' +
+          '<td><a href="/negocio/entrada-nfe/' + (d.id || '') + '/conciliar?cliente_id=' + encodeURIComponent(cid) + '" class="btn btn-sm ' + (jaConciliado ? 'btn-outline-secondary' : 'btn-outline-primary') + '" title="' + conciliarLabel + '"><i data-feather="' + conciliarIcon + '"></i></a></td>' +
+          '</tr>';
+      }).join('');
+      msg.textContent = '';
+      if (typeof feather !== 'undefined') feather.replace();
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-danger">Erro ao carregar lista.</td></tr>';
+      msg.textContent = '';
+    }
+  }
+  var arquivosSelecionados = null;
+  document.getElementById('arquivo_xml').addEventListener('change', function() {
+    var input = this;
+    arquivosSelecionados = input.files && input.files.length ? input.files : null;
+  });
+  document.getElementById('btn-importar').addEventListener('click', async function() {
+    const cid = document.getElementById('cliente_id').value;
+    const inputArquivo = document.getElementById('arquivo_xml');
+    const files = arquivosSelecionados || (inputArquivo.files && inputArquivo.files.length ? Array.from(inputArquivo.files) : []);
+    const msgEl = document.getElementById('import-msg');
+    msgEl.textContent = '';
+    if (!cid) {
+      msgEl.innerHTML = '<span class="text-danger">Estabelecimento não definido.</span>';
+      return;
+    }
+    if (!files || files.length === 0) {
+      msgEl.innerHTML = '<span class="text-danger">Selecione um ou mais arquivos XML da NF-e.</span>';
+      return;
+    }
+    const btn = document.getElementById('btn-importar');
+    const btnOriginalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Importando…';
+    var okCount = 0;
+    var errMsgs = [];
+    var avisos = [];
+    function detailToString(data) {
+      var d = data && data.detail;
+      if (!d) return 'Erro ao importar';
+      if (typeof d === 'string') return d;
+      if (d.message) return d.message;
+      if (Array.isArray(d)) return d.map(function(x) { return x.msg || x; }).join('; ');
+      return 'Erro ao importar';
+    }
+    try {
+      const fd = new FormData();
+      for (var i = 0; i < files.length; i++) {
+        fd.append('arquivos', files[i]);
+      }
+      const r = await fetch('/api/v1/nfe-entrada/importar-lote?cliente_id=' + encodeURIComponent(cid), {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Authorization': 'Bearer ' + (getToken() || '') },
+        body: fd,
+      });
+      const data = await r.json().catch(() => ({}));
+      if (r.ok) {
+        okCount = data.total_ok || 0;
+        (data.resultados || []).forEach(function(row) {
+          if (!row.sucesso && row.erro) {
+            errMsgs.push((row.arquivo || 'arquivo') + ': ' + row.erro);
+          }
+          if (row.sucesso && row.avisos && row.avisos.length) {
+            avisos = avisos.concat(row.avisos.map(function(a) { return a.msg || ''; }).filter(Boolean));
+          }
+        });
+      } else {
+        if (r.status === 429) {
+          errMsgs.push(detailToString(data) + (data.retry_after ? ' (aguarde ' + data.retry_after + 's)' : ''));
+        } else {
+          errMsgs.push(detailToString(data));
+        }
+      }
+    } catch (e) {
+      errMsgs.push('Erro de rede ao importar o lote');
+    }
+    btn.disabled = false;
+    btn.innerHTML = btnOriginalHtml;
+    if (typeof feather !== 'undefined') feather.replace();
+    document.getElementById('arquivo_xml').value = '';
+    arquivosSelecionados = null;
+    if (okCount > 0) {
+      var successText = okCount === 1 ? '1 nota importada.' : okCount + ' notas importadas.';
+      if (avisos.length) successText += ' ' + avisos.join(' ');
+      msgEl.innerHTML = '<span class="text-success">' + successText + '</span>';
+      document.getElementById('filtro-status').value = '';
+      await listarDocumentos();
+    }
+    if (errMsgs.length > 0) {
+      msgEl.innerHTML = (msgEl.innerHTML ? msgEl.innerHTML + ' ' : '') + '<span class="text-danger">' + errMsgs.join(' ') + '</span>';
+    }
+  });
+  var elClienteId = document.getElementById('cliente_id');
+  if (elClienteId && elClienteId.value && elClienteId.value.trim()) {
+    listarDocumentos();
+  } else {
+    var msgLista = document.getElementById('msg-lista');
+    if (msgLista) msgLista.textContent = 'Estabelecimento não definido.';
+  }
+  if (typeof feather !== 'undefined') feather.replace();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+/* Página Configurações - layout compacto e mais colunas */
+
+#configuracoes-page {
+    line-height: 1.4;
+}
+
+/* Reduzir espaçamento entre linhas e elementos */
+#configuracoes-page .form-label,
+#configuracoes-page .form-text {
+    margin-bottom: 0.15rem;
+}
+#configuracoes-page .mb-3 {
+    margin-bottom: 0.65rem !important;
+}
+#configuracoes-page .card-body {
+    padding: 0.85rem 1rem;
+}
+#configuracoes-page .card-header {
+    padding: 0.5rem 1rem;
+}
+#configuracoes-page .card-header h6 {
+    margin-bottom: 0;
+}
+#configuracoes-page hr.my-4 {
+    margin-top: 1rem !important;
+    margin-bottom: 1rem !important;
+}
+#configuracoes-page .row.mt-4 {
+    margin-top: 1rem !important;
+}
+#configuracoes-page .form-control,
+#configuracoes-page .form-select {
+    padding: 0.35rem 0.6rem;
+    min-height: calc(1.5em + 0.7rem);
+}
+#configuracoes-page .form-check {
+    min-height: 1.4em;
+    padding-top: 0.15rem;
+}
+#configuracoes-page .form-check-label .form-text {
+    display: block;
+    margin-top: 0.1rem;
+}
+#configuracoes-page .btn {
+    padding: 0.35rem 0.65rem;
+}
+#configuracoes-page .h6 {
+    margin-bottom: 0.4rem;
+}
+#configuracoes-page .alert {
+    padding: 0.5rem 0.75rem;
+}
+#configuracoes-page .table td,
+#configuracoes-page .table th {
+    padding: 0.35rem 0.5rem;
+    vertical-align: middle;
+}
+#configuracoes-page .table .form-control-sm {
+    padding: 0.2rem 0.4rem;
+}
+
+/* Ajuda: reduzir espaçamento entre blocos */
+#configuracoes-page .card-body hr {
+    margin: 0.4rem 0;
+}

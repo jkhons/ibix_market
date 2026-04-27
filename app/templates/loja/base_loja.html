@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    {% set _base = base_url|default('', true) %}
+    {% set _seo_title = seo.title if seo and seo.title else none %}
+    {% set _seo_description = seo.description if seo and seo.description else none %}
+    {% set _seo_canonical = seo.canonical if seo and seo.canonical else (_base ~ request.url.path) %}
+    {% set _seo_og_image = seo.og_image if seo and seo.og_image else (_base ~ '/static/img/landing/logoSfundo.png') %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+    <meta name="description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{% block seo_description %}Comércio que você conhece, entregue como você precisa. Compre em várias lojas em um só lugar.{% endblock %}{% endif %}">
+    <meta name="keywords" content="{% block seo_keywords %}Ibix, marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endblock %}">
+    <meta name="theme-color" content="#FEF7F1">
+    <title>{% if _seo_title %}{{ _seo_title }}{% else %}{% block title %}Vitrine{% endblock %} | Ibix{% endif %}</title>
+    <link rel="canonical" href="{{ _seo_canonical }}" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="{% if _seo_title %}{{ _seo_title }}{% else %}{% block seo_og_title %}{{ self.title() }} | Ibix{% endblock %}{% endif %}" />
+    <meta property="og:description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{% block seo_og_description %}Compre em várias lojas em um só lugar. Produtos, ofertas e pagamento seguro.{% endblock %}{% endif %}" />
+    <meta property="og:url" content="{{ _seo_canonical }}" />
+    <meta property="og:image" content="{{ _seo_og_image }}" />
+    {% if seo and seo.og_image_alt %}
+    <meta property="og:image:alt" content="{{ seo.og_image_alt }}" />
+    {% endif %}
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:site_name" content="Ibix" />
+    {% if seo_fb_app_id %}
+    <meta property="fb:app_id" content="{{ seo_fb_app_id }}" />
+    {% endif %}
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{% if _seo_title %}{{ _seo_title }}{% else %}{{ self.seo_og_title() }}{% endif %}" />
+    <meta name="twitter:description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{{ self.seo_og_description() }}{% endif %}" />
+    <meta name="twitter:image" content="{{ _seo_og_image }}" />
+    {% if seo and seo.og_image_alt %}
+    <meta name="twitter:image:alt" content="{{ seo.og_image_alt }}" />
+    {% endif %}
+
+    <!-- JSON-LD: Marketplace -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "name": "Ibix",
+          "url": "{{ _base }}/",
+          "description": "Comércio local online - compre em várias lojas em um só lugar",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "{{ _base }}/loja/busca?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
+          "@type": "Organization",
+          "name": "Ibix",
+          "url": "{{ _base }}/",
+          "logo": "{{ _base }}/static/img/landing/logoSfundo.png"
+        }
+      ]
+    }
+    </script>
+    {% if nap and nap.nome and nap.endereco and nap.cidade %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "{{ nap.nome|e }}",
+      "url": "{{ _base }}/",
+      "logo": "{{ _base }}/static/img/landing/logoSfundo.png",
+      "address": {
+        "@type": "PostalAddress",
+        "streetAddress": "{{ nap.endereco|e }}",
+        "addressLocality": "{{ nap.cidade|e }}",
+        {% if nap.uf %}"addressRegion": "{{ nap.uf|e }}",{% endif %}
+        {% if nap.cep %}"postalCode": "{{ nap.cep|e }}",{% endif %}
+        "addressCountry": "BR"
+      }{% if nap.telefone %},
+      "telephone": "{{ nap.telefone|e }}"{% endif %}
+    }
+    </script>
+    {% endif %}
+    {% block seo_extra %}{% endblock %}
+
+    <link rel="shortcut icon" href="/static/img/arte-pdv.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    {# Base + grid Bootstrap: carregamento síncrono. O padrão media=print+onload gerava 2 fases de layout (flash no mobile). #}
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <link href="/static/css/certipeso.css" rel="stylesheet">
+    <link href="/static/css/landing/header.css" rel="stylesheet">
+    <link href="/static/css/loja.css?v=52" rel="stylesheet">
+    <style>
+        body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
+        body.loja-page { background: var(--loja-bg, #FEF7F1); }
+        body:not(.loja-page) { background: var(--bs-gray-100, #f8f9fa); }
+        main { flex: 1; }
+        .loja-page { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+        .loja-header { padding-top: env(safe-area-inset-top, 0px); }
+        .cp-footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
+        /* Cabeçalho: tipografia própria (DM Sans), não cópia Amazon */
+        .loja-header { font-family: "DM Sans", system-ui, -apple-system, sans-serif; }
+        .loja-header.cp-navbar .loja-nav-belt { min-height: 80px; display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem 1rem; justify-content: space-between; }
+        .loja-header .container { padding-left: 0; padding-right: 0; }
+        .loja-nav-left { display: flex; align-items: center; flex-shrink: 0; min-width: 0; }
+        .loja-nav-fill { flex: 1 1 220px; min-width: 160px; max-width: 700px; display: flex; justify-content: center; margin: 0 1rem; }
+        .loja-nav-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; }
+        .loja-header .loja-brand { font-weight: 700; letter-spacing: .2px; color: var(--ibix-text-strong, #2F3A44); text-decoration: none; font-size: 1.05rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 8px 22px; margin: -8px -22px; border-radius: 14px; }
+        .loja-header--compact .loja-brand { padding: 5px 22px; margin: -5px -22px; }
+        .loja-header .loja-brand:hover { color: var(--ibix-hover, #C47A44); background: rgba(196, 122, 68, 0.08); }
+        .loja-header .loja-brand img { height: 64px; width: auto; object-fit: contain; display: block; }
+        .loja-brand-tag { font-weight: 600; color: #6b7280; font-size: 0.9rem; margin-left: 0.25rem; text-decoration: none; }
+        .loja-brand-tag:hover { color: var(--ibix-hover, #C47A44); }
+        /* Busca original: apenas campo + botão (sem dropdown departamentos) */
+        .loja-search-form { display: flex; width: 100%; max-width: 100%; border: 1px solid rgba(0,0,0,.08); border-radius: 10px; overflow: hidden; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.06); min-height: 44px; }
+        .loja-search-form .form-control { flex: 1; min-width: 0; width: 100%; border: none; border-radius: 0; padding: 0.6rem 1rem; padding-right: 14px; font-size: 0.9375rem; box-sizing: border-box; }
+        .loja-search-form .form-control:focus { box-shadow: none; outline: none; }
+        .loja-search-form .btn-search { border: none; border-left: 1px solid rgba(255,255,255,.2); background: var(--loja-action, #5C6E4A); color: #fff; padding: 0 14px; width: auto; min-width: 88px; flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-weight: 800; letter-spacing: .02em; }
+        .loja-search-form .btn-search .feather { width: 1.125rem; height: 1.125rem; }
+        .loja-search-form .btn-search:hover { background: var(--loja-action-hover, #4E5F40); color: #fff; }
+        .loja-nav-item { color: var(--ibix-text-strong, #2F3A44); text-decoration: none; padding: 0.35rem 0.5rem; border-radius: 8px; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+        .loja-nav-item:hover { color: var(--ibix-hover, #C47A44); background: rgba(196, 122, 68, 0.08); }
+        .loja-nav-line1 { font-size: 0.75rem; color: #6b7280; }
+        .loja-nav-line2 { font-size: 0.875rem; font-weight: 600; }
+        .loja-nav-cart .loja-cart-count { background: var(--ibix-hover, #C47A44); color: #fff; font-size: 0.7rem; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-right: 2px; }
+        .loja-nav-item .feather, .loja-btn-icon .feather { width: 1.25rem; height: 1.25rem; }
+        .loja-nav-item.loja-nav-icon { flex-direction: row; align-items: center; gap: 0.35rem; }
+        .loja-nav-item.loja-nav-icon .loja-nav-line2 { font-size: 0.8125rem; }
+        .loja-nav-city { min-width: 0; max-width: 220px; }
+        .loja-nav-city .loja-nav-line2 { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* Rodapé no mesmo formato da landing (cp-footer) */
+        .cp-footer { border-top: 1px solid rgba(0,0,0,.08); background: #fff; padding: 18px 0; color: #6b7280; font-size: .9rem; }
+        .cp-footer a { color: #6b7280; text-decoration: none; }
+        .cp-footer a:hover { color: var(--cp-primary, var(--certipeso-primary, #2c3e50)); }
+        .cp-footer .cp-credits { font-size: .85rem; }
+        .cp-footer .cp-logo { height: 36px; width: auto; vertical-align: middle; object-fit: contain; }
+        /* Breakpoint único: mobile < 768px, desktop >= 768px */
+        @media (max-width: 767px) {
+            .loja-header.cp-navbar .loja-nav-belt {
+                min-height: 64px;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 8px;
+                align-items: center;
+            }
+            .loja-nav-left { min-width: 0; }
+            .loja-nav-right { justify-content: flex-end; gap: 0.35rem; }
+            .loja-nav-fill {
+                order: initial;
+                grid-column: 1 / -1;
+                max-width: 100%;
+                width: 100%;
+                min-width: 0;
+                margin: 0;
+                justify-content: stretch;
+            }
+            .loja-search-form {
+                width: 100%;
+                min-width: 0;
+            }
+        }
+        @media (min-width: 992px) {
+            .loja-nav-fill { min-width: 260px; max-width: 760px; }
+        }
+        @media (min-width: 768px) {
+            body.loja-desktop .loja-nav-belt { justify-content: space-between; }
+        }
+        @media (max-width: 400px) {
+            .loja-header .loja-brand img { height: 72px; }
+            .loja-nav-icon .loja-nav-line2 { display: none; }
+        }
+        @media (max-width: 575px) {
+            .loja-header .container { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .loja-nav-right { gap: 0.2rem; }
+            .loja-nav-item { padding: 0.25rem 0.35rem; }
+            .loja-brand-tag,
+            .loja-nav-line2 { display: none; }
+            .loja-search-form .btn-search { min-width: 42px; padding: 0 10px; }
+            .loja-search-form .form-control { font-size: 0.95rem; padding-right: 10px; }
+            .cp-footer .container { flex-direction: column; align-items: center; text-align: center; gap: 0.75rem; }
+            /*
+              Margem negativa horizontal (área de toque) puxa o logo além do padding do container;
+              o padding aqui é só 0.5rem — não “absorve” -22px. Isso aumenta a scrollWidth do documento
+              (overflow horizontal), mesmo com overflow-x no body, e pode cortar/destoar no mobile.
+            */
+            .loja-header .loja-brand { margin-left: 0; margin-right: 0; }
+            .loja-header--compact .loja-brand { margin-left: 0; margin-right: 0; }
+        }
+        /* Vitrine: herói + faixa de categorias (inline com o HTML, não depende de cache de loja.css) */
+        .loja-categorias-wrap { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+        .loja-categorias-list,
+        #loja-categorias-list {
+            flex: 1 1 0%;
+            min-width: 0;
+            max-width: 100%;
+            width: 100%;
+            box-sizing: border-box;
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+        @media (max-width: 767px) {
+            .loja-categorias-list, #loja-categorias-list { scroll-snap-type: none; }
+        }
+        #loja-produto-heroi-grid,
+        #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
+            display: grid !important;
+            box-sizing: border-box;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+        }
+        @media (min-width: 768px) and (max-width: 991.98px) {
+            #loja-produto-heroi-grid,
+            #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+            }
+        }
+        @media (min-width: 992px) {
+            #loja-produto-heroi-grid,
+            #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
+                grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+            }
+        }
+        @media (max-width: 767px) {
+            #loja-produto-heroi-grid,
+            #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
+                grid-template-columns: 1fr !important;
+                gap: 10px;
+            }
+            #loja-produto-heroi-grid > .loja-heroi-produto-slot,
+            #loja-produto-heroi-grid > * {
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: 100% !important;
+                box-sizing: border-box;
+            }
+        }
+    </style>
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="loja-page">
+    <!-- Antes do primeiro paint: mesma regra de vitrine.js (evita layout “desktop” e depois “mobile” quando o script do fim de página roda) -->
+    <script>
+    (function () {
+        try {
+            var mobile = (typeof matchMedia === "function" && matchMedia("(max-width: 767px)").matches) ||
+                (typeof innerWidth === "number" && innerWidth < 768);
+            if (document.body) {
+                document.body.classList.remove("loja-mobile", "loja-desktop");
+                document.body.classList.add(mobile ? "loja-mobile" : "loja-desktop");
+            }
+        } catch (e) {}
+    })();
+    </script>
+    <div id="loja-toast-host" class="loja-toast-host" role="status" aria-live="polite" aria-relevant="additions text"></div>
+    <header class="cp-navbar loja-header">
+        <div class="container py-3">
+            <div class="loja-nav-belt">
+                <div class="loja-nav-left">
+                    <a class="loja-brand" href="/" aria-label="Ibix - voltar para a vitrine">
+                        <img src="/static/img/ibix/cab.png" alt="Ibix" width="520" height="170" fetchpriority="high">
+                    </a>
+                </div>
+                <div class="loja-nav-fill">
+                    <form class="loja-search-form" action="{% if loja_slug_context %}/{{ loja_slug_context|e }}{% else %}/loja/busca{% endif %}" method="get" role="search">
+                        <input type="search" class="form-control" name="q" id="loja-header-busca-q" placeholder="O que você procura hoje?" value="{{ busca_q|default('', true) }}" aria-label="Buscar produtos e lojas">
+                        <button type="submit" class="btn btn-search" title="Buscar" aria-label="Buscar">Buscar</button>
+                    </form>
+                </div>
+                <div class="loja-nav-right">
+                    <button type="button" class="loja-nav-item loja-nav-icon loja-nav-city" id="btn-geo-seletor" aria-label="Selecionar localização" style="border:none;background:none;cursor:pointer;">
+                        <i data-feather="map-pin"></i>
+                        <span class="loja-nav-line2" id="geo-cidade-label">Sua cidade</span>
+                    </button>
+                    <a class="loja-nav-item loja-nav-icon" href="https://www.ibix.com.br/login" target="_blank" rel="noopener noreferrer" title="Loja — acesso lojista" aria-label="Loja — acesso lojista (login Ibix)">
+                        <i data-feather="briefcase"></i>
+                        <span class="loja-nav-line2">Loja</span>
+                    </a>
+                    <a class="loja-nav-item loja-nav-icon" href="{% if consumidor_logado %}/loja/minha-conta{% else %}/loja/login{% endif %}" title="{% if consumidor_logado %}Minha conta{% else %}Entrar{% endif %}" aria-label="{% if consumidor_logado %}Minha conta{% else %}Entrar{% endif %}">
+                        <i data-feather="user"></i>
+                        {% if consumidor_logado %}
+                        <span class="loja-nav-line2">{% if consumidor_nome and consumidor_nome.strip() %}{{ consumidor_nome.strip().split()[0] }}{% endif %}</span>
+                        {% else %}
+                        <span class="loja-nav-line2">Entrar</span>
+                        {% endif %}
+                    </a>
+                    {% if consumidor_logado %}
+                    <a class="loja-nav-item loja-nav-icon" href="/loja/meus-pedidos" title="Meus pedidos" aria-label="Meus pedidos">
+                        <i data-feather="package"></i>
+                        <span class="loja-nav-line2">Pedidos</span>
+                    </a>
+                    {% endif %}
+                    <a class="loja-nav-item loja-nav-cart loja-nav-icon" href="/loja/carrinho" title="Carrinho" aria-label="Carrinho">
+                        <span id="loja-cart-count" class="loja-cart-count" style="display: none;">0</span>
+                        <i data-feather="shopping-cart"></i>
+                    </a>
+                    {% if consumidor_logado %}
+                    <a class="loja-nav-item loja-nav-icon" href="/loja/logout" title="Sair" aria-label="Sair"><i data-feather="log-out"></i></a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="container-fluid py-4 loja-main">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="cp-footer">
+        <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <img src="/static/img/ibix/rodape.png" alt="Ibix" width="420" height="216" loading="lazy" style="height: 28px; width: auto; display:block;">
+                <span>Ibix</span>
+                <span aria-hidden="true">·</span>
+                <span class="cp-credits">Desenvolvido por <a href="https://automscale.com.br" target="_blank" rel="noopener noreferrer"><strong>Automscale</strong></a></span>
+            </div>
+            <div class="ibix-seguro ibix-seguro--inline d-none d-md-block" style="max-width: 420px;">
+                <p class="ibix-seguro__title mb-1"><i data-feather="shield"></i>Ibix Seguro</p>
+                <ul class="ibix-seguro__list mb-0">
+                  <li>Compra protegida</li>
+                  <li>Pagamento liberado só após confirmação</li>
+                  <li>Entregue com rastreamento em tempo real</li>
+                </ul>
+            </div>
+            {% if nap and nap.endereco %}
+            <div class="d-flex flex-wrap align-items-center gap-1 cp-nap" style="font-size:.85rem;color:#6b7280;">
+                {% if nap.endereco %}<span>{{ nap.endereco }}</span>{% endif %}
+                {% if nap.cidade %}<span>- {{ nap.cidade }}{% if nap.uf %}/{{ nap.uf }}{% endif %}</span>{% endif %}
+                {% if nap.cep %}<span>CEP {{ nap.cep }}</span>{% endif %}
+                {% if nap.telefone %}<span aria-hidden="true">·</span><span>{{ nap.telefone }}</span>{% endif %}
+            </div>
+            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+                <a href="/">Início</a>
+                <span aria-hidden="true">·</span>
+                <a href="/loja/acompanhar-pedido">Acompanhar pedido</a>
+                <span aria-hidden="true">·</span>
+                <a href="/loja/termos-de-uso">Termos de Uso</a>
+                <span aria-hidden="true">·</span>
+                <a href="/politica-privacidade-marketplace">Política de Privacidade</a>
+                <span aria-hidden="true">·</span>
+                <a href="/como-funciona-vitrine">Como funciona a vitrine</a>
+                <span aria-hidden="true">·</span>
+                <span>&copy; 2022</span>
+            </div>
+        </div>
+    </footer>
+    <!-- Modal seletor de cidade/geolocalização -->
+    <div id="geo-modal" class="loja-geo-modal-backdrop" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));">
+      <div class="loja-geo-modal-panel" style="background:#fff;border-radius:16px;width:100%;max-width:min(420px,100%);padding:28px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative;max-height:80vh;overflow-y:auto;box-sizing:border-box;">
+        <button type="button" id="geo-modal-close" class="loja-geo-modal-close" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#888;min-width:44px;min-height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" aria-label="Fechar">&times;</button>
+        <h3 style="margin:0 0 6px;font-size:1.1rem;font-weight:700;">Onde você está?</h3>
+        <p style="margin:0 0 16px;font-size:.875rem;color:#6b7280;">Para mostrar o comércio mais próximo de você, informe seu endereço ou use o GPS.</p>
+        <button type="button" id="geo-btn-navegador" style="width:100%;padding:10px;border:1px solid var(--loja-action,#5C6E4A);border-radius:10px;background:var(--loja-action,#5C6E4A);color:#fff;font-weight:600;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <i data-feather="crosshair" style="width:18px;height:18px;"></i> Usar minha localização
+        </button>
+        <div id="geo-navegador-status" style="display:none;font-size:.8rem;color:#6b7280;margin:-8px 0 12px;text-align:center;"></div>
+        <div style="text-align:center;color:#aaa;font-size:.8rem;margin-bottom:8px;">— ou informe seu endereço (mais preciso) —</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="text" id="geo-cep-input" placeholder="CEP" maxlength="9" inputmode="numeric" autocomplete="postal-code" style="flex:1.2;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;">
+          <input type="text" id="geo-numero-input" placeholder="Número" maxlength="20" inputmode="numeric" autocomplete="address-line2" style="flex:1;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;">
+        </div>
+        <input type="text" id="geo-complemento-input" placeholder="Complemento (opcional)" maxlength="80" autocomplete="address-line3" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;margin-bottom:8px;">
+        <button type="button" id="geo-btn-confirmar-endereco" style="width:100%;padding:10px;border:1px solid var(--loja-action,#5C6E4A);border-radius:10px;background:#fff;color:var(--loja-action,#5C6E4A);font-weight:600;cursor:pointer;margin-bottom:14px;">Confirmar endereço</button>
+        <div id="geo-endereco-status" style="display:none;font-size:.8rem;color:#6b7280;margin:-8px 0 12px;text-align:center;"></div>
+        <div style="text-align:center;color:#aaa;font-size:.8rem;margin-bottom:12px;">— ou escolha uma cidade —</div>
+        <input type="text" id="geo-cidade-input" placeholder="Digite o nome da cidade..." style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:.95rem;box-sizing:border-box;" autocomplete="off">
+        <ul id="geo-cidade-list" style="list-style:none;padding:0;margin:8px 0 0;max-height:200px;overflow-y:auto;"></ul>
+        <div style="margin-top:14px;text-align:center;">
+          <button type="button" id="geo-btn-limpar" style="background:none;border:none;color:#C47A44;font-size:.85rem;cursor:pointer;text-decoration:underline;">Limpar localização</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <script>window.LOJA_CONSUMIDOR_ID = {{ consumidor_id|default(none)|tojson }};</script>
+    <script>window.LOJA_SLUG_CONTEXT = {{ loja_slug_context|default(none)|tojson }};</script>
+    <script src="/static/js/vitrine.js?v=21"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+
+        /* --- Geolocalização: modal + header label --- */
+        var geoBtn = document.getElementById('btn-geo-seletor');
+        var geoModal = document.getElementById('geo-modal');
+        var geoClose = document.getElementById('geo-modal-close');
+        var geoLabel = document.getElementById('geo-cidade-label');
+        var geoInput = document.getElementById('geo-cidade-input');
+        var geoList = document.getElementById('geo-cidade-list');
+        var geoBtnNav = document.getElementById('geo-btn-navegador');
+        var geoNavStatus = document.getElementById('geo-navegador-status');
+        var geoBtnLimpar = document.getElementById('geo-btn-limpar');
+
+        function geoUpdateLabel() {
+            var geo = (typeof Vitrine !== 'undefined' && Vitrine.getGeoLocation) ? Vitrine.getGeoLocation() : null;
+            if (geo && geo.cidade) {
+                geoLabel.textContent = geo.cidade + (geo.uf ? '/' + geo.uf : '');
+            } else {
+                geoLabel.textContent = 'Sua cidade';
+            }
+        }
+        geoUpdateLabel();
+
+        function geoOpenModal() { geoModal.style.display = 'flex'; geoInput.value = ''; geoList.innerHTML = ''; geoInput.focus(); }
+        function geoCloseModal() { geoModal.style.display = 'none'; }
+
+        if (geoBtn) geoBtn.addEventListener('click', geoOpenModal);
+        if (geoClose) geoClose.addEventListener('click', geoCloseModal);
+        if (geoModal) geoModal.addEventListener('click', function(e) { if (e.target === geoModal) geoCloseModal(); });
+
+        var _geoSearchTimer = null;
+        if (geoInput) {
+            geoInput.addEventListener('input', function() {
+                clearTimeout(_geoSearchTimer);
+                var val = geoInput.value.trim();
+                if (val.length < 2) { geoList.innerHTML = ''; return; }
+                _geoSearchTimer = setTimeout(function() {
+                    fetch('/api/v1/loja/geo/cidades?q=' + encodeURIComponent(val))
+                        .then(function(r) { return r.json(); })
+                        .then(function(cidades) {
+                            geoList.innerHTML = '';
+                            (cidades || []).forEach(function(c) {
+                                var li = document.createElement('li');
+                                li.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;font-size:.95rem;';
+                                li.textContent = c.cidade + '/' + c.uf;
+                                li.addEventListener('click', function() {
+                                    Vitrine.setGeoLocation({ cidade: c.cidade, uf: c.uf, lat: c.lat || null, lng: c.lng || null });
+                                    geoUpdateLabel();
+                                    geoCloseModal();
+                                    if (typeof window._geoOnChange === 'function') window._geoOnChange();
+                                });
+                                li.addEventListener('mouseenter', function() { li.style.background = '#f8f4f0'; });
+                                li.addEventListener('mouseleave', function() { li.style.background = ''; });
+                                geoList.appendChild(li);
+                            });
+                        })
+                        .catch(function() {});
+                }, 300);
+            });
+        }
+
+        if (geoBtnNav) {
+            geoBtnNav.addEventListener('click', function() {
+                if (!navigator.geolocation) {
+                    geoNavStatus.textContent = 'Geolocalização não suportada neste navegador.';
+                    geoNavStatus.style.display = 'block';
+                    return;
+                }
+                geoNavStatus.textContent = 'Obtendo localização...';
+                geoNavStatus.style.display = 'block';
+                geoBtnNav.disabled = true;
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        var lat = pos.coords.latitude;
+                        var lng = pos.coords.longitude;
+                        fetch('/api/v1/loja/geo/cidade-proxima?lat=' + lat + '&lng=' + lng)
+                            .then(function(r) { return r.json(); })
+                            .then(function(data) {
+                                if (data && data.cidade) {
+                                    var useLat = (data.lat != null) ? data.lat : lat;
+                                    var useLng = (data.lng != null) ? data.lng : lng;
+                                    Vitrine.setGeoLocation({ lat: useLat, lng: useLng, cidade: data.cidade, uf: data.uf });
+                                    geoUpdateLabel();
+                                    geoNavStatus.textContent = data.cidade + '/' + (data.uf || '');
+                                    setTimeout(function() { geoCloseModal(); if (typeof window._geoOnChange === 'function') window._geoOnChange(); }, 800);
+                                } else {
+                                    fetch('/api/v1/loja/geo/reverso?lat=' + lat + '&lng=' + lng)
+                                        .then(function(r2) { return r2.json(); })
+                                        .then(function(rev) {
+                                            Vitrine.setGeoLocation({ lat: lat, lng: lng, cidade: rev.cidade || null, uf: rev.uf || null });
+                                            geoUpdateLabel();
+                                            geoNavStatus.textContent = (rev.cidade || 'Localização definida') + (rev.uf ? '/' + rev.uf : '');
+                                            setTimeout(function() { geoCloseModal(); if (typeof window._geoOnChange === 'function') window._geoOnChange(); }, 800);
+                                        })
+                                        .catch(function() {
+                                            Vitrine.setGeoLocation({ lat: lat, lng: lng, cidade: null, uf: null });
+                                            geoUpdateLabel();
+                                            geoCloseModal();
+                                            if (typeof window._geoOnChange === 'function') window._geoOnChange();
+                                        });
+                                }
+                            })
+                            .catch(function() {
+                                Vitrine.setGeoLocation({ lat: lat, lng: lng, cidade: null, uf: null });
+                                geoUpdateLabel();
+                                geoCloseModal();
+                                if (typeof window._geoOnChange === 'function') window._geoOnChange();
+                            });
+                    },
+                    function(err) {
+                        geoNavStatus.textContent = err.code === 1 ? 'Permissão negada. Permita o acesso à localização.' : 'Não foi possível obter sua localização.';
+                        geoBtnNav.disabled = false;
+                    },
+                    { enableHighAccuracy: false, timeout: 10000 }
+                );
+            });
+        }
+
+        if (geoBtnLimpar) {
+            geoBtnLimpar.addEventListener('click', function() {
+                if (typeof Vitrine !== 'undefined' && Vitrine.clearGeoLocation) Vitrine.clearGeoLocation();
+                geoUpdateLabel();
+                geoCloseModal();
+                if (typeof window._geoOnChange === 'function') window._geoOnChange();
+            });
+        }
+
+        var geoCepInput = document.getElementById('geo-cep-input');
+        var geoNumeroInput = document.getElementById('geo-numero-input');
+        var geoComplementoInput = document.getElementById('geo-complemento-input');
+        var geoBtnConfirmarEndereco = document.getElementById('geo-btn-confirmar-endereco');
+        var geoEnderecoStatus = document.getElementById('geo-endereco-status');
+
+        if (geoCepInput) {
+            geoCepInput.addEventListener('input', function () {
+                var v = (geoCepInput.value || '').replace(/\D/g, '').slice(0, 8);
+                geoCepInput.value = v.length > 5 ? v.slice(0, 5) + '-' + v.slice(5) : v;
+            });
+        }
+
+        function geoSetEnderecoStatus(msg, ok) {
+            if (!geoEnderecoStatus) return;
+            geoEnderecoStatus.textContent = msg || '';
+            geoEnderecoStatus.style.display = msg ? 'block' : 'none';
+            geoEnderecoStatus.style.color = ok ? '#3a8a3a' : '#b04444';
+        }
+
+        if (geoBtnConfirmarEndereco) {
+            geoBtnConfirmarEndereco.addEventListener('click', function () {
+                var cep = (geoCepInput && geoCepInput.value || '').trim();
+                var numero = (geoNumeroInput && geoNumeroInput.value || '').trim();
+                var complemento = (geoComplementoInput && geoComplementoInput.value || '').trim();
+                var cepDigits = cep.replace(/\D/g, '');
+                if (cepDigits.length !== 8) {
+                    geoSetEnderecoStatus('Informe um CEP válido (8 dígitos).', false);
+                    return;
+                }
+                if (!numero) {
+                    geoSetEnderecoStatus('Informe o número do imóvel.', false);
+                    return;
+                }
+                geoBtnConfirmarEndereco.disabled = true;
+                geoSetEnderecoStatus('Localizando endereço...', true);
+                if (typeof Vitrine === 'undefined' || !Vitrine.geocodeAddress) {
+                    geoSetEnderecoStatus('Recurso de geocodificação indisponível.', false);
+                    geoBtnConfirmarEndereco.disabled = false;
+                    return;
+                }
+                Vitrine.geocodeAddress({ cep: cepDigits, numero: numero, complemento: complemento })
+                    .then(function (data) {
+                        if (!data || data.lat == null || data.lng == null) {
+                            geoSetEnderecoStatus('Endereço não localizado.', false);
+                            return;
+                        }
+                        Vitrine.setGeoLocation({
+                            lat: data.lat,
+                            lng: data.lng,
+                            cidade: data.cidade || null,
+                            uf: data.uf || null,
+                            cep: cepDigits,
+                            numero: numero,
+                            complemento: complemento || null,
+                            bairro: data.bairro || null,
+                            endereco_formatado: data.endereco_formatado || null,
+                            precision: data.precision || null,
+                        });
+                        geoUpdateLabel();
+                        geoSetEnderecoStatus(
+                            (data.endereco_formatado || ((data.cidade || '') + (data.uf ? '/' + data.uf : ''))) + ' ✓',
+                            true
+                        );
+                        setTimeout(function () {
+                            geoCloseModal();
+                            if (typeof window._geoOnChange === 'function') window._geoOnChange();
+                        }, 600);
+                    })
+                    .catch(function (err) {
+                        geoSetEnderecoStatus(
+                            err && err.message ? err.message : 'Não foi possível localizar este endereço.',
+                            false
+                        );
+                    })
+                    .finally(function () {
+                        geoBtnConfirmarEndereco.disabled = false;
+                    });
+            });
+        }
+    });
+    </script>
+    <script>
+    (function () {
+      var host = document.getElementById("loja-toast-host");
+      if (!host) return;
+      function showToast(msg) {
+        if (!msg) return;
+        host.textContent = msg;
+        host.classList.add("loja-toast--visible");
+        clearTimeout(host._lojaToastT);
+        host._lojaToastT = setTimeout(function () {
+          host.classList.remove("loja-toast--visible");
+          host.textContent = "";
+        }, 2800);
+      }
+      window.addEventListener("loja-toast", function (ev) {
+        var m = ev && ev.detail && ev.detail.msg;
+        if (m) showToast(String(m));
+      });
+    })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

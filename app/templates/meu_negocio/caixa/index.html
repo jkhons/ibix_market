@@ -1,0 +1,497 @@
+{% extends "base.html" %}
+
+{% block title %}Caixa | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <div class="row align-items-center">
+            <div class="col">
+                <h1 class="h3 d-inline align-middle"><strong>Caixa</strong></h1>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label class="form-label">Caixa</label>
+            <select id="filtroCaixa" class="form-select">
+                <option value="">Todos</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Status</label>
+            <select id="filtroStatus" class="form-select">
+                <option value="">Todos</option>
+                <option value="aberta">Aberta</option>
+                <option value="fechada">Fechada</option>
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end flex-wrap gap-2">
+            <button class="btn btn-primary" type="button" onclick="abrirModalCadastrarCaixaCustom()">
+                <i data-feather="plus-circle" style="width: 18px; height: 18px;"></i>
+                Cadastrar caixa
+            </button>
+            <button class="btn btn-success" type="button" onclick="abrirModalAbrirCaixaCustom()">
+                <i data-feather="log-in" style="width: 18px; height: 18px;"></i>
+                Abrir caixa
+            </button>
+            {% if (user_role | default('')) == 'Superadministrador' %}
+            <button class="btn btn-outline-secondary" type="button" onclick="abrirModalSenhaMestraCaixaCustom()" title="Configurar senha para sangria/suprimento">
+                <i data-feather="lock" style="width: 18px; height: 18px;"></i>
+                Senha mestra
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Caixa</th>
+                            <th>Abertura</th>
+                            <th>Fechamento</th>
+                            <th>Valor inicial</th>
+                            <th>Valor final</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyAberturas"></tbody>
+                </table>
+            </div>
+            <p id="msgLista" class="text-muted mb-0"></p>
+        </div>
+    </div>
+</div>
+
+<!-- Modais conforme MAPA_DE_REGRAS: inline, sem Bootstrap -->
+<div id="modalCadastrarCaixaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 420px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Cadastrar caixa</h5>
+            <button type="button" onclick="fecharModalCadastrarCaixaCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            {% if (user_role | default('')) == 'Superadministrador' %}
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Empresa fiscal *</label><select id="cadCaixaEmpresaId" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"><option value="">Carregando…</option></select></div>
+            {% endif %}
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Nome do caixa *</label><input type="text" id="cadCaixaIdentificador" maxlength="80" placeholder="Ex.: Balcão 1" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+            <div style="margin-bottom: 0;"><label style="display: flex; align-items: center; gap: 8px; font-weight: normal;"><input type="checkbox" id="cadCaixaAtivo" checked /> Ativo</label></div>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalCadastrarCaixaCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnCadastrarCaixa" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+<div id="modalAbrirCaixaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 420px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Abrir caixa</h5>
+            <button type="button" onclick="fecharModalAbrirCaixaCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Caixa *</label><select id="abrirCaixaId" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"></select></div>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Valor inicial (R$)</label><input type="number" id="abrirValorInicial" step="0.01" value="0" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalAbrirCaixaCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnAbrirCaixa" style="padding: 8px 16px; background: #198754; color: white; border: none; border-radius: 4px; cursor: pointer;">Abrir</button>
+        </div>
+    </div>
+</div>
+<div id="modalFecharCaixaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 420px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Fechar caixa</h5>
+            <button type="button" onclick="fecharModalFecharCaixaCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <input type="hidden" id="fecharAberturaId" />
+            <p id="fecharResumo" style="margin-bottom: 12px; color: #6c757d;"></p>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Valor final no caixa (R$) *</label><input type="number" id="fecharValorFinal" step="0.01" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalFecharCaixaCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnFecharCaixa" style="padding: 8px 16px; background: #ffc107; color: #000; border: none; border-radius: 4px; cursor: pointer;">Fechar caixa</button>
+        </div>
+    </div>
+</div>
+<div id="modalMovimentoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 420px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;" id="modalMovimentoTitle">Sangria / Suprimento</h5>
+            <button type="button" onclick="fecharModalMovimentoCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <input type="hidden" id="movAberturaId" />
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Tipo *</label><select id="movTipo" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"><option value="sangria">Sangria</option><option value="suprimento">Suprimento</option></select></div>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Valor (R$) *</label><input type="number" id="movValor" step="0.01" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+            <form id="wrapSenhaMestra" onsubmit="return false" style="margin-bottom: 12px; display: none;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Senha mestra *</label><input type="password" id="movSenhaMestra" placeholder="Senha do caixa" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></form>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Observação</label><input type="text" id="movObservacao" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalMovimentoCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnRegistrarMovimento" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Registrar</button>
+        </div>
+    </div>
+</div>
+{% if (user_role | default('')) == 'Superadministrador' %}
+<div id="modalSenhaMestraCaixaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 440px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Configurar senha mestra do caixa</h5>
+            <button type="button" onclick="fecharModalSenhaMestraCaixaCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <p style="margin-bottom: 12px; font-size: 14px; color: #6c757d;">Define a senha que será exigida para realizar sangria ou suprimento no caixa do estabelecimento. Mínimo 4 caracteres.</p>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Estabelecimento (cliente) *</label><select id="senhaMestraClienteId" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"><option value="">Selecione</option></select></div>
+            <form onsubmit="return false">
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Nova senha mestra *</label><input type="password" id="senhaMestraNova" minlength="4" placeholder="Mín. 4 caracteres" autocomplete="new-password" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Confirmar senha *</label><input type="password" id="senhaMestraConfirmar" placeholder="Repita a senha" autocomplete="new-password" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+            </form>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalSenhaMestraCaixaCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnSalvarSenhaMestra" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    function getCookie(name) {
+        var value = '; ' + document.cookie;
+        var parts = value.split('; ' + name + '=');
+        if (parts.length === 2) return parts.pop().split(';').shift();
+        return null;
+    }
+    function getToken() {
+        try {
+            return (
+                getCookie('pdv_solumatica_token') ||
+                getCookie('pdv_automscale_token') ||
+                sessionStorage.getItem('pdv_solumatica_token') ||
+                sessionStorage.getItem('pdv_automscale_token') ||
+                ''
+            );
+        } catch (e) {
+            return getCookie('pdv_solumatica_token') || getCookie('pdv_automscale_token') || '';
+        }
+    }
+    function headers() {
+        const t = getToken();
+        const h = { 'Content-Type': 'application/json' };
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    }
+    function fetchAuth(url, opt) {
+        opt = opt || {};
+        return fetch(url, {
+            credentials: 'include',
+            method: opt.method || 'GET',
+            body: opt.body,
+            headers: Object.assign({}, headers(), opt.headers || {}),
+        });
+    }
+
+    let caixasCache = [];
+    async function carregarCaixas() {
+        try {
+            const r = await fetchAuth('/api/v1/caixas/');
+            caixasCache = r.ok ? await r.json() : [];
+            const sel = document.getElementById('filtroCaixa');
+            const selAbrir = document.getElementById('abrirCaixaId');
+            [sel, selAbrir].forEach(s => {
+                if (!s) return;
+                const isFiltro = s === sel;
+                s.innerHTML = isFiltro ? '<option value="">Todos</option>' : '<option value="">Selecione o caixa</option>';
+                caixasCache.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = (p.identificador || 'Caixa') + ' (ID ' + p.id + ')';
+                    s.appendChild(opt);
+                });
+            });
+        } catch (e) { console.error(e); }
+    }
+
+    function fmtDt(d) {
+        if (!d) return '-';
+        const dt = new Date(d);
+        return dt.toLocaleString('pt-BR');
+    }
+    function fmtMoney(v) {
+        if (v == null) return '-';
+        return 'R$ ' + parseFloat(v).toFixed(2).replace('.', ',');
+    }
+
+    async function carregarAberturas() {
+        const caixaId = document.getElementById('filtroCaixa').value;
+        const statusFilter = document.getElementById('filtroStatus').value;
+        let url = '/api/v1/aberturas-caixa/?';
+        if (caixaId) url += 'caixa_id=' + caixaId + '&';
+        if (statusFilter) url += 'status=' + statusFilter;
+        const tbody = document.getElementById('tbodyAberturas');
+        const msg = document.getElementById('msgLista');
+        try {
+            const r = await fetchAuth(url);
+            if (!r.ok) { tbody.innerHTML = ''; msg.textContent = 'Erro ao carregar.'; return; }
+            const _data = await r.json();
+            const list = _data.items || _data;
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhuma abertura encontrada.</td></tr>'; msg.textContent = ''; return; }
+            const caixaMap = {};
+            caixasCache.forEach(function(p) { caixaMap[p.id] = p.identificador || ('Caixa ' + p.id); });
+            tbody.innerHTML = list.map(ab => {
+                const caixaNome = caixaMap[ab.caixa_id] || ab.caixa_id;
+                const isAberta = ab.status === 'aberta';
+                const vInicial = parseFloat(ab.valor_inicial || 0);
+                let acoes = '';
+                if (isAberta) {
+                    acoes += '<button type="button" class="btn btn-sm btn-warning me-1 btn-fechar-caixa" data-id="' + ab.id + '" data-valor="' + vInicial + '" title="Fechar caixa"><i data-feather="log-out" style="width:14px;height:14px;"></i> Fechar</button>';
+                    acoes += '<button type="button" class="btn btn-sm btn-outline-secondary btn-movimento-caixa" data-id="' + ab.id + '" title="Sangria/Suprimento"><i data-feather="trending-up" style="width:14px;height:14px;"></i> Sangria/Supr.</button>';
+                }
+                return '<tr><td>' + ab.id + '</td><td>' + caixaNome + '</td><td>' + fmtDt(ab.data_abertura) + '</td><td>' + fmtDt(ab.data_fechamento) + '</td><td>' + fmtMoney(ab.valor_inicial) + '</td><td>' + fmtMoney(ab.valor_final) + '</td><td><span class="badge bg-' + (isAberta ? 'success' : 'secondary') + '">' + ab.status + '</span></td><td>' + acoes + '</td></tr>';
+            }).join('');
+            msg.textContent = list.length + ' abertura(s).';
+            if (typeof feather !== 'undefined') feather.replace();
+        } catch (e) {
+            tbody.innerHTML = '';
+            msg.textContent = 'Erro.';
+            console.error(e);
+        }
+    }
+
+    document.getElementById('tbodyAberturas').addEventListener('click', function(ev) {
+        const btnFechar = ev.target.closest('.btn-fechar-caixa');
+        const btnMov = ev.target.closest('.btn-movimento-caixa');
+        if (btnFechar) {
+            const id = btnFechar.getAttribute('data-id');
+            const valor = parseFloat(btnFechar.getAttribute('data-valor')) || 0;
+            document.getElementById('fecharAberturaId').value = id;
+            document.getElementById('fecharValorFinal').value = valor.toFixed(2);
+            document.getElementById('fecharResumo').textContent = 'Abertura #' + id + '. Informe o valor em caixa ao fechar.';
+            abrirModalFecharCaixaCustom();
+        }
+        if (btnMov) {
+            const aberturaId = btnMov.getAttribute('data-id');
+            document.getElementById('movAberturaId').value = aberturaId;
+            document.getElementById('movValor').value = '';
+            document.getElementById('movSenhaMestra').value = '';
+            document.getElementById('movObservacao').value = '';
+            document.getElementById('wrapSenhaMestra').style.display = 'none';
+            fetchAuth('/api/v1/movimentos-caixa/exige-senha-mestra?abertura_caixa_id=' + aberturaId)
+                .then(r => r.json())
+                .then(b => { document.getElementById('wrapSenhaMestra').style.display = b.exige_senha ? 'block' : 'none'; })
+                .catch(() => {});
+            abrirModalMovimentoCustom();
+        }
+    });
+
+    async function carregarEmpresasCadCaixaIfNeeded() {
+        var sel = document.getElementById('cadCaixaEmpresaId');
+        if (!sel) return;
+        try {
+            var r = await fetchAuth('/api/v1/fiscal/empresa');
+            if (!r.ok) { sel.innerHTML = '<option value="">Erro ao listar empresas fiscais</option>'; return; }
+            var arr = await r.json();
+            sel.innerHTML = '<option value="">Selecione a empresa fiscal</option>';
+            (Array.isArray(arr) ? arr : []).forEach(function(emp) {
+                var o = document.createElement('option');
+                o.value = emp.id;
+                o.textContent = (emp.razao_social || 'Empresa') + (emp.cliente_nome ? ' · ' + emp.cliente_nome : '') + ' (#' + emp.id + ')';
+                sel.appendChild(o);
+            });
+        } catch (e) {
+            console.error(e);
+            sel.innerHTML = '<option value="">Erro ao carregar empresas</option>';
+        }
+    }
+    function abrirModalCadastrarCaixaCustom() {
+        var m = document.getElementById('modalCadastrarCaixaCustom');
+        if (!m) return;
+        var inp = document.getElementById('cadCaixaIdentificador');
+        if (inp) inp.value = '';
+        var atv = document.getElementById('cadCaixaAtivo');
+        if (atv) atv.checked = true;
+        carregarEmpresasCadCaixaIfNeeded();
+        m.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+    function fecharModalCadastrarCaixaCustom() {
+        var m = document.getElementById('modalCadastrarCaixaCustom');
+        if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
+    }
+    window.abrirModalCadastrarCaixaCustom = abrirModalCadastrarCaixaCustom;
+    window.fecharModalCadastrarCaixaCustom = fecharModalCadastrarCaixaCustom;
+
+    function abrirModalAbrirCaixaCustom() { var m = document.getElementById('modalAbrirCaixaCustom'); if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; } }
+    function fecharModalAbrirCaixaCustom() { var m = document.getElementById('modalAbrirCaixaCustom'); if (m) { m.style.display = 'none'; document.body.style.overflow = ''; } }
+    function abrirModalFecharCaixaCustom() { var m = document.getElementById('modalFecharCaixaCustom'); if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; } }
+    function fecharModalFecharCaixaCustom() { var m = document.getElementById('modalFecharCaixaCustom'); if (m) { m.style.display = 'none'; document.body.style.overflow = ''; } }
+    function abrirModalMovimentoCustom() { var m = document.getElementById('modalMovimentoCustom'); if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; } }
+    function fecharModalMovimentoCustom() { var m = document.getElementById('modalMovimentoCustom'); if (m) { m.style.display = 'none'; document.body.style.overflow = ''; } }
+    function abrirModalSenhaMestraCaixaCustom() { var m = document.getElementById('modalSenhaMestraCaixaCustom'); if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; if (typeof carregarClientesSenhaMestra === 'function') carregarClientesSenhaMestra(); } }
+    function fecharModalSenhaMestraCaixaCustom() { var m = document.getElementById('modalSenhaMestraCaixaCustom'); if (m) { m.style.display = 'none'; document.body.style.overflow = ''; } }
+    window.abrirModalAbrirCaixaCustom = abrirModalAbrirCaixaCustom;
+    window.fecharModalAbrirCaixaCustom = fecharModalAbrirCaixaCustom;
+    window.abrirModalFecharCaixaCustom = abrirModalFecharCaixaCustom;
+    window.fecharModalFecharCaixaCustom = fecharModalFecharCaixaCustom;
+    window.abrirModalMovimentoCustom = abrirModalMovimentoCustom;
+    window.fecharModalMovimentoCustom = fecharModalMovimentoCustom;
+    window.abrirModalSenhaMestraCaixaCustom = abrirModalSenhaMestraCaixaCustom;
+    window.fecharModalSenhaMestraCaixaCustom = fecharModalSenhaMestraCaixaCustom;
+    [['modalCadastrarCaixaCustom', 'fecharModalCadastrarCaixaCustom'], ['modalAbrirCaixaCustom', 'fecharModalAbrirCaixaCustom'], ['modalFecharCaixaCustom', 'fecharModalFecharCaixaCustom'], ['modalMovimentoCustom', 'fecharModalMovimentoCustom'], ['modalSenhaMestraCaixaCustom', 'fecharModalSenhaMestraCaixaCustom']].forEach(function(pair) {
+        var el = document.getElementById(pair[0]);
+        if (el) el.addEventListener('click', function(e) { if (e.target === el) window[pair[1]](); });
+    });
+    document.getElementById('filtroCaixa').addEventListener('change', carregarAberturas);
+    document.getElementById('filtroStatus').addEventListener('change', carregarAberturas);
+
+    document.getElementById('btnCadastrarCaixa').addEventListener('click', async function() {
+        const ident = (document.getElementById('cadCaixaIdentificador').value || '').trim();
+        if (!ident) { alert('Informe o nome do caixa.'); return; }
+        const ativoEl = document.getElementById('cadCaixaAtivo');
+        const ativo = !ativoEl || ativoEl.checked;
+        let url = '/api/v1/caixas/';
+        const selEmp = document.getElementById('cadCaixaEmpresaId');
+        if (selEmp) {
+            if (!selEmp.value) { alert('Selecione a empresa fiscal.'); return; }
+            url += '?empresa_id=' + encodeURIComponent(selEmp.value);
+        }
+        try {
+            const r = await fetchAuth(url, { method: 'POST', body: JSON.stringify({ identificador: ident, ativo: ativo }) });
+            const data = await r.json().catch(function() { return {}; });
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Erro: ' + err);
+                return;
+            }
+            fecharModalCadastrarCaixaCustom();
+            await carregarCaixas();
+            carregarAberturas();
+            alert('Caixa cadastrado: ' + (data.identificador || ident) + ' (ID ' + (data.id || '') + ').');
+        } catch (e) {
+            alert('Erro ao cadastrar caixa.');
+            console.error(e);
+        }
+    });
+
+    document.getElementById('btnAbrirCaixa').addEventListener('click', async function() {
+        const caixaIdSel = document.getElementById('abrirCaixaId').value;
+        const valor = parseFloat(document.getElementById('abrirValorInicial').value) || 0;
+        if (!caixaIdSel) { alert('Selecione o caixa.'); return; }
+        try {
+            const r = await fetchAuth('/api/v1/aberturas-caixa/abrir', { method: 'POST', body: JSON.stringify({ caixa_id: parseInt(caixaIdSel, 10), valor_inicial: valor }) });
+            const data = r.ok ? await r.json() : null;
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Erro: ' + err);
+                return;
+            }
+            fecharModalAbrirCaixaCustom();
+            document.getElementById('abrirValorInicial').value = '0';
+            carregarAberturas();
+        } catch (e) { alert('Erro ao abrir caixa.'); console.error(e); }
+    });
+
+    document.getElementById('btnFecharCaixa').addEventListener('click', async function() {
+        const aberturaId = document.getElementById('fecharAberturaId').value;
+        const valorFinal = parseFloat(document.getElementById('fecharValorFinal').value);
+        if (!aberturaId || isNaN(valorFinal)) { alert('Informe o valor final.'); return; }
+        try {
+            const r = await fetchAuth('/api/v1/aberturas-caixa/' + aberturaId + '/fechar', { method: 'PATCH', body: JSON.stringify({ valor_final: valorFinal }) });
+            const data = r.ok ? await r.json() : null;
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Erro: ' + err);
+                return;
+            }
+            fecharModalFecharCaixaCustom();
+            carregarAberturas();
+        } catch (e) { alert('Erro ao fechar caixa.'); console.error(e); }
+    });
+
+    document.getElementById('btnRegistrarMovimento').addEventListener('click', async function() {
+        const aberturaId = document.getElementById('movAberturaId').value;
+        const tipo = document.getElementById('movTipo').value;
+        const valor = parseFloat(document.getElementById('movValor').value);
+        const observacao = document.getElementById('movObservacao').value.trim();
+        const senhaMestra = document.getElementById('movSenhaMestra').value;
+        if (!aberturaId || !tipo || isNaN(valor) || valor <= 0) { alert('Preencha tipo e valor.'); return; }
+        const body = { abertura_caixa_id: parseInt(aberturaId, 10), tipo, valor, observacao: observacao || null };
+        if (document.getElementById('wrapSenhaMestra').style.display !== 'none') body.senha_mestra = senhaMestra;
+        try {
+            const r = await fetchAuth('/api/v1/movimentos-caixa/', { method: 'POST', body: JSON.stringify(body) });
+            const data = r.ok ? await r.json() : null;
+            if (!r.ok) {
+                const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                alert('Erro: ' + err);
+                return;
+            }
+            fecharModalMovimentoCustom();
+            carregarAberturas();
+        } catch (e) { alert('Erro ao registrar.'); console.error(e); }
+    });
+
+    carregarCaixas().then(function() { carregarAberturas(); });
+
+    async function carregarClientesSenhaMestra() {
+        const sel = document.getElementById('senhaMestraClienteId');
+        if (!sel) return;
+        try {
+            const r = await fetchAuth('/api/v1/clientes/?por_pagina=500');
+            const data = r.ok ? await r.json() : {};
+            const items = data.clientes || data.itens || data.data || (Array.isArray(data) ? data : []);
+            sel.innerHTML = '<option value="">Selecione</option>';
+            items.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nome || c.razao_social || 'Cliente #' + c.id;
+                sel.appendChild(opt);
+            });
+        } catch (e) { console.error(e); }
+    }
+    var btnSalvarSenha = document.getElementById('btnSalvarSenhaMestra');
+    if (btnSalvarSenha) {
+        btnSalvarSenha.addEventListener('click', async function() {
+            const clienteId = document.getElementById('senhaMestraClienteId').value;
+            const nova = document.getElementById('senhaMestraNova').value;
+            const conf = document.getElementById('senhaMestraConfirmar').value;
+            if (!clienteId) { alert('Selecione o estabelecimento.'); return; }
+            if (!nova || nova.length < 4) { alert('A senha deve ter no mínimo 4 caracteres.'); return; }
+            if (nova !== conf) { alert('As senhas não coincidem.'); return; }
+            try {
+                const r = await fetchAuth('/api/v1/movimentos-caixa/senha-mestra', {
+                    method: 'POST',
+                    body: JSON.stringify({ cliente_id: parseInt(clienteId, 10), senha_mestra: nova })
+                });
+                const data = r.ok ? null : await r.json().catch(() => ({}));
+                if (!r.ok) {
+                    const err = data && data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : r.statusText;
+                    alert('Erro: ' + err);
+                    return;
+                }
+                fecharModalSenhaMestraCaixaCustom();
+                document.getElementById('senhaMestraNova').value = '';
+                document.getElementById('senhaMestraConfirmar').value = '';
+                alert('Senha mestra configurada para o estabelecimento.');
+            } catch (e) {
+                alert('Erro ao salvar.');
+                console.error(e);
+            }
+        });
+    }
+
+    if (typeof feather !== 'undefined') feather.replace();
+})();
+</script>
+{% endblock %}

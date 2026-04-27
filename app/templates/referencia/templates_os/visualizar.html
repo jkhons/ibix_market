@@ -1,0 +1,176 @@
+{# 
+  REFERÊNCIA DO CERTILOG - Visualização de Template Form Builder
+  Este arquivo é uma cópia de referência do sistema Certilog.
+  Não deve ser usado diretamente no PDV Ibix.
+  Adaptar conforme necessário para implementação futura.
+#}
+{% extends "base.html" %}
+
+{% block title %}Visualizar Template - Form Builder{% endblock %}
+
+{% block page_title %}Visualizar Template{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="/static/css/form_builder.css">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center">
+        <h1 class="h3 d-inline align-middle" id="templateNomeTitulo">Template</h1>
+        <a href="/manutencao/templates" class="btn btn-secondary">
+            <i class="align-middle me-1" data-feather="arrow-left"></i>
+            Voltar
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-body">
+            <div id="preview-template">
+                <p class="text-muted">Carregando preview do template...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/form_builder_renderer.js"></script>
+<script>
+// Carregar e renderizar template
+document.addEventListener('DOMContentLoaded', function() {
+    // Extrair template_id da URL: /manutencao/templates/{template_id}/visualizar
+    const pathParts = window.location.pathname.split('/').filter(p => p);
+    let templateId = null;
+    
+    // Procurar pelo índice de 'templates' e pegar o próximo elemento
+    const templatesIndex = pathParts.indexOf('templates');
+    if (templatesIndex !== -1 && templatesIndex + 1 < pathParts.length) {
+        templateId = pathParts[templatesIndex + 1];
+    }
+    
+    // Fallback: tentar pegar do query string
+    if (!templateId) {
+        templateId = new URLSearchParams(window.location.search).get('id');
+    }
+    
+    if (templateId) {
+        carregarETemplate(templateId);
+    } else {
+        console.error('Template ID não encontrado na URL');
+        document.getElementById('preview-template').innerHTML = 
+            '<div class="alert alert-danger">Erro: ID do template não encontrado na URL.</div>';
+    }
+    
+    feather.replace();
+});
+
+async function carregarETemplate(templateId) {
+    const previewContainer = document.getElementById('preview-template');
+    
+    try {
+        const response = await fetch(`/api/v1/manutencao/templates/${templateId}`, {
+            credentials: 'include'  // Incluir cookies de sessão
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Erro na resposta da API:', response.status, errorText);
+            previewContainer.innerHTML = 
+                `<div class="alert alert-danger">
+                    <strong>Erro ao carregar template:</strong> ${response.status} ${response.statusText}
+                    ${errorText ? '<br><small>' + errorText + '</small>' : ''}
+                </div>`;
+            return;
+        }
+        
+        const template = await response.json();
+        console.log('Template carregado:', template);
+        
+        // Atualizar título
+        if (template.nome) {
+            document.getElementById('templateNomeTitulo').textContent = template.nome;
+        }
+        
+        // Verificar se tem versão atual
+        if (!template.versao_atual) {
+            previewContainer.innerHTML = 
+                '<div class="alert alert-warning">Este template não possui versão publicada ainda.</div>';
+            return;
+        }
+        
+        // Verificar se tem schema (tentar ambos os nomes possíveis)
+        const schema = template.versao_atual.schema_json || template.versao_atual.formulario_schema;
+        if (!schema) {
+            previewContainer.innerHTML = 
+                '<div class="alert alert-warning">Este template não possui schema configurado.</div>';
+            return;
+        }
+        
+        // Validar que schema é um objeto válido
+        if (typeof schema !== 'object' || schema === null || Array.isArray(schema)) {
+            console.error('Schema inválido:', schema);
+            previewContainer.innerHTML = 
+                '<div class="alert alert-danger">O schema do template está em formato inválido.</div>';
+            return;
+        }
+        
+        // Verificar se schema tem estrutura mínima (secoes ou campos)
+        if (!schema.secoes && !schema.campos) {
+            console.warn('Schema sem seções ou campos:', schema);
+            previewContainer.innerHTML = 
+                '<div class="alert alert-warning">O schema do template não possui seções ou campos configurados.</div>';
+            return;
+        }
+        
+        // Renderizar template com contexto mínimo para preview
+        try {
+            // Contexto mínimo para preview (sem OS) - incluir informações do template
+            const contextoPreview = {
+                os: null,
+                user: {
+                    id: null,
+                    name: 'Preview',
+                    email: '',
+                    role: null,
+                    papel_organizacional: null
+                },
+                status: null,
+                template: {
+                    nome: template.nome || null,
+                    criado_em: template.criado_em || null,
+                    atualizado_em: template.atualizado_em || null,
+                    versao: template.versao_atual?.versao || null
+                },
+                templateNome: template.nome || null,
+                refs: {
+                    company: null,
+                    unit: null,
+                    program: null,
+                    asset: null,
+                    setor: null
+                }
+            };
+            
+            const renderer = new FormBuilderRenderer('preview-template', schema, {}, null, contextoPreview);
+            renderer.renderizar();
+        } catch (renderError) {
+            console.error('Erro ao renderizar template:', renderError);
+            previewContainer.innerHTML = 
+                `<div class="alert alert-danger">
+                    <strong>Erro ao renderizar template:</strong> ${renderError.message}
+                    ${renderError.stack ? '<br><small><pre>' + renderError.stack + '</pre></small>' : ''}
+                </div>`;
+        }
+        
+    } catch (error) {
+        console.error('Erro ao carregar template:', error);
+        previewContainer.innerHTML = 
+            `<div class="alert alert-danger">
+                <strong>Erro ao carregar template:</strong> ${error.message}
+            </div>`;
+    }
+}
+</script>
+{% endblock %}

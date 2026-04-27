@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Dashboard compacto – experiência visual refinada */
+.dashboard-negocios .dashboard-section-title { font-size: 0.9rem; font-weight: 600; color: var(--bs-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem; }
+.dashboard-negocios .card { border-radius: 8px; border-width: 1px; }
+.dashboard-negocios .card-body { padding: 0.75rem 1rem; }
+.dashboard-negocios .card-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0; color: var(--bs-body-color); }
+.dashboard-negocios .dashboard-value { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0 0 0; display: block; }
+.dashboard-negocios .stat { width: 28px; height: 28px; }
+.dashboard-negocios .stat i { width: 16px; height: 16px; }
+.dashboard-negocios .card-header { padding: 0.5rem 1rem; font-size: 0.9rem; }
+.dashboard-negocios .chart-card .card-body { height: 180px !important; min-height: 180px; }
+.dashboard-negocios .table th, .dashboard-negocios .table td { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
+.dashboard-negocios .nav-tabs .nav-link { font-size: 0.85rem; padding: 0.35rem 0.75rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 dashboard-negocios">
+    <div class="mb-2">
+        <h1 class="h4 d-inline align-middle fw-semibold">Dashboard</h1>
+    </div>
+
+    <div id="dashboard-negocios-error" class="alert alert-danger d-none"></div>
+
+    <!-- Indicadores do dia -->
+    <div class="mb-3">
+        <h5 class="dashboard-section-title">Hoje</h5>
+        <div class="row g-2 mb-2">
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Faturamento do dia</h6>
+                                <span class="dashboard-value text-success" id="faturamento-hoje">R$ 0,00</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-success">
+                                    <i data-feather="dollar-sign"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Vendas hoje</h6>
+                                <span class="dashboard-value text-primary" id="vendas-hoje">0</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-primary">
+                                    <i data-feather="shopping-cart"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Clientes atendidos</h6>
+                                <span class="dashboard-value text-info" id="clientes-atendidos-hoje">0</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-info">
+                                    <i data-feather="users"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-secondary">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Ticket médio (hoje)</h6>
+                                <span class="dashboard-value text-secondary" id="ticket-medio-hoje">R$ 0,00</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-secondary">
+                                    <i data-feather="trending-up"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <h5 class="dashboard-section-title">Vendas (geral)</h5>
+        <div class="row g-2 mb-2">
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Total de Vendas</h6>
+                                <span class="dashboard-value text-primary" id="total-vendas">0</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-primary"><i data-feather="shopping-cart"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Faturamento Total</h6>
+                                <span class="dashboard-value text-success" id="valor-total-vendas">R$ 0,00</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-success"><i data-feather="dollar-sign"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Vendas Pendentes</h6>
+                                <span class="dashboard-value text-warning" id="vendas-pendentes">0</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-warning"><i data-feather="clock"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Ticket Médio (geral)</h6>
+                                <span class="dashboard-value text-info" id="ticket-medio">R$ 0,00</span>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-info"><i data-feather="trending-up"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Produtos por venda</h6>
+                                <span class="dashboard-value text-primary" id="itens-por-venda">0</span>
+                                <div class="text-muted small mt-0">Média últimos 30 dias</div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-primary"><i data-feather="package"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Cancelamentos</h6>
+                                <span class="dashboard-value text-danger" id="cancelamentos-30d">0</span>
+                                <div class="text-muted small mt-0">Últimos 30 dias · <span id="taxa-cancelamento">0</span>%</div>
+                            </div>
+                            <div class="col-auto">
+                                <div class="stat text-danger"><i data-feather="x-circle"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header py-2">
+                <h6 class="card-title mb-0 fw-semibold">Últimas vendas</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Data</th>
+                                <th>Cliente</th>
+                                <th>Status</th>
+                                <th class="text-end">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vendas-recentes-body">
+                            <tr>
+                                <td colspan="5" class="text-muted">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Produtos mais vendidos -->
+    <div class="mb-3">
+        <h5 class="dashboard-section-title">Produtos mais vendidos</h5>
+        <ul class="nav nav-tabs mb-2" id="tab-mais-vendidos" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab-dia" data-bs-toggle="tab" data-bs-target="#painel-dia" type="button" role="tab">Dia</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-semana" data-bs-toggle="tab" data-bs-target="#painel-semana" type="button" role="tab">Semana</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab-mes" data-bs-toggle="tab" data-bs-target="#painel-mes" type="button" role="tab">Mês</button>
+            </li>
+        </ul>
+        <div class="tab-content" id="painel-mais-vendidos">
+            <div class="tab-pane fade show active" id="painel-dia" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead><tr><th>Produto</th><th class="text-end">Qtd</th><th class="text-end">Valor</th></tr></thead>
+                                <tbody id="mais-vendidos-dia-body"><tr><td colspan="3" class="text-muted">Carregando...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="painel-semana" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead><tr><th>Produto</th><th class="text-end">Qtd</th><th class="text-end">Valor</th></tr></thead>
+                                <tbody id="mais-vendidos-semana-body"><tr><td colspan="3" class="text-muted">Carregando...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="painel-mes" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead><tr><th>Produto</th><th class="text-end">Qtd</th><th class="text-end">Valor</th></tr></thead>
+                                <tbody id="mais-vendidos-mes-body"><tr><td colspan="3" class="text-muted">Carregando...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="mb-3">
+        <h5 class="dashboard-section-title">Gráficos</h5>
+        <div class="row g-2">
+            <div class="col-lg-6">
+                <div class="card h-100 chart-card">
+                    <div class="card-header py-2"><h6 class="card-title mb-0">Vendas por período</h6></div>
+                    <div class="card-body" style="height: 180px;">
+                        <canvas id="chart-vendas-periodo"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100 chart-card">
+                    <div class="card-header py-2"><h6 class="card-title mb-0">Por forma de pagamento</h6></div>
+                    <div class="card-body" style="height: 180px;">
+                        <canvas id="chart-forma-pagamento"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100 chart-card">
+                    <div class="card-header py-2"><h6 class="card-title mb-0">Horários de pico</h6></div>
+                    <div class="card-body" style="height: 180px;">
+                        <canvas id="chart-horarios-pico"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100 chart-card">
+                    <div class="card-header py-2"><h6 class="card-title mb-0">Por categoria</h6></div>
+                    <div class="card-body" style="height: 180px;">
+                        <canvas id="chart-categoria"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="estoque-section" class="mb-3 d-none">
+        <h5 class="dashboard-section-title">Estoque</h5>
+        <div class="row g-2 mb-2">
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Produtos</h6>
+                                <span class="dashboard-value text-primary" id="estoque-total-produtos">0</span>
+                                <div class="text-muted small mt-0">Categorias: <span id="estoque-total-categorias">0</span></div>
+                            </div>
+                            <div class="col-auto"><div class="stat text-primary"><i data-feather="package"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Estoque Baixo</h6>
+                                <span class="dashboard-value text-warning" id="estoque-baixo">0</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-warning"><i data-feather="alert-triangle"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-6 col-md-12">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Valor Total em Estoque</h6>
+                                <span class="dashboard-value text-success" id="estoque-valor-total">R$ 0,00</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-success"><i data-feather="dollar-sign"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <h5 class="dashboard-section-title">Ordens de serviço</h5>
+        <div class="row g-2 mb-2">
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-primary">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Total</h6>
+                                <span class="dashboard-value text-primary" id="os-total">0</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-primary"><i data-feather="file-text"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Abertas</h6>
+                                <span class="dashboard-value text-info" id="os-abertas">0</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-info"><i data-feather="folder-plus"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Em Andamento</h6>
+                                <span class="dashboard-value text-warning" id="os-em-andamento">0</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-warning"><i data-feather="activity"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-success">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Concluídas</h6>
+                                <span class="dashboard-value text-success" id="os-concluidas">0</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-success"><i data-feather="check-circle"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-xl-3 col-md-6">
+                <div class="card border-danger">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h6 class="card-title">Canceladas</h6>
+                                <span class="dashboard-value text-danger" id="os-canceladas">0</span>
+                            </div>
+                            <div class="col-auto"><div class="stat text-danger"><i data-feather="x-circle"></i></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header py-2">
+                <h6 class="card-title mb-0 fw-semibold">Ordens de serviço recentes</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Data</th>
+                                <th>Cliente</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordens-recentes-body">
+                            <tr>
+                                <td colspan="4" class="text-muted">Carregando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+    function formatarMoeda(valor) {
+        const numero = Number(valor || 0);
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL'
+        }).format(numero);
+    }
+
+    function formatarData(dataStr) {
+        if (typeof window.formatarDataApenas === 'function') {
+            return window.formatarDataApenas(dataStr);
+        }
+        if (!dataStr) return '-';
+        const data = new Date(dataStr);
+        return isNaN(data.getTime()) ? dataStr : data.toLocaleDateString('pt-BR');
+    }
+
+    function setText(id, valor) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = valor;
+    }
+
+    function renderVendas(vendas) {
+        const body = document.getElementById('vendas-recentes-body');
+        if (!body) return;
+        if (!vendas.length) {
+            body.innerHTML = '<tr><td colspan="5" class="text-muted">Nenhuma venda encontrada.</td></tr>';
+            return;
+        }
+        body.innerHTML = vendas.map((venda) => `
+            <tr>
+                <td>${venda.numero_venda || '-'}</td>
+                <td>${formatarData(venda.data_venda)}</td>
+                <td>${venda.cliente_nome || '-'}</td>
+                <td>${venda.status || '-'}</td>
+                <td class="text-end">${formatarMoeda(venda.total)}</td>
+            </tr>
+        `).join('');
+    }
+
+    function renderOrdens(ordens) {
+        const body = document.getElementById('ordens-recentes-body');
+        if (!body) return;
+        if (!ordens.length) {
+            body.innerHTML = '<tr><td colspan="4" class="text-muted">Nenhuma ordem encontrada.</td></tr>';
+            return;
+        }
+        body.innerHTML = ordens.map((ordem) => `
+            <tr>
+                <td>${ordem.codigo || '-'}</td>
+                <td>${formatarData(ordem.data_abertura)}</td>
+                <td>${ordem.cliente_nome || '-'}</td>
+                <td>${ordem.status || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    async function carregarDashboardNegocios() {
+        const errorEl = document.getElementById('dashboard-negocios-error');
+        try {
+            const response = await window.authenticatedFetch('/api/v1/negocios/dashboard');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+
+            const vendas = data.vendas || {};
+            setText('total-vendas', vendas.total_vendas ?? 0);
+            setText('valor-total-vendas', formatarMoeda(vendas.valor_total_vendas));
+            setText('vendas-pendentes', vendas.vendas_pendentes ?? 0);
+            setText('ticket-medio', formatarMoeda(vendas.ticket_medio));
+            setText('faturamento-hoje', formatarMoeda(vendas.faturamento_hoje));
+            setText('vendas-hoje', vendas.vendas_hoje ?? 0);
+            setText('clientes-atendidos-hoje', vendas.clientes_atendidos_hoje ?? 0);
+            setText('ticket-medio-hoje', formatarMoeda(vendas.ticket_medio_hoje));
+            setText('itens-por-venda', (vendas.itens_por_venda_media ?? 0).toFixed(1));
+            setText('cancelamentos-30d', vendas.cancelamentos_30d ?? 0);
+            setText('taxa-cancelamento', (vendas.taxa_cancelamento ?? 0).toFixed(1));
+            renderVendas(vendas.recentes || []);
+
+            const pmv = data.produtos_mais_vendidos || {};
+            renderMaisVendidos('mais-vendidos-dia-body', pmv.dia || []);
+            renderMaisVendidos('mais-vendidos-semana-body', pmv.semana || []);
+            renderMaisVendidos('mais-vendidos-mes-body', pmv.mes || []);
+
+            const estoque = data.estoque;
+            const estoqueSection = document.getElementById('estoque-section');
+            if (estoque && estoqueSection) {
+                estoqueSection.classList.remove('d-none');
+                setText('estoque-total-produtos', estoque.total_produtos ?? 0);
+                setText('estoque-total-categorias', estoque.total_categorias ?? 0);
+                setText('estoque-baixo', estoque.estoque_baixo ?? 0);
+                setText('estoque-valor-total', formatarMoeda(estoque.valor_total_estoque));
+            } else if (estoqueSection) {
+                estoqueSection.classList.add('d-none');
+            }
+
+            const ordens = data.ordens_servico || {};
+            const porStatus = ordens.por_status || {};
+            setText('os-total', ordens.total ?? 0);
+            setText('os-abertas', porStatus.aberta ?? 0);
+            setText('os-em-andamento', porStatus.em_andamento ?? 0);
+            setText('os-concluidas', porStatus.concluida ?? 0);
+            setText('os-canceladas', porStatus.cancelada ?? 0);
+            renderOrdens(ordens.recentes || []);
+
+            if (errorEl) errorEl.classList.add('d-none');
+            if (typeof carregarGraficos === 'function') carregarGraficos();
+        } catch (error) {
+            if (errorEl) {
+                errorEl.textContent = 'Não foi possível carregar o dashboard de negócios. Tente novamente.';
+                errorEl.classList.remove('d-none');
+            }
+            renderVendas([]);
+            renderOrdens([]);
+            renderMaisVendidos('mais-vendidos-dia-body', []);
+            renderMaisVendidos('mais-vendidos-semana-body', []);
+            renderMaisVendidos('mais-vendidos-mes-body', []);
+        }
+    }
+
+    function renderMaisVendidos(tbodyId, lista) {
+        const body = document.getElementById(tbodyId);
+        if (!body) return;
+        if (!lista.length) {
+            body.innerHTML = '<tr><td colspan="3" class="text-muted">Nenhum dado no período.</td></tr>';
+            return;
+        }
+        body.innerHTML = lista.map(function(p) {
+            return '<tr><td>' + (p.nome || '-') + '</td><td class="text-end">' + Number(p.quantidade || 0).toLocaleString('pt-BR') + '</td><td class="text-end">' + formatarMoeda(p.valor_total) + '</td></tr>';
+        }).join('');
+    }
+
+    var chartsDashboard = {};
+
+    function carregarGraficos() {
+        if (typeof Chart === 'undefined') return;
+        window.authenticatedFetch('/api/v1/negocios/dashboard/graficos')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var opts = { responsive: true, maintainAspectRatio: false };
+                if (chartsDashboard.periodo) chartsDashboard.periodo.destroy();
+                if (data.vendas_por_periodo && data.vendas_por_periodo.length) {
+                    var ctx = document.getElementById('chart-vendas-periodo');
+                    if (ctx) {
+                        chartsDashboard.periodo = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: (data.vendas_por_periodo || []).map(function(x) { return x.data; }),
+                                datasets: [{ label: 'Valor (R$)', data: (data.vendas_por_periodo || []).map(function(x) { return x.valor; }), borderColor: '#3B7DDD', tension: 0.3, fill: true }]
+                            },
+                            options: opts
+                        });
+                    }
+                }
+                if (chartsDashboard.forma) chartsDashboard.forma.destroy();
+                if (data.vendas_por_forma_pagamento && data.vendas_por_forma_pagamento.length) {
+                    var ctx = document.getElementById('chart-forma-pagamento');
+                    if (ctx) {
+                        chartsDashboard.forma = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: (data.vendas_por_forma_pagamento || []).map(function(x) { return x.forma; }),
+                                datasets: [{ data: (data.vendas_por_forma_pagamento || []).map(function(x) { return x.valor; }), backgroundColor: ['#3B7DDD', '#1cbb8c', '#fcb92c', '#6c757d', '#17a2b8'] }]
+                            },
+                            options: opts
+                        });
+                    }
+                }
+                if (chartsDashboard.horarios) chartsDashboard.horarios.destroy();
+                if (data.horarios_pico && data.horarios_pico.length) {
+                    var ctx = document.getElementById('chart-horarios-pico');
+                    if (ctx) {
+                        chartsDashboard.horarios = new Chart(ctx, {
+                            type: 'bar',
+                            data: {
+                                labels: (data.horarios_pico || []).map(function(x) { return x.hora + 'h'; }),
+                                datasets: [{ label: 'Vendas', data: (data.horarios_pico || []).map(function(x) { return x.total_vendas; }), backgroundColor: '#17a2b8' }]
+                            },
+                            options: opts
+                        });
+                    }
+                }
+                if (chartsDashboard.categoria) chartsDashboard.categoria.destroy();
+                if (data.vendas_por_categoria && data.vendas_por_categoria.length) {
+                    var ctx = document.getElementById('chart-categoria');
+                    if (ctx) {
+                        chartsDashboard.categoria = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: (data.vendas_por_categoria || []).map(function(x) { return x.categoria; }),
+                                datasets: [{ data: (data.vendas_por_categoria || []).map(function(x) { return x.valor; }), backgroundColor: ['#1cbb8c', '#3B7DDD', '#fcb92c', '#6c757d', '#dc3545'] }]
+                            },
+                            options: opts
+                        });
+                    }
+                }
+            })
+            .catch(function() {});
+    }
+
+    document.addEventListener('DOMContentLoaded', carregarDashboardNegocios);
+</script>
+{% endblock %}

@@ -1,0 +1,658 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+<h1 class="h4 mb-3">Checkout</h1>
+<p class="text-muted small mb-3" id="loja-checkout-subtitle" style="display: none;"></p>
+<div id="loja-checkout-empty" class="alert alert-info" style="display: none;">
+    Carrinho vazio. <a href="/">Ir à loja</a>
+</div>
+<div id="loja-checkout-form-wrap" style="display: none;">
+    <p id="loja-checkout-loja-nome" class="text-muted mb-3"></p>
+    <form id="loja-checkout-form" class="needs-validation" novalidate>
+        <input type="hidden" name="loja_id" id="loja-checkout-loja-id">
+        <input type="hidden" id="utm_source" name="utm_source" value="">
+        <input type="hidden" id="utm_medium" name="utm_medium" value="">
+        <input type="hidden" id="utm_campaign" name="utm_campaign" value="">
+        <input type="hidden" id="canal_origem" name="canal_origem" value="">
+        <div class="mb-3">
+            <label for="comprador_nome" class="form-label">Nome *</label>
+            <input type="text" class="form-control" id="comprador_nome" name="comprador_nome" required>
+        </div>
+        <div class="mb-3">
+            <label for="comprador_email" class="form-label">E-mail *</label>
+            <input type="email" class="form-control" id="comprador_email" name="comprador_email" required>
+        </div>
+        <div class="mb-3">
+            <label for="comprador_telefone" class="form-label">Telefone</label>
+            <input type="text" class="form-control" id="comprador_telefone" name="comprador_telefone" placeholder="(11) 99999-9999">
+        </div>
+        <div class="mb-3">
+            <label for="comprador_documento" class="form-label">CPF/CNPJ</label>
+            <input type="text" class="form-control" id="comprador_documento" name="comprador_documento">
+        </div>
+        <div class="mb-3">
+            <label for="tipo_entrega" class="form-label">Tipo de entrega</label>
+            <select class="form-select" id="tipo_entrega" name="tipo_entrega">
+                <option value="retirada">Retirada</option>
+                <option value="entrega">Entrega</option>
+            </select>
+        </div>
+        <div class="mb-3" id="wrap-endereco">
+          <div class="row g-2 mb-2">
+            <div class="col-5">
+              <label class="form-label">CEP *</label>
+              <input type="text" class="form-control" id="endereco_cep" maxlength="9" placeholder="00000-000">
+            </div>
+            <div class="col-7 d-flex align-items-end">
+              <span id="cep-status" class="small text-muted"></span>
+            </div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Logradouro</label>
+            <input type="text" class="form-control" id="endereco_logradouro" readonly>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-4">
+              <label class="form-label">Número *</label>
+              <input type="text" class="form-control" id="endereco_numero">
+            </div>
+            <div class="col-8">
+              <label class="form-label">Complemento</label>
+              <input type="text" class="form-control" id="endereco_complemento">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-5">
+              <label class="form-label">Bairro</label>
+              <input type="text" class="form-control" id="endereco_bairro" readonly>
+            </div>
+            <div class="col-5">
+              <label class="form-label">Cidade</label>
+              <input type="text" class="form-control" id="endereco_cidade" readonly>
+            </div>
+            <div class="col-2">
+              <label class="form-label">UF</label>
+              <input type="text" class="form-control" id="endereco_uf" maxlength="2" readonly>
+            </div>
+          </div>
+          <div id="frete-indisponivel" class="alert alert-warning" style="display:none;">
+            Infelizmente não entregamos nessa localidade.
+          </div>
+        </div>
+        <div id="loja-checkout-frete-resumo" class="mb-3"></div>
+        <div class="mb-3">
+          <label for="loja-checkout-payment-method" class="form-label">Forma de pagamento</label>
+          <select class="form-select" id="loja-checkout-payment-method">
+            <option value="pix">PIX</option>
+            <option value="credit_card">Cartão de crédito</option>
+            <option value="boleto">Boleto</option>
+          </select>
+        </div>
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="aceite_politica_privacidade" name="aceite_politica_privacidade" value="1" required>
+          <label class="form-check-label" for="aceite_politica_privacidade">Li e aceito a <a href="/politica-privacidade-marketplace" target="_blank" rel="noopener noreferrer">Política de Privacidade</a> *</label>
+        </div>
+        <div class="mb-3 form-check">
+          <input type="checkbox" class="form-check-input" id="aceite_marketing" name="aceite_marketing" value="1">
+          <label class="form-check-label" for="aceite_marketing">Aceito receber ofertas e novidades por e-mail</label>
+        </div>
+        <div id="loja-checkout-error" class="alert alert-danger" style="display: none;" role="alert"></div>
+        <button type="submit" class="btn btn-primary" id="loja-checkout-submit">Finalizar pedido</button>
+        <a href="/loja/carrinho" class="btn btn-outline-secondary ms-2">Voltar ao carrinho</a>
+    </form>
+</div>
+
+<div id="modalCheckoutGuestEntrega" class="loja-modal-endereco" role="dialog" aria-modal="true" aria-labelledby="modalCheckoutGuestEntregaTituloVR" style="display: none;">
+  <div class="loja-modal-endereco-backdrop"></div>
+  <div class="loja-modal-endereco-content">
+    <div class="loja-modal-endereco-header">
+      <h2 id="modalCheckoutGuestEntregaTituloVR" class="loja-modal-endereco-title">Entrar ou criar conta</h2>
+      <button type="button" class="loja-modal-endereco-close" aria-label="Fechar">&times;</button>
+    </div>
+    <div class="loja-modal-endereco-body">
+      <p>Para usar o <strong>endereço salvo na sua conta</strong>, entre com e-mail e senha ou crie uma conta. Se você já comprou como visitante e ainda não definiu senha, use <strong>Criar conta</strong> ou o link do e-mail do pedido.</p>
+    </div>
+    <div class="loja-modal-endereco-footer loja-modal-endereco-footer--stack">
+      <a class="btn btn-primary" id="modalCheckoutGuestEntregaLoginVR" href="/loja/login">Entrar</a>
+      <a class="btn btn-outline-primary" id="modalCheckoutGuestEntregaCadastroVR" href="/loja/cadastro">Criar conta</a>
+      <button type="button" class="btn btn-outline-secondary" id="modalCheckoutGuestEntregaContinuarVR">Continuar sem conta — informar CEP</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("loja-checkout-form");
+  var formWrap = document.getElementById("loja-checkout-form-wrap");
+  var emptyEl = document.getElementById("loja-checkout-empty");
+  var subtitleEl = document.getElementById("loja-checkout-subtitle");
+  var lojaNomeEl = document.getElementById("loja-checkout-loja-nome");
+  var lojaIdEl = document.getElementById("loja-checkout-loja-id");
+  var errorEl = document.getElementById("loja-checkout-error");
+  var submitBtn = document.getElementById("loja-checkout-submit");
+  var groups = [];
+  window._entregaUsandoEnderecoCadastrado = false;
+
+  function isLojaConsumidorLogadoVR() {
+    return typeof window.LOJA_CONSUMIDOR_ID !== "undefined" && window.LOJA_CONSUMIDOR_ID != null;
+  }
+
+  function buildCheckoutAuthReturnQueryVR() {
+    var parts = ["next=" + encodeURIComponent("/loja/checkout")];
+    var lid = typeof window.Vitrine !== "undefined" && typeof window.Vitrine.getContextLojaId === "function"
+      ? window.Vitrine.getContextLojaId()
+      : null;
+    if (lid != null && !isNaN(Number(lid))) parts.push("loja_id=" + encodeURIComponent(String(lid)));
+    return parts.join("&");
+  }
+
+  function openModalCheckoutGuestEntregaVR() {
+    var modal = document.getElementById("modalCheckoutGuestEntrega");
+    var q = buildCheckoutAuthReturnQueryVR();
+    var loginA = document.getElementById("modalCheckoutGuestEntregaLoginVR");
+    var cadA = document.getElementById("modalCheckoutGuestEntregaCadastroVR");
+    if (loginA) loginA.href = "/loja/login?" + q;
+    if (cadA) cadA.href = "/loja/cadastro?" + q;
+    if (modal) modal.style.display = "flex";
+  }
+
+  function closeModalCheckoutGuestEntregaVR() {
+    var modal = document.getElementById("modalCheckoutGuestEntrega");
+    if (modal) modal.style.display = "none";
+  }
+
+  function validateCheckoutEntregaGuestVR() {
+    var tipoRaw = document.getElementById("tipo_entrega").value || "retirada";
+    if (tipoRaw !== "entrega") return true;
+    if (isLojaConsumidorLogadoVR()) return true;
+    if (window._entregaUsandoEnderecoCadastrado) return true;
+    var cep = (document.getElementById("endereco_cep").value || "").replace(/\D/g, "");
+    var num = (document.getElementById("endereco_numero").value || "").trim();
+    if (cep.length >= 8 && num) return true;
+    openModalCheckoutGuestEntregaVR();
+    errorEl.textContent = "Para usar o endereço da sua conta, faça login ou informe o CEP e o número abaixo.";
+    errorEl.style.display = "block";
+    return false;
+  }
+
+  function buscarEnderecoConsumidorVR() {
+    return fetch("/api/v1/loja/minha-conta/enderecos", { credentials: "same-origin" })
+      .then(function(r) { return r.ok ? r.json() : []; })
+      .catch(function() { return []; });
+  }
+
+  function preencherEnderecoVR(endereco) {
+    document.getElementById("endereco_cep").value = endereco.cep || "";
+    document.getElementById("endereco_logradouro").value = endereco.logradouro || "";
+    document.getElementById("endereco_numero").value = endereco.numero || "";
+    document.getElementById("endereco_complemento").value = endereco.complemento || "";
+    document.getElementById("endereco_bairro").value = endereco.bairro || "";
+    document.getElementById("endereco_cidade").value = endereco.cidade || "";
+    document.getElementById("endereco_uf").value = endereco.uf || "";
+  }
+
+  function getUtmParams() {
+    var params = new URLSearchParams(window.location.search);
+    return {
+      utm_source: params.get("utm_source") || "",
+      utm_medium: params.get("utm_medium") || "",
+      utm_campaign: params.get("utm_campaign") || "",
+      canal_origem: params.get("utm_source") || params.get("ref") || "checkout_web",
+    };
+  }
+
+  function getSelectedPaymentMethod() {
+    var el = document.getElementById("loja-checkout-payment-method");
+    return el && el.value ? el.value : "pix";
+  }
+
+  function nomeLojaDisplay(group) {
+    var n = String(group.nome_loja != null ? group.nome_loja : "").trim();
+    return n ? n : "Loja #" + group.loja_id;
+  }
+
+  function getItemsByLoja(cart) {
+    var byLoja = {};
+    (cart.items || []).forEach(function (item) {
+      var lid = item.loja_id;
+      if (lid == null || lid === "" || isNaN(Number(lid))) return;
+      lid = parseInt(lid, 10);
+      var nome = (item.nome_loja && String(item.nome_loja).trim()) ? String(item.nome_loja).trim() : null;
+      if (!byLoja[lid]) byLoja[lid] = { loja_id: lid, nome_loja: nome, items: [] };
+      else if (nome && !byLoja[lid].nome_loja) byLoja[lid].nome_loja = nome;
+      byLoja[lid].items.push({
+        anuncio_id: item.anuncio_id,
+        quantidade: item.quantidade || 1,
+      });
+    });
+    return Object.values(byLoja);
+  }
+
+  function applyLoja(group) {
+    lojaIdEl.value = group.loja_id;
+    lojaNomeEl.textContent = "Finalizando compra na loja: " + nomeLojaDisplay(group);
+  }
+
+  function fillDadosConsumidor() {
+    if (typeof window.Vitrine !== "undefined" && window.Vitrine.getMinhaConta) {
+      window.Vitrine.getMinhaConta().then(function (conta) {
+        document.getElementById("comprador_nome").value = conta.nome || "";
+        document.getElementById("comprador_email").value = conta.email || "";
+        document.getElementById("comprador_telefone").value = conta.telefone || "";
+        document.getElementById("comprador_documento").value = conta.documento || "";
+      }).catch(function () {});
+    }
+  }
+
+  var _freteRules = null;
+  window._freteCalculado = 0;
+  window._entregaDisponivel = true;
+  var _freteCidadeCache = null;
+
+  function fetchFreteRules(lojaId) {
+    fetch("/api/v1/loja/" + lojaId + "/frete")
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        _freteRules = data;
+        renderFreteResumo();
+      })
+      .catch(function() { _freteRules = null; });
+  }
+
+  function consultarFreteCidade(cidade, uf) {
+    var lojaId = parseInt(document.getElementById("loja-checkout-loja-id").value, 10);
+    fetch("/api/v1/loja/" + lojaId + "/frete?cidade=" + encodeURIComponent(cidade) + "&uf=" + encodeURIComponent(uf))
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (!data) return;
+        _freteCidadeCache = data;
+        if (data.entrega_disponivel === false) {
+          document.getElementById("frete-indisponivel").style.display = "block";
+          window._freteCalculado = 0;
+          window._entregaDisponivel = false;
+        } else {
+          document.getElementById("frete-indisponivel").style.display = "none";
+          window._entregaDisponivel = true;
+          if (typeof data.taxa_entrega_cidade !== "undefined") {
+            window._freteCalculado = parseFloat(data.taxa_entrega_cidade) || 0;
+          }
+        }
+        renderFreteResumo();
+      })
+      .catch(function() {});
+  }
+
+  document.getElementById("endereco_cep").addEventListener("blur", function() {
+    var cep = this.value.replace(/\D/g, "");
+    if (cep.length !== 8) return;
+    var statusEl = document.getElementById("cep-status");
+    statusEl.textContent = "Buscando...";
+    fetch("https://viacep.com.br/ws/" + cep + "/json/", {credentials: "omit"})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.erro) {
+          statusEl.textContent = "CEP não encontrado";
+          return;
+        }
+        statusEl.textContent = "";
+        document.getElementById("endereco_logradouro").value = data.logradouro || "";
+        document.getElementById("endereco_bairro").value = data.bairro || "";
+        document.getElementById("endereco_cidade").value = data.localidade || "";
+        document.getElementById("endereco_uf").value = data.uf || "";
+        consultarFreteCidade(data.localidade, data.uf);
+      })
+      .catch(function() { statusEl.textContent = "Erro ao buscar CEP"; });
+  });
+
+  function renderFreteResumo() {
+    var resumoEl = document.getElementById("loja-checkout-frete-resumo");
+    if (!resumoEl) return;
+    var tipoEnt = document.getElementById("tipo_entrega").value;
+    var wrapEndereco = document.getElementById("wrap-endereco");
+    var cart = window.Vitrine.getCart();
+    var lojaId = parseInt(document.getElementById("loja-checkout-loja-id").value, 10);
+    var items = (cart.items || []).filter(function(i) { return i.loja_id === lojaId; });
+    var subtotal = 0;
+    items.forEach(function(i) { subtotal += (i.preco || 0) * (i.quantidade || 1); });
+
+    var frete = 0;
+    var freteLabel = "";
+    if (!_freteRules || tipoEnt === "retirada") {
+      frete = 0;
+      freteLabel = tipoEnt === "retirada" ? "Retirada" : "R$ 0,00";
+      if (wrapEndereco) wrapEndereco.style.display = tipoEnt === "retirada" ? "none" : "";
+    } else {
+      if (wrapEndereco) wrapEndereco.style.display = "";
+      var fmt = _freteRules.formato_frete || "sem_frete";
+      if (fmt === "sem_frete") {
+        document.getElementById("tipo_entrega").value = "retirada";
+        frete = 0;
+        freteLabel = "Apenas retirada";
+        if (wrapEndereco) wrapEndereco.style.display = "none";
+      } else if (fmt === "gratis") {
+        frete = 0;
+        freteLabel = "Grátis";
+      } else if (fmt === "taxa_fixa" || fmt === "plataforma") {
+        var gratisApos = parseFloat(_freteRules.entrega_gratis_apos) || 0;
+        if (_freteCidadeCache && typeof _freteCidadeCache.taxa_entrega_cidade !== "undefined") {
+          var taxaCidade = parseFloat(_freteCidadeCache.taxa_entrega_cidade) || 0;
+          if (gratisApos > 0 && subtotal >= gratisApos) {
+            frete = 0;
+            freteLabel = "Grátis (acima de " + window.Vitrine.formatPreco(gratisApos) + ")";
+          } else {
+            frete = taxaCidade;
+            freteLabel = taxaCidade > 0 ? window.Vitrine.formatPreco(taxaCidade) : "Grátis";
+          }
+          if (_freteCidadeCache.prazo_dias) {
+            freteLabel += " (" + _freteCidadeCache.prazo_dias + " dias)";
+          }
+        } else {
+          var taxa = parseFloat(_freteRules.taxa_entrega_fixa) || 0;
+          if (gratisApos > 0 && subtotal >= gratisApos) {
+            frete = 0;
+            freteLabel = "Grátis (acima de " + window.Vitrine.formatPreco(gratisApos) + ")";
+          } else {
+            frete = taxa;
+            freteLabel = taxa > 0 ? window.Vitrine.formatPreco(taxa) : "Informe o CEP";
+          }
+        }
+        if (!window._entregaDisponivel) {
+          frete = 0;
+          freteLabel = "Indisponível";
+        }
+      }
+    }
+    window._freteCalculado = frete;
+    var total = subtotal + frete;
+    resumoEl.innerHTML =
+      '<div class="loja-resumo-linha"><span>Subtotal</span><strong>' + window.Vitrine.formatPreco(subtotal) + '</strong></div>' +
+      '<div class="loja-resumo-linha"><span>Frete</span><strong>' + freteLabel + '</strong></div>' +
+      '<div class="loja-resumo-total"><span>Total</span><strong>' + window.Vitrine.formatPreco(total) + '</strong></div>';
+
+    var tipoEntSelect = document.getElementById("tipo_entrega");
+    if (_freteRules && _freteRules.formato_frete === "sem_frete") {
+      tipoEntSelect.innerHTML = '<option value="retirada">Retirada</option>';
+    } else {
+      if (tipoEntSelect.options.length < 2) {
+        tipoEntSelect.innerHTML = '<option value="retirada">Retirada</option><option value="entrega">Entrega</option>';
+      }
+    }
+  }
+
+  function initCheckout() {
+    var utm = getUtmParams();
+    var utmSrc = document.getElementById("utm_source");
+    var utmMed = document.getElementById("utm_medium");
+    var utmCamp = document.getElementById("utm_campaign");
+    var canal = document.getElementById("canal_origem");
+    if (utmSrc) utmSrc.value = utm.utm_source;
+    if (utmMed) utmMed.value = utm.utm_medium;
+    if (utmCamp) utmCamp.value = utm.utm_campaign;
+    if (canal) canal.value = utm.canal_origem;
+    var cart = window.Vitrine.getCart();
+    groups = getItemsByLoja(cart);
+    if (groups.length === 0) {
+      emptyEl.style.display = "block";
+      formWrap.style.display = "none";
+      if (subtitleEl) subtitleEl.style.display = "none";
+      return;
+    }
+    emptyEl.style.display = "none";
+    formWrap.style.display = "block";
+    if (groups.length > 1) {
+      if (subtitleEl) {
+        subtitleEl.style.display = "block";
+        subtitleEl.textContent = "Um único pagamento para todas as lojas do carrinho.";
+      }
+      lojaNomeEl.textContent = "Itens de " + groups.length + " lojas — você paga uma vez só.";
+      lojaIdEl.value = groups[0].loja_id;
+    } else {
+      if (subtitleEl) subtitleEl.style.display = "none";
+      applyLoja(groups[0]);
+    }
+    fetchFreteRules(groups[0].loja_id);
+    fillDadosConsumidor();
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    errorEl.style.display = "none";
+    if (!validateCheckoutEntregaGuestVR()) return;
+    var cart = window.Vitrine.getCart();
+    var groupsNow = getItemsByLoja(cart);
+    if (groupsNow.length > 1) {
+      var tipoValM = document.getElementById("tipo_entrega").value || "retirada";
+      var bodyUni = {
+        itens: (cart.items || []).map(function (i) {
+          var q = parseInt(i.quantidade, 10);
+          return {
+            anuncio_id: i.anuncio_id,
+            quantidade: isNaN(q) || q < 1 ? 1 : q,
+            loja_id: parseInt(i.loja_id, 10),
+          };
+        }),
+        comprador_nome: document.getElementById("comprador_nome").value.trim(),
+        comprador_email: document.getElementById("comprador_email").value.trim().toLowerCase(),
+        comprador_telefone: (document.getElementById("comprador_telefone").value || "").trim() || null,
+        comprador_documento: (document.getElementById("comprador_documento").value || "").trim() || null,
+        endereco_cep: (document.getElementById("endereco_cep").value || "").trim() || null,
+        endereco_logradouro: (document.getElementById("endereco_logradouro").value || "").trim() || null,
+        endereco_numero: (document.getElementById("endereco_numero").value || "").trim() || null,
+        endereco_complemento: (document.getElementById("endereco_complemento").value || "").trim() || null,
+        endereco_bairro: (document.getElementById("endereco_bairro").value || "").trim() || null,
+        endereco_cidade: (document.getElementById("endereco_cidade").value || "").trim() || null,
+        endereco_uf: (document.getElementById("endereco_uf").value || "").trim() || null,
+        tipo_entrega: tipoValM,
+        aceite_marketing: document.getElementById("aceite_marketing").checked,
+        aceite_politica_privacidade: document.getElementById("aceite_politica_privacidade").checked,
+        observacoes_cliente: null,
+        utm_source: document.getElementById("utm_source").value || null,
+        utm_medium: document.getElementById("utm_medium").value || null,
+        utm_campaign: document.getElementById("utm_campaign").value || null,
+        canal_origem: document.getElementById("canal_origem").value || null,
+        payment_method: getSelectedPaymentMethod(),
+      };
+      if (!bodyUni.comprador_nome || !bodyUni.comprador_email) {
+        errorEl.textContent = "Preencha nome e e-mail.";
+        errorEl.style.display = "block";
+        return;
+      }
+      var aceiteU = document.getElementById("aceite_politica_privacidade");
+      if (!aceiteU || !aceiteU.checked) {
+        errorEl.textContent = "É necessário aceitar a Política de Privacidade para finalizar o pedido.";
+        errorEl.style.display = "block";
+        return;
+      }
+      bodyUni.aceite_politica_privacidade = true;
+      if (!window.Vitrine.postCheckoutUnificado) {
+        errorEl.textContent = "Atualize a página para usar o checkout unificado.";
+        errorEl.style.display = "block";
+        return;
+      }
+      submitBtn.disabled = true;
+      window.Vitrine.postCheckoutUnificado(bodyUni)
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (d) {
+            var msg = d.detail;
+            if (Array.isArray(msg)) msg = msg.map(function (x) { return x.msg || (typeof x === "string" ? x : JSON.stringify(x)); }).join("; ");
+            throw new Error(msg || "Erro ao finalizar");
+          }).catch(function (err) { throw err.message ? err : new Error("Erro ao finalizar"); });
+          return r.json();
+        })
+        .then(function (data) {
+          if (data && data.session_uuid && window.Vitrine.clearCart) {
+            window.Vitrine.clearCart();
+            if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
+          }
+          if (window.Vitrine && window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data)) {
+            return;
+          }
+          var nums = (data.pedidos || []).map(function (p) { return p.numero_pedido; }).join(",");
+          var firstId = (data.pedidos && data.pedidos[0]) ? data.pedidos[0].id : "";
+          if (nums || data.session_uuid) {
+            var qs = "numero_pedido=" + encodeURIComponent(nums || "") + "&pedido_id=" + firstId + "&session=" + encodeURIComponent(data.session_uuid || "");
+            if (data.comprador_email) qs += "&email=" + encodeURIComponent(data.comprador_email);
+            qs += "&payment_method=" + encodeURIComponent(getSelectedPaymentMethod());
+            window.location.href = "/loja/obrigado?" + qs;
+          } else {
+            errorEl.textContent = "Pedido criado, mas faltam dados de retorno.";
+            errorEl.style.display = "block";
+            submitBtn.disabled = false;
+          }
+        })
+        .catch(function (err) {
+          errorEl.textContent = err.message || String(err);
+          errorEl.style.display = "block";
+          submitBtn.disabled = false;
+        });
+      return;
+    }
+    var lojaId = parseInt(lojaIdEl.value, 10);
+    var items = (cart.items || []).filter(function (i) { return i.loja_id === lojaId; });
+    if (items.length === 0) {
+      errorEl.textContent = "Nenhum item desta loja no carrinho.";
+      errorEl.style.display = "block";
+      return;
+    }
+    var body = {
+      loja_id: lojaId,
+      itens: items.map(function (i) {
+        var q = parseInt(i.quantidade, 10);
+        return { anuncio_id: i.anuncio_id, quantidade: isNaN(q) || q < 1 ? 1 : q };
+      }),
+      comprador_nome: document.getElementById("comprador_nome").value.trim(),
+      comprador_email: document.getElementById("comprador_email").value.trim().toLowerCase(),
+      comprador_telefone: (document.getElementById("comprador_telefone").value || "").trim() || null,
+      comprador_documento: (document.getElementById("comprador_documento").value || "").trim() || null,
+      endereco_cep: (document.getElementById("endereco_cep").value || "").trim() || null,
+      endereco_logradouro: (document.getElementById("endereco_logradouro").value || "").trim() || null,
+      endereco_numero: (document.getElementById("endereco_numero").value || "").trim() || null,
+      endereco_complemento: (document.getElementById("endereco_complemento").value || "").trim() || null,
+      endereco_bairro: (document.getElementById("endereco_bairro").value || "").trim() || null,
+      endereco_cidade: (document.getElementById("endereco_cidade").value || "").trim() || null,
+      endereco_uf: (document.getElementById("endereco_uf").value || "").trim() || null,
+      tipo_entrega: document.getElementById("tipo_entrega").value || "retirada",
+      desconto: 0,
+      taxa_entrega: window._freteCalculado || 0,
+      aceite_marketing: document.getElementById("aceite_marketing").checked,
+      aceite_politica_privacidade: document.getElementById("aceite_politica_privacidade").checked,
+      utm_source: document.getElementById("utm_source").value || null,
+      utm_medium: document.getElementById("utm_medium").value || null,
+      utm_campaign: document.getElementById("utm_campaign").value || null,
+      canal_origem: document.getElementById("canal_origem").value || null,
+      payment_method: getSelectedPaymentMethod(),
+    };
+    if (!body.comprador_nome || !body.comprador_email) {
+      errorEl.textContent = "Preencha nome e e-mail.";
+      errorEl.style.display = "block";
+      return;
+    }
+    if (!document.getElementById("aceite_politica_privacidade").checked) {
+      errorEl.textContent = "É necessário aceitar a Política de Privacidade para finalizar o pedido.";
+      errorEl.style.display = "block";
+      return;
+    }
+    body.aceite_politica_privacidade = true;
+    submitBtn.disabled = true;
+    window.Vitrine.postCheckout(body)
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) {
+          var msg = d.detail;
+          if (Array.isArray(msg)) msg = msg.map(function (x) { return x.msg || (typeof x === "string" ? x : JSON.stringify(x)); }).join("; ");
+          throw new Error(msg || "Erro ao finalizar");
+        }).catch(function (err) { throw err.message ? err : new Error("Erro ao finalizar"); });
+        return r.json();
+      })
+      .then(function (data) {
+        var cart0 = window.Vitrine.getCart();
+        cart0.items = (cart0.items || []).filter(function (i) { return i.loja_id !== lojaId; });
+        window.Vitrine.setCart(cart0);
+        if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
+        if (window.Vitrine && window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data)) {
+          return;
+        }
+        var id = data && (data.id != null) ? data.id : "";
+        if (id) {
+          var qs = "pedido_id=" + id + (data.numero_pedido ? "&numero_pedido=" + encodeURIComponent(data.numero_pedido) : "") + (data.comprador_email ? "&email=" + encodeURIComponent(data.comprador_email) : "");
+          qs += "&payment_method=" + encodeURIComponent(getSelectedPaymentMethod());
+          window.location.href = "/loja/obrigado?" + qs;
+        } else {
+          errorEl.textContent = "Pedido criado, mas o número não foi retornado. Acesse Meus pedidos ou a loja.";
+          errorEl.style.display = "block";
+          submitBtn.disabled = false;
+        }
+      })
+      .catch(function (err) {
+        errorEl.textContent = err.message || String(err);
+        errorEl.style.display = "block";
+        submitBtn.disabled = false;
+      });
+  });
+
+  initCheckout();
+  var tipoEntregaEl = document.getElementById("tipo_entrega");
+  if (tipoEntregaEl) tipoEntregaEl.addEventListener("change", function() {
+    var v = tipoEntregaEl.value;
+    if (v !== "entrega") {
+      window._entregaUsandoEnderecoCadastrado = false;
+      _freteCidadeCache = null;
+      window._entregaDisponivel = true;
+      var fi0 = document.getElementById("frete-indisponivel");
+      if (fi0) fi0.style.display = "none";
+      renderFreteResumo();
+      return;
+    }
+    buscarEnderecoConsumidorVR().then(function(enderecos) {
+      var end = Array.isArray(enderecos) && enderecos.length > 0
+        ? (enderecos.find(function(e) { return e.principal; }) || enderecos[0])
+        : null;
+      if (end && (end.cep || end.cidade)) {
+        preencherEnderecoVR(end);
+        window._entregaUsandoEnderecoCadastrado = true;
+        if (end.cidade && end.uf) consultarFreteCidade(end.cidade, end.uf);
+      } else if (!isLojaConsumidorLogadoVR()) {
+        openModalCheckoutGuestEntregaVR();
+        window._entregaUsandoEnderecoCadastrado = false;
+      } else {
+        window._entregaUsandoEnderecoCadastrado = false;
+      }
+      _freteCidadeCache = null;
+      window._entregaDisponivel = true;
+      var fi = document.getElementById("frete-indisponivel");
+      if (fi) fi.style.display = "none";
+      renderFreteResumo();
+    });
+  });
+
+  var modalGuestVR = document.getElementById("modalCheckoutGuestEntrega");
+  if (modalGuestVR) {
+    var bdVR = modalGuestVR.querySelector(".loja-modal-endereco-backdrop");
+    var cbVR = modalGuestVR.querySelector(".loja-modal-endereco-close");
+    function closeGuestModalRetiradaVR() {
+      closeModalCheckoutGuestEntregaVR();
+      if (tipoEntregaEl) tipoEntregaEl.value = "retirada";
+      window._entregaUsandoEnderecoCadastrado = false;
+      _freteCidadeCache = null;
+      window._entregaDisponivel = true;
+      renderFreteResumo();
+    }
+    if (bdVR) bdVR.addEventListener("click", closeGuestModalRetiradaVR);
+    if (cbVR) cbVR.addEventListener("click", closeGuestModalRetiradaVR);
+  }
+  var btnContVR = document.getElementById("modalCheckoutGuestEntregaContinuarVR");
+  if (btnContVR) {
+    btnContVR.addEventListener("click", function() {
+      closeModalCheckoutGuestEntregaVR();
+      window._entregaUsandoEnderecoCadastrado = false;
+      _freteCidadeCache = null;
+      window._entregaDisponivel = true;
+      renderFreteResumo();
+    });
+  }
+})();
+</script>
+{% endblock %}

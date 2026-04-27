@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Acesso Negado - PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <div class="mb-4">
+                        <i class="feather" data-feather="lock" style="width: 64px; height: 64px; color: #dc3545;"></i>
+                    </div>
+                    
+                    <h2 class="card-title text-danger">Acesso Negado</h2>
+                    
+                    <p class="card-text text-muted mb-4">
+                        {% if error_message %}
+                            {{ error_message }}
+                        {% else %}
+                            Você não tem permissão para acessar esta página.
+                        {% endif %}
+                    </p>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="/dashboard" class="btn btn-primary">
+                            <i class="align-middle me-1" data-feather="home"></i>
+                            Voltar ao Dashboard
+                        </a>
+                        <button onclick="history.back()" class="btn btn-outline-secondary">
+                            <i class="align-middle me-1" data-feather="arrow-left"></i>
+                            Voltar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

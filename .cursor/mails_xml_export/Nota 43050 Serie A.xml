@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<Retorno xmlns="http://apl2.lencoispaulista.sp.gov.br/">
+  <Nota>
+  <Prestador>
+    <Inscricao>00012413000196</Inscricao>
+    <RazaoSocial>DIVELPA DISTRIBUIDORA DE VEICULOS LENCOIS PTA LTDA</RazaoSocial>
+    <NomeFantasia>DIVELPA DISTRIBUIDORA DE VEICULOS LENCOIS PTA LTDA</NomeFantasia>
+    <SuperSimples>0</SuperSimples>
+    <InscricaoMunicipal>6714</InscricaoMunicipal>
+    <Endereco>
+      <Logradouro>AVENIDA ADRIANO ANDERSON FOGANHOLI</Logradouro>
+      <Numero>580</Numero>
+      <Complemento />
+      <Bairro>URBANO (AV.ADRIANO A. FOGANHOLI)</Bairro>
+      <Cidade>LENCOIS PAULISTA</Cidade>
+      <Estado>SP</Estado>
+      <CidadeIBGE>3526803</CidadeIBGE>
+      <Cep>18685830</Cep>
+    </Endereco>
+    <Atividade>
+      <Codigo>14.01</Codigo>
+      <Descricao>SERVICOS DE MANUTENCAO E REPARACAO MECANICA DE VEICULOS AUTOMOTORES</Descricao>
+    </Atividade>
+  </Prestador>
+  <Numero>43050</Numero>
+  <EmissaoData>2025-08-12</EmissaoData>
+  <EmissaoHora>15:00</EmissaoHora>
+  <CodigoValidacao>11DC9 D8013</CodigoValidacao>
+  <Situacao>1</Situacao>
+  <ExecucaoLocal>0</ExecucaoLocal>
+  <CidadeExecucao>3526803</CidadeExecucao>
+  <Tomador>
+    <Inscricao>60039229000161</Inscricao>
+    <InscricaoMunicipal>4023</InscricaoMunicipal>
+    <Nome>CENTRO AUTOMOTIVO B J LTDA</Nome>
+    <TipoPessoa>2</TipoPessoa>
+    <Endereco>
+      <Logradouro>AVENIDA Papa AVENIDA Papa JOAO PAULO II</Logradouro>
+      <Numero>30</Numero>
+      <Complemento />
+      <Bairro>Vila ANTONIETA II</Bairro>
+      <Cidade>LENCOIS PAULISTA</Cidade>
+      <Estado>SP</Estado>
+      <CidadeIBGE>3526803</CidadeIBGE>
+      <Cep>18681185</Cep>
+    </Endereco>
+    <Email>bjpneus@terra.com.br</Email>
+    <Particular>0</Particular>
+  </Tomador>
+  <PAS>
+    <Numero>36456</Numero>
+    <DataGeracao>2025-08-12</DataGeracao>
+    <DataProcessamento>2025-08-12 15:00:19</DataProcessamento>
+  </PAS>
+  <RPS>
+    <Numero />
+    <EmissaoData />
+  </RPS>
+  <Descricao>00000000PD-006 - ELETRICA                                                              =         1.000,00||, Trib aprox R$: 134,50 Federal,39,00 Municipal,Fonte:IBPT/empresometro.com.br,81AAFF Tipo O.S:V1 ,Numero O.S:168845 ,Chassi:9BG148DK0PC439583 ,Placa:EFY0A86  ,KM:88463 ,ProdutoGM/S-10 ,DN:D18001 Forma de Pagamento: Cartao de Debito / Credito</Descricao>
+  <ValorTotal>1000</ValorTotal>
+  <ValorDeducao>0</ValorDeducao>
+  <BaseDeCalculo>1000</BaseDeCalculo>
+  <ValorISS>30</ValorISS>
+  <Aliquota>3</Aliquota>
+  <AliquotaRecalculada />
+  <RecolhimentoObrigacao>1</RecolhimentoObrigacao>
+  <RecolhimentoObrigacaoCorrigida />
+  <RecolhimentoForma>0</RecolhimentoForma>
+  <RecolhimentoFormaCorrigida />
+  <ValorPIS>16,5</ValorPIS>
+  <ValorCOFINS>76</ValorCOFINS>
+  <RetencaoIRRF>0</RetencaoIRRF>
+  <RetencaoINSS>0</RetencaoINSS>
+  <RetencaoPIS>0</RetencaoPIS>
+  <RetencaoCOFINS>0</RetencaoCOFINS>
+  <RetencaoCSLL>0</RetencaoCSLL>
+  <EnviadoEmail>1</EnviadoEmail>
+  <TributacaoISS>0</TributacaoISS>
+  <CartasCorrecao />
+  <Cancelamento>
+    <DataCancelamento />
+    <MotivoCodigo />
+    <MotivoDescricao />
+    <Descricao />
+    <PAS>
+      <Numero />
+      <DataGeracao />
+      <DataProcessamento />
+    </PAS>
+  </Cancelamento>
+  <Informacoes>
+    <Informacao>Esta NFS-e foi emitida com respaldo na Lei Complementar N? 79 de 20/11/2012.</Informacao>
+    <Informacao>A autenticidade desta NFS-e pode ser verificada no site https://apl2.lencoispaulista.sp.gov.br/nfs ou atrav?s da leitura do QR-Code.</Informacao>
+    <Informacao>Os valores de PIS e COFINS (Lei 12.741/2012) foram declarados pelo Prestador de Servi?o.</Informacao>
+    <Informacao>NFS-e gerada on-line atrav?s do Web Service vers?o 1.1 em substitui??o ao PAS N? 36456 emitido em 12/08/2025.</Informacao>
+    <Informacao>Uma via desta NFS-e foi enviada para o Tomador de Servi?os por e-mail.</Informacao>
+    <Informacao>O ISS desta NFS-e deve ser RETIDO pelo Tomador de Servi?os.</Informacao>
+  </Informacoes>
+</Nota>
+  <url>https://apl2.lencoispaulista.sp.gov.br/nfs/Pages/Publicas/wfValidaNotaFiscal.aspx/?numero=43050&amp;amp;validacao=11DC9 D8013&amp;amp;inscricao=6714</url>
+  <Alertas />
+</Retorno>

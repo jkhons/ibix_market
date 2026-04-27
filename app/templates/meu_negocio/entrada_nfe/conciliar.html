@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block title %}Conciliação NFe {{ nfe_id }} | PDV Ibix{% endblock %}
+{% block extra_css %}{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+  <div class="mb-3">
+    <a href="/negocio/entrada-nfe" class="btn btn-outline-secondary btn-sm"><i data-feather="arrow-left"></i> Voltar</a>
+    <h1 class="h3 d-inline align-middle ms-2"><strong>Conciliação de itens — Nota {{ nfe_id }}</strong></h1>
+  </div>
+  <input type="hidden" id="nfe_id" value="{{ nfe_id }}">
+  <input type="hidden" id="cliente_id" value="{{ cliente_id }}">
+  <div class="card mb-2">
+    <div class="card-body py-2">
+      <p class="mb-0 small" id="doc-info">Carregando...</p>
+      <div id="doc-ja-conciliado" class="alert alert-success py-2 mb-0 mt-2 small" style="display: none;">
+        <i data-feather="check-circle"></i> Nota já conciliada e lançada no estoque.
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="card-title mb-0">Itens da nota — vincule cada item a um produto interno</h5>
+      <div class="d-flex gap-2 align-items-center">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-ver-custos" title="Pré-visualizar custos rateados">
+          <i data-feather="dollar-sign"></i> Ver custos rateados
+        </button>
+        <button type="button" class="btn btn-success btn-sm" id="btn-confirmar-lancar" disabled>
+          <i data-feather="check"></i> Confirmar e lançar no estoque
+        </button>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Descrição (XML)</th>
+              <th>Código</th>
+              <th>EAN</th>
+              <th>Qtd</th>
+              <th>Valor un.</th>
+              <th>Produto interno</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-itens"></tbody>
+        </table>
+      </div>
+      <p class="text-muted small mb-0" id="msg-itens"></p>
+    </div>
+  </div>
+</div>
+<!-- Modal selecionar produto (padrão MAPA_DE_REGRAS: CSS inline, id *Custom) -->
+<div id="modalProdutoCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+    <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Vincular ao produto interno</h3>
+      <button type="button" onclick="fecharModalProduto()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+    </div>
+    <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+      <p class="small mb-2" id="modal-item-info"><strong>Item da NF-e:</strong> <span id="modal-item-nome-xml" class="text-dark">—</span> <span id="modal-item-qtd-unidade">—</span></p>
+      <input type="text" class="form-control mb-2" id="busca-produto" placeholder="Buscar por nome do produto ou código (sugestão: nome do item XML)">
+      <div id="lista-produtos" class="list-group mb-3" style="max-height: 260px; overflow-y: auto;"></div>
+      <hr class="my-3">
+      <p class="small text-muted mb-2"><strong>Ou criar novo produto</strong> (e vincular este item)</p>
+      <div class="row g-2">
+        <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="novo-prod-codigo" placeholder="Código *" required></div>
+        <div class="col-md-3"><input type="text" class="form-control form-control-sm" id="novo-prod-nome" placeholder="Nome *" required></div>
+        <div class="col-md-2"><input type="text" class="form-control form-control-sm" id="novo-prod-unidade" placeholder="Unidade (UN, CX, KG)"></div>
+        <div class="col-md-2"><input type="text" class="form-control form-control-sm" id="novo-prod-ncm" placeholder="NCM"></div>
+        <div class="col-md-2"><input type="text" class="form-control form-control-sm" id="novo-prod-cfop" placeholder="CFOP" title="CFOP do item na NF-e"></div>
+      </div>
+      <p class="small text-danger mb-0 mt-1" id="novo-prod-msg"></p>
+      <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btn-criar-e-vincular">
+        <i data-feather="plus"></i> Criar produto e vincular
+      </button>
+    </div>
+    <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end;">
+      <button type="button" onclick="fecharModalProduto()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Fechar</button>
+    </div>
+  </div>
+</div>
+<!-- Modal custos rateados (padrão MAPA_DE_REGRAS: CSS inline, id *Custom) -->
+<div id="modalCustosCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+    <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700;">Custos rateados (pré-visualização)</h3>
+      <button type="button" onclick="fecharModalCustos()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+    </div>
+    <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+      <p class="small text-muted">Valores por item (vProd + rateio frete/seg/outro + IPI + ICMS-ST − desconto).</p>
+      <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Item</th><th>Qtd</th><th>Custo total</th><th>Custo unit.</th></tr></thead><tbody id="tbody-custos"></tbody></table></div>
+      <p class="small mb-0" id="msg-custos"></p>
+    </div>
+    <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end;">
+      <button type="button" onclick="fecharModalCustos()" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Fechar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function() {
+  const nfeId = document.getElementById('nfe_id').value;
+  const clienteId = document.getElementById('cliente_id').value;
+  let itens = [], produtos = [], itemEmEdicao = null;
+
+  function getToken() {
+    const c = document.cookie.split(';');
+    for (const x of c) {
+      const [n, v] = x.trim().split('=');
+      if (n === 'pdv_solumatica_token' || n === 'pdv_automscale_token') return v || null;
+    }
+    return null;
+  }
+  function api(url, opts) {
+    const t = getToken();
+    return fetch(url, {
+      ...opts,
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(t ? { 'Authorization': 'Bearer ' + t } : {}),
+        ...(opts && opts.headers || {}),
+      },
+    });
+  }
+  function abrirModalProduto() {
+    const modal = document.getElementById('modalProdutoCustom');
+    if (modal) { modal.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+  }
+  function fecharModalProduto() {
+    const modal = document.getElementById('modalProdutoCustom');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+  }
+  function abrirModalCustos() {
+    const modal = document.getElementById('modalCustosCustom');
+    if (modal) { modal.style.display = 'block'; document.body.style.overflow = 'hidden'; }
+  }
+  function fecharModalCustos() {
+    const modal = document.getElementById('modalCustosCustom');
+    if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
+  }
+  // Expor no global para os botões "×" e "Fechar" (onclick no HTML)
+  window.fecharModalProduto = fecharModalProduto;
+  window.fecharModalCustos = fecharModalCustos;
+  let docStatus = '';
+  async function carregarDocumentoEItens() {
+    const r = await api('/api/v1/nfe-entrada/documentos/' + nfeId + '/itens?cliente_id=' + clienteId);
+    if (!r.ok) {
+      document.getElementById('doc-info').textContent = 'Erro ao carregar nota.';
+      return;
+    }
+    const data = await r.json();
+    const doc = data.documento || {};
+    docStatus = doc.status || '';
+    itens = data.itens || [];
+    document.getElementById('doc-info').innerHTML = 
+      'Chave: <code>' + (doc.chave_acesso_44 || '') + '</code> — Nº ' + (doc.numero || '') + ' — Série ' + (doc.serie || '') + ' — Status: ' + (doc.status || '');
+    var jaConciliado = document.getElementById('doc-ja-conciliado');
+    var btnConfirmar = document.getElementById('btn-confirmar-lancar');
+    var btnCustos = document.getElementById('btn-ver-custos');
+    if (docStatus === 'CONCILIADO') {
+      jaConciliado.style.display = 'block';
+      btnConfirmar.style.display = 'none';
+      btnConfirmar.disabled = true;
+      if (btnCustos) btnCustos.style.display = 'none';
+    } else {
+      jaConciliado.style.display = 'none';
+      btnConfirmar.style.display = 'inline-block';
+      if (btnCustos) btnCustos.style.display = 'inline-block';
+    }
+    renderItens();
+    atualizarBotaoConfirmar();
+  }
+  async function carregarProdutos() {
+    const r = await api('/api/v1/produtos-cliente/?cliente_id=' + clienteId + '&limit=500');
+    if (!r.ok) return;
+    const data = await r.json();
+    produtos = data.items || data || [];
+  }
+  function renderItens() {
+    const tbody = document.getElementById('tbody-itens');
+    const msg = document.getElementById('msg-itens');
+    if (!itens.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-muted">Nenhum item.</td></tr>';
+      msg.textContent = '';
+      return;
+    }
+    tbody.innerHTML = itens.map(i => {
+      const vinculado = i.conciliar_status === 'VINCULADO' && i.produto_cliente_id;
+      return '<tr data-item-id="' + i.id + '">' +
+        '<td>' + (i.numero_item || '') + '</td>' +
+        '<td>' + (i.xprod_xml || '').substring(0, 50) + (i.xprod_xml && i.xprod_xml.length > 50 ? '…' : '') + '</td>' +
+        '<td>' + (i.cprod_xml || '—') + '</td>' +
+        '<td>' + (i.ean_xml || '—') + '</td>' +
+        '<td>' + (i.qcom_xml != null ? i.qcom_xml : '—') + '</td>' +
+        '<td>' + (i.vuncom_xml != null ? 'R$ ' + parseFloat(i.vuncom_xml).toFixed(2) : '—') + '</td>' +
+        '<td>' +
+          (vinculado
+            ? '<span class="text-success" id="prod-nome-' + i.id + '">(carregando…)</span>' +
+              (docStatus !== 'CONCILIADO'
+                ? ' <button type="button" class="btn btn-sm btn-outline-secondary btn-alterar-vinculo ms-1" data-item-id="' + i.id + '" title="Alterar produto interno">Alterar</button>'
+                : '')
+            : '<button type="button" class="btn btn-sm btn-outline-primary btn-vincular" data-item-id="' + i.id + '">Vincular</button>') +
+        '</td>' +
+        '<td><span class="badge ' + (vinculado ? 'bg-success' : 'bg-warning') + '">' + (i.conciliar_status || 'PENDENTE') + '</span></td>' +
+      '</tr>';
+    }).join('');
+    itens.forEach(i => {
+      if (i.conciliar_status === 'VINCULADO' && i.produto_cliente_id) {
+        const prod = produtos.find(p => p.id === i.produto_cliente_id);
+        const el = document.getElementById('prod-nome-' + i.id);
+        if (el) el.textContent = prod ? (prod.codigo + ' — ' + (prod.nome || '').substring(0, 30)) : 'ID ' + i.produto_cliente_id;
+      }
+    });
+    function abrirModalParaVincularOuAlterar(itemId) {
+      itemEmEdicao = parseInt(itemId, 10);
+      var item = itens.find(function(i) { return i.id === itemEmEdicao; });
+      document.getElementById('novo-prod-msg').textContent = '';
+      var nomeXml = '';
+      if (item) {
+        nomeXml = (item.xprod_xml || '').toString().trim();
+        document.getElementById('modal-item-nome-xml').textContent = nomeXml ? nomeXml.substring(0, 80) + (nomeXml.length > 80 ? '…' : '') : '—';
+        document.getElementById('busca-produto').value = nomeXml;
+        document.getElementById('novo-prod-nome').value = nomeXml.substring(0, 255);
+        var ucom = (item.ucom_xml != null && item.ucom_xml !== '') ? String(item.ucom_xml).trim() : '';
+        document.getElementById('novo-prod-unidade').value = ucom ? ucom.substring(0, 20) : 'UN';
+        document.getElementById('novo-prod-ncm').value = (item.ncm_xml || '').substring(0, 10);
+        document.getElementById('novo-prod-cfop').value = (item.cfop_xml || '').substring(0, 10);
+        document.getElementById('novo-prod-codigo').value = (item.cprod_xml || '').substring(0, 50);
+        var qtd = item.qcom_xml != null && item.qcom_xml !== '' ? parseFloat(item.qcom_xml) : null;
+        var qtdStr = (qtd != null && !isNaN(qtd)) ? (Number(qtd) === parseInt(qtd, 10) ? parseInt(qtd, 10) : Number(qtd)).toString() : '—';
+        var unidadeStr = ucom || '—';
+        document.getElementById('modal-item-qtd-unidade').textContent = ' | Qtd: ' + qtdStr + ' | Unidade: ' + unidadeStr;
+      } else {
+        document.getElementById('modal-item-nome-xml').textContent = '—';
+        document.getElementById('busca-produto').value = '';
+        document.getElementById('novo-prod-nome').value = '';
+        document.getElementById('novo-prod-unidade').value = 'UN';
+        document.getElementById('novo-prod-ncm').value = '';
+        document.getElementById('novo-prod-cfop').value = '';
+        document.getElementById('novo-prod-codigo').value = '';
+        document.getElementById('modal-item-qtd-unidade').textContent = '—';
+      }
+      filtrarListaProdutos(nomeXml);
+      document.getElementById('lista-produtos').querySelectorAll('a').forEach(a => {
+        a.addEventListener('click', function(e) {
+          e.preventDefault();
+          vincularItem(itemEmEdicao, parseInt(this.getAttribute('data-produto-id'), 10));
+          fecharModalProduto();
+        });
+      });
+      abrirModalProduto();
+    }
+    document.querySelectorAll('.btn-vincular').forEach(btn => {
+      btn.addEventListener('click', function() {
+        abrirModalParaVincularOuAlterar(this.getAttribute('data-item-id'));
+      });
+    });
+    document.querySelectorAll('.btn-alterar-vinculo').forEach(btn => {
+      btn.addEventListener('click', function() {
+        abrirModalParaVincularOuAlterar(this.getAttribute('data-item-id'));
+      });
+    });
+    msg.textContent = '';
+  }
+  function filtrarListaProdutos(termo) {
+    const t = (termo || '').toString().trim().toLowerCase();
+    const list = document.getElementById('lista-produtos');
+    var filtrados;
+    if (!t) {
+      filtrados = produtos.slice(0, 30);
+    } else {
+      var stopwords = ['de','da','do','das','dos','e','ou','em','no','na','nos','nas','um','uma','para','com','por','ao','aos'];
+      var palavras = t.split(/\s+/).filter(function(w) {
+        var ww = w.replace(/\W/g,'');
+        return ww.length >= 2 && stopwords.indexOf(ww.toLowerCase()) < 0;
+      });
+      var comScore = produtos.map(function(p) {
+        var texto = ((p.codigo || '') + ' ' + (p.nome || '')).toLowerCase();
+        var matchesFull = texto.indexOf(t) >= 0;
+        var score = 0;
+        if (palavras.length > 0) {
+          palavras.forEach(function(pal) {
+            if (texto.indexOf(pal) >= 0) score += 1;
+          });
+          if (score === 0 && !matchesFull) return { p: p, score: 0 };
+          if (matchesFull) score += 100;
+        } else {
+          score = matchesFull ? 100 : 0;
+        }
+        return { p: p, score: score };
+      });
+      filtrados = comScore.filter(function(x) { return x.score > 0; })
+        .sort(function(a,b) { return b.score - a.score; })
+        .map(function(x) { return x.p; })
+        .slice(0, 50);
+      if (filtrados.length === 0) {
+        filtrados = produtos.filter(function(p) {
+          return ((p.codigo || '') + ' ' + (p.nome || '')).toLowerCase().indexOf(t) >= 0;
+        }).slice(0, 30);
+      }
+    }
+    list.innerHTML = filtrados.map(function(p) {
+      return '<a href="#" class="list-group-item list-group-item-action" data-produto-id="' + p.id + '">' + (p.codigo || '') + ' — ' + ((p.nome || '').substring(0, 60)) + '</a>';
+    }).join('');
+    list.querySelectorAll('a').forEach(function(a) {
+      a.addEventListener('click', function(e) {
+        e.preventDefault();
+        vincularItem(itemEmEdicao, parseInt(this.getAttribute('data-produto-id'), 10));
+        fecharModalProduto();
+      });
+    });
+  }
+  document.getElementById('busca-produto').addEventListener('input', function() {
+    filtrarListaProdutos(this.value);
+  });
+  async function vincularItem(nfeItemId, produtoClienteId) {
+    const r = await api('/api/v1/nfe-entrada/itens/' + nfeItemId + '/vincular?cliente_id=' + clienteId, {
+      method: 'PATCH',
+      body: JSON.stringify({ produto_cliente_id: produtoClienteId }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      alert(err.detail || 'Erro ao vincular');
+      return;
+    }
+    const idx = itens.findIndex(i => i.id === nfeItemId);
+    if (idx >= 0) {
+      itens[idx].produto_cliente_id = produtoClienteId;
+      itens[idx].conciliar_status = 'VINCULADO';
+    }
+    renderItens();
+    atualizarBotaoConfirmar();
+  }
+  function atualizarBotaoConfirmar() {
+    const pendentes = itens.filter(i => i.conciliar_status !== 'VINCULADO' || !i.produto_cliente_id);
+    const btn = document.getElementById('btn-confirmar-lancar');
+    btn.disabled = pendentes.length > 0;
+  }
+  document.getElementById('btn-confirmar-lancar').addEventListener('click', async function() {
+    if (this.disabled) return;
+    if (!confirm('Confirma lançar os itens vinculados no estoque? Esta ação gera as movimentações de entrada.')) return;
+    const r = await api('/api/v1/nfe-entrada/documentos/' + nfeId + '/confirmar-lancar?cliente_id=' + clienteId, { method: 'POST' });
+    const data = await r.json().catch(() => ({}));
+    if (r.ok) {
+      alert('Nota conciliada. ' + (data.movimentacoes_criadas || 0) + ' movimentação(ões) criada(s).');
+      window.location.href = '/negocio/entrada-nfe';
+    } else {
+      var msg = (Array.isArray(data.detail) ? data.detail.join('; ') : (data.detail || 'Erro ao confirmar.'));
+      alert(msg);
+    }
+  });
+
+  document.getElementById('btn-criar-e-vincular').addEventListener('click', async function() {
+    var codigo = (document.getElementById('novo-prod-codigo').value || '').trim();
+    var nome = (document.getElementById('novo-prod-nome').value || '').trim();
+    var unidade = (document.getElementById('novo-prod-unidade').value || 'UN').trim().substring(0, 20);
+    var ncm = (document.getElementById('novo-prod-ncm').value || '').trim().substring(0, 10);
+    var cfop = (document.getElementById('novo-prod-cfop').value || '').trim().substring(0, 10) || null;
+    var msgEl = document.getElementById('novo-prod-msg');
+    msgEl.textContent = '';
+    if (!codigo) { msgEl.textContent = 'Informe o código do produto.'; return; }
+    if (!nome) { msgEl.textContent = 'Informe o nome do produto.'; return; }
+    var body = { cliente_id: parseInt(clienteId, 10), codigo: codigo, nome: nome, unidade_medida: unidade || 'UN', ncm: ncm || null, cfop_padrao: cfop, quantidade_atual: 0, ativo: true };
+    var r = await api('/api/v1/produtos-cliente/', { method: 'POST', body: JSON.stringify(body) });
+    if (!r.ok) {
+      var err = await r.json().catch(function() { return {}; });
+      msgEl.textContent = err.detail || 'Erro ao criar produto.';
+      return;
+    }
+    var novo = await r.json();
+    await vincularItem(itemEmEdicao, novo.id);
+    fecharModalProduto();
+  });
+
+  document.getElementById('btn-ver-custos').addEventListener('click', async function() {
+    var r = await api('/api/v1/nfe-entrada/documentos/' + nfeId + '/custos?cliente_id=' + clienteId);
+    var tbody = document.getElementById('tbody-custos');
+    var msgEl = document.getElementById('msg-custos');
+    if (!r.ok) {
+      tbody.innerHTML = '';
+      msgEl.textContent = 'Erro ao carregar custos.';
+      abrirModalCustos();
+      return;
+    }
+    var rows = await r.json();
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-muted">Concilie todos os itens para ver os custos rateados.</td></tr>';
+      msgEl.textContent = '';
+    } else {
+      tbody.innerHTML = rows.map(function(c, idx) {
+        return '<tr><td>Item ' + (idx + 1) + '</td><td>' + (c.quantidade != null ? c.quantidade : '—') + '</td><td>R$ ' + (c.custo_total != null ? Number(c.custo_total).toFixed(2) : '—') + '</td><td>R$ ' + (c.custo_unitario != null ? Number(c.custo_unitario).toFixed(2) : '—') + '</td></tr>';
+      }).join('');
+      msgEl.textContent = rows.length + ' item(ns) com custo calculado.';
+    }
+    abrirModalCustos();
+  });
+
+  carregarProdutos().then(() => carregarDocumentoEItens());
+  if (typeof feather !== 'undefined') feather.replace();
+  var modalProdutoEl = document.getElementById('modalProdutoCustom');
+  if (modalProdutoEl) {
+    modalProdutoEl.addEventListener('click', function(e) {
+      if (e.target === modalProdutoEl) fecharModalProduto();
+    });
+  }
+  var modalCustosEl = document.getElementById('modalCustosCustom');
+  if (modalCustosEl) {
+    modalCustosEl.addEventListener('click', function(e) {
+      if (e.target === modalCustosEl) fecharModalCustos();
+    });
+  }
+})();
+</script>
+{% endblock %}

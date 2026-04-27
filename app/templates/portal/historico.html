@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Portal - Histórico | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-4">
+    <h1 class="h3 mb-4">Histórico</h1>
+    <p class="text-muted">Consultar ordens de serviço e histórico de atendimentos.</p>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div id="portal-historico-list" class="table-responsive">
+                <p class="text-muted mb-0">Módulo de agendamentos removido. Consulte as <a href="/portal/ordens-servico">Ordens de Serviço</a> para o histórico.</p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    if (typeof feather !== "undefined") feather.replace();
+});
+</script>
+{% endblock %}

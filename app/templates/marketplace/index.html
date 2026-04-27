@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Marketplace | Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle"><strong>Marketplace</strong></h1>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <p class="mb-3">Gerencie sua loja na vitrine: configure a loja, publique produtos e acompanhe pedidos.</p>
+            <a href="/negocio/marketplace/minha-loja" class="btn btn-primary me-2">
+                <i data-feather="shopping-bag" style="width: 18px; height: 18px;"></i>
+                Minha loja
+            </a>
+            <a href="/negocio/marketplace/consumidores" class="btn btn-outline-primary me-2">Consumidores</a>
+            <a href="/negocio/marketplace/areas-entrega" class="btn btn-outline-primary me-2">Áreas de Entrega</a>
+            <a href="/negocio/marketplace/integracao/eventos" class="btn btn-outline-secondary">Eventos integração</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}SEO avançado — Lojas (Marketplace) | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="h3 d-inline align-middle mb-0">SEO avançado — Lojas na vitrine</h1>
+        <a href="/negocio/marketplace" class="btn btn-outline-secondary btn-sm">Marketplace</a>
+    </div>
+    <p class="text-muted small">Apenas Superadministrador. Os campos abaixo seguem as mesmas regras do <code>PATCH /api/v1/marketplace/loja/{id}</code>.</p>
+
+    <div id="alert-seo-loja"></div>
+
+    <div class="row">
+        <div class="col-lg-5 mb-3">
+            <div class="card">
+                <div class="card-header"><h6 class="card-title mb-0">Selecionar loja</h6></div>
+                <div class="card-body">
+                    <label for="sel-loja-seo" class="form-label">Loja</label>
+                    <select id="sel-loja-seo" class="form-select">
+                        <option value="">Carregando…</option>
+                    </select>
+                    <p class="small text-muted mt-2 mb-0">Slug público: <span id="preview-slug-publico">—</span></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card">
+                <div class="card-header"><h6 class="card-title mb-0">Campos de SEO avançado</h6></div>
+                <div class="card-body">
+                    <form id="form-seo-loja">
+                        <div class="mb-2">
+                            <label class="form-label" for="seo-nome-fantasia">Nome fantasia (hero /{slug})</label>
+                            <input type="text" class="form-control" id="seo-nome-fantasia" maxlength="80" autocomplete="off" aria-describedby="seo-nome-fantasia-help">
+                            <p class="form-text small text-muted mb-0" id="seo-nome-fantasia-help">Título do hero na vitrine; máximo 80 caracteres (mesma regra que Minha loja).</p>
+                        </div>
+                        <div class="mb-2 form-check">
+                            <input class="form-check-input" type="checkbox" id="seo-hero-titulo-uma-linha" value="1">
+                            <label class="form-check-label" for="seo-hero-titulo-uma-linha">Hero: título em uma linha (fonte adapta ao espaço)</label>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="seo-title">Título SEO (máx. 60 recomendado)</label>
+                            <input type="text" class="form-control" id="seo-title" maxlength="160" autocomplete="off">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="seo-description">Meta description (máx. 160 recomendado)</label>
+                            <textarea class="form-control" id="seo-description" rows="3" maxlength="320"></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="seo-og-image">URL OG image</label>
+                            <input type="text" class="form-control" id="seo-og-image" placeholder="https://… ou /static/…" autocomplete="off">
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="seo-enabled" checked>
+                            <label class="form-check-label" for="seo-enabled">Usar título e descrição SEO manuais (quando preenchidos)</label>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="seo-desc-curta">Descrição curta (texto)</label>
+                            <textarea class="form-control" id="seo-desc-curta" rows="2" maxlength="320"></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label" for="seo-desc-longa">Descrição longa (hero + página)</label>
+                            <textarea class="form-control" id="seo-desc-longa" rows="4" maxlength="1200"></textarea>
+                            <p class="form-text small text-muted mb-0">Texto do hero; máximo 1200 caracteres.</p>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="btn-salvar-seo-loja">Salvar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var fetchAuth = typeof window.authenticatedFetch === 'function' ? window.authenticatedFetch : fetch;
+  var items = [];
+
+  function showAlert(msg, ok) {
+    var el = document.getElementById('alert-seo-loja');
+    if (!el) return;
+    el.innerHTML = '<div class="alert alert-' + (ok ? 'success' : 'danger') + ' py-2">' + msg + '</div>';
+    if (ok) setTimeout(function() { el.innerHTML = ''; }, 4000);
+  }
+
+  function fillForm(loja) {
+    if (!loja) return;
+    document.getElementById('seo-nome-fantasia').value = loja.nome_fantasia || '';
+    var chkLinha = document.getElementById('seo-hero-titulo-uma-linha');
+    if (chkLinha) chkLinha.checked = loja.vitrine_hero_titulo_uma_linha === true;
+    document.getElementById('seo-title').value = loja.seo_title || '';
+    document.getElementById('seo-description').value = loja.seo_description || '';
+    document.getElementById('seo-og-image').value = loja.og_image_url || '';
+    document.getElementById('seo-enabled').checked = loja.seo_enabled !== false;
+    document.getElementById('seo-desc-curta').value = loja.descricao_curta || '';
+    document.getElementById('seo-desc-longa').value = loja.descricao_longa || loja.descricao || '';
+    var slug = loja.slug || '';
+    var origin = (window.location && window.location.origin) ? window.location.origin : '';
+    document.getElementById('preview-slug-publico').textContent = slug ? (origin + '/' + slug) : '—';
+  }
+
+  function selectedLoja() {
+    var id = parseInt(document.getElementById('sel-loja-seo').value, 10);
+    if (!id) return null;
+    return items.find(function (x) { return x.id === id; }) || null;
+  }
+
+  document.getElementById('sel-loja-seo').addEventListener('change', function () {
+    fillForm(selectedLoja());
+  });
+
+  document.getElementById('form-seo-loja').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var loja = selectedLoja();
+    if (!loja) { showAlert('Selecione uma loja.', false); return; }
+    var body = {
+      nome_fantasia: document.getElementById('seo-nome-fantasia').value.trim() || null,
+      seo_title: document.getElementById('seo-title').value.trim() || null,
+      seo_description: document.getElementById('seo-description').value.trim() || null,
+      og_image_url: document.getElementById('seo-og-image').value.trim() || null,
+      seo_enabled: document.getElementById('seo-enabled').checked,
+      descricao_curta: document.getElementById('seo-desc-curta').value.trim() || null,
+      descricao_longa: document.getElementById('seo-desc-longa').value.trim() || null,
+      vitrine_hero_titulo_uma_linha: !!(document.getElementById('seo-hero-titulo-uma-linha') && document.getElementById('seo-hero-titulo-uma-linha').checked)
+    };
+    fetchAuth('/api/v1/marketplace/loja/' + loja.id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+    }).then(function (res) {
+      if (res.ok) {
+        var ix = items.findIndex(function (x) { return x.id === loja.id; });
+        if (ix >= 0) items[ix] = res.data;
+        showAlert('Salvo com sucesso.', true);
+      } else {
+        var d = res.data && res.data.detail;
+        showAlert(Array.isArray(d) ? d.map(function (x) { return x.msg || x; }).join('; ') : (d || 'Erro ao salvar.'), false);
+      }
+    }).catch(function () {
+      showAlert('Erro de rede ao salvar.', false);
+    });
+  });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    fetchAuth('/api/v1/marketplace/lojas?limit=500').then(function (r) { return r.json(); }).then(function (data) {
+      items = (data && data.items) ? data.items : [];
+      var sel = document.getElementById('sel-loja-seo');
+      sel.innerHTML = '<option value="">— escolha —</option>';
+      items.forEach(function (l) {
+        var opt = document.createElement('option');
+        opt.value = String(l.id);
+        var label = (l.nome_loja || l.slug || 'Loja #' + l.id) + ' (#' + l.id + ')';
+        opt.textContent = label;
+        sel.appendChild(opt);
+      });
+      if (items.length) {
+        sel.value = String(items[0].id);
+        fillForm(items[0]);
+      }
+    }).catch(function () {
+      document.getElementById('sel-loja-seo').innerHTML = '<option value="">Erro ao carregar</option>';
+    });
+    if (typeof feather !== 'undefined') feather.replace();
+  });
+})();
+</script>
+{% endblock %}

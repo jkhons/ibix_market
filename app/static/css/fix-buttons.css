@@ -1,0 +1,296 @@
+/* fix-buttons.css - Correções específicas para botões do dashboard */
+
+/* Garantir que os dropdowns funcionem corretamente */
+.dropdown-toggle::after {
+    display: inline-block;
+    margin-left: 0.255em;
+    vertical-align: 0.255em;
+    content: "";
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
+}
+
+/* Corrigir estilo do botão de notificações */
+.nav-icon.dropdown-toggle {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.375rem;
+    color: #6c757d;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.nav-icon.dropdown-toggle:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+}
+
+.nav-icon.dropdown-toggle:focus {
+    color: #495057;
+    background-color: #f8f9fa;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Corrigir estilo do indicador de notificações */
+.nav-icon .position-relative {
+    position: relative;
+}
+
+.nav-icon .indicator {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background-color: #dc3545;
+    transform: translate(50%, -50%);
+}
+
+/* Corrigir estilo do botão de perfil */
+.navbar-nav .dropdown-toggle::after {
+    margin-left: 0.5em;
+}
+
+/* Corrigir estilo do toggle da sidebar */
+.sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border: none;
+    background: transparent;
+    color: #6c757d;
+    text-decoration: none;
+    border-radius: 0.375rem;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out;
+    cursor: pointer;
+    position: relative;
+    z-index: 1000;
+    pointer-events: auto;
+}
+
+.sidebar-toggle:hover {
+    color: #495057;
+    background-color: #f8f9fa;
+    text-decoration: none;
+}
+
+.sidebar-toggle:focus {
+    color: #495057;
+    background-color: #f8f9fa;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    text-decoration: none;
+}
+
+/* Garantir que o hamburger icon seja visível */
+.sidebar-toggle .hamburger {
+    width: 1.25rem;
+    height: 1.25rem;
+    position: relative;
+    display: inline-block;
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.sidebar-toggle .hamburger::before,
+.sidebar-toggle .hamburger::after,
+.sidebar-toggle .hamburger span {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background-color: currentColor;
+    transition: all 0.3s ease;
+    display: block;
+}
+
+.sidebar-toggle .hamburger::before {
+    top: 0;
+}
+
+.sidebar-toggle .hamburger span {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Garantir que o hamburger seja visível mesmo sem span */
+.sidebar-toggle .hamburger::before {
+    top: 0;
+    width: 24px;
+    height: 3px;
+    background-color: #495057;
+}
+
+.sidebar-toggle .hamburger::after {
+    bottom: 0;
+    width: 16px;
+    height: 3px;
+    background-color: #495057;
+}
+
+/* Adicionar linha do meio se não houver span */
+.sidebar-toggle .hamburger:not(:has(span))::before {
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 3px;
+    background-color: #495057;
+}
+
+/* Forçar visibilidade do hamburger */
+.sidebar-toggle .hamburger {
+    background-color: #495057 !important;
+    width: 24px !important;
+    height: 3px !important;
+    position: relative !important;
+    display: block !important;
+}
+
+.sidebar-toggle .hamburger::before {
+    background-color: #495057 !important;
+    width: 24px !important;
+    height: 3px !important;
+    top: -7.5px !important;
+}
+
+.sidebar-toggle .hamburger::after {
+    background-color: #495057 !important;
+    width: 16px !important;
+    height: 3px !important;
+    bottom: -7.5px !important;
+}
+
+.sidebar-toggle .hamburger::after {
+    bottom: 0;
+}
+
+/* Estado ativo do hamburger */
+.sidebar-toggle.active .hamburger::before {
+    transform: rotate(45deg);
+    top: 50%;
+    margin-top: -1px;
+}
+
+.sidebar-toggle.active .hamburger span {
+    opacity: 0;
+}
+
+.sidebar-toggle.active .hamburger::after {
+    transform: rotate(-45deg);
+    bottom: 50%;
+    margin-bottom: -1px;
+}
+
+/* Garantir que os dropdowns sejam visíveis */
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 1000;
+    min-width: 10rem;
+    padding: 0.5rem 0;
+    margin: 0.125rem 0 0;
+    font-size: 0.875rem;
+    color: #212529;
+    text-align: left;
+    list-style: none;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 0.375rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.175);
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+/* Corrigir posicionamento dos dropdowns */
+.dropdown-menu-end {
+    right: 0;
+    left: auto;
+}
+
+/* Garantir que o sidebar funcione corretamente (desktop) */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    width: 260px;
+    background: #fff;
+    border-right: 1px solid #dee2e6;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    transform: translateX(0);
+}
+
+.sidebar.collapsed {
+    transform: translateX(-100%);
+}
+
+/* Garantir que o conteúdo principal se ajuste */
+.main {
+    margin-left: 260px;
+    transition: margin-left 0.3s ease;
+}
+
+.main.sidebar-collapsed {
+    margin-left: 0;
+}
+
+/* Overlay do sidebar: só ativo em mobile */
+.sidebar-overlay {
+    display: none;
+    pointer-events: none;
+}
+
+/* Responsividade - mobile: sidebar oculta por padrão, .show exibe */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%) !important;
+        z-index: 1040;
+    }
+    
+    .sidebar.show {
+        transform: translateX(0) !important;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .main {
+        margin-left: 0;
+    }
+    
+    /* Overlay atrás do sidebar em mobile (fechar ao clicar) */
+    .sidebar-overlay {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1035;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.25s ease, visibility 0.25s ease;
+    }
+    
+    .sidebar-overlay.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+} 

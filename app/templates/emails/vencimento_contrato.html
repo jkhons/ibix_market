@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vencimento de Contrato - PDV Ibix</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background-color: #fd7e14; color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .alert-box { background-color: #fff3cd; border: 2px solid #fd7e14; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .info-box { background-color: #f8f9fa; border-left: 4px solid #fd7e14; padding: 15px; margin: 20px 0; }
+        .info-box strong { color: #fd7e14; display: block; margin-bottom: 5px; }
+        .button { display: inline-block; padding: 12px 30px; background-color: #fd7e14; color: white; text-decoration: none; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+        .footer { background-color: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #dee2e6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Contrato Próximo do Vencimento</h1>
+        </div>
+        
+        <div class="content">
+            <p>Olá, <strong>{{cliente_nome}}</strong>!</p>
+            
+            <div class="alert-box">
+                <strong>⚠️ ATENÇÃO:</strong> Seu contrato de aferição está próximo do vencimento!
+            </div>
+            
+            <div class="info-box">
+                <strong>📄 Contrato:</strong>
+                {{numero_contrato}}
+                
+                <strong>📅 Data de Vencimento:</strong>
+                {{data_vencimento}}
+                
+                <strong>⏰ Dias Restantes:</strong>
+                {{dias_restantes}} dias
+                
+                <strong>📊 Aferições Realizadas:</strong>
+                {{afericoes_realizadas}} de {{afericoes_totais}}
+                
+                <strong>💰 Valor do Contrato:</strong>
+                R$ {{valor_contrato}}
+            </div>
+            
+            <p><strong>Benefícios da Renovação:</strong></p>
+            <ul>
+                <li>Continuidade do serviço sem interrupções</li>
+                <li>Manutenção das condições especiais</li>
+                <li>Garantia de conformidade com normas</li>
+                <li>Histórico de aferições preservado</li>
+            </ul>
+            
+            <p>Entre em contato conosco para renovar seu contrato e garantir a continuidade dos serviços.</p>
+            
+            <center>
+                <a href="{{link_renovacao}}" class="button">📝 Renovar Contrato</a>
+            </center>
+        </div>
+        
+        <div class="footer">
+            <p><strong>PDV Ibix - Sistema de vendas e gestão PDV</strong></p>
+            <p>Contato: {{contato_empresa}}</p>
+        </div>
+    </div>
+</body>
+</html>
+

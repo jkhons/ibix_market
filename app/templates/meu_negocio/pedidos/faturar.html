@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Faturar pedido | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+  <div class="mb-3">
+    <a href="/negocio/pedidos" class="btn btn-outline-secondary btn-sm"><i data-feather="arrow-left"></i> Voltar</a>
+    <h1 class="h3 d-inline align-middle ms-2"><strong>Faturar pedido</strong> <span id="numero-pedido" class="text-muted"></span></h1>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted mb-3">Selecione as quantidades a faturar em cada item. Será gerada uma NF em rascunho e registrado o faturamento.</p>
+      <form id="form-faturar">
+        <input type="hidden" id="pedido-id" value="{{ pedido_id }}">
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Qtd total</th>
+                <th>Já faturado</th>
+                <th>Pendente</th>
+                <th>Qtd a faturar</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-itens"></tbody>
+          </table>
+        </div>
+        <p class="text-danger small mb-2" id="msg-erro" style="display:none;"></p>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary" id="btn-faturar"><i data-feather="file-text"></i> Faturar</button>
+          <a href="/negocio/pedidos" class="btn btn-outline-secondary">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+(function() {
+  const pedidoId = parseInt(document.getElementById('pedido-id').value, 10);
+  if (!pedidoId) { document.getElementById('tbody-itens').innerHTML = '<tr><td colspan="5">ID do pedido inválido.</td></tr>'; return; }
+
+  function getToken() {
+    const c = document.cookie.split(';');
+    for (const x of c) {
+      const [n, v] = x.trim().split('=');
+      if (n === 'pdv_solumatica_token' || n === 'pdv_automscale_token') return v || null;
+    }
+    return null;
+  }
+  function api(url, opts) {
+    const t = getToken();
+    return fetch(url, { ...opts, credentials: 'include', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', ...(t ? { 'Authorization': 'Bearer ' + t } : {}), ...(opts && opts.headers || {}) } });
+  }
+
+  async function carregar() {
+    const r = await api('/api/v1/pedidos/' + pedidoId);
+    if (!r.ok) {
+      document.getElementById('tbody-itens').innerHTML = '<tr><td colspan="5" class="text-danger">Erro ao carregar pedido.</td></tr>';
+      return;
+    }
+    const p = await r.json();
+    document.getElementById('numero-pedido').textContent = p.numero_pedido || '';
+
+    const tbody = document.getElementById('tbody-itens');
+    tbody.innerHTML = '';
+    const itens = p.itens || [];
+    itens.forEach(i => {
+      const qtd = parseFloat(i.quantidade) || 0;
+      const faturado = parseFloat(i.quantidade_faturada) || 0;
+      const pendente = Math.max(0, qtd - faturado);
+      const tr = document.createElement('tr');
+      tr.dataset.itemId = i.id;
+      tr.dataset.pendente = pendente;
+      tr.innerHTML = `
+        <td>${(i.descricao_produto || i.codigo_produto || '').substring(0, 50)} <small class="text-muted">${i.codigo_produto || ''}</small></td>
+        <td>${qtd}</td>
+        <td>${faturado}</td>
+        <td><strong>${pendente}</strong></td>
+        <td>
+          ${pendente > 0 ? `<input type="number" class="form-control form-control-sm qtd-faturar" min="0.001" max="${pendente}" step="0.001" value="${pendente}" style="width:100px" data-item-id="${i.id}">` : '<span class="text-muted">—</span>'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    if (itens.length === 0) tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Nenhum item no pedido.</td></tr>';
+    if (typeof feather !== 'undefined') feather.replace();
+  }
+
+  document.getElementById('form-faturar').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const itens = [];
+    document.querySelectorAll('#tbody-itens tr[data-item-id]').forEach(tr => {
+      const input = tr.querySelector('.qtd-faturar');
+      if (!input) return;
+      const qtd = parseFloat(input.value) || 0;
+      const pendente = parseFloat(tr.dataset.pendente) || 0;
+      if (qtd > 0 && qtd <= pendente)
+        itens.push({ pedido_item_id: parseInt(tr.dataset.itemId, 10), quantidade: qtd });
+    });
+    if (!itens.length) {
+      document.getElementById('msg-erro').style.display = 'block';
+      document.getElementById('msg-erro').textContent = 'Informe ao menos uma quantidade a faturar.';
+      return;
+    }
+    document.getElementById('msg-erro').style.display = 'none';
+    const btn = document.getElementById('btn-faturar');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/v1/pedidos/' + pedidoId + '/faturar', { method: 'POST', body: JSON.stringify({ itens }) });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(Array.isArray(err.detail) ? err.detail.map(x => x.msg).join(' ') : (err.detail || r.statusText));
+      }
+      const data = await r.json();
+      const notaId = data.nota_fiscal_id;
+      const msgDiv = document.getElementById('msg-erro');
+      msgDiv.style.display = 'block';
+      msgDiv.className = 'alert alert-success small mb-2';
+      msgDiv.innerHTML = 'Faturamento registrado. NF em rascunho' +
+        (notaId ? ': <a href="/fiscal/notas-fiscais" class="alert-link">Ver nota #' + notaId + '</a>' : '') +
+        ' &nbsp;|&nbsp; <a href="/negocio/pedidos" class="alert-link">Voltar aos pedidos</a>';
+      btn.disabled = false;
+      if (notaId) {
+        document.querySelector('.d-flex.gap-2')?.insertAdjacentHTML('beforeend',
+          '<a href="/fiscal/notas-fiscais" class="btn btn-success btn-sm"><i data-feather="file-text"></i> Ver nota #' + notaId + '</a>');
+        if (typeof feather !== 'undefined') feather.replace();
+      }
+    } catch (err) {
+      document.getElementById('msg-erro').style.display = 'block';
+      document.getElementById('msg-erro').textContent = err.message || 'Erro ao faturar.';
+      btn.disabled = false;
+    }
+  });
+
+  carregar();
+  if (typeof feather !== 'undefined') feather.replace();
+})();
+</script>
+{% endblock %}

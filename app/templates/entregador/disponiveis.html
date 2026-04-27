@@ -1,0 +1,150 @@
+{% extends "entregador/base_entregador.html" %}
+{% block title %}Entregas disponíveis{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Entregas disponíveis</h5>
+        <span class="badge bg-secondary" id="badge-count" style="display: none;">0</span>
+    </div>
+    <div class="card-body">
+        <p class="text-muted small mb-2" id="msg-loading">Carregando…</p>
+        <p class="text-muted mb-0" id="msg-vazia" style="display: none;">Nenhuma entrega disponível no momento.</p>
+        <div id="lista-disponiveis"></div>
+    </div>
+</div>
+
+<!-- Modal de confirmação de aceite (padrão MAPA_DE_REGRAS: CSS inline, independente do Bootstrap) -->
+<div id="modalAceitarEntregaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 480px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.25rem; font-weight: 700;">Confirmar aceite</h3>
+            <button type="button" id="btn-fechar-modal-aceitar" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 28px; line-height: 1; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="padding: 24px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <p class="mb-2">Deseja aceitar esta entrega?</p>
+            <div id="modal-aceitar-resumo" style="background: #fff; border: 1px solid #e9ecef; border-radius: 6px; padding: 12px; font-size: 0.9rem;"></div>
+        </div>
+        <div style="background: #f8f9fa; padding: 16px 24px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" id="btn-cancelar-aceitar" style="padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+            <button type="button" id="btn-confirmar-aceitar" style="padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; background: #198754; color: white;">Confirmar aceite</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)entregador_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    if (!token) { window.location.href = "/entregador/login"; return; }
+
+    var entregaSelecionadaId = null;
+
+    function fecharModalAceitarEntrega() {
+        var modal = document.getElementById("modalAceitarEntregaCustom");
+        if (modal) {
+            modal.style.display = "none";
+            document.body.style.overflow = "";
+        }
+        entregaSelecionadaId = null;
+    }
+    function abrirModalAceitarEntrega(entrega) {
+        entregaSelecionadaId = entrega.id;
+        var resumo = document.getElementById("modal-aceitar-resumo");
+        if (resumo) {
+            var parts = [
+                "<strong>Pedido #" + entrega.pedido_id + "</strong>" + (entrega.loja_nome ? " – " + entrega.loja_nome : "") + "<br>",
+                "Frete: R$ " + (entrega.valor_frete != null ? Number(entrega.valor_frete).toFixed(2) : "0,00") + "<br>",
+                (entrega.bairro_retirada ? "Retirada: " + entrega.bairro_retirada + "<br>" : ""),
+                (entrega.bairro_entrega ? "Entrega: " + entrega.bairro_entrega + "<br>" : ""),
+                (entrega.tipo_veiculo_aceito ? "Veículo: " + entrega.tipo_veiculo_aceito + "<br>" : ""),
+                (entrega.observacoes ? "Obs: " + entrega.observacoes : "")
+            ];
+            resumo.innerHTML = parts.join("");
+        }
+        var modal = document.getElementById("modalAceitarEntregaCustom");
+        if (modal) {
+            modal.style.display = "block";
+            document.body.style.overflow = "hidden";
+        }
+    }
+    window.fecharModalAceitarEntrega = fecharModalAceitarEntrega;
+    window.abrirModalAceitarEntrega = abrirModalAceitarEntrega;
+
+    var modalEl = document.getElementById("modalAceitarEntregaCustom");
+    if (modalEl) {
+        modalEl.addEventListener("click", function(e) {
+            if (e.target === modalEl) fecharModalAceitarEntrega();
+        });
+        document.getElementById("btn-fechar-modal-aceitar").addEventListener("click", fecharModalAceitarEntrega);
+        document.getElementById("btn-cancelar-aceitar").addEventListener("click", fecharModalAceitarEntrega);
+        document.getElementById("btn-confirmar-aceitar").addEventListener("click", function() {
+            if (!entregaSelecionadaId) return;
+            var btn = this;
+            btn.disabled = true;
+            btn.textContent = "Aceitando…";
+            fetch("/api/v1/entregador/entregas/" + entregaSelecionadaId + "/aceitar", {
+                method: "POST",
+                headers: { "Authorization": "Bearer " + token }
+            }).then(function(res) {
+                btn.disabled = false;
+                btn.textContent = "Confirmar aceite";
+                if (res.status === 409) {
+                    fecharModalAceitarEntrega();
+                    alert("Esta entrega já foi aceita por outro entregador.");
+                    return;
+                }
+                if (res.ok) {
+                    window.location.href = "/entregador/entrega/" + entregaSelecionadaId;
+                    return;
+                }
+                res.json().then(function(d) { alert(d.detail || "Erro ao aceitar."); });
+            }).catch(function() {
+                btn.disabled = false;
+                btn.textContent = "Confirmar aceite";
+                alert("Erro de conexão.");
+            });
+        });
+    }
+
+    document.getElementById("msg-loading").style.display = "block";
+    fetch("/api/v1/entregador/entregas-disponiveis", { headers: { "Authorization": "Bearer " + token } })
+        .then(function(r) {
+            if (r.status === 401) { window.location.href = "/entregador/login"; return []; }
+            return r.json();
+        })
+        .then(function(lista) {
+            var el = document.getElementById("lista-disponiveis");
+            var msgVazia = document.getElementById("msg-vazia");
+            var msgLoading = document.getElementById("msg-loading");
+            var badgeCount = document.getElementById("badge-count");
+            msgLoading.style.display = "none";
+            if (!lista || lista.length === 0) {
+                msgVazia.style.display = "block";
+                return;
+            }
+            badgeCount.textContent = lista.length;
+            badgeCount.style.display = "inline-block";
+            lista.forEach(function(e) {
+                var card = document.createElement("div");
+                card.className = "entregador-card";
+                var valorFrete = e.valor_frete != null ? Number(e.valor_frete).toFixed(2) : "0,00";
+                var titulo = "Pedido #" + e.pedido_id + (e.loja_nome ? " – " + e.loja_nome : "");
+                var linhas = [
+                    "<p class=\"mb-1\"><strong>Frete:</strong> R$ " + valorFrete + "</p>",
+                    (e.bairro_retirada ? "<p class=\"mb-1 small\"><strong>Retirada:</strong> " + e.bairro_retirada + "</p>" : ""),
+                    (e.bairro_entrega ? "<p class=\"mb-1 small\"><strong>Entrega:</strong> " + e.bairro_entrega + "</p>" : ""),
+                    (e.tipo_veiculo_aceito ? "<p class=\"mb-1 small text-muted\">Veículo: " + e.tipo_veiculo_aceito + "</p>" : ""),
+                    (e.observacoes ? "<p class=\"mb-2 small text-muted\">" + e.observacoes + "</p>" : ""),
+                    "<button type=\"button\" class=\"btn btn-primary btn-sm\" data-id=\"" + e.id + "\">Aceitar</button>"
+                ];
+                card.innerHTML = "<h5 class=\"mb-2\">" + titulo + "</h5>" + linhas.join("");
+                var btn = card.querySelector("button");
+                btn.addEventListener("click", function() {
+                    abrirModalAceitarEntrega(e);
+                });
+                el.appendChild(card);
+            });
+        });
+})();
+</script>
+{% endblock %}
