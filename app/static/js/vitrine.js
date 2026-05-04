@@ -153,6 +153,46 @@
     setCart({ items: [] });
   }
 
+  /**
+   * Checkout pode retornar redirect (cartão/boleto) ou PIX antes do pagamento concluir.
+   * Não limpar o carrinho nesse momento — só após "Obrigado" via applyPendingCartClearIfAny().
+   */
+  var CART_CLEAR_PENDING_KEY = "loja_cart_clear_pending";
+
+  function setPendingCartClear(payload) {
+    try {
+      sessionStorage.setItem(CART_CLEAR_PENDING_KEY, JSON.stringify(payload || {}));
+    } catch (e) {}
+  }
+
+  function cancelPendingCartClear() {
+    try {
+      sessionStorage.removeItem(CART_CLEAR_PENDING_KEY);
+    } catch (e) {}
+  }
+
+  function applyPendingCartClearIfAny() {
+    try {
+      var raw = sessionStorage.getItem(CART_CLEAR_PENDING_KEY);
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      sessionStorage.removeItem(CART_CLEAR_PENDING_KEY);
+      if (!o || typeof o !== "object") return;
+      if (o.type === "full") {
+        clearCart();
+        return;
+      }
+      if (o.type === "loja" && o.loja_id != null && !isNaN(Number(o.loja_id))) {
+        var lid = parseInt(o.loja_id, 10);
+        var cart = getCart();
+        cart.items = (cart.items || []).filter(function (i) {
+          return i.loja_id !== lid;
+        });
+        setCart(cart);
+      }
+    } catch (e) {}
+  }
+
   /** GET categorias */
   function getCategorias() {
     return fetch(API_BASE + "/categorias?ativa=true")
@@ -941,6 +981,9 @@
     removeFromCart: removeFromCart,
     setCartItemQty: setCartItemQty,
     clearCart: clearCart,
+    setPendingCartClear: setPendingCartClear,
+    cancelPendingCartClear: cancelPendingCartClear,
+    applyPendingCartClearIfAny: applyPendingCartClearIfAny,
     getCategorias: getCategorias,
     getMarketingVitrineHome: getMarketingVitrineHome,
     getAnuncios: getAnuncios,

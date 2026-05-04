@@ -17,6 +17,7 @@ import GorhomBottomSheet from '@gorhom/bottom-sheet';
 import { Text, SearchBar, Skeleton, SkeletonCard, Icon, Badge } from '@/components/ui';
 import { ProductCard, CategoryCard, BannerCarousel } from '@/components/product';
 import { LocationChip, CitySelectorSheet, NearbyAdsCarousel } from '@/components/geo';
+import { BrandLogo } from '@/components/common/BrandLogo';
 import { useTheme } from '@/hooks/useTheme';
 import { useGeo } from '@/hooks/useGeo';
 import { useRecentlyViewedStore } from '@/store';
@@ -248,9 +249,7 @@ export default function HomeScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md }]}>
         <View style={styles.headerRow}>
-          <Text variant="h3" color={colors.textPrimary}>
-            Ibix Market
-          </Text>
+          <BrandLogo height={36} />
           <View style={styles.headerActions}>
             <TouchableOpacity
               onPress={() => router.push('/notificacoes')}

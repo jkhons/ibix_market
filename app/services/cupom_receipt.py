@@ -258,6 +258,23 @@ def gerar_cupom_resumo_pedido_negocio(
     return linhas, "\n".join(html_parts)
 
 
+# Cabeçalho fixo do cupom de pedido marketplace (não usar Tenant.nome — costuma ser pessoa física/jurídica do assinante).
+CUPOM_IBIX_MARKET_TITULO = "PEDIDO IBIX MARKET"
+CUPOM_IBIX_MARKET_SITE = "www.ibix.com.br"
+
+
+def _linhas_wrap_cupom(texto: str, largura: int) -> List[str]:
+    s = " ".join((texto or "").split())
+    if not s:
+        return []
+    out: List[str] = []
+    i = 0
+    while i < len(s):
+        out.append(s[i : i + largura])
+        i += largura
+    return out
+
+
 def gerar_cupom_resumo_pedido_marketplace(
     loja_exibicao: str,
     numero_pedido: str,
@@ -275,6 +292,8 @@ def gerar_cupom_resumo_pedido_marketplace(
     total: Any,
     itens: List[dict],
     largura: int = 48,
+    loja_endereco_resumo: Optional[str] = None,
+    loja_documento: Optional[str] = None,
 ) -> Tuple[List[str], str]:
     """
     Cupom não fiscal de pedido marketplace (gestão loja).
@@ -282,8 +301,9 @@ def gerar_cupom_resumo_pedido_marketplace(
     """
     linhas: List[str] = []
     L = largura
-    linhas.append(_centralizar((loja_exibicao or "Loja").strip() or "Loja", L))
-    linhas.append(_centralizar("PEDIDO MARKETPLACE", L))
+    nome_loja_linha = (loja_exibicao or "Loja").strip() or "Loja"
+    linhas.append(_centralizar(CUPOM_IBIX_MARKET_TITULO, L))
+    linhas.append(_centralizar(CUPOM_IBIX_MARKET_SITE, L))
     linhas.append(_linha_separadora(L))
     linhas.append(f"Pedido: {numero_pedido or ''}")
     dh_txt, _ = _data_hora_cupom(data_referencia)
@@ -321,14 +341,23 @@ def gerar_cupom_resumo_pedido_marketplace(
         linhas.append(f"Entrega:     R$ {_fmt_moeda(taxa_entrega)}")
     linhas.append(f"TOTAL:       R$ {_fmt_moeda(total)}")
     linhas.append(_linha_separadora(L))
+    linhas.append(_centralizar("LOJA VENDEDORA", L))
+    linhas.append(_truncar(f"Loja: {nome_loja_linha}", L))
+    for ln in _linhas_wrap_cupom((loja_endereco_resumo or "").strip(), L):
+        linhas.append(ln)
+    doc_rod = (loja_documento or "").strip()
+    if doc_rod:
+        for ln in _linhas_wrap_cupom(doc_rod, L):
+            linhas.append(ln)
+    linhas.append(_linha_separadora(L))
     linhas.append(_centralizar("Documento sem valor fiscal", L))
     linhas.append("")
 
     _, dh_html = _data_hora_cupom(data_referencia)
     html_parts: List[str] = [
         '<div class="cupom-impressao" style="font-family: monospace; font-size: 12px; max-width: 280px; margin: 0 auto; padding: 12px;">',
-        f'<div style="text-align: center; font-weight: bold;">{html_lib.escape((loja_exibicao or "Loja").strip() or "Loja")}</div>',
-        '<div style="text-align: center; font-weight: 600;">PEDIDO MARKETPLACE</div>',
+        f'<div style="text-align: center; font-weight: bold; font-size: 13px;">{html_lib.escape(CUPOM_IBIX_MARKET_TITULO)}</div>',
+        f'<div style="text-align: center; font-size: 11px;">{html_lib.escape(CUPOM_IBIX_MARKET_SITE)}</div>',
         '<hr style="border: none; border-top: 1px dashed #333; margin: 8px 0;">',
         f'<div>Pedido: {html_lib.escape(numero_pedido or "")}</div>',
     ]
@@ -363,6 +392,19 @@ def gerar_cupom_resumo_pedido_marketplace(
     if float(taxa_entrega or 0) > 0:
         html_parts.append(f'<div>Entrega: R$ {_fmt_moeda(taxa_entrega)}</div>')
     html_parts.append(f'<div style="font-weight: bold;">TOTAL: R$ {_fmt_moeda(total)}</div>')
+    html_parts.append('<hr style="border: none; border-top: 1px dashed #333; margin: 8px 0;">')
+    html_parts.append('<div style="text-align: center; font-weight: 600; font-size: 11px;">LOJA VENDEDORA</div>')
+    html_parts.append(
+        f'<div style="font-size: 11px;">Loja: {html_lib.escape(nome_loja_linha)}</div>'
+    )
+    addr_h = (loja_endereco_resumo or "").strip()
+    if addr_h:
+        html_parts.append(
+            f'<div style="font-size: 11px; white-space: pre-wrap;">{html_lib.escape(addr_h[:500])}</div>'
+        )
+    doc_h = (loja_documento or "").strip()
+    if doc_h:
+        html_parts.append(f'<div style="font-size: 11px;">{html_lib.escape(doc_h[:80])}</div>')
     html_parts.append('<hr style="border: none; border-top: 1px dashed #333; margin: 8px 0;">')
     html_parts.append('<div style="text-align: center; font-size: 11px;">Documento sem valor fiscal</div>')
     html_parts.append("</div>")

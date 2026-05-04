@@ -2,7 +2,7 @@
 from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -37,7 +37,7 @@ from app.core.payment_gateway_policy import (
 from app.core.scope import get_cliente_ids_for_tenant
 from app.database.connection import get_db
 from app.integrations.mercadopago import MercadoPagoClient
-from app.models import Caixa, Configuracao, Empresa, Payment, SubscriptionBilling, Tenant, Usuario
+from app.models import Caixa, Configuracao, Empresa, MarketplaceTaxaRegra, Payment, SubscriptionBilling, Tenant, Usuario
 from app.models.codigo_desconto import CodigoDesconto
 from app.models.contrato_comercial import ContratoComercial
 from app.models.subscription_billing import ComissaoAdministrador
@@ -50,7 +50,18 @@ from app.schemas.billing import (
     AdminTenantBillingListItem,
     PayNowResponse,
 )
+from app.schemas.marketplace_taxa import (
+    MarketplaceTaxaRegraAdminResponse,
+    MarketplaceTaxaRegraCreateRequest,
+    MarketplaceTaxaRegraUpdateRequest,
+    payload_from_db_str,
+    payload_to_json_str,
+)
 from app.services import billing_service
+from app.services.marketplace_taxa_service import (
+    validar_unica_geral_ativa,
+    validar_unico_tenant_ativo,
+)
 
 router = APIRouter(prefix="/admin/billing", tags=["Admin Billing"])
 
@@ -695,3 +706,100 @@ def admin_marcar_comissao_pago(
         created_at=reg.created_at.isoformat() if getattr(reg, "created_at", None) else None,
         pago_em=reg.pago_em.isoformat() if reg.pago_em else None,
     )
+
+
+def _taxa_regra_admin_response(row: MarketplaceTaxaRegra) -> MarketplaceTaxaRegraAdminResponse:
+    return MarketplaceTaxaRegraAdminResponse(
+        id=row.id,
+        nome=row.nome,
+        ativo=bool(row.ativo),
+        escopo=row.escopo,
+        tenant_id=row.tenant_id,
+        payload=payload_from_db_str(row.payload),
+    )
+
+
+@router.get("/marketplace-taxas/regras", response_model=List[MarketplaceTaxaRegraAdminResponse])
+def admin_list_marketplace_taxa_regras(
+    ativo: Optional[bool] = Query(None),
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    """Lista regras de taxas marketplace (Super Admin)."""
+    q = db.query(MarketplaceTaxaRegra).order_by(MarketplaceTaxaRegra.id.desc())
+    if ativo is not None:
+        q = q.filter(MarketplaceTaxaRegra.ativo.is_(ativo))
+    return [_taxa_regra_admin_response(r) for r in q.all()]
+
+
+@router.post("/marketplace-taxas/regras", response_model=MarketplaceTaxaRegraAdminResponse, status_code=status.HTTP_201_CREATED)
+def admin_create_marketplace_taxa_regra(
+    body: MarketplaceTaxaRegraCreateRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    if body.escopo == "geral" and body.tenant_id is not None:
+        raise HTTPException(status_code=400, detail="Regra Geral não deve ter tenant_id.")
+    if body.escopo == "tenant" and body.tenant_id is None:
+        raise HTTPException(status_code=400, detail="Regra por tenant exige tenant_id.")
+    try:
+        validar_unica_geral_ativa(db, body.escopo, body.ativo)
+        validar_unico_tenant_ativo(db, body.escopo, body.tenant_id, body.ativo)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    row = MarketplaceTaxaRegra(
+        nome=body.nome.strip(),
+        ativo=body.ativo,
+        escopo=body.escopo,
+        tenant_id=body.tenant_id,
+        payload=payload_to_json_str(body.payload),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _taxa_regra_admin_response(row)
+
+
+@router.patch("/marketplace-taxas/regras/{regra_id}", response_model=MarketplaceTaxaRegraAdminResponse)
+def admin_patch_marketplace_taxa_regra(
+    regra_id: int,
+    body: MarketplaceTaxaRegraUpdateRequest,
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    row = db.query(MarketplaceTaxaRegra).filter(MarketplaceTaxaRegra.id == regra_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Regra não encontrada")
+    dump = body.model_dump(exclude_unset=True)
+
+    if "nome" in dump and dump["nome"] is not None:
+        row.nome = dump["nome"].strip()
+    if "ativo" in dump:
+        row.ativo = bool(dump["ativo"])
+    if "payload" in dump and dump["payload"] is not None:
+        row.payload = payload_to_json_str(dump["payload"])
+
+    try:
+        validar_unica_geral_ativa(db, row.escopo, bool(row.ativo), exclude_id=regra_id)
+        validar_unico_tenant_ativo(db, row.escopo, row.tenant_id, bool(row.ativo), exclude_id=regra_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+    db.commit()
+    db.refresh(row)
+    return _taxa_regra_admin_response(row)
+
+
+@router.delete("/marketplace-taxas/regras/{regra_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_marketplace_taxa_regra(
+    regra_id: int,
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    """Remove regra (hard delete). Preferível desativar via PATCH ativo=false."""
+    row = db.query(MarketplaceTaxaRegra).filter(MarketplaceTaxaRegra.id == regra_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Regra não encontrada")
+    db.delete(row)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

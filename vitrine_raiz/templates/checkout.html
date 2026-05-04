@@ -31,6 +31,7 @@
         <div class="mb-3">
             <label for="comprador_documento" class="form-label">CPF/CNPJ</label>
             <input type="text" class="form-control" id="comprador_documento" name="comprador_documento">
+            <small class="form-text text-muted">Recomendado para pagamento com cartão no Mercado Pago (CPF ou CNPJ com dígitos corretos).</small>
         </div>
         <div class="mb-3">
             <label for="tipo_entrega" class="form-label">Tipo de entrega</label>
@@ -484,12 +485,16 @@
           return r.json();
         })
         .then(function (data) {
+          var handled = !!(window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data));
+          if (handled) {
+            if (window.Vitrine.setPendingCartClear && data && data.session_uuid) {
+              window.Vitrine.setPendingCartClear({ type: "full" });
+            }
+            return;
+          }
           if (data && data.session_uuid && window.Vitrine.clearCart) {
             window.Vitrine.clearCart();
             if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
-          }
-          if (window.Vitrine && window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data)) {
-            return;
           }
           var nums = (data.pedidos || []).map(function (p) { return p.numero_pedido; }).join(",");
           var firstId = (data.pedidos && data.pedidos[0]) ? data.pedidos[0].id : "";
@@ -568,13 +573,17 @@
         return r.json();
       })
       .then(function (data) {
+        var handled = !!(window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data));
+        if (handled) {
+          if (window.Vitrine.setPendingCartClear && lojaId != null && !isNaN(lojaId)) {
+            window.Vitrine.setPendingCartClear({ type: "loja", loja_id: lojaId });
+          }
+          return;
+        }
         var cart0 = window.Vitrine.getCart();
         cart0.items = (cart0.items || []).filter(function (i) { return i.loja_id !== lojaId; });
         window.Vitrine.setCart(cart0);
         if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
-        if (window.Vitrine && window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data)) {
-          return;
-        }
         var id = data && (data.id != null) ? data.id : "";
         if (id) {
           var qs = "pedido_id=" + id + (data.numero_pedido ? "&numero_pedido=" + encodeURIComponent(data.numero_pedido) : "") + (data.comprador_email ? "&email=" + encodeURIComponent(data.comprador_email) : "");

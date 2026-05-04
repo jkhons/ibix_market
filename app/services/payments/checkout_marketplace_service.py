@@ -27,6 +27,25 @@ from .base import CheckoutResult
 PROVIDER_MP = "mercadopago"
 
 
+def _marketplace_payer_info(
+    comprador_nome: Optional[str],
+    comprador_email: Optional[str],
+    comprador_documento: Optional[str],
+) -> Dict[str, Any]:
+    """Dados do pagador para Preferência MP; document → payer.identification (CPF/CNPJ)."""
+    nome_c = (comprador_nome or "").strip()
+    partes = nome_c.split(None, 1) if nome_c else []
+    info: Dict[str, Any] = {
+        "first_name": partes[0] if partes else nome_c,
+        "last_name": partes[1] if len(partes) > 1 else "",
+        "email": (comprador_email or "").strip(),
+    }
+    doc = (comprador_documento or "").strip()
+    if doc:
+        info["document"] = doc[:32]
+    return info
+
+
 def _transaction_provider_response_json(result: CheckoutResult, external_reference: str) -> str:
     """Snapshot em payment_transactions.provider_response (idempotência / diagnóstico)."""
     return json.dumps(
@@ -194,13 +213,11 @@ def create_checkout_for_pedido(
             for it in itens_pedido
         ]
 
-    nome_comprador = (pedido.comprador_nome or "").strip()
-    partes_nome = nome_comprador.split(None, 1) if nome_comprador else []
-    kwargs["payer_info"] = {
-        "first_name": partes_nome[0] if partes_nome else nome_comprador,
-        "last_name": partes_nome[1] if len(partes_nome) > 1 else "",
-        "email": (pedido.comprador_email or "").strip(),
-    }
+    kwargs["payer_info"] = _marketplace_payer_info(
+        pedido.comprador_nome,
+        pedido.comprador_email,
+        pedido.comprador_documento,
+    )
     if provider_code == "mercadopago" and method == "pix":
         kwargs["mp_idempotency_key"] = str(uuid.uuid4())
 
@@ -323,13 +340,11 @@ def create_checkout_for_session(
     if items_detail:
         kwargs["items_detail"] = items_detail
 
-    nome_comprador = (anchor.comprador_nome or "").strip()
-    partes_nome = nome_comprador.split(None, 1) if nome_comprador else []
-    kwargs["payer_info"] = {
-        "first_name": partes_nome[0] if partes_nome else nome_comprador,
-        "last_name": partes_nome[1] if len(partes_nome) > 1 else "",
-        "email": (anchor.comprador_email or "").strip(),
-    }
+    kwargs["payer_info"] = _marketplace_payer_info(
+        anchor.comprador_nome,
+        anchor.comprador_email,
+        anchor.comprador_documento,
+    )
     if provider_code == "mercadopago" and method == "pix":
         kwargs["mp_idempotency_key"] = str(uuid.uuid4())
 
@@ -481,13 +496,11 @@ def create_retry_checkout_for_session(
             )
     if items_detail:
         kwargs["items_detail"] = items_detail
-    nome_comprador = (anchor.comprador_nome or "").strip()
-    partes_nome = nome_comprador.split(None, 1) if nome_comprador else []
-    kwargs["payer_info"] = {
-        "first_name": partes_nome[0] if partes_nome else nome_comprador,
-        "last_name": partes_nome[1] if len(partes_nome) > 1 else "",
-        "email": (anchor.comprador_email or "").strip(),
-    }
+    kwargs["payer_info"] = _marketplace_payer_info(
+        anchor.comprador_nome,
+        anchor.comprador_email,
+        anchor.comprador_documento,
+    )
     if provider_code == "mercadopago" and method == "pix":
         kwargs["mp_idempotency_key"] = str(uuid.uuid4())
     result: CheckoutResult = provider.create_checkout(
@@ -604,13 +617,11 @@ def create_retry_checkout_for_pedido(
             for it in itens_pedido
         ]
 
-    nome_comprador = (pedido.comprador_nome or "").strip()
-    partes_nome = nome_comprador.split(None, 1) if nome_comprador else []
-    kwargs["payer_info"] = {
-        "first_name": partes_nome[0] if partes_nome else nome_comprador,
-        "last_name": partes_nome[1] if len(partes_nome) > 1 else "",
-        "email": (pedido.comprador_email or "").strip(),
-    }
+    kwargs["payer_info"] = _marketplace_payer_info(
+        pedido.comprador_nome,
+        pedido.comprador_email,
+        pedido.comprador_documento,
+    )
     if provider_code == "mercadopago" and method == "pix":
         kwargs["mp_idempotency_key"] = str(uuid.uuid4())
 

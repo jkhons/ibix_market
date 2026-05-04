@@ -1,7 +1,7 @@
 # PDV Ibix - Schemas Entregador
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Dict, Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -50,6 +50,40 @@ class EntregadorVeiculoResponse(BaseModel):
     descricao: Optional[str] = None
     placa: Optional[str] = None
     ativo: bool = True
+    documento_aprovado: bool = False
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class EntregadorMeOut(BaseModel):
+    id: int
+    nome: str
+    email: str
+    status: str
+    ativo: bool
+    tem_veiculo_aprovado: bool
+    pode_operar: bool
+
+
+class CadastroPublicoEntregadorOk(BaseModel):
+    mensagem: str
+
+
+class PainelResumoOut(BaseModel):
+    quantidade_disponiveis: int
+    soma_valor_frete_disponiveis: Decimal
+    quantidade_minhas_andamento: int
+    quantidade_minhas_encerradas: int
+    soma_repasse_pedidos_com_custo: Decimal
+    pedidos_sem_custo_frete: int
+    totais_pagamento: Dict[str, float]
+
+
+class PainelCorridaMinhaOut(BaseModel):
+    entrega_id: int
+    pedido_id: int
+    valor_frete: Decimal
+    valor_repasse_entregador: Optional[Decimal]
+    status_entrega: str
+    status_pagamento_entregador: str

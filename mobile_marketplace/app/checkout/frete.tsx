@@ -182,7 +182,7 @@ export default function CheckoutFreteScreen() {
         )}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.sm }]}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.divider, paddingBottom: insets.bottom + spacing.sm }]}>
         <Button
           title="Continuar para pagamento"
           onPress={handleContinue}
@@ -218,6 +218,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
   },
 });

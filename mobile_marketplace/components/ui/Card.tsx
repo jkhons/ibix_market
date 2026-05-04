@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ViewStyle, StyleProp } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 
 interface CardProps {
   children: React.ReactNode;
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   padded?: boolean;
   elevated?: boolean;
   accessibilityLabel?: string;

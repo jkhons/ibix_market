@@ -19,6 +19,7 @@ from app.core.email_funcoes import (
     chave_from_name,
     get_codigos_funcoes_email,
 )
+from app.core.logging import log_error
 
 
 class EmailService:
@@ -204,8 +205,15 @@ class EmailService:
                     server.sendmail(email_from, all_recipients, message.as_string())
             
             return True
-            
-        except Exception:
+
+        except Exception as e:
+            subj_preview = (subject or "")[:120]
+            log_error(
+                "EmailService.send_email falhou "
+                f"(funcao={funcao!r}, cliente_id={cliente_id}, "
+                f"destinatarios={len(to or [])}, assunto={subj_preview!r})",
+                exc_info=e,
+            )
             return False
     
     def send_template_email(
@@ -260,8 +268,12 @@ class EmailService:
                 html=html_template,
                 **kwargs
             )
-            
-        except Exception:
+
+        except Exception as e:
+            log_error(
+                f"EmailService.send_template_email falhou (template={template_name!r})",
+                exc_info=e,
+            )
             return False
     
     def _html_to_text(self, html: str) -> str:

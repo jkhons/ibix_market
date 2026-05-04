@@ -23,15 +23,16 @@
             <div class="mb-3">
                 <label class="form-label">Estabelecimento (cliente)</label>
                 <select id="filtroEstabelecimento" class="form-select" style="max-width: 400px;">
-                    <option value="">Selecione um estabelecimento</option>
+                    <option value="__all__">Todos</option>
                 </select>
             </div>
-            <p class="text-muted small">Selecione o estabelecimento para listar e cadastrar a integração de recebimento (gateway). Gateways disponíveis: Mercado Pago, PagBank e Pagar.me. O valor das vendas vai diretamente para a conta conectada.</p>
+            <p class="text-muted small">Escolha <strong>Todos</strong> ou um estabelecimento para listar e cadastrar a integração de recebimento (gateway). Gateways disponíveis: Mercado Pago, PagBank e Pagar.me. O valor das vendas vai diretamente para a conta conectada.</p>
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Estabelecimento</th>
                             <th>Provedor</th>
                             <th>Ativo</th>
                             <th>Padrão</th>
@@ -67,7 +68,7 @@
             <button class="btn btn-sm btn-outline-primary" type="button" id="btnAtualizarPendencias">Atualizar</button>
         </div>
         <div class="card-body">
-            <p class="text-muted small mb-3">Transações do estabelecimento. Use o filtro para ver pendentes, pagos ou todas. Para pagos, use "Comprovante" para imprimir.</p>
+            <p class="text-muted small mb-3">Transações do estabelecimento selecionado ou de <strong>todos</strong> os estabelecimentos. Use o filtro para ver pendentes, pagos ou todas. Para pagos, use "Comprovante" para imprimir.</p>
             <div class="row g-2 mb-3">
                 <div class="col-md-3">
                     <label class="form-label">Status</label>
@@ -95,6 +96,7 @@
                 <table class="table table-hover">
                     <thead>
                         <tr>
+                            <th>Estabelecimento</th>
                             <th>Referência</th>
                             <th>Status</th>
                             <th>Método</th>
@@ -105,7 +107,7 @@
                         </tr>
                     </thead>
                     <tbody id="tbodyPendencias">
-                        <tr><td colspan="7">Selecione um estabelecimento para carregar as pendências.</td></tr>
+                        <tr><td colspan="8">Carregando transações…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -149,9 +151,11 @@
 {% block extra_js %}
 <script>
 (function() {
+    var FILTRO_ESTAB_TODOS = '__all__';
     window._recebiveisModoPlataforma = false;
     window._recebiveisGatewayEdicaoPermitida = true;
     window._recebiveisConfigsList = [];
+    window._recebiveisClienteNomePorId = {};
 
     function atualizarVisibilidadeBtnNova(temEstabelecimentos) {
         const btn = document.getElementById('btnNovaConfig');
@@ -229,37 +233,38 @@
             const r = await authFetch('/api/v1/clientes/?por_pagina=500&empresa_fiscal=true', { headers: headers() });
             const data = r.ok ? await r.json() : {};
             const items = data.clientes || data.itens || data.data || (Array.isArray(data) ? data : []);
-            const opts = '<option value="">Selecione um estabelecimento</option>';
-            [sel, selModal].forEach(s => {
-                if (!s) return;
-                const v = s.value;
-                s.innerHTML = s === sel ? opts : '<option value="">Selecione</option>';
+            window._recebiveisClienteNomePorId = {};
+            items.forEach(function(c) {
+                window._recebiveisClienteNomePorId[c.id] = c.nome || c.razao_social || ('Cliente #' + c.id);
+            });
+            const optsFiltro = '<option value="' + FILTRO_ESTAB_TODOS + '">Todos</option>';
+            if (sel) {
+                const v = sel.value;
+                sel.innerHTML = optsFiltro;
                 items.forEach(c => {
                     const opt = document.createElement('option');
                     opt.value = c.id;
                     opt.textContent = c.nome || c.razao_social || 'Cliente #' + c.id;
-                    s.appendChild(opt);
+                    sel.appendChild(opt);
                 });
-                if (v) s.value = v;
-            });
-            atualizarVisibilidadeBtnNova(items.length > 0);
-            // Pré-selecionar estabelecimento do CA (cliente padrão PDV) quando disponível
-            try {
-                const rPadrao = await authFetch('/api/v1/clientes/pdv-cliente-padrao/', { headers: headers() });
-                if (rPadrao.ok) {
-                    const dataPadrao = await rPadrao.json();
-                    const cid = dataPadrao && dataPadrao.cliente_id != null ? Number(dataPadrao.cliente_id) : null;
-                    if (cid && items.some(function(c) { return c.id === cid; })) {
-                        if (sel) sel.value = String(cid);
-                        if (selModal) selModal.value = String(cid);
-                        var configEstab = document.getElementById('configEstabId');
-                        if (configEstab) configEstab.value = String(cid);
-                        await verificarModoRecebimento(String(cid));
-                        await carregarConfigs();
-                        if (typeof carregarPendencias === 'function') carregarPendencias();
-                    }
+                if (v && (v === FILTRO_ESTAB_TODOS || items.some(function(c) { return String(c.id) === String(v); }))) {
+                    sel.value = v;
+                } else {
+                    sel.value = FILTRO_ESTAB_TODOS;
                 }
-            } catch (ePadrao) { console.warn('pdv-cliente-padrao:', ePadrao); }
+            }
+            if (selModal) {
+                const vm = selModal.value;
+                selModal.innerHTML = '<option value="">Selecione</option>';
+                items.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.nome || c.razao_social || 'Cliente #' + c.id;
+                    selModal.appendChild(opt);
+                });
+                if (vm && items.some(function(c) { return String(c.id) === String(vm); })) selModal.value = vm;
+            }
+            atualizarVisibilidadeBtnNova(items.length > 0);
         } catch (e) { console.error(e); }
     }
 
@@ -273,19 +278,25 @@
         const tbody = document.getElementById('tbodyConfigs');
         const msg = document.getElementById('msgLista');
         if (!estabId) {
-            tbody.innerHTML = '<tr><td colspan="7">Selecione um estabelecimento.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">Selecione um estabelecimento ou <strong>Todos</strong>.</td></tr>';
             msg.textContent = '';
             return;
         }
+        const urlTodos = estabId === FILTRO_ESTAB_TODOS
+            ? '/api/v1/payments/configs'
+            : '/api/v1/payments/configs?estabelecimentoId=' + encodeURIComponent(estabId);
         try {
-            const r = await authFetch('/api/v1/payments/configs?estabelecimentoId=' + estabId, { headers: headers() });
+            const r = await authFetch(urlTodos, { headers: headers() });
             if (!r.ok) { tbody.innerHTML = ''; msg.textContent = 'Erro ao carregar.'; return; }
             const list = await r.json();
             window._recebiveisConfigsList = list;
             var showEdit = window._recebiveisGatewayEdicaoPermitida && !window._recebiveisModoPlataforma;
-            if (!list.length) { tbody.innerHTML = '<tr><td colspan="7">Nenhuma configuração. Use "Nova configuração" para adicionar.</td></tr>'; msg.textContent = ''; return; }
+            if (!list.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhuma configuração. Use "Nova configuração" para adicionar.</td></tr>'; msg.textContent = ''; return; }
             var providerNames = {mercadopago: 'Mercado Pago', pagbank: 'PagBank', pagarme: 'Pagar.me'};
             tbody.innerHTML = list.map(c => {
+                var nomeEst = window._recebiveisClienteNomePorId && window._recebiveisClienteNomePorId[c.cliente_id]
+                    ? escHtml(window._recebiveisClienteNomePorId[c.cliente_id])
+                    : ('#' + c.cliente_id);
                 var pName = providerNames[c.provider_code] || c.provider_code || '-';
                 var connBadge = '';
                 if (c.provider_code === 'pagbank') {
@@ -302,6 +313,7 @@
                     : '—';
                 return '<tr>' +
                     '<td>' + c.id + '</td>' +
+                    '<td>' + nomeEst + '</td>' +
                     '<td><strong>' + pName + '</strong>' + connBadge + '</td>' +
                     '<td><span class="badge bg-' + (c.is_active ? 'success' : 'secondary') + '">' + (c.is_active ? 'Sim' : 'Não') + '</span></td>' +
                     '<td>' + (c.is_default ? 'Sim' : '-') + '</td>' +
@@ -337,7 +349,10 @@
     }
 
     async function fetchPendencias(estabId, statusValue, skip, limit, dataInicio, dataFim) {
-        let url = '/api/v1/payments/transactions?estabelecimentoId=' + estabId + '&limit=' + limit + '&skip=' + skip;
+        let url = '/api/v1/payments/transactions?limit=' + limit + '&skip=' + skip;
+        if (estabId && estabId !== FILTRO_ESTAB_TODOS) {
+            url += '&estabelecimentoId=' + encodeURIComponent(estabId);
+        }
         if (statusValue && statusValue !== 'all') url += '&status=' + encodeURIComponent(statusValue);
         if (dataInicio) url += '&data_inicio=' + encodeURIComponent(dataInicio);
         if (dataFim) url += '&data_fim=' + encodeURIComponent(dataFim);
@@ -357,11 +372,15 @@
     function renderPendencias(rows) {
         const tbody = document.getElementById('tbodyPendencias');
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="7">Nenhuma transação encontrada.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8">Nenhuma transação encontrada.</td></tr>';
             return;
         }
         const isPaid = function(s) { const x = (s || '').toLowerCase(); return x === 'paid' || x === 'authorized'; };
         tbody.innerHTML = rows.map(tx => {
+            var cid = tx.cliente_id != null ? tx.cliente_id : null;
+            var nomeEstTx = cid != null && window._recebiveisClienteNomePorId && window._recebiveisClienteNomePorId[cid]
+                ? escHtml(window._recebiveisClienteNomePorId[cid])
+                : (cid != null ? ('#' + cid) : '-');
             var ref = tx.numero_pedido || (tx.venda_id ? 'Venda #' + tx.venda_id : '') || tx.uuid;
             if (tx.numero_pedido) ref = escHtml(tx.numero_pedido);
             else if (tx.venda_id) ref = 'Venda #' + tx.venda_id;
@@ -375,7 +394,7 @@
                 acoes += '<button type="button" class="btn btn-sm btn-outline-info me-1" data-action="reconcile-tx" data-tx-uuid="' + escHtml(tx.uuid) + '" title="Verificar status no gateway">Verificar status</button>';
                 acoes += '<button type="button" class="btn btn-sm btn-outline-warning" data-action="retry-tx" data-tx-uuid="' + escHtml(tx.uuid) + '" ' + (isRetryLocked(tx.uuid) ? 'disabled' : '') + '>' + (isRetryLocked(tx.uuid) ? 'Aguarde...' : 'Retentar') + '</button>';
             }
-            return '<tr><td>' + ref + '</td><td>' + badgeStatus(tx.status) + '</td><td>' + escHtml(tx.payment_method || '-') + '</td><td>R$ ' + (tx.amount != null ? Number(tx.amount).toFixed(2) : '-') + '</td><td>' + fmtDt(tx.created_at) + '</td><td>' + paidDt + '</td><td>' + (acoes || '-') + '</td></tr>';
+            return '<tr><td>' + nomeEstTx + '</td><td>' + ref + '</td><td>' + badgeStatus(tx.status) + '</td><td>' + escHtml(tx.payment_method || '-') + '</td><td>R$ ' + (tx.amount != null ? Number(tx.amount).toFixed(2) : '-') + '</td><td>' + fmtDt(tx.created_at) + '</td><td>' + paidDt + '</td><td>' + (acoes || '-') + '</td></tr>';
         }).join('');
     }
 
@@ -393,7 +412,7 @@
         const estabId = document.getElementById('filtroEstabelecimento').value;
         const msg = document.getElementById('msgPendencias');
         if (!estabId) {
-            document.getElementById('tbodyPendencias').innerHTML = '<tr><td colspan="7">Selecione um estabelecimento para carregar as transações.</td></tr>';
+            document.getElementById('tbodyPendencias').innerHTML = '<tr><td colspan="8">Selecione um filtro de estabelecimento.</td></tr>';
             msg.textContent = '';
             return;
         }
@@ -407,16 +426,19 @@
             renderPendenciaPaginacaoInfo();
             msg.textContent = rows.length + ' transação(ões) encontrada(s).';
         } catch (e) {
-            document.getElementById('tbodyPendencias').innerHTML = '<tr><td colspan="7">Erro ao carregar pendências.</td></tr>';
+            document.getElementById('tbodyPendencias').innerHTML = '<tr><td colspan="8">Erro ao carregar pendências.</td></tr>';
             msg.textContent = '';
             console.error(e);
         }
     }
 
     document.getElementById('filtroEstabelecimento').addEventListener('change', async function() {
-        document.getElementById('configEstabId').value = this.value;
-        document.getElementById('configClienteId').value = this.value;
-        await verificarModoRecebimento(this.value);
+        var ev = this.value;
+        var umEstab = ev && ev !== FILTRO_ESTAB_TODOS ? ev : '';
+        document.getElementById('configEstabId').value = umEstab;
+        var selModalCli = document.getElementById('configClienteId');
+        if (selModalCli) selModalCli.value = umEstab || '';
+        await verificarModoRecebimento(umEstab);
         carregarConfigs();
         carregarPendencias();
     });
@@ -586,7 +608,7 @@
             m.style.display = 'block';
             document.body.style.overflow = 'hidden';
             var estabId = document.getElementById('filtroEstabelecimento').value;
-            if (estabId) document.getElementById('configClienteId').value = estabId;
+            if (estabId && estabId !== FILTRO_ESTAB_TODOS) document.getElementById('configClienteId').value = estabId;
             if (window._onProviderChange) window._onProviderChange();
         }
     }
@@ -765,12 +787,11 @@
 
     carregarClientes().then(async function() {
         const sel = document.getElementById('filtroEstabelecimento');
-        if (sel.options.length > 1 && !sel.value) sel.selectedIndex = 1;
-        if (sel.value) {
-            await verificarModoRecebimento(sel.value);
-            await carregarConfigs();
-            carregarPendencias();
-        }
+        if (sel && !sel.value) sel.value = FILTRO_ESTAB_TODOS;
+        const um = sel && sel.value && sel.value !== FILTRO_ESTAB_TODOS ? sel.value : '';
+        await verificarModoRecebimento(um);
+        await carregarConfigs();
+        carregarPendencias();
     });
     if (typeof feather !== 'undefined') feather.replace();
 })();

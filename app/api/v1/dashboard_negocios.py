@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import and_, case, func
+from sqlalchemy import and_, case, false, func, literal, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.middleware import get_cliente_scope_dep, get_current_user
@@ -10,11 +10,15 @@ from app.core.scope import ClienteScope, get_current_cliente_admin_id
 from app.database.connection import get_db
 from app.models import (
     AberturaCaixa,
+    AnuncioPlataforma,
     Caixa,
     Cliente,
     Empresa,
+    LojaMarketplace,
     MaterialCategoria,
     OrdemServico,
+    PedidoItemMarketplace,
+    PedidoMarketplace,
     ProdutoCliente,
     Usuario,
     Venda,
@@ -30,6 +34,191 @@ router = APIRouter(
 
 # Status considerados como vendas concluídas (para faturamento e indicadores)
 STATUS_VENDA_LIQUIDA = (StatusVenda.CONFIRMADA.value, StatusVenda.FINALIZADA.value, StatusVenda.FINALIZADA_LEGADO.value)
+
+
+def _mp_pedido_liquido_cond():
+    """Pedido vitrine contabilizado no dashboard: pago (trim) ou confirmado sem pagamento pendente/estornado."""
+    sp = func.lower(func.trim(func.coalesce(PedidoMarketplace.status_pagamento, "")))
+    st = func.lower(func.trim(func.coalesce(PedidoMarketplace.status_pedido, "")))
+    return or_(
+        sp == "pago",
+        and_(st == "confirmado", sp.notin_(["pendente", "estornado"])),
+    )
+
+
+def _query_pedidos_marketplace_liquidos(db: Session, scope: ClienteScope, allowed_ids_when_must_filter: Optional[List[int]]):
+    cond = _mp_pedido_liquido_cond()
+    if scope.must_filter_by_cliente():
+        if not allowed_ids_when_must_filter:
+            return db.query(PedidoMarketplace).filter(false())
+        return (
+            db.query(PedidoMarketplace)
+            .join(LojaMarketplace, LojaMarketplace.id == PedidoMarketplace.loja_id)
+            .filter(cond, LojaMarketplace.cliente_id.in_(allowed_ids_when_must_filter))
+        )
+    return db.query(PedidoMarketplace).filter(cond)
+
+
+def _join_mp_escopo_loja(query, scope: ClienteScope, allowed_ids_when_must_filter: Optional[List[int]]):
+    if scope.must_filter_by_cliente() and allowed_ids_when_must_filter:
+        return query.join(LojaMarketplace, LojaMarketplace.id == PedidoMarketplace.loja_id).filter(
+            LojaMarketplace.cliente_id.in_(allowed_ids_when_must_filter)
+        )
+    return query
+
+
+def _query_pedidos_marketplace_graficos(
+    db: Session,
+    inicio: date,
+    fim: date,
+    scope: ClienteScope,
+    allowed_ids: Optional[List[int]],
+    must_filter: bool,
+    cliente_id: Optional[int],
+    caixa_id: Optional[int],
+):
+    if caixa_id is not None:
+        return None
+    q = (
+        db.query(PedidoMarketplace)
+        .join(LojaMarketplace, LojaMarketplace.id == PedidoMarketplace.loja_id)
+        .filter(
+            _mp_pedido_liquido_cond(),
+            func.date(PedidoMarketplace.updated_at) >= inicio,
+            func.date(PedidoMarketplace.updated_at) <= fim,
+        )
+    )
+    if must_filter and allowed_ids:
+        q = q.filter(LojaMarketplace.cliente_id.in_(allowed_ids))
+    if cliente_id is not None and (not must_filter or cliente_id in (allowed_ids or [])):
+        q = q.filter(LojaMarketplace.cliente_id == cliente_id)
+    return q
+
+
+def _grafico_dia_iso(val: Any) -> str:
+    if val is None:
+        return ""
+    if hasattr(val, "isoformat"):
+        try:
+            s = val.isoformat()
+            return s[:10] if len(s) >= 10 else s
+        except Exception:
+            pass
+    s = str(val).strip()
+    if len(s) >= 10 and s[4:5] == "-" and s[7:8] == "-":
+        return s[:10]
+    return s
+
+
+def _merge_grafico_vendas_por_periodo(pdv: List[Dict[str, Any]], mp: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    acc: Dict[str, Dict[str, Any]] = {}
+    for r in pdv + mp:
+        d = _grafico_dia_iso(r.get("data"))
+        if not d:
+            continue
+        if d not in acc:
+            acc[d] = {"data": d, "total_vendas": 0, "valor": 0.0}
+        acc[d]["total_vendas"] += int(r.get("total_vendas") or 0)
+        acc[d]["valor"] += float(r.get("valor") or 0)
+    return sorted(acc.values(), key=lambda x: x["data"])
+
+
+def _merge_grafico_por_chave_label(
+    rows: List[Dict[str, Any]],
+    label_key: str,
+    valor_key: str = "valor",
+    qtd_key: str = "total_vendas",
+) -> List[Dict[str, Any]]:
+    acc: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        raw = (r.get(label_key) or "outros")
+        label = str(raw).strip() or "outros"
+        lk = label.lower()
+        if lk not in acc:
+            acc[lk] = {label_key: label, qtd_key: 0, valor_key: 0.0}
+        acc[lk][qtd_key] += int(r.get(qtd_key) or 0)
+        acc[lk][valor_key] += float(r.get(valor_key) or 0)
+    return list(acc.values())
+
+
+def _merge_grafico_horarios_pico(pdv: List[Dict[str, Any]], mp: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    acc: Dict[int, Dict[str, Any]] = {}
+    for src in (pdv, mp):
+        for r in src:
+            h = int(r.get("hora") or 0)
+            if h not in acc:
+                acc[h] = {"hora": h, "total_vendas": 0, "valor": 0.0}
+            acc[h]["total_vendas"] += int(r.get("total_vendas") or 0)
+            acc[h]["valor"] += float(r.get("valor") or 0)
+    return sorted(acc.values(), key=lambda x: x["hora"])
+
+
+def _merge_top_produtos_por_produto_cliente(
+    pdv: List[Dict[str, Any]],
+    vitrine: List[Dict[str, Any]],
+    limite: int,
+) -> List[Dict[str, Any]]:
+    acc: Dict[Any, Dict[str, Any]] = {}
+    for p in pdv + vitrine:
+        pid = p.get("produto_cliente_id")
+        key: Any = pid if pid is not None else ("nome", p.get("nome") or "")
+        cur = acc.get(key)
+        if not cur:
+            acc[key] = {
+                "nome": p.get("nome") or "Produto",
+                "quantidade": float(p.get("quantidade") or 0),
+                "valor_total": float(p.get("valor_total") or 0),
+                "produto_cliente_id": pid,
+            }
+        else:
+            cur["quantidade"] += float(p.get("quantidade") or 0)
+            cur["valor_total"] += float(p.get("valor_total") or 0)
+    out = sorted(acc.values(), key=lambda x: x["quantidade"], reverse=True)[:limite]
+    return [{"nome": x["nome"], "quantidade": x["quantidade"], "valor_total": x["valor_total"]} for x in out]
+
+
+def _produtos_mais_vendidos_marketplace(
+    db: Session,
+    scope: ClienteScope,
+    allowed_ids_when_must_filter: Optional[List[int]],
+    data_inicio: date,
+    data_fim: date,
+    limite_fetch: int,
+) -> List[Dict[str, Any]]:
+    q = (
+        db.query(
+            AnuncioPlataforma.produto_ca_id.label("produto_cliente_id"),
+            func.max(PedidoItemMarketplace.nome_produto_snapshot).label("nome"),
+            func.sum(PedidoItemMarketplace.quantidade).label("quantidade"),
+            func.sum(PedidoItemMarketplace.preco_total).label("valor_total"),
+        )
+        .select_from(PedidoItemMarketplace)
+        .join(PedidoMarketplace, PedidoMarketplace.id == PedidoItemMarketplace.pedido_id)
+        .join(AnuncioPlataforma, AnuncioPlataforma.id == PedidoItemMarketplace.anuncio_id)
+        .filter(
+            _mp_pedido_liquido_cond(),
+            func.date(PedidoMarketplace.updated_at) >= data_inicio,
+            func.date(PedidoMarketplace.updated_at) <= data_fim,
+        )
+    )
+    if scope.must_filter_by_cliente():
+        if not allowed_ids_when_must_filter:
+            return []
+        q = q.join(LojaMarketplace, LojaMarketplace.id == PedidoMarketplace.loja_id).filter(
+            LojaMarketplace.cliente_id.in_(allowed_ids_when_must_filter)
+        )
+    q = q.group_by(AnuncioPlataforma.produto_ca_id).order_by(func.sum(PedidoItemMarketplace.quantidade).desc()).limit(limite_fetch)
+    rows = q.all()
+    return [
+        {
+            "produto_cliente_id": int(r.produto_cliente_id) if r.produto_cliente_id is not None else None,
+            "nome": (r.nome or "Produto"),
+            "quantidade": float(r.quantidade or 0),
+            "valor_total": float(r.valor_total or 0),
+        }
+        for r in rows
+    ]
+
 
 # Fase 4 – performance: limite máximo de período para gráficos e relatórios (evitar consultas pesadas)
 MAX_PERIODO_DIAS = 366
@@ -47,6 +236,7 @@ def _produtos_mais_vendidos(db: Session, scope: ClienteScope, allowed_ids: Optio
     """Top produtos por quantidade vendida no período (escopo aplicado). Usa apenas ProdutoCliente."""
     q = (
         db.query(
+            VendaItem.produto_cliente_id.label("produto_cliente_id"),
             func.max(ProdutoCliente.nome).label("nome"),
             func.sum(VendaItem.quantidade).label("quantidade"),
             func.sum(VendaItem.valor_total).label("valor_total"),
@@ -66,7 +256,12 @@ def _produtos_mais_vendidos(db: Session, scope: ClienteScope, allowed_ids: Optio
     q = q.order_by(func.sum(VendaItem.quantidade).desc()).limit(limite)
     rows = q.all()
     return [
-        {"nome": (r.nome or "Produto"), "quantidade": float(r.quantidade or 0), "valor_total": float(r.valor_total or 0)}
+        {
+            "produto_cliente_id": int(r.produto_cliente_id) if r.produto_cliente_id is not None else None,
+            "nome": (r.nome or "Produto"),
+            "quantidade": float(r.quantidade or 0),
+            "valor_total": float(r.valor_total or 0),
+        }
         for r in rows
     ]
 
@@ -146,6 +341,21 @@ async def obter_dashboard_negocios(
     vendas_pendentes = int(vendas_stats.vendas_pendentes or 0)
     ticket_medio = (valor_total_vendas / total_vendas) if total_vendas else 0.0
 
+    mp_allowed = allowed_ids if must_filter else None
+    mp_totais = (
+        _query_pedidos_marketplace_liquidos(db, scope, mp_allowed)
+        .with_entities(
+            func.count(PedidoMarketplace.id),
+            func.coalesce(func.sum(PedidoMarketplace.total), 0),
+        )
+        .one()
+    )
+    mp_total_n = int(mp_totais[0] or 0)
+    mp_total_valor = float(mp_totais[1] or 0)
+    total_vendas += mp_total_n
+    valor_total_vendas += mp_total_valor
+    ticket_medio = (valor_total_vendas / total_vendas) if total_vendas else 0.0
+
     # Fase 4: indicadores do dia (faturamento, vendas, clientes atendidos, ticket médio)
     hoje = date.today()
     q_hoje = db.query(
@@ -162,6 +372,21 @@ async def obter_dashboard_negocios(
     vendas_hoje = int(row_hoje.vendas_hoje or 0)
     faturamento_hoje = float(row_hoje.faturamento_hoje or 0)
     clientes_atendidos_hoje = int(row_hoje.clientes_atendidos_hoje or 0)
+    ticket_medio_hoje = (faturamento_hoje / vendas_hoje) if vendas_hoje else 0.0
+
+    row_mp_hoje = (
+        _query_pedidos_marketplace_liquidos(db, scope, mp_allowed)
+        .filter(func.date(PedidoMarketplace.updated_at) == hoje)
+        .with_entities(
+            func.count(PedidoMarketplace.id),
+            func.coalesce(func.sum(PedidoMarketplace.total), 0),
+            func.count(func.distinct(PedidoMarketplace.comprador_email)),
+        )
+        .one()
+    )
+    vendas_hoje += int(row_mp_hoje[0] or 0)
+    faturamento_hoje += float(row_mp_hoje[1] or 0)
+    clientes_atendidos_hoje += int(row_mp_hoje[2] or 0)
     ticket_medio_hoje = (faturamento_hoje / vendas_hoje) if vendas_hoje else 0.0
 
     # Produtos por venda (média de itens por transação) - PDV benchmark
@@ -184,6 +409,24 @@ async def obter_dashboard_negocios(
     row_itens_mes = q_itens_mes.one()
     total_itens_mes = float(row_itens_mes.total_itens or 0)
     vendas_mes_count = int(row_itens_mes.total_vendas or 0)
+
+    q_mp_itens_mes = (
+        db.query(
+            func.sum(PedidoItemMarketplace.quantidade).label("total_itens"),
+            func.count(func.distinct(PedidoMarketplace.id)).label("total_vendas"),
+        )
+        .select_from(PedidoItemMarketplace)
+        .join(PedidoMarketplace, PedidoMarketplace.id == PedidoItemMarketplace.pedido_id)
+        .filter(
+            _mp_pedido_liquido_cond(),
+            func.date(PedidoMarketplace.updated_at) >= delta_30d,
+            func.date(PedidoMarketplace.updated_at) <= hoje,
+        )
+    )
+    q_mp_itens_mes = _join_mp_escopo_loja(q_mp_itens_mes, scope, allowed_ids if must_filter else None)
+    row_mp_itens_mes = q_mp_itens_mes.one()
+    total_itens_mes += float(row_mp_itens_mes.total_itens or 0)
+    vendas_mes_count += int(row_mp_itens_mes.total_vendas or 0)
     itens_por_venda_media = (total_itens_mes / vendas_mes_count) if vendas_mes_count else 0.0
 
     q_itens_hoje = (
@@ -203,6 +446,23 @@ async def obter_dashboard_negocios(
     row_itens_hoje = q_itens_hoje.one()
     total_itens_hoje = float(row_itens_hoje.total_itens or 0)
     vendas_hoje_count = int(row_itens_hoje.total_vendas or 0)
+
+    q_mp_itens_hoje = (
+        db.query(
+            func.sum(PedidoItemMarketplace.quantidade).label("total_itens"),
+            func.count(func.distinct(PedidoMarketplace.id)).label("total_vendas"),
+        )
+        .select_from(PedidoItemMarketplace)
+        .join(PedidoMarketplace, PedidoMarketplace.id == PedidoItemMarketplace.pedido_id)
+        .filter(
+            _mp_pedido_liquido_cond(),
+            func.date(PedidoMarketplace.updated_at) == hoje,
+        )
+    )
+    q_mp_itens_hoje = _join_mp_escopo_loja(q_mp_itens_hoje, scope, allowed_ids if must_filter else None)
+    row_mp_itens_hoje = q_mp_itens_hoje.one()
+    total_itens_hoje += float(row_mp_itens_hoje.total_itens or 0)
+    vendas_hoje_count += int(row_mp_itens_hoje.total_vendas or 0)
     itens_por_venda_hoje = (total_itens_hoje / vendas_hoje_count) if vendas_hoje_count else 0.0
 
     # Cancelamentos (últimos 30 dias) e taxa de cancelamento
@@ -226,10 +486,23 @@ async def obter_dashboard_negocios(
     if must_filter and not allowed_ids:
         produtos_mais_vendidos = {"dia": [], "semana": [], "mes": []}
     else:
+        ids_pmv = allowed_ids if must_filter else None
         produtos_mais_vendidos = {
-            "dia": _produtos_mais_vendidos(db, scope, allowed_ids if must_filter else None, hoje, hoje, 10),
-            "semana": _produtos_mais_vendidos(db, scope, allowed_ids if must_filter else None, hoje - timedelta(days=7), hoje, 10),
-            "mes": _produtos_mais_vendidos(db, scope, allowed_ids if must_filter else None, hoje - timedelta(days=30), hoje, 10),
+            "dia": _merge_top_produtos_por_produto_cliente(
+                _produtos_mais_vendidos(db, scope, ids_pmv, hoje, hoje, 25),
+                _produtos_mais_vendidos_marketplace(db, scope, ids_pmv, hoje, hoje, 25),
+                10,
+            ),
+            "semana": _merge_top_produtos_por_produto_cliente(
+                _produtos_mais_vendidos(db, scope, ids_pmv, hoje - timedelta(days=7), hoje, 25),
+                _produtos_mais_vendidos_marketplace(db, scope, ids_pmv, hoje - timedelta(days=7), hoje, 25),
+                10,
+            ),
+            "mes": _merge_top_produtos_por_produto_cliente(
+                _produtos_mais_vendidos(db, scope, ids_pmv, hoje - timedelta(days=30), hoje, 25),
+                _produtos_mais_vendidos_marketplace(db, scope, ids_pmv, hoje - timedelta(days=30), hoje, 25),
+                10,
+            ),
         }
 
     vendas_recentes_query = db.query(
@@ -244,8 +517,35 @@ async def obter_dashboard_negocios(
         vendas_recentes_query = vendas_recentes_query.filter(Venda.cliente_id.in_(allowed_ids))
 
     vendas_recentes = _mapear_vendas_recentes(
-        vendas_recentes_query.order_by(Venda.data_venda.desc(), Venda.id.desc()).limit(5).all()
+        vendas_recentes_query.order_by(Venda.data_venda.desc(), Venda.id.desc()).limit(10).all()
     )
+    mp_recent_rows = (
+        _query_pedidos_marketplace_liquidos(db, scope, mp_allowed)
+        .with_entities(
+            PedidoMarketplace.numero_pedido,
+            PedidoMarketplace.updated_at,
+            PedidoMarketplace.status_pedido,
+            PedidoMarketplace.total,
+            PedidoMarketplace.comprador_nome,
+        )
+        .order_by(PedidoMarketplace.updated_at.desc(), PedidoMarketplace.id.desc())
+        .limit(10)
+        .all()
+    )
+    mp_recentes = [
+        {
+            "id": None,
+            "numero_venda": str(r.numero_pedido or ""),
+            "data_venda": r.updated_at.isoformat() if r.updated_at else None,
+            "status": (r.status_pedido or "confirmado"),
+            "total": float(r.total or 0),
+            "cliente_nome": r.comprador_nome or "Comprador vitrine",
+        }
+        for r in mp_recent_rows
+    ]
+    _todas_recentes = vendas_recentes + mp_recentes
+    _todas_recentes.sort(key=lambda x: x.get("data_venda") or "", reverse=True)
+    vendas_recentes = _todas_recentes[:5]
 
     ordens_status_query = db.query(
         OrdemServico.status,
@@ -382,9 +682,47 @@ async def obter_graficos_dashboard(
         q_periodo = q_periodo.join(AberturaCaixa, AberturaCaixa.id == Venda.abertura_caixa_id).filter(AberturaCaixa.caixa_id == caixa_id)
     q_periodo = q_periodo.group_by(func.date(Venda.data_venda)).order_by(func.date(Venda.data_venda))
     vendas_por_periodo = [
-        {"data": str(r.data), "total_vendas": int(r.total_vendas or 0), "valor": float(r.valor or 0)}
+        {
+            "data": _grafico_dia_iso(r.data),
+            "total_vendas": int(r.total_vendas or 0),
+            "valor": float(r.valor or 0),
+        }
         for r in q_periodo.all()
+        if _grafico_dia_iso(r.data)
     ]
+
+    if caixa_id is None:
+        q_mp_periodo = (
+            db.query(
+                func.date(PedidoMarketplace.updated_at).label("data"),
+                func.count(PedidoMarketplace.id).label("total_vendas"),
+                func.coalesce(func.sum(PedidoMarketplace.total), 0).label("valor"),
+            )
+            .select_from(PedidoMarketplace)
+            .join(LojaMarketplace, LojaMarketplace.id == PedidoMarketplace.loja_id)
+            .filter(
+                _mp_pedido_liquido_cond(),
+                func.date(PedidoMarketplace.updated_at) >= inicio,
+                func.date(PedidoMarketplace.updated_at) <= fim,
+            )
+        )
+        if must_filter and allowed_ids:
+            q_mp_periodo = q_mp_periodo.filter(LojaMarketplace.cliente_id.in_(allowed_ids))
+        if cliente_id is not None and (not must_filter or cliente_id in (allowed_ids or [])):
+            q_mp_periodo = q_mp_periodo.filter(LojaMarketplace.cliente_id == cliente_id)
+        q_mp_periodo = q_mp_periodo.group_by(func.date(PedidoMarketplace.updated_at)).order_by(
+            func.date(PedidoMarketplace.updated_at)
+        )
+        mp_periodo_dicts = [
+            {
+                "data": _grafico_dia_iso(r.data),
+                "total_vendas": int(r.total_vendas or 0),
+                "valor": float(r.valor or 0),
+            }
+            for r in q_mp_periodo.all()
+            if _grafico_dia_iso(r.data)
+        ]
+        vendas_por_periodo = _merge_grafico_vendas_por_periodo(vendas_por_periodo, mp_periodo_dicts)
 
     # Por forma de pagamento: usar VendaPagamento (fracionamento)
     q_forma = (
@@ -437,6 +775,27 @@ async def obter_graficos_dashboard(
         if r.forma:
             vendas_por_forma.append({"forma": r.forma, "total_vendas": int(r.total_vendas or 0), "valor": float(r.valor or 0)})
 
+    mp_graf = _query_pedidos_marketplace_graficos(
+        db, inicio, fim, scope, allowed_ids, must_filter, cliente_id, caixa_id
+    )
+    if mp_graf is not None:
+        forma_expr = func.coalesce(PedidoMarketplace.gateway_pagamento, literal("online"))
+        q_mp_forma = (
+            mp_graf.with_entities(
+                forma_expr.label("forma"),
+                func.count(PedidoMarketplace.id).label("total_vendas"),
+                func.coalesce(func.sum(PedidoMarketplace.total), 0).label("valor"),
+            )
+            .group_by(forma_expr)
+        )
+        for r in q_mp_forma.all():
+            vendas_por_forma.append({
+                "forma": r.forma or "online",
+                "total_vendas": int(r.total_vendas or 0),
+                "valor": float(r.valor or 0),
+            })
+    vendas_por_forma = _merge_grafico_por_chave_label(vendas_por_forma, "forma")
+
     # Por vendedor
     q_vend = (
         db.query(
@@ -464,6 +823,22 @@ async def obter_graficos_dashboard(
         for r in q_vend.all()
     ]
 
+    mp_graf = _query_pedidos_marketplace_graficos(
+        db, inicio, fim, scope, allowed_ids, must_filter, cliente_id, caixa_id
+    )
+    if mp_graf is not None:
+        agg_v = mp_graf.with_entities(
+            func.count(PedidoMarketplace.id).label("n"),
+            func.coalesce(func.sum(PedidoMarketplace.total), 0).label("valor"),
+        ).one()
+        if int(agg_v.n or 0) > 0:
+            vendas_por_vendedor.append({
+                "vendedor_id": None,
+                "vendedor_nome": "Vitrine online",
+                "total_vendas": int(agg_v.n or 0),
+                "valor": float(agg_v.valor or 0),
+            })
+
     # Horários de pico (hora do dia)
     q_hora = (
         db.query(
@@ -488,6 +863,24 @@ async def obter_graficos_dashboard(
         {"hora": int(r.hora or 0), "total_vendas": int(r.total_vendas or 0), "valor": float(r.valor or 0)}
         for r in q_hora.all()
     ]
+
+    mp_graf = _query_pedidos_marketplace_graficos(
+        db, inicio, fim, scope, allowed_ids, must_filter, cliente_id, caixa_id
+    )
+    mp_horas: List[Dict[str, Any]] = []
+    if mp_graf is not None:
+        mp_horas = [
+            {"hora": int(r.hora or 0), "total_vendas": int(r.total_vendas or 0), "valor": float(r.valor or 0)}
+            for r in mp_graf.with_entities(
+                func.extract("hour", PedidoMarketplace.updated_at).label("hora"),
+                func.count(PedidoMarketplace.id).label("total_vendas"),
+                func.coalesce(func.sum(PedidoMarketplace.total), 0).label("valor"),
+            )
+            .group_by(func.extract("hour", PedidoMarketplace.updated_at))
+            .order_by(func.extract("hour", PedidoMarketplace.updated_at))
+            .all()
+        ]
+    horarios_pico = _merge_grafico_horarios_pico(horarios_pico, mp_horas)
 
     # Por categoria (join MaterialCategoria; sem categoria_id usa "Outros")
     q_cat = (
@@ -518,6 +911,42 @@ async def obter_graficos_dashboard(
         {"categoria": r.categoria or "Outros", "total_vendas": int(r.total_itens or 0), "valor": float(r.valor or 0)}
         for r in q_cat.all()
     ]
+
+    if caixa_id is None:
+        mp_cat_expr = func.coalesce(
+            func.nullif(func.trim(PedidoItemMarketplace.categoria_snapshot), ""),
+            "Outros",
+        )
+        q_mp_cat = (
+            db.query(
+                mp_cat_expr.label("categoria"),
+                func.count(PedidoItemMarketplace.id).label("total_itens"),
+                func.coalesce(func.sum(PedidoItemMarketplace.preco_total), 0).label("valor"),
+            )
+            .select_from(PedidoItemMarketplace)
+            .join(PedidoMarketplace, PedidoMarketplace.id == PedidoItemMarketplace.pedido_id)
+            .join(LojaMarketplace, LojaMarketplace.id == PedidoMarketplace.loja_id)
+            .filter(
+                _mp_pedido_liquido_cond(),
+                func.date(PedidoMarketplace.updated_at) >= inicio,
+                func.date(PedidoMarketplace.updated_at) <= fim,
+            )
+        )
+        if must_filter and allowed_ids:
+            q_mp_cat = q_mp_cat.filter(LojaMarketplace.cliente_id.in_(allowed_ids))
+        if cliente_id is not None and (not must_filter or cliente_id in (allowed_ids or [])):
+            q_mp_cat = q_mp_cat.filter(LojaMarketplace.cliente_id == cliente_id)
+        q_mp_cat = q_mp_cat.group_by(mp_cat_expr)
+        mp_cat_dicts = [
+            {"categoria": r.categoria or "Outros", "total_vendas": int(r.total_itens or 0), "valor": float(r.valor or 0)}
+            for r in q_mp_cat.all()
+        ]
+        vendas_por_categoria = _merge_grafico_por_chave_label(
+            vendas_por_categoria + mp_cat_dicts,
+            "categoria",
+            valor_key="valor",
+            qtd_key="total_vendas",
+        )
 
     return {
         "vendas_por_periodo": vendas_por_periodo,

@@ -83,6 +83,9 @@ class EntregaOut(BaseModel):
     entregue_em: Optional[datetime] = None
     cancelada_em: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    status_pagamento_entregador: Optional[str] = None
+    pagamento_entregador_obs: Optional[str] = None
+    pagamento_entregador_atualizado_em: Optional[datetime] = None
     eventos: List[EntregaEventoOut] = []
 
     model_config = {"from_attributes": True}

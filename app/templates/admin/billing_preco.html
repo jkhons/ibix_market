@@ -94,6 +94,77 @@
             </div>
         </div>
     </div>
+
+    <div class="card mt-3">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="h5 mb-0">Taxas marketplace</h2>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-taxas-reload">Recarregar lista</button>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted mb-2">Comissão/taxa da <strong>plataforma por faixa de preço</strong> e valores de <strong>gateway</strong> (PIX, cartão crédito/débito). A regra <strong>Geral</strong> aplica-se a todos os tenants que não tenham regra própria ativa.</p>
+            <div id="taxas-msg" class="small mb-2"></div>
+            <div class="table-responsive mb-3">
+                <table class="table table-sm table-hover mb-0">
+                    <thead><tr><th>ID</th><th>Nome</th><th>Escopo</th><th>Tenant</th><th>Ativo</th><th class="text-end">Ações</th></tr></thead>
+                    <tbody id="tbody-taxas"></tbody>
+                </table>
+            </div>
+            <h6 class="mt-2">Cadastrar regra</h6>
+            <form id="form-taxa" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small">Nome</label>
+                    <input type="text" class="form-control form-control-sm" id="taxa-nome" required placeholder="Ex.: Geral">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Escopo</label>
+                    <select class="form-select form-select-sm" id="taxa-escopo">
+                        <option value="geral">Geral</option>
+                        <option value="tenant">Tenant</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-none" id="wrap-taxa-tenant">
+                    <label class="form-label small">Tenant</label>
+                    <select class="form-select form-select-sm" id="taxa-tenant-id"></select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="taxa-ativo" checked>
+                        <label class="form-check-label small" for="taxa-ativo">Ativo</label>
+                    </div>
+                </div>
+                <div class="col-12"><hr class="my-2"></div>
+                <div class="col-12"><span class="small fw-bold">Faixas (preço de referência do anúncio)</span>
+                    <div id="taxa-faixas" class="mt-1"></div>
+                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1" id="btn-taxa-add-faixa">+ Faixa</button>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">PIX</label>
+                    <div class="input-group input-group-sm">
+                        <select class="form-select" id="gw-pix-modo" style="max-width:90px"><option value="percent">%</option><option value="fixo">R$</option></select>
+                        <input type="number" step="0.01" min="0" class="form-control" id="gw-pix-valor" placeholder="0">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Cartão crédito</label>
+                    <div class="input-group input-group-sm">
+                        <select class="form-select" id="gw-cred-modo" style="max-width:90px"><option value="percent">%</option><option value="fixo">R$</option></select>
+                        <input type="number" step="0.01" min="0" class="form-control" id="gw-cred-valor" placeholder="0">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small">Cartão débito</label>
+                    <div class="input-group input-group-sm">
+                        <select class="form-select" id="gw-deb-modo" style="max-width:90px"><option value="percent">%</option><option value="fixo">R$</option></select>
+                        <input type="number" step="0.01" min="0" class="form-control" id="gw-deb-valor" placeholder="0">
+                    </div>
+                </div>
+                <div class="col-12 mt-2">
+                    <button type="submit" class="btn btn-primary btn-sm" id="btn-taxa-salvar">Salvar regra</button>
+                    <span id="taxa-save-msg" class="ms-2 small"></span>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -138,6 +209,11 @@
             document.querySelector('input[name="desconto_escopo"][value="' + escopo + '"]').checked = true;
             fillTenantSelect(data.desconto_tenant_ids || []);
             document.getElementById('wrap-especifico').classList.toggle('d-none', escopo !== 'especifico');
+            fillTenantSelectTaxa();
+            if (document.getElementById('taxa-faixas') && !document.querySelector('#taxa-faixas .taxa-faixa-row')) {
+                addFaixaRow(0, '', 'percent', 0);
+            }
+            loadTaxasList();
         }).catch(function() {
             document.getElementById('loading').classList.add('d-none');
             document.getElementById('content').classList.remove('d-none');
@@ -208,6 +284,206 @@
             })
             .finally(function() { btn.disabled = false; });
     });
+
+    function addFaixaRow(minV, maxV, modo, valor) {
+        var wrap = document.getElementById('taxa-faixas');
+        if (!wrap) return;
+        var d = document.createElement('div');
+        d.className = 'row g-1 align-items-center taxa-faixa-row mb-1';
+        d.innerHTML =
+            '<div class="col-md-3"><input type="number" step="0.01" class="form-control form-control-sm tf-min" placeholder="Preço min" value="' +
+            (minV != null ? String(minV) : '0') +
+            '"></div>' +
+            '<div class="col-md-3"><input type="number" step="0.01" class="form-control form-control-sm tf-max" placeholder="Preço máx (vazio = sem teto)"></div>' +
+            '<div class="col-md-2"><select class="form-select form-select-sm tf-modo"><option value="percent">%</option><option value="fixo">R$ fixo</option></select></div>' +
+            '<div class="col-md-3"><input type="number" step="0.01" min="0" class="form-control form-control-sm tf-valor" placeholder="Valor taxa" value="' +
+            (valor != null ? String(valor) : '0') +
+            '"></div>' +
+            '<div class="col-md-1"><button type="button" class="btn btn-sm btn-link text-danger p-0 tf-remove">&times;</button></div>';
+        if (maxV !== undefined && maxV !== null && String(maxV).trim() !== '') {
+            d.querySelector('.tf-max').value = String(maxV);
+        }
+        if (modo) d.querySelector('.tf-modo').value = modo;
+        d.querySelector('.tf-remove').addEventListener('click', function() {
+            d.remove();
+        });
+        wrap.appendChild(d);
+    }
+
+    function fillTenantSelectTaxa() {
+        var sel = document.getElementById('taxa-tenant-id');
+        if (!sel) return;
+        sel.innerHTML = '';
+        tenantsList.forEach(function(t) {
+            var opt = document.createElement('option');
+            opt.value = t.tenant_id;
+            opt.textContent = (t.tenant_nome ? t.tenant_id + ' — ' + t.tenant_nome : 'Tenant ' + t.tenant_id);
+            sel.appendChild(opt);
+        });
+    }
+
+    function buildPayloadFromForm() {
+        var faixas = [];
+        document.querySelectorAll('.taxa-faixa-row').forEach(function(row) {
+            var min = parseFloat(row.querySelector('.tf-min').value);
+            var maxStr = (row.querySelector('.tf-max').value || '').trim();
+            var max = maxStr === '' ? null : parseFloat(maxStr);
+            faixas.push({
+                preco_min: isNaN(min) ? 0 : min,
+                preco_max: max != null && !isNaN(max) ? max : null,
+                modo: row.querySelector('.tf-modo').value,
+                valor: parseFloat(row.querySelector('.tf-valor').value) || 0,
+            });
+        });
+        function gw(mid, vid) {
+            return { modo: document.getElementById(mid).value, valor: parseFloat(document.getElementById(vid).value) || 0 };
+        }
+        return {
+            faixas_plataforma: faixas,
+            gateway_pix: gw('gw-pix-modo', 'gw-pix-valor'),
+            gateway_credito: gw('gw-cred-modo', 'gw-cred-valor'),
+            gateway_debito: gw('gw-deb-modo', 'gw-deb-valor'),
+        };
+    }
+
+    function renderTaxasTable(arr) {
+        var tb = document.getElementById('tbody-taxas');
+        if (!tb) return;
+        tb.innerHTML = '';
+        (arr || []).forEach(function(r) {
+            var tr = document.createElement('tr');
+            var acoes =
+                '<button type="button" class="btn btn-sm btn-outline-secondary me-1 btn-taxa-toggle" data-id="' +
+                r.id +
+                '" data-ativo="' +
+                (r.ativo ? '1' : '0') +
+                '">' +
+                (r.ativo ? 'Desativar' : 'Ativar') +
+                '</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger btn-taxa-del" data-id="' +
+                r.id +
+                '">Excluir</button>';
+            tr.innerHTML =
+                '<td>' +
+                r.id +
+                '</td><td>' +
+                (r.nome || '').replace(/</g, '&lt;') +
+                '</td><td>' +
+                r.escopo +
+                '</td><td>' +
+                (r.tenant_id != null ? r.tenant_id : '—') +
+                '</td><td>' +
+                (r.ativo ? 'Sim' : 'Não') +
+                '</td><td class="text-end">' +
+                acoes +
+                '</td>';
+            tb.appendChild(tr);
+        });
+        tb.querySelectorAll('.btn-taxa-del').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                if (!confirm('Excluir esta regra?')) return;
+                fetch('/api/v1/admin/billing/marketplace-taxas/regras/' + encodeURIComponent(btn.getAttribute('data-id')), {
+                    method: 'DELETE',
+                    headers: authHeaders(),
+                })
+                    .then(function(r) {
+                        if (!r.ok) throw new Error();
+                        loadTaxasList();
+                        document.getElementById('taxas-msg').textContent = 'Removida.';
+                        document.getElementById('taxas-msg').className = 'small mb-2 text-success';
+                    })
+                    .catch(function() {
+                        document.getElementById('taxas-msg').textContent = 'Erro ao excluir.';
+                        document.getElementById('taxas-msg').className = 'small mb-2 text-danger';
+                    });
+            });
+        });
+        tb.querySelectorAll('.btn-taxa-toggle').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var id = btn.getAttribute('data-id');
+                var ativo = btn.getAttribute('data-ativo') === '1';
+                fetch('/api/v1/admin/billing/marketplace-taxas/regras/' + encodeURIComponent(id), {
+                    method: 'PATCH',
+                    headers: authHeaders(),
+                    body: JSON.stringify({ ativo: !ativo }),
+                })
+                    .then(function(r) {
+                        return r.ok ? r.json() : Promise.reject();
+                    })
+                    .then(function() {
+                        loadTaxasList();
+                    })
+                    .catch(function() {
+                        alert('Não foi possível alterar (outra regra pode estar ativa para o mesmo escopo).');
+                    });
+            });
+        });
+    }
+
+    function loadTaxasList() {
+        fetch('/api/v1/admin/billing/marketplace-taxas/regras', { headers: authHeaders() })
+            .then(function(r) {
+                return r.ok ? r.json() : [];
+            })
+            .then(renderTaxasTable)
+            .catch(function() {});
+    }
+
+    document.getElementById('taxa-escopo').addEventListener('change', function() {
+        document.getElementById('wrap-taxa-tenant').classList.toggle('d-none', this.value !== 'tenant');
+    });
+
+    document.getElementById('btn-taxa-add-faixa').addEventListener('click', function() {
+        addFaixaRow(0, '', 'percent', 0);
+    });
+
+    document.getElementById('btn-taxas-reload').addEventListener('click', function() {
+        loadTaxasList();
+    });
+
+    document.getElementById('form-taxa').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var msg = document.getElementById('taxa-save-msg');
+        var nome = document.getElementById('taxa-nome').value.trim();
+        var escopo = document.getElementById('taxa-escopo').value;
+        var tid = escopo === 'tenant' ? parseInt(document.getElementById('taxa-tenant-id').value, 10) : null;
+        if (escopo === 'tenant' && (!tid || isNaN(tid))) {
+            msg.textContent = 'Selecione um tenant.';
+            msg.className = 'ms-2 small text-danger';
+            return;
+        }
+        var payload = buildPayloadFromForm();
+        var body = {
+            nome: nome,
+            escopo: escopo,
+            ativo: document.getElementById('taxa-ativo').checked,
+            tenant_id: tid,
+            payload: payload,
+        };
+        msg.textContent = 'Salvando...';
+        msg.className = 'ms-2 small text-muted';
+        fetch('/api/v1/admin/billing/marketplace-taxas/regras', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify(body),
+        })
+            .then(function(r) {
+                return r.ok ? r.json() : r.json().then(function(j) {
+                    throw new Error(typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail || j));
+                });
+            })
+            .then(function() {
+                msg.textContent = 'Salvo.';
+                msg.className = 'ms-2 small text-success';
+                loadTaxasList();
+                document.getElementById('taxa-nome').value = '';
+            })
+            .catch(function(err) {
+                msg.textContent = 'Erro: ' + (err.message || err);
+                msg.className = 'ms-2 small text-danger';
+            });
+    });
+
     load();
 })();
 </script>

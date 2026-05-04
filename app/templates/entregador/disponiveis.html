@@ -35,7 +35,19 @@
 <script>
 (function() {
     var token = document.cookie.replace(/(?:(?:^|.*;\s*)entregador_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
-    if (!token) { window.location.href = "/entregador/login"; return; }
+    if (!token) { window.location.href = "/entregas"; return; }
+
+    fetch("/api/v1/entregador/me", { headers: { "Authorization": "Bearer " + token } })
+        .then(function(r) {
+            if (r.status === 401) { window.location.href = "/entregas"; return Promise.reject(); }
+            return r.json();
+        })
+        .then(function(me) {
+            if (me && me.pode_operar === false) {
+                window.location.href = "/entregas/aguardando-aprovacao";
+            }
+        })
+        .catch(function() {});
 
     var entregaSelecionadaId = null;
 
@@ -94,7 +106,7 @@
                     return;
                 }
                 if (res.ok) {
-                    window.location.href = "/entregador/entrega/" + entregaSelecionadaId;
+                    window.location.href = "/entregas/entrega/" + entregaSelecionadaId;
                     return;
                 }
                 res.json().then(function(d) { alert(d.detail || "Erro ao aceitar."); });
@@ -109,7 +121,8 @@
     document.getElementById("msg-loading").style.display = "block";
     fetch("/api/v1/entregador/entregas-disponiveis", { headers: { "Authorization": "Bearer " + token } })
         .then(function(r) {
-            if (r.status === 401) { window.location.href = "/entregador/login"; return []; }
+            if (r.status === 401) { window.location.href = "/entregas"; return []; }
+            if (r.status === 403) { window.location.href = "/entregas/aguardando-aprovacao"; return []; }
             return r.json();
         })
         .then(function(lista) {

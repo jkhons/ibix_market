@@ -1,0 +1,102 @@
+{% extends "entregador/base_entregador.html" %}
+{% block title %}Painel — corridas e pagamentos{% endblock %}
+{% block content %}
+<div class="entregador-card">
+    <h3>Resumo</h3>
+    <div id="resumo-loading" class="text-muted small">Carregando…</div>
+    <div id="resumo-grid" style="display:none; flex-wrap:wrap; gap:0.5rem;">
+        <div style="flex:1; min-width:140px;" class="p-2 bg-light rounded"><small class="text-muted">Disponíveis</small><div id="r-disp">—</div></div>
+        <div style="flex:1; min-width:140px;" class="p-2 bg-light rounded"><small class="text-muted">Soma frete disponíveis</small><div id="r-frete-disp">—</div></div>
+        <div style="flex:1; min-width:140px;" class="p-2 bg-light rounded"><small class="text-muted">Em andamento</small><div id="r-and">—</div></div>
+        <div style="flex:1; min-width:140px;" class="p-2 bg-light rounded"><small class="text-muted">Encerradas</small><div id="r-enc">—</div></div>
+        <div style="flex:1; min-width:140px;" class="p-2 bg-light rounded"><small class="text-muted">Repasse (pedidos com custo)</small><div id="r-rep">—</div></div>
+        <div style="flex:1; min-width:140px;" class="p-2 bg-light rounded"><small class="text-muted">Pedidos entregues sem custo_frete</small><div id="r-sem">—</div></div>
+    </div>
+    <p id="resumo-pag" class="small text-muted mt-2 mb-0" style="display:none;"></p>
+</div>
+
+<div class="entregador-card">
+    <h3>Corridas disponíveis</h3>
+    <p class="small text-muted mb-2"><a href="/entregas/disponiveis">Abrir tela para aceitar</a></p>
+    <div id="tbl-disp-wrap"></div>
+</div>
+
+<div class="entregador-card">
+    <h3>Minhas corridas</h3>
+    <div id="tbl-minhas-wrap"></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function() {
+    var token = document.cookie.replace(/(?:(?:^|.*;\s*)entregador_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
+    if (!token) { window.location.href = "/entregas"; return; }
+
+    function authHeaders() { return { "Authorization": "Bearer " + token }; }
+
+    fetch("/api/v1/entregador/me", { headers: authHeaders() })
+        .then(function(r) {
+            if (r.status === 401) { window.location.href = "/entregas"; return Promise.reject(); }
+            return r.json();
+        })
+        .then(function(me) {
+            if (me && me.pode_operar === false) {
+                window.location.href = "/entregas/aguardando-aprovacao";
+            }
+        })
+        .catch(function() {});
+
+    fetch("/api/v1/entregador/painel-resumo", { headers: authHeaders() })
+        .then(function(r) {
+            if (r.status === 401) { window.location.href = "/entregas"; return; }
+            if (r.status === 403) { window.location.href = "/entregas/aguardando-aprovacao"; return; }
+            return r.json();
+        })
+        .then(function(x) {
+            if (!x) return;
+            document.getElementById("resumo-loading").style.display = "none";
+            document.getElementById("resumo-grid").style.display = "flex";
+            document.getElementById("r-disp").textContent = x.quantidade_disponiveis;
+            document.getElementById("r-frete-disp").textContent = "R$ " + Number(x.soma_valor_frete_disponiveis).toFixed(2);
+            document.getElementById("r-and").textContent = x.quantidade_minhas_andamento;
+            document.getElementById("r-enc").textContent = x.quantidade_minhas_encerradas;
+            document.getElementById("r-rep").textContent = "R$ " + Number(x.soma_repasse_pedidos_com_custo).toFixed(2);
+            document.getElementById("r-sem").textContent = x.pedidos_sem_custo_frete;
+            var tp = x.totais_pagamento || {};
+            var pg = document.getElementById("resumo-pag");
+            pg.style.display = "block";
+            pg.textContent = "Pagamento (soma custo por status): pendente R$ " + Number(tp.pendente || 0).toFixed(2) +
+                " | liberado R$ " + Number(tp.liberado || 0).toFixed(2) +
+                " | pago R$ " + Number(tp.pago || 0).toFixed(2);
+        });
+
+    fetch("/api/v1/entregador/painel-corridas", { headers: authHeaders() })
+        .then(function(r) {
+            if (r.status === 401) { window.location.href = "/entregas"; return; }
+            if (r.status === 403) { window.location.href = "/entregas/aguardando-aprovacao"; return; }
+            return r.json();
+        })
+        .then(function(data) {
+            if (!data) return;
+            var disp = data.disponiveis || [];
+            var h = "<table style=\"width:100%;font-size:0.9rem;border-collapse:collapse;\"><thead><tr><th align=\"left\">Pedido</th><th align=\"left\">Loja</th><th align=\"left\">Valor</th><th align=\"left\">Veículo</th></tr></thead><tbody>";
+            disp.forEach(function(e) {
+                h += "<tr><td>#" + e.pedido_id + "</td><td>" + (e.loja_nome || "—") + "</td><td>R$ " + Number(e.valor_frete).toFixed(2) + "</td><td>" + (e.tipo_veiculo_aceito || "—") + "</td></tr>";
+            });
+            h += "</tbody></table>";
+            if (disp.length === 0) h = "<p class=\"text-muted small mb-0\">Nenhuma corrida disponível para seu perfil.</p>";
+            document.getElementById("tbl-disp-wrap").innerHTML = h;
+
+            var mh = data.minhas || [];
+            var hm = "<table style=\"width:100%;font-size:0.9rem;border-collapse:collapse;\"><thead><tr><th align=\"left\">Pedido</th><th align=\"left\">Valor corrida</th><th align=\"left\">Repasse</th><th align=\"left\">Status</th><th align=\"left\">Pagamento</th></tr></thead><tbody>";
+            mh.forEach(function(r) {
+                var rep = r.valor_repasse_entregador == null ? "<span class=\"text-warning\">—</span>" : ("R$ " + Number(r.valor_repasse_entregador).toFixed(2));
+                hm += "<tr><td>#" + r.pedido_id + "</td><td>R$ " + Number(r.valor_frete).toFixed(2) + "</td><td>" + rep + "</td><td>" + r.status_entrega + "</td><td>" + r.status_pagamento_entregador + "</td></tr>";
+            });
+            hm += "</tbody></table>";
+            if (mh.length === 0) hm = "<p class=\"text-muted small mb-0\">Nenhuma corrida sua ainda.</p>";
+            document.getElementById("tbl-minhas-wrap").innerHTML = hm;
+        });
+})();
+</script>
+{% endblock %}

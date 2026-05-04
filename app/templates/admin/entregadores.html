@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Entregadores — Admin | PDV Ibix{% endblock %}
+{% block content %}
+<div class="container-fluid p-0">
+    <h1 class="h3 mb-3">Entregadores (logística)</h1>
+    <p class="text-muted small">Aprovar perfil e documentos de veículos; status de pagamento por corrida.</p>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+            <strong>Lista</strong>
+            <select id="filtro-status" class="form-select form-select-sm" style="width:auto">
+                <option value="">Todos os status</option>
+                <option value="pendente">pendente</option>
+                <option value="ativo">ativo</option>
+                <option value="bloqueado">bloqueado</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-recarregar">Recarregar</button>
+        </div>
+        <div class="card-body">
+            <div id="msg-load" class="text-muted small">Carregando…</div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover d-none" id="tbl">
+                    <thead><tr><th>ID</th><th>Nome</th><th>E-mail</th><th>Status</th><th>Cidade</th><th></th></tr></thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" id="card-det" style="display:none;">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <strong id="det-titulo">Detalhe</strong>
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-success" id="btn-aprovar">Aprovar perfil</button>
+                <button type="button" class="btn btn-sm btn-danger" id="btn-bloquear">Bloquear</button>
+                <a class="btn btn-sm btn-outline-secondary" id="lnk-cnh" href="#" target="_blank">Baixar CNH</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <h6 class="text-muted">Veículos</h6>
+            <div id="det-veiculos"></div>
+            <hr>
+            <h6 class="text-muted">Corridas / pagamento</h6>
+            <div id="det-entregas"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+(function(){
+    var F = window.authenticatedFetch || fetch;
+    var selId = null;
+
+    function carregarLista() {
+        var st = document.getElementById("filtro-status").value;
+        var q = st ? ("?status=" + encodeURIComponent(st)) : "";
+        document.getElementById("msg-load").style.display = "block";
+        document.getElementById("tbl").classList.add("d-none");
+        F("/api/v1/admin/entregadores" + q).then(function(r){
+            if (!r.ok) throw new Error("Falha ao listar");
+            return r.json();
+        }).then(function(rows){
+            document.getElementById("msg-load").style.display = "none";
+            document.getElementById("tbl").classList.remove("d-none");
+            var tb = document.getElementById("tbody");
+            tb.innerHTML = "";
+            rows.forEach(function(x){
+                tb.innerHTML += "<tr><td>"+x.id+"</td><td>"+(x.nome||"")+"</td><td>"+(x.email||"")+"</td><td>"+(x.status||"")+"</td><td>"+(x.cidade||"—")+'</td><td><button class="btn btn-sm btn-outline-primary abrir-det" data-id="'+x.id+'">Abrir</button></td></tr>';
+            });
+            document.querySelectorAll(".abrir-det").forEach(function(btn){
+                btn.addEventListener("click", function(){ abrirDet(parseInt(btn.getAttribute("data-id"),10)); });
+            });
+        }).catch(function(e){
+            document.getElementById("msg-load").textContent = e.message || "Erro";
+        });
+    }
+
+    function abrirDet(id) {
+        selId = id;
+        F("/api/v1/admin/entregadores/" + id).then(function(r){ return r.json(); }).then(function(d){
+            document.getElementById("card-det").style.display = "block";
+            document.getElementById("det-titulo").textContent = d.nome + " (#" + d.id + ")";
+            var lnk = document.getElementById("lnk-cnh");
+            if (d.cnh_arquivo_path) {
+                lnk.href = "/api/v1/admin/entregadores/" + id + "/arquivos/cnh";
+                lnk.style.display = "inline-block";
+            } else { lnk.style.display = "none"; }
+
+            var vv = document.getElementById("det-veiculos");
+            vv.innerHTML = "";
+            (d.veiculos||[]).forEach(function(v){
+                var row = document.createElement("div");
+                row.className = "mb-2 p-2 border rounded small d-flex flex-wrap justify-content-between gap-2 align-items-center";
+                var docBtn = v.documento_veiculo_path
+                    ? '<a class="btn btn-sm btn-outline-secondary" target="_blank" href="/api/v1/admin/entregadores/'+id+'/veiculos/'+v.id+'/arquivo-documento">Doc</a>'
+                    : "";
+                var apr = v.documento_aprovado ? '<span class="badge bg-success">Doc OK</span>' : '<button type="button" class="btn btn-sm btn-warning apr-doc" data-vid="'+v.id+'">Aprovar doc</button>';
+                row.innerHTML = "<span>"+(v.tipo_veiculo||"")+" — "+(v.placa||"—")+"</span><span>"+apr+" "+docBtn+"</span>";
+                vv.appendChild(row);
+            });
+            vv.querySelectorAll(".apr-doc").forEach(function(b){
+                b.addEventListener("click", function(){
+                    var vid = parseInt(b.getAttribute("data-vid"),10);
+                    F("/api/v1/admin/entregadores/"+id+"/veiculos/"+vid+"/aprovar-documento", {method:"PATCH"}).then(function(){ abrirDet(id); carregarLista(); });
+                });
+            });
+
+            var ee = document.getElementById("det-entregas");
+            ee.innerHTML = "<table class=\"table table-sm\"><thead><tr><th>Entrega</th><th>Pedido</th><th>Status</th><th>Frete</th><th>custo_pedido</th><th>Pagamento</th><th></th></tr></thead><tbody></tbody></table>";
+            var tbody = ee.querySelector("tbody");
+            (d.entregas||[]).forEach(function(en){
+                var sel = "<select class=\"form-select form-select-sm sel-pay\" data-eid=\""+en.id+"\">"
+                    + ["pendente","liberado","pago"].map(function(s){
+                        return "<option value=\""+s+"\""+(en.status_pagamento_entregador===s?" selected":"")+">"+s+"</option>";
+                    }).join("") + "</select>";
+                tbody.innerHTML += "<tr><td>"+en.id+"</td><td>"+en.pedido_id+"</td><td>"+en.status+"</td><td>R$ "+Number(en.valor_frete).toFixed(2)+"</td><td>"+(en.custo_frete_pedido==null?"—":("R$ "+Number(en.custo_frete_pedido).toFixed(2)))+"</td><td>"+sel+"</td><td><button class=\"btn btn-sm btn-primary salvar-pay\" data-eid=\""+en.id+"\">Salvar</button></td></tr>";
+            });
+            tbody.querySelectorAll(".salvar-pay").forEach(function(b){
+                b.addEventListener("click", function(){
+                    var eid = parseInt(b.getAttribute("data-eid"),10);
+                    var sel = tbody.querySelector(".sel-pay[data-eid=\""+eid+"\"]");
+                    var st = sel.value;
+                    F("/api/v1/admin/entregadores/entregas/"+eid+"/pagamento-entregador", {
+                        method: "PATCH",
+                        headers: {"Content-Type":"application/json"},
+                        body: JSON.stringify({ status_pagamento_entregador: st })
+                    }).then(function(){ abrirDet(id); carregarLista(); });
+                });
+            });
+        });
+    }
+
+    document.getElementById("btn-recarregar").addEventListener("click", carregarLista);
+    document.getElementById("filtro-status").addEventListener("change", carregarLista);
+    document.getElementById("btn-aprovar").addEventListener("click", function(){
+        if (!selId) return;
+        F("/api/v1/admin/entregadores/"+selId+"/aprovar", {method:"PATCH"}).then(function(){ carregarLista(); abrirDet(selId); });
+    });
+    document.getElementById("btn-bloquear").addEventListener("click", function(){
+        if (!selId) return;
+        if (!confirm("Bloquear este entregador?")) return;
+        F("/api/v1/admin/entregadores/"+selId+"/bloquear", {method:"PATCH"}).then(function(){ carregarLista(); abrirDet(selId); });
+    });
+
+    carregarLista();
+})();
+</script>
+{% endblock %}

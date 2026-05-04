@@ -97,11 +97,11 @@ export default function StoreDetailScreen() {
           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
         )}
 
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)' }]} />
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]} />
 
         <TouchableOpacity
           onPress={() => router.back()}
-          style={[styles.overlayBtn, { top: insets.top + 8, left: 16, backgroundColor: 'rgba(255,255,255,0.9)' }]}
+          style={[styles.overlayBtn, { top: insets.top + 8, left: 16, backgroundColor: colors.surface }]}
           accessibilityLabel="Voltar"
         >
           <Icon name="chevronLeft" size={20} color={colors.textPrimary} />

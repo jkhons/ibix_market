@@ -400,7 +400,7 @@ export default function CheckoutPagamentoScreen() {
         </Card>
       </ScrollView>
 
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.sm, ...shadow('md') }]}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.divider, paddingBottom: insets.bottom + spacing.sm, ...shadow('md') }]}>
         <View style={styles.summaryRow}>
           <Text variant="subtitle1" color={colors.textPrimary}>Total</Text>
           <Text variant="price" color={colors.primary}>{formatCurrency(totalWithInstallment)}</Text>
@@ -449,6 +449,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
   },
 });

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cadastro — Entregador | Ibix</title>
+    <link href="/static/css/dashboard.css" rel="stylesheet">
+    <style>
+        body { font-family: system-ui, sans-serif; background: #f5f7fa; margin: 0; padding: 1rem; }
+        .wrap { max-width: 640px; margin: 0 auto; background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+        label { display: block; margin-top: 0.75rem; font-weight: 600; font-size: 0.9rem; }
+        input, select { width: 100%; padding: 0.5rem; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box; }
+        .row-v { border: 1px solid #e9ecef; padding: 1rem; margin-top: 1rem; border-radius: 6px; }
+        .btn { background: #2c3e50; color: #fff; border: none; padding: 0.65rem 1.2rem; border-radius: 6px; cursor: pointer; margin-top: 1rem; width: 100%; font-weight: 600; }
+        .btn-outline { background: #fff; color: #2c3e50; border: 1px solid #2c3e50; margin-top: 0.5rem; }
+        .alert { padding: 0.75rem; border-radius: 4px; margin-top: 1rem; display: none; }
+        .alert-danger { background: #f8d7da; color: #721c24; }
+        .alert-success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>Cadastro de entregador</h1>
+    <p class="text-muted small">CNH (imagem) e documento de cada veículo (imagem ou PDF) são obrigatórios.</p>
+    <p><a href="/entregas">Já tenho conta — entrar</a></p>
+    <div id="alert" class="alert"></div>
+    <form id="form-cad">
+        <label>Nome completo</label>
+        <input name="nome" required maxlength="150">
+        <label>E-mail</label>
+        <input name="email" type="email" required maxlength="150">
+        <label>Senha (mín. 6 caracteres)</label>
+        <input name="senha" type="password" required minlength="6" maxlength="128">
+        <label>Telefone</label>
+        <input name="telefone" maxlength="30">
+        <label>Cidade</label>
+        <input name="cidade" maxlength="100">
+
+        <label>Foto da CNH</label>
+        <input name="cnh" type="file" accept="image/jpeg,image/png,image/webp" required>
+
+        <div id="veiculos-container"></div>
+        <button type="button" class="btn btn-outline" id="btn-add-v">+ Adicionar veículo</button>
+
+        <button type="submit" class="btn">Enviar cadastro</button>
+    </form>
+</div>
+<script>
+(function() {
+    var container = document.getElementById("veiculos-container");
+    var idx = 0;
+    function addVeiculoRow() {
+        var i = idx++;
+        var div = document.createElement("div");
+        div.className = "row-v";
+        div.innerHTML =
+            "<strong>Veículo " + (i + 1) + "</strong>" +
+            "<label>Tipo</label><select name=\"tipo_" + i + "\" required>" +
+            "<option value=\"moto\">Moto</option><option value=\"carro\">Carro</option><option value=\"utilitario\">Utilitário</option></select>" +
+            "<label>Placa (opcional)</label><input name=\"placa_" + i + "\" maxlength=\"10\">" +
+            "<label>Documento do veículo (PDF ou imagem)</label>" +
+            "<input name=\"doc_" + i + "\" type=\"file\" accept=\"image/jpeg,image/png,image/webp,application/pdf\" required>";
+        container.appendChild(div);
+    }
+    document.getElementById("btn-add-v").addEventListener("click", addVeiculoRow);
+    addVeiculoRow();
+
+    document.getElementById("form-cad").addEventListener("submit", function(e) {
+        e.preventDefault();
+        var alertEl = document.getElementById("alert");
+        alertEl.style.display = "none";
+        var rows = container.querySelectorAll(".row-v");
+        var veiculos = [];
+        var filesDocs = [];
+        for (var j = 0; j < rows.length; j++) {
+            var tipo = rows[j].querySelector("select").value;
+            var placa = rows[j].querySelector("input[name^=\"placa\"]").value.trim();
+            var finput = rows[j].querySelector("input[type=file]");
+            if (!finput.files || !finput.files[0]) {
+                alertEl.className = "alert alert-danger";
+                alertEl.textContent = "Envie o documento de cada veículo.";
+                alertEl.style.display = "block";
+                return;
+            }
+            veiculos.push({ tipo_veiculo: tipo, placa: placa || null });
+            filesDocs.push(finput.files[0]);
+        }
+        var fd = new FormData();
+        fd.append("nome", document.querySelector("[name=nome]").value.trim());
+        fd.append("email", document.querySelector("[name=email]").value.trim());
+        fd.append("senha", document.querySelector("[name=senha]").value);
+        fd.append("telefone", document.querySelector("[name=telefone]").value.trim());
+        fd.append("cidade", document.querySelector("[name=cidade]").value.trim());
+        fd.append("veiculos_json", JSON.stringify(veiculos));
+        fd.append("cnh", document.querySelector("[name=cnh]").files[0]);
+        filesDocs.forEach(function(f) { fd.append("documentos_veiculos", f); });
+
+        fetch("/api/v1/entregador/cadastro-publico", { method: "POST", body: fd })
+            .then(function(r) {
+                if (r.ok) return r.json();
+                return r.json().then(function(d) {
+                    var msg = (d && d.detail) ? (typeof d.detail === "string" ? d.detail : JSON.stringify(d.detail)) : "Erro ao cadastrar";
+                    throw new Error(msg);
+                });
+            })
+            .then(function() {
+                alertEl.className = "alert alert-success";
+                alertEl.textContent = "Cadastro enviado. Faça login após aprovação da plataforma.";
+                alertEl.style.display = "block";
+                document.getElementById("form-cad").reset();
+            })
+            .catch(function(err) {
+                alertEl.className = "alert alert-danger";
+                alertEl.textContent = err.message || "Erro";
+                alertEl.style.display = "block";
+            });
+    });
+})();
+</script>
+</body>
+</html>

@@ -66,6 +66,18 @@ def find_transaction_by_external_reference_for_provider(
                 )
     try:
         pedido_id = int(er)
+        tx_active = (
+            db.query(PaymentTransaction)
+            .filter(
+                PaymentTransaction.provider_code == prov,
+                PaymentTransaction.pedido_id == pedido_id,
+                PaymentTransaction.is_active.is_(True),
+            )
+            .order_by(PaymentTransaction.id.desc())
+            .first()
+        )
+        if tx_active:
+            return tx_active
         return (
             db.query(PaymentTransaction)
             .filter(

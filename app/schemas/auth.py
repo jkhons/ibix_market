@@ -34,6 +34,13 @@ class RegisterPublicRequest(BaseModel):
     uf: str
     contato: str
     telefone: str
+    # Dados bancários + PIX (obrigatórios no cadastro do CA)
+    banco_nome: str
+    banco_codigo: Optional[str] = None
+    agencia: str
+    conta: str
+    tipo_conta: str
+    pix_chave: str
 
     @field_validator("confirm_password")
     @classmethod
@@ -41,6 +48,24 @@ class RegisterPublicRequest(BaseModel):
         if info.data and "password" in info.data and v != info.data.get("password"):
             raise ValueError("As senhas não coincidem")
         return v
+
+    @field_validator("banco_nome", "agencia", "conta", "tipo_conta", "pix_chave", mode="before")
+    @classmethod
+    def _campo_obrigatorio_str(cls, v):
+        if v is None:
+            raise ValueError("Campo obrigatório")
+        s = str(v).strip()
+        if not s:
+            raise ValueError("Campo obrigatório")
+        return s
+
+    @field_validator("banco_codigo", mode="before")
+    @classmethod
+    def _banco_codigo_strip(cls, v):
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s or None
 
 
 class RegisterRepresentanteRequest(BaseModel):

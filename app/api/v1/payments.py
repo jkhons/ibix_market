@@ -93,15 +93,33 @@ def _listar_configs_interno(
     return [PaymentProviderConfigResponse.model_validate(r) for r in rows]
 
 
+def _listar_configs_todos(db: Session, scope: ClienteScope) -> List[PaymentProviderConfigResponse]:
+    """Lista configs de todos os estabelecimentos permitidos ao usuário (escopo)."""
+    allowed = _allowed_cliente_ids(scope)
+    q = db.query(PaymentProviderConfig).order_by(PaymentProviderConfig.cliente_id, PaymentProviderConfig.id)
+    if allowed is not None:
+        if not allowed:
+            return []
+        q = q.filter(PaymentProviderConfig.cliente_id.in_(allowed))
+    rows = q.all()
+    return [PaymentProviderConfigResponse.model_validate(r) for r in rows]
+
+
 @router.get("/configs", response_model=List[PaymentProviderConfigResponse])
 async def listar_configs(
-    estabelecimento_id: int = Query(..., alias="estabelecimentoId", description="cliente_id do estabelecimento"),
+    estabelecimento_id: Optional[int] = Query(
+        None,
+        alias="estabelecimentoId",
+        description="cliente_id do estabelecimento; omitir para listar todos os permitidos ao usuário",
+    ),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
     _: None = Depends(forbid_cliente_access),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
-    """Lista configs por estabelecimento (query param estabelecimentoId)."""
+    """Lista configs por estabelecimento ou todas no escopo se estabelecimentoId for omitido."""
+    if estabelecimento_id is None:
+        return _listar_configs_todos(db, scope)
     return _listar_configs_interno(estabelecimento_id, db, scope)
 
 
@@ -329,8 +347,12 @@ async def reconciliar_transacao(
     mp_status = (mp_payment.get("status") or "").lower()
 
     if tx.pedido_id:
-        from ...services.payments.webhook_marketplace_service import process_payment_notification
-        process_payment_notification(db, tx, mp_status, mp_payment)
+        from ...services.payments.webhook_marketplace_service import (
+            dispatch_marketplace_pedido_pagamento_confirmado_notifications,
+            process_payment_notification,
+        )
+
+        mp_pay_res = process_payment_notification(db, tx, mp_status, mp_payment)
     else:
         from ...services.payments.status_map import can_transition, to_internal
         new_status = to_internal(tx.provider_code or "mercadopago", mp_status)
@@ -345,6 +367,10 @@ async def reconciliar_transacao(
                 tx.reconciliation_status = "matched"
 
     db.commit()
+    if tx.pedido_id:
+        dispatch_marketplace_pedido_pagamento_confirmado_notifications(
+            mp_pay_res.pedido_ids_notify_pagamento_confirmado
+        )
     db.refresh(tx)
     return {
         "status": tx.status,
@@ -475,7 +501,11 @@ async def obter_status(
 
 @router.get("/transactions", response_model=List[PaymentTransactionListItem])
 async def listar_transacoes(
-    estabelecimento_id: int = Query(..., alias="estabelecimentoId", description="cliente_id do estabelecimento"),
+    estabelecimento_id: Optional[int] = Query(
+        None,
+        alias="estabelecimentoId",
+        description="cliente_id do estabelecimento; omitir para transações de todos os permitidos ao usuário",
+    ),
     status_filter: Optional[str] = Query(
         None,
         alias="status",
@@ -491,9 +521,16 @@ async def listar_transacoes(
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     allowed = _allowed_cliente_ids(scope)
-    if allowed is not None and estabelecimento_id not in allowed:
-        raise HTTPException(status_code=403, detail="Estabelecimento fora do escopo")
-    query = db.query(PaymentTransaction).filter(PaymentTransaction.cliente_id == estabelecimento_id)
+    if estabelecimento_id is not None:
+        if allowed is not None and estabelecimento_id not in allowed:
+            raise HTTPException(status_code=403, detail="Estabelecimento fora do escopo")
+        query = db.query(PaymentTransaction).filter(PaymentTransaction.cliente_id == estabelecimento_id)
+    else:
+        query = db.query(PaymentTransaction)
+        if allowed is not None:
+            if not allowed:
+                return []
+            query = query.filter(PaymentTransaction.cliente_id.in_(allowed))
     if status_filter:
         raw_statuses = [s.strip().lower() for s in status_filter.split(",") if s and s.strip()]
         if not raw_statuses:

@@ -604,20 +604,64 @@
     function carregarGraficos() {
         if (typeof Chart === 'undefined') return;
         window.authenticatedFetch('/api/v1/negocios/dashboard/graficos')
-            .then(function(r) { return r.json(); })
+            .then(function(r) {
+                if (!r.ok) return Promise.reject(new Error('graficos'));
+                return r.json();
+            })
             .then(function(data) {
-                var opts = { responsive: true, maintainAspectRatio: false };
+                var optsBase = { responsive: true, maintainAspectRatio: false };
                 if (chartsDashboard.periodo) chartsDashboard.periodo.destroy();
                 if (data.vendas_por_periodo && data.vendas_por_periodo.length) {
                     var ctx = document.getElementById('chart-vendas-periodo');
                     if (ctx) {
+                        var serieValor = (data.vendas_por_periodo || []).map(function(x) {
+                            var n = Number(x.valor);
+                            return isNaN(n) ? 0 : n;
+                        });
                         chartsDashboard.periodo = new Chart(ctx, {
                             type: 'line',
                             data: {
-                                labels: (data.vendas_por_periodo || []).map(function(x) { return x.data; }),
-                                datasets: [{ label: 'Valor (R$)', data: (data.vendas_por_periodo || []).map(function(x) { return x.valor; }), borderColor: '#3B7DDD', tension: 0.3, fill: true }]
+                                labels: (data.vendas_por_periodo || []).map(function(x) {
+                                    var d = x.data;
+                                    if (typeof d === 'string' && d.length >= 10) {
+                                        var p = d.slice(0, 10).split('-');
+                                        if (p.length === 3) return p[2] + '/' + p[1];
+                                    }
+                                    return d;
+                                }),
+                                datasets: [{
+                                    label: 'Valor (R$)',
+                                    data: serieValor,
+                                    borderColor: '#3B7DDD',
+                                    backgroundColor: 'rgba(59, 125, 221, 0.15)',
+                                    tension: 0.3,
+                                    fill: true
+                                }]
                             },
-                            options: opts
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            callback: function(v) {
+                                                return typeof formatarMoeda === 'function' ? formatarMoeda(v) : v;
+                                            }
+                                        }
+                                    }
+                                },
+                                plugins: {
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function(ctx) {
+                                                var v = ctx.parsed.y;
+                                                return 'Valor: ' + (typeof formatarMoeda === 'function' ? formatarMoeda(v) : v);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         });
                     }
                 }
@@ -629,9 +673,9 @@
                             type: 'doughnut',
                             data: {
                                 labels: (data.vendas_por_forma_pagamento || []).map(function(x) { return x.forma; }),
-                                datasets: [{ data: (data.vendas_por_forma_pagamento || []).map(function(x) { return x.valor; }), backgroundColor: ['#3B7DDD', '#1cbb8c', '#fcb92c', '#6c757d', '#17a2b8'] }]
+                                datasets: [{ data: (data.vendas_por_forma_pagamento || []).map(function(x) { var n = Number(x.valor); return isNaN(n) ? 0 : n; }), backgroundColor: ['#3B7DDD', '#1cbb8c', '#fcb92c', '#6c757d', '#17a2b8'] }]
                             },
-                            options: opts
+                            options: optsBase
                         });
                     }
                 }
@@ -643,9 +687,9 @@
                             type: 'bar',
                             data: {
                                 labels: (data.horarios_pico || []).map(function(x) { return x.hora + 'h'; }),
-                                datasets: [{ label: 'Vendas', data: (data.horarios_pico || []).map(function(x) { return x.total_vendas; }), backgroundColor: '#17a2b8' }]
+                                datasets: [{ label: 'Vendas', data: (data.horarios_pico || []).map(function(x) { var n = Number(x.total_vendas); return isNaN(n) ? 0 : n; }), backgroundColor: '#17a2b8' }]
                             },
-                            options: opts
+                            options: optsBase
                         });
                     }
                 }
@@ -657,9 +701,9 @@
                             type: 'doughnut',
                             data: {
                                 labels: (data.vendas_por_categoria || []).map(function(x) { return x.categoria; }),
-                                datasets: [{ data: (data.vendas_por_categoria || []).map(function(x) { return x.valor; }), backgroundColor: ['#1cbb8c', '#3B7DDD', '#fcb92c', '#6c757d', '#dc3545'] }]
+                                datasets: [{ data: (data.vendas_por_categoria || []).map(function(x) { var n = Number(x.valor); return isNaN(n) ? 0 : n; }), backgroundColor: ['#1cbb8c', '#3B7DDD', '#fcb92c', '#6c757d', '#dc3545'] }]
                             },
-                            options: opts
+                            options: optsBase
                         });
                     }
                 }

@@ -87,6 +87,21 @@ def format_mercadopago_api_error(response: httpx.Response) -> str:
     return f"{base}: {raw[:500]}" + meta
 
 
+def mp_payer_identification_from_document(raw: Optional[str]) -> Optional[Dict[str, str]]:
+    """
+    Monta payer.identification para Preferências Checkout Pro (BR).
+    Sem CPF/CNPJ válido na preferência, o MP costuma manter o fluxo de cartão incompleto (botão Pagar desabilitado).
+    """
+    if not raw:
+        return None
+    digits = "".join(c for c in str(raw) if c.isdigit())
+    if len(digits) == 11:
+        return {"type": "CPF", "number": digits}
+    if len(digits) == 14:
+        return {"type": "CNPJ", "number": digits}
+    return None
+
+
 def validate_mercadopago_access_token(access_token: str) -> Optional[str]:
     try:
         with httpx.Client(timeout=10.0) as client:

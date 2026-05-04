@@ -19,6 +19,7 @@ from .mercadopago_api import (
     MP_PREFERENCES_URL,
     extract_pix_from_mp_payment_body,
     format_mercadopago_api_error,
+    mp_payer_identification_from_document,
     validate_mercadopago_access_token,
 )
 from .status_map import to_internal
@@ -165,6 +166,9 @@ class MercadoPagoMarketplaceProvider(PaymentProviderBase):
                 payer["last_name"] = payer_info["last_name"][:256]
             if payer_info.get("email"):
                 payer["email"] = payer_info["email"][:256]
+            ident = mp_payer_identification_from_document(payer_info.get("document"))
+            if ident:
+                payer["identification"] = ident
             if payer:
                 payload["payer"] = payer
 

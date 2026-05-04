@@ -26,7 +26,8 @@ SUBSCRIPTION_ALLOWLIST: List[str] = [
     "/logout",
     "/static",
     "/api/v1/auth",
-    "/entregador",  # Área do entregador (login e telas) — ator separado do tenant
+    "/entregas",  # Área do entregador (login e telas) — ator separado do tenant
+    "/entregador",  # Redirects legados /entregador/* → /entregas*
 ]
 
 

@@ -163,7 +163,7 @@ export default function CarrinhoScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.sm, ...shadow('md') }]}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.divider, paddingBottom: insets.bottom + spacing.sm, ...shadow('md') }]}>
         <View style={styles.priceRows}>
           <View style={styles.totalRow}>
             <Text variant="body2" color={colors.textSecondary}>Subtotal</Text>
@@ -217,7 +217,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
   },
   priceRows: {
     gap: 4,

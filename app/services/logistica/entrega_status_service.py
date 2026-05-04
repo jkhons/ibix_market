@@ -12,6 +12,7 @@ from ...core.constants.entrega_status import (
     RETIRADA,
 )
 from ...models import EntregaEvento, EntregaMarketplace
+from ...services.websocket_manager import publish_event as publish_consumidor_event
 
 _TRANSICOES = {
     ACEITA: (EM_RETIRADA,),
@@ -65,4 +66,31 @@ def atualizar_status_entrega(
     db.add(ev)
     db.commit()
     db.refresh(entrega)
+    # Real-time para o comprador (via pedido -> comprador_id). Best-effort.
+    try:
+        pid = getattr(entrega, "pedido_id", None)
+        if pid:
+            from ...models import PedidoMarketplace
+
+            pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pid).first()
+            cid = getattr(pedido, "comprador_id", None) if pedido else None
+            if cid:
+                publish_consumidor_event(
+                    int(cid),
+                    "entrega.status_alterado",
+                    {
+                        "entrega_id": entrega.id,
+                        "pedido_id": entrega.pedido_id,
+                        "status": novo_status,
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+    except Exception:
+        pass
+    try:
+        from app.worker.tasks import notificar_marketplace_entrega_status_email_comprador
+
+        notificar_marketplace_entrega_status_email_comprador.delay(entrega.id, novo_status)
+    except Exception:
+        pass
     return entrega

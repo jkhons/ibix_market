@@ -42,6 +42,13 @@ class EntregaMarketplace(BaseModel):
     cancelada_em = Column(DateTime(timezone=True), nullable=True)
     codigo_confirmacao = Column(String(20), nullable=True)
 
+    status_pagamento_entregador = Column(String(30), nullable=False, server_default="pendente")
+    pagamento_entregador_obs = Column(Text(), nullable=True)
+    pagamento_entregador_atualizado_em = Column(DateTime(timezone=True), nullable=True)
+    pagamento_entregador_atualizado_por_usuario_id = Column(
+        Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True
+    )
+
     pedido = relationship("PedidoMarketplace", backref="entrega_marketplace", uselist=False)
     entregador = relationship("Entregador", back_populates="entregas", foreign_keys=[entregador_id])
     eventos = relationship("EntregaEvento", back_populates="entrega", cascade="all, delete-orphan", order_by="EntregaEvento.created_at")

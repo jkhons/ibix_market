@@ -50,6 +50,7 @@
               <div class="mb-3">
                 <label for="comprador_documento" class="form-label">CPF/CNPJ</label>
                 <input type="text" class="form-control" id="comprador_documento" name="comprador_documento">
+                <small class="form-text text-muted">Recomendado para pagamento com cartão no Mercado Pago (CPF ou CNPJ com dígitos corretos).</small>
               </div>
               <div class="mb-0">
                 <label for="destinatario_nome" class="form-label">Comprando para outra pessoa?</label>
@@ -157,6 +158,7 @@
           <div class="card">
             <div class="card-body">
               <h2 class="loja-checkout-resumo-title">Detalhes da compra</h2>
+              <div id="loja-checkout-itens-resumo" class="mb-3"></div>
               <div id="loja-checkout-frete-resumo"></div>
               <div class="mb-3" id="loja-checkout-payment-wrap">
                 <span class="form-label d-block mb-2">Forma de pagamento</span>
@@ -238,6 +240,7 @@
   var errorEl = document.getElementById("loja-checkout-error");
   var submitBtn = document.getElementById("loja-checkout-submit");
   var groups = [];
+  var groupsCount = 0;
 
   function isLojaConsumidorLogado() {
     return typeof window.LOJA_CONSUMIDOR_ID !== "undefined" && window.LOJA_CONSUMIDOR_ID != null;
@@ -306,6 +309,67 @@
       });
     });
     return Object.values(byLoja);
+  }
+
+  function renderItensResumo() {
+    var wrap = document.getElementById("loja-checkout-itens-resumo");
+    if (!wrap || typeof window.Vitrine === "undefined" || !window.Vitrine.getCart) return;
+    var cart = window.Vitrine.getCart();
+    var lojaId = parseInt(document.getElementById("loja-checkout-loja-id").value, 10);
+    var itemsRaw = cart.items || [];
+    var isUnificado = groupsCount > 1;
+    var items = isUnificado ? itemsRaw : itemsRaw.filter(function (i) { return i.loja_id === lojaId; });
+
+    if (!items || items.length === 0) {
+      wrap.innerHTML = "<p class=\"text-muted small mb-0\">Nenhum item no checkout.</p>";
+      return;
+    }
+
+    function thumbSrc(item) {
+      var url = item.imagem_url || null;
+      if (url) return url;
+      return (window.Vitrine && window.Vitrine.PLACEHOLDER_IMG) ? window.Vitrine.PLACEHOLDER_IMG : "";
+    }
+
+    var html = "";
+    if (isUnificado) {
+      html += "<p class=\"text-muted small mb-2\">Itens de " + groupsCount + " lojas</p>";
+    }
+    html += "<ul class=\"list-unstyled mb-0\">";
+    items.forEach(function (item) {
+      var q = parseInt(item.quantidade, 10);
+      if (isNaN(q) || q < 1) q = 1;
+      var src = thumbSrc(item);
+      var safeSrc = (src && src.indexOf("data:") === 0) ? src : (src ? window.Vitrine.escapeHtml(src) : "");
+      var imgTag = safeSrc ? '<img src="' + safeSrc + '" alt="" style="width:36px;height:36px;object-fit:cover;border-radius:8px;border:1px solid rgba(0,0,0,.06);" />' : '';
+      var titulo = window.Vitrine.escapeHtml(item.titulo || "");
+      var subtotalItem = (item.preco || 0) * q;
+
+      html +=
+        "<li class=\"d-flex align-items-center gap-2 py-2\" style=\"border-bottom:1px solid rgba(0,0,0,.06);\">" +
+          "<div style=\"flex:0 0 auto;\">" + imgTag + "</div>" +
+          "<div style=\"min-width:0;flex:1 1 auto;\">" +
+            "<div class=\"small\" style=\"font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">" + titulo + "</div>" +
+            "<div class=\"text-muted small\">Subtotal: " + window.Vitrine.formatPreco(subtotalItem) + "</div>" +
+          "</div>" +
+          "<div style=\"flex:0 0 auto;display:flex;align-items:center;gap:8px;\">" +
+            "<input type=\"number\" min=\"1\" class=\"form-control form-control-sm loja-checkout-qty\" style=\"width:74px;\" value=\"" + q + "\" data-anuncio-id=\"" + item.anuncio_id + "\" aria-label=\"Quantidade\" />" +
+          "</div>" +
+        "</li>";
+    });
+    html += "</ul>";
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll("input.loja-checkout-qty").forEach(function (input) {
+      input.addEventListener("change", function () {
+        var id = parseInt(input.getAttribute("data-anuncio-id"), 10);
+        var q = parseInt(input.value, 10);
+        window.Vitrine.setCartItemQty(id, isNaN(q) || q < 1 ? 1 : q);
+        if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
+        renderFreteResumo();
+        renderItensResumo();
+      });
+    });
   }
 
   function applyLoja(group) {
@@ -379,6 +443,7 @@
     document.getElementById("canal_origem").value = utm.canal_origem;
     var cart = window.Vitrine.getCart();
     groups = getItemsByLoja(cart);
+    groupsCount = groups.length;
     if (groups.length === 0) {
       emptyEl.style.display = "block";
       formWrap.style.display = "none";
@@ -396,6 +461,7 @@
     }
     fetchFreteRules(groups[0].loja_id);
     fillDadosConsumidor();
+    renderItensResumo();
   }
 
   form.addEventListener("submit", function (e) {
@@ -466,12 +532,16 @@
           return r.json();
         })
         .then(function (data) {
+          var handled = !!(window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data));
+          if (handled) {
+            if (window.Vitrine.setPendingCartClear && data && data.session_uuid) {
+              window.Vitrine.setPendingCartClear({ type: "full" });
+            }
+            return;
+          }
           if (data && data.session_uuid) {
             window.Vitrine.clearCart();
             if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
-          }
-          if (window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data)) {
-            return;
           }
           var nums = (data.pedidos || []).map(function (p) { return p.numero_pedido; }).join(",");
           var firstId = (data.pedidos && data.pedidos[0]) ? data.pedidos[0].id : "";
@@ -555,13 +625,17 @@
         return r.json();
       })
       .then(function (data) {
+        var handled = !!(window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data));
+        if (handled) {
+          if (window.Vitrine.setPendingCartClear && lojaId != null && !isNaN(lojaId)) {
+            window.Vitrine.setPendingCartClear({ type: "loja", loja_id: lojaId });
+          }
+          return;
+        }
         var cart0 = window.Vitrine.getCart();
         cart0.items = (cart0.items || []).filter(function (i) { return i.loja_id !== lojaId; });
         window.Vitrine.setCart(cart0);
         if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
-        if (window.Vitrine.handleCheckoutResponse && window.Vitrine.handleCheckoutResponse(data)) {
-          return;
-        }
         var numeroPedido = data && data.numero_pedido ? data.numero_pedido : "";
         var id = data && (data.id != null) ? data.id : "";
         if (numeroPedido || id) {
@@ -651,7 +725,8 @@
     var wrapEnderecoConsumidor = document.getElementById("wrap-endereco-consumidor");
     var cart = window.Vitrine.getCart();
     var lojaId = parseInt(document.getElementById("loja-checkout-loja-id").value, 10);
-    var items = (cart.items || []).filter(function(i) { return i.loja_id === lojaId; });
+    var isUnificado = groupsCount > 1;
+    var items = isUnificado ? (cart.items || []) : (cart.items || []).filter(function(i) { return i.loja_id === lojaId; });
     var subtotal = 0;
     items.forEach(function(i) { subtotal += (i.preco || 0) * (i.quantidade || 1); });
 
@@ -748,6 +823,7 @@
     var indisponivelEl = document.getElementById("frete-indisponivel");
     if (indisponivelEl) indisponivelEl.style.display = "none";
     renderFreteResumo();
+    renderItensResumo();
   }
 
   window._entregaUsandoEnderecoCadastrado = false;

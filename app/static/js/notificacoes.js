@@ -216,18 +216,16 @@
             const iconeValido = obterIconeValido(notif.icone);
 
             return `
-                <a href="${notif.link}" class="list-group-item ${notif.lido ? 'read' : ''}" onclick="marcarNotificacaoLida('${notif.id}')">
-                    <div class="row g-0 align-items-center">
-                        <div class="col-2">
-                            <i class="${corIcone}" data-feather="${iconeValido}"></i>
+                <a href="${notif.link}" class="list-group-item list-group-item-action notification-row ${notif.lido ? 'read' : ''}" onclick="marcarNotificacaoLida('${notif.id}')">
+                    <div class="d-flex gap-3 align-items-start">
+                        <div class="notification-row-icon rounded-3 bg-light d-inline-flex align-items-center justify-content-center ${corIcone}" aria-hidden="true">
+                            <i data-feather="${iconeValido}"></i>
                         </div>
-                        <div class="col-9">
+                        <div class="flex-grow-1 min-w-0">
                             <div class="text-dark">${notif.titulo}</div>
                             <div class="text-muted small mt-1">${notif.mensagem}</div>
                         </div>
-                        <div class="col-1 text-end">
-                            ${!notif.lido ? '<span class="badge bg-primary rounded-pill">!</span>' : ''}
-                        </div>
+                        ${!notif.lido ? '<span class="notification-row-unread-dot" title="Não lida" aria-label="Não lida"></span>' : ''}
                     </div>
                 </a>
             `;

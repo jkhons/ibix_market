@@ -205,6 +205,150 @@
 <!-- 4+5. Coluna principal: listagem + faixas finais (ofertas relâmpago: aside acima, coluna no desktop) -->
 <div class="loja-vitrine-main-rest">
 <div class="loja-ofertas-todos-wrap">
+{% if busca_ativa and lojas_busca and lojas_busca|length > 0 %}
+<!-- Lojas encontradas pela busca (Tenant CA): aparece antes dos produtos quando o termo casa com nome/fantasia/slug/cidade -->
+<section id="loja-busca-lojas" class="loja-section-block secao-vitrine" aria-label="Lojas encontradas pela busca">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker"><i class="bi bi-shop" aria-hidden="true"></i> Lojas encontradas</span>
+        <h2>{{ lojas_busca|length }} loja{% if lojas_busca|length > 1 %}s{% endif %} para &quot;{{ busca_q }}&quot;</h2>
+        <p class="loja-section-subtitle">Clique em uma loja para abrir sua vitrine com os produtos publicados.</p>
+      </div>
+    </div>
+    <div class="loja-busca-lojas-grid">
+      {% for l in lojas_busca %}
+      <a href="{{ l.url }}" class="loja-parceira-card" aria-label="Abrir vitrine da loja {{ l.nome }}">
+        {% if l.logo_url %}
+        <div class="loja-parceira-logo-wrap">
+          <img src="{{ l.logo_url }}" alt="Logo {{ l.nome }}" loading="lazy">
+        </div>
+        {% else %}
+        <div class="loja-parceira-logo-wrap loja-parceira-logo-wrap--placeholder">
+          {{ (l.nome[:2]|default('LJ', true))|upper }}
+        </div>
+        {% endif %}
+        {% if l.categoria_principal %}<p class="loja-parceira-cat">{{ l.categoria_principal|replace('-', ' ')|replace('_', ' ') }}</p>{% endif %}
+        <h3 class="loja-parceira-nome">{{ l.nome }}</h3>
+        {% if l.descricao_curta %}<p class="loja-parceira-desc">{{ l.descricao_curta }}</p>{% endif %}
+        {% if l.endereco or l.cidade %}
+        <p class="loja-parceira-endereco">
+          <i data-feather="map-pin"></i>
+          <span>{% if l.endereco %}{{ l.endereco }}{% if l.cidade %} — {% endif %}{% endif %}{% if l.cidade %}{{ l.cidade }}{% if l.uf %}/{{ l.uf }}{% endif %}{% endif %}</span>
+        </p>
+        {% endif %}
+        <span class="loja-parceira-cta">Ver produtos da loja <i data-feather="arrow-right" style="width:14px;height:14px;"></i></span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+<style>
+.loja-busca-lojas-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 991px) {
+  .loja-busca-lojas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575px) {
+  .loja-busca-lojas-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+#loja-busca-lojas .loja-parceira-card {
+  background: var(--loja-surface, #fff);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  box-shadow: 0 3px 10px rgba(0,0,0,.04);
+  height: 100%;
+}
+#loja-busca-lojas .loja-parceira-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(47, 58, 68, .10);
+  border-color: rgba(196, 122, 68, .35);
+  text-decoration: none;
+  color: inherit;
+}
+#loja-busca-lojas .loja-parceira-logo-wrap {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #FAFAFA;
+  border: 1px solid rgba(0,0,0,.05);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#loja-busca-lojas .loja-parceira-logo-wrap img {
+  max-width: 80%;
+  max-height: 78%;
+  object-fit: contain;
+}
+#loja-busca-lojas .loja-parceira-logo-wrap--placeholder {
+  background: linear-gradient(135deg, #F5EFE7 0%, #FEF7F1 100%);
+  color: #C47A44;
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: .04em;
+}
+#loja-busca-lojas .loja-parceira-cat {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #C47A44;
+  margin: 0;
+}
+#loja-busca-lojas .loja-parceira-nome {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+  color: var(--ibix-text-strong, #2F3A44);
+}
+#loja-busca-lojas .loja-parceira-desc {
+  font-size: .85rem;
+  color: #5b6470;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#loja-busca-lojas .loja-parceira-endereco {
+  font-size: .8rem;
+  color: #5b6470;
+  display: flex;
+  align-items: flex-start;
+  gap: .35rem;
+  margin: 0;
+}
+#loja-busca-lojas .loja-parceira-endereco .feather {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #5C6E4A;
+}
+#loja-busca-lojas .loja-parceira-cta {
+  margin-top: auto;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--loja-action, #5C6E4A);
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+}
+</style>
+{% endif %}
 <!-- 5. Todos os produtos -->
 <section id="loja-todos-produtos" class="loja-card-listagem-wrap secao-vitrine{% if busca_ativa %} loja-busca-first{% endif %}">
   {% if busca_ativa %}
@@ -370,12 +514,13 @@
           <h3>Entrega ou retirada</h3>
         </div>
       </div>
-      <div class="loja-trust-box loja-beneficio-card">
+      <a class="loja-trust-box loja-beneficio-card loja-beneficio-card--link" href="/lojas-parceiras" aria-label="Ver lojas parceiras da Ibix">
         <div class="loja-beneficio-icon loja-beneficio-laranja"><i class="bi bi-shop" aria-hidden="true"></i></div>
         <div class="loja-beneficio-text">
           <h3>Lojas parceiras</h3>
+          <span class="loja-beneficio-cta">Ver lojas →</span>
         </div>
-      </div>
+      </a>
       <div class="loja-trust-box loja-beneficio-card">
         <div class="loja-beneficio-icon loja-beneficio-roxo"><i class="bi bi-phone" aria-hidden="true"></i></div>
         <div class="loja-beneficio-text">
@@ -1055,11 +1200,8 @@
       .catch(function () { /* mantém a seção visível mesmo em erro (evita flicker ao atualizar) */ });
   }
 
-  // --- Hero carrossel (desktop): auto-rotate, prev/next, dots, swipe. Mobile: estático (só CSS + slide ativo do HTML; sem JS). ---
+  // --- Hero carrossel: auto-rotate, prev/next, dots, swipe (incl. mobile). ---
   (function initHeroCarousel() {
-    if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
-      return;
-    }
     var carousel = document.getElementById("loja-hero-carousel");
     var track = carousel && carousel.querySelector(".loja-hero-carousel-track");
     var slides = track && track.querySelectorAll(".loja-hero-slide");
@@ -1134,21 +1276,35 @@
       carousel.addEventListener("focusout", resume);
     }
 
-    // Swipe (mobile)
+    // Swipe (mobile): usa o viewport do carrossel; ignora setas/dots para não disputar com toque
     var touchStartX = 0;
-    var touchEndX = 0;
-    if (track) {
-      track.addEventListener("touchstart", function (e) {
-        touchStartX = e.changedTouches ? e.changedTouches[0].screenX : e.screenX;
-      }, { passive: true });
-      track.addEventListener("touchend", function (e) {
-        touchEndX = e.changedTouches ? e.changedTouches[0].screenX : e.screenX;
-        var diff = touchStartX - touchEndX;
-        if (Math.abs(diff) > 50) {
-          if (diff > 0) next();
-          else prev();
-        }
-      }, { passive: true });
+    var swipeEl = carousel || track;
+    if (swipeEl) {
+      swipeEl.addEventListener(
+        "touchstart",
+        function (e) {
+          if (e.target.closest(".loja-hero-carousel-prev, .loja-hero-carousel-next, .loja-hero-carousel-dots"))
+            return;
+          var t = e.touches && e.touches[0];
+          touchStartX = t ? t.screenX : 0;
+        },
+        { passive: true }
+      );
+      swipeEl.addEventListener(
+        "touchend",
+        function (e) {
+          if (e.target.closest(".loja-hero-carousel-prev, .loja-hero-carousel-next, .loja-hero-carousel-dots"))
+            return;
+          var t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          var diff = touchStartX - t.screenX;
+          if (Math.abs(diff) > 50) {
+            if (diff > 0) next();
+            else prev();
+          }
+        },
+        { passive: true }
+      );
     }
 
     goTo(0);

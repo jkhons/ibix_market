@@ -2,7 +2,7 @@
 # Entregador é ator separado: NULL tenant_id = plataforma; preenchido = privado/vinculado ao tenant.
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from ..database.base import BaseModel
@@ -25,6 +25,8 @@ class Entregador(BaseModel):
     status = Column(String(30), nullable=False, server_default="ativo", index=True)  # ativo, bloqueado, pendente
     tenant_id = Column(Integer, nullable=True, index=True)  # NULL = plataforma; preenchido = vinculado ao tenant
     cidade = Column(String(100), nullable=True, index=True)
+    cnh_arquivo_path = Column(String(500), nullable=True)
+    cadastro_enviado_em = Column(DateTime(timezone=True), nullable=True)
 
     entregas = relationship("EntregaMarketplace", back_populates="entregador", foreign_keys="EntregaMarketplace.entregador_id")
     veiculos = relationship("EntregadorVeiculo", back_populates="entregador", cascade="all, delete-orphan")

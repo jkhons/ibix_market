@@ -12,3 +12,16 @@
 <a href="/loja/meus-pedidos" class="btn btn-outline-primary me-2">Meus pedidos</a>
 <a href="/" class="btn btn-primary">Voltar à loja</a>
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.Vitrine && typeof window.Vitrine.applyPendingCartClearIfAny === "function") {
+      window.Vitrine.applyPendingCartClearIfAny();
+      if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
+    }
+  });
+})();
+</script>
+{% endblock %}

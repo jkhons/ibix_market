@@ -1,8 +1,9 @@
 # PDV Ibix - Processamento de webhook para pagamentos marketplace
 """Atualiza PaymentTransaction, PedidoMarketplace e reserva de estoque quando o gateway confirma pagamento."""
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -31,16 +32,54 @@ from app.services.reserva_estoque_marketplace_service import (
 )
 
 
+@dataclass
+class MarketplacePaymentNotificationResult:
+    """Resultado de process_payment_notification: mudança na transação + pedidos que passaram a pago neste commit."""
+
+    changed: bool
+    pedido_ids_notify_pagamento_confirmado: List[int] = field(default_factory=list)
+
+    def __bool__(self) -> bool:
+        return self.changed
+
+
+def dispatch_marketplace_pedido_pagamento_confirmado_notifications(pedido_ids: List[int]) -> None:
+    """
+    Chamar somente após commit da sessão DB que confirmou o pagamento.
+    Enfileira e-mails para responsáveis da loja (CA) e para o comprador.
+    """
+    ids = sorted({int(pid) for pid in pedido_ids if pid is not None})
+    if not ids:
+        return
+    try:
+        from app.worker.tasks import notificar_marketplace_pagamento_confirmado
+
+        for pid in ids:
+            notificar_marketplace_pagamento_confirmado.delay(pid)
+    except Exception:
+        from app.core.logging import log_error
+
+        log_error(
+            "dispatch_marketplace_pedido_pagamento_confirmado_notifications falhou pedido_ids=%s" % ids,
+            exc_info=True,
+        )
+
+
 def _apply_single_pedido_paid(
     db: Session,
     tx: PaymentTransaction,
     pedido_id: int,
     *,
     gross_for_billing: Optional[Decimal] = None,
-) -> None:
+) -> bool:
+    """
+    Marca pedido como pago e registra eventos. Retorna True se o pedido acabou de passar para pago
+    (primeira confirmação — usar para disparar e-mail após commit).
+    """
     pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
     if not pedido:
-        return
+        return False
+    was_pago = (pedido.status_pagamento or "").strip().lower() == "pago"
     pedido.status_pagamento = "pago"
     pedido.status_pedido = "confirmado"
     from app.services.pedido_status_evento_service import registrar_pedido_status_evento
@@ -77,6 +116,8 @@ def _apply_single_pedido_paid(
     except Exception as e:
         log_error("record_payment_billing falhou (pedido_id=%s)" % pedido_id, exc_info=e)
 
+    return not was_pago
+
 
 def _apply_single_pedido_failed(db: Session, pedido_id: int) -> None:
     pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
@@ -112,7 +153,8 @@ def _process_session_payment_notification(
     tx: PaymentTransaction,
     new_status: str,
     provider_payload: Optional[Dict[str, Any]],
-) -> bool:
+) -> List[int]:
+    notify_ids: List[int] = []
     links = (
         db.query(MarketplaceCheckoutSessionPedido)
         .filter(MarketplaceCheckoutSessionPedido.session_id == tx.checkout_session_id)
@@ -127,7 +169,8 @@ def _process_session_payment_notification(
         for pid in pids:
             pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pid).first()
             gross = Decimal(str(pedido.total)) if pedido and pedido.total is not None else Decimal("0")
-            _apply_single_pedido_paid(db, tx, pid, gross_for_billing=gross)
+            if _apply_single_pedido_paid(db, tx, pid, gross_for_billing=gross):
+                notify_ids.append(pid)
     elif new_status in (REFUNDED, PARTIALLY_REFUNDED, CHARGEBACK):
         if sess and (sess.status or "").strip().lower() != "estornado":
             sess.status = "estornado"
@@ -138,7 +181,7 @@ def _process_session_payment_notification(
             sess.status = "cancelado"
         for pid in pids:
             _apply_single_pedido_failed(db, pid)
-    return True
+    return notify_ids
 
 
 def process_payment_notification(
@@ -146,17 +189,17 @@ def process_payment_notification(
     tx: PaymentTransaction,
     provider_status: str,
     provider_payload: Optional[Dict[str, Any]] = None,
-) -> bool:
+) -> MarketplacePaymentNotificationResult:
     """
     Atualiza transação com status do provedor; se paid/authorized, atualiza pedido e baixa estoque
     (comita reserva legada ou grava committed com dedução). Se rejected/cancelled/expired, libera reserva reserved.
-    Retorna True se houve alteração relevante.
+    Retorna resultado com flag de alteração e IDs de pedidos que passaram a pago (para e-mail pós-commit).
     """
     from app.services.payments.status_map import to_internal
 
     new_status = to_internal(tx.provider_code or "mercadopago", provider_status)
     if not can_transition((tx.status or "pending").lower(), new_status):
-        return False
+        return MarketplacePaymentNotificationResult(False, [])
     tx.provider_status = provider_status
     tx.status = new_status
     if provider_payload:
@@ -182,23 +225,26 @@ def process_payment_notification(
             tx.refunded_at = datetime.now(timezone.utc)
 
     if tx.checkout_session_id:
-        return _process_session_payment_notification(db, tx, new_status, provider_payload)
+        pedido_notify = _process_session_payment_notification(db, tx, new_status, provider_payload)
+        return MarketplacePaymentNotificationResult(True, pedido_notify)
 
     pedido_id = tx.pedido_id
     if not pedido_id:
-        return True
+        return MarketplacePaymentNotificationResult(True, [])
 
     pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
     if not pedido:
-        return True
+        return MarketplacePaymentNotificationResult(True, [])
 
+    notify_ids: List[int] = []
     if new_status in (PAID, AUTHORIZED):
-        _apply_single_pedido_paid(db, tx, pedido_id, gross_for_billing=None)
+        if _apply_single_pedido_paid(db, tx, pedido_id, gross_for_billing=None):
+            notify_ids.append(pedido_id)
     elif new_status in (REFUNDED, PARTIALLY_REFUNDED, CHARGEBACK):
         _apply_single_pedido_refunded(db, pedido_id)
     else:
         _apply_single_pedido_failed(db, pedido_id)
-    return True
+    return MarketplacePaymentNotificationResult(True, notify_ids)
 
 
 def apply_marketplace_refund_side_effects(db: Session, tx: PaymentTransaction) -> None:

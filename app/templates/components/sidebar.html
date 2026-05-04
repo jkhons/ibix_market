@@ -2,8 +2,8 @@
 <nav id="sidebar" class="sidebar js-sidebar">
     <div class="sidebar-content js-simplebar">
         <a class="sidebar-brand" href="/dashboard">
-            <img src="/static/img/landing/logoSfundo.png" alt="Ibix" class="sidebar-brand-icon me-2" style="height: 38px; width: auto; object-fit: contain;">
-            <span class="align-middle">Ibix</span>
+            <img src="/static/img/landing/logoSfundo.png" alt="IBIX PDV" class="sidebar-brand-icon me-2" style="height: 38px; width: auto; object-fit: contain;">
+            <span class="align-middle">IBIX PDV</span>
         </a>
 
         <ul class="sidebar-nav">
@@ -102,6 +102,11 @@
             <li class="sidebar-item {% if request.url.path == '/admin/influencers' %}active{% endif %}">
                 <a class="sidebar-link" href="/admin/influencers">
                     <i class="align-middle" data-feather="users"></i> <span class="align-middle">Influencers</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if request.url.path == '/admin/entregadores' %}active{% endif %}">
+                <a class="sidebar-link" href="/admin/entregadores">
+                    <i class="align-middle" data-feather="truck"></i> <span class="align-middle">Entregadores</span>
                 </a>
             </li>
             {% endif %}

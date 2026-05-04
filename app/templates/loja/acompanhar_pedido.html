@@ -51,6 +51,57 @@
     <script>
     (function () {
       var pedido = {{ pedido_acompanhar | tojson }};
+      function getCookie(name) {
+        try {
+          const nameEq = name + '=';
+          const ca = document.cookie.split(';');
+          for (let i = 0; i < ca.length; i++) {
+            let c = ca[i];
+            while (c.charAt(0) === ' ') c = c.substring(1);
+            if (c.indexOf(nameEq) === 0) return c.substring(nameEq.length);
+          }
+        } catch (e) {}
+        return null;
+      }
+
+      function renderTimeline(eventos) {
+        var timelineUl = document.getElementById("res-timeline");
+        var timelineMsg = document.getElementById("res-timeline-msg");
+        if (!timelineUl) return;
+        eventos = Array.isArray(eventos) ? eventos : [];
+        timelineUl.innerHTML = "";
+        if (eventos.length === 0) {
+          if (timelineMsg) timelineMsg.style.display = "block";
+          return;
+        }
+        if (timelineMsg) timelineMsg.style.display = "none";
+        eventos.forEach(function(ev) {
+          var li = document.createElement("li");
+          li.className = "py-2 border-bottom border-light";
+          var title = (ev && (ev.status_label || ev.status_codigo || ev.tipo_evento)) || "-";
+          var dt = (ev && ev.created_at) ? String(ev.created_at).slice(0,16).replace('T',' ') : "";
+          li.innerHTML = '<span class="fw-medium">' + title + '</span><br><span class="text-muted small">' + dt + '</span>';
+          timelineUl.appendChild(li);
+        });
+      }
+
+      function refreshPedidoLogado() {
+        if (!pedido || !pedido.numero_pedido) return;
+        fetch("/api/v1/loja/pedido/meu?numero_pedido=" + encodeURIComponent(pedido.numero_pedido), { credentials: "same-origin" })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(data){
+            if (!data) return;
+            var stPed = document.getElementById("res-status-pedido");
+            var stPag = document.getElementById("res-status-pagamento");
+            var stEnt = document.getElementById("res-status-entrega");
+            if (stPed) stPed.textContent = data.status_pedido || "-";
+            if (stPag) stPag.textContent = data.status_pagamento || "-";
+            if (stEnt) stEnt.textContent = data.status_entrega || "-";
+            renderTimeline(data.timeline || []);
+          })
+          .catch(function(){});
+      }
+
       var wrap = document.getElementById("res-pagar-agora-wrap");
       var btn = document.getElementById("res-pagar-agora");
       var msg = document.getElementById("res-pagar-agora-msg");
@@ -91,6 +142,27 @@
             btn.disabled = false;
           });
       });
+
+      // Real-time (consumidor logado): ao receber evento, refaz o fetch do pedido.
+      try {
+        var token = getCookie("loja_consumidor_token");
+        if (token) {
+          var proto = (window.location && window.location.protocol === 'https:') ? 'wss' : 'ws';
+          var wsUrl = proto + "://" + window.location.host + "/ws/loja/consumidor?token=" + encodeURIComponent(token);
+          var ws = new WebSocket(wsUrl);
+          ws.onmessage = function(ev) {
+            try {
+              var msg = JSON.parse(ev.data || "{}");
+              if (!msg || !msg.type) return;
+              if (msg.type === "pedido.status_alterado" || msg.type === "entrega.status_alterado") {
+                var data = msg.data || {};
+                if (data && data.pedido_id && String(data.pedido_id) !== String(pedido.id)) return;
+                refreshPedidoLogado();
+              }
+            } catch (e) {}
+          };
+        }
+      } catch (e) {}
     })();
     </script>
     <p class="mt-3"><a href="/loja/acompanhar-pedido" class="small">Consultar outro pedido</a></p>

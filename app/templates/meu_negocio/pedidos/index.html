@@ -14,7 +14,12 @@
     @media print {
         body * { visibility: hidden; }
         #pedido-cupom-print-area, #pedido-cupom-print-area * { visibility: visible; }
-        #pedido-cupom-print-area { position: absolute; left: 0; top: 0; width: 100%; }
+        #pedido-cupom-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+        }
     }
 </style>
 {% endblock %}
@@ -307,7 +312,7 @@
         if (!document.getElementById('pedido-cupom-print-style')) {
             var st = document.createElement('style');
             st.id = 'pedido-cupom-print-style';
-            st.textContent = '@media print{body *{visibility:hidden}#pedido-cupom-print-area,#pedido-cupom-print-area *{visibility:visible}#pedido-cupom-print-area{position:absolute;left:0;top:0;width:100%}}';
+            st.textContent = '@media print{body *{visibility:hidden}#pedido-cupom-print-area,#pedido-cupom-print-area *{visibility:visible}#pedido-cupom-print-area{position:absolute!important;left:0!important;top:0!important;width:100%!important}}';
             document.head.appendChild(st);
         }
         window.print();
@@ -403,7 +408,7 @@
         }
         var itens = ped.itens || [];
         var tbl = '<div class="row mb-2"><div class="col-md-6"><strong>Pedido:</strong> ' + escapeHtml(ped.numero_pedido || '') + '</div><div class="col-md-6"><strong>Data:</strong> ' + fmtDate(ped.created_at) + '</div></div>';
-        tbl += '<div class="row mb-2"><div class="col-md-6"><strong>Comprador:</strong> ' + escapeHtml(ped.comprador_nome || '') + '</div><div class="col-md-6"><strong>Tel:</strong> ' + escapeHtml(ped.comprador_telefone || '—') + '</div></div>';
+        tbl += '<div class="row mb-2"><div class="col-md-4"><strong>Comprador:</strong> ' + escapeHtml(ped.comprador_nome || '') + '</div><div class="col-md-4"><strong>E-mail:</strong> ' + escapeHtml(ped.comprador_email || '—') + '</div><div class="col-md-4"><strong>Tel:</strong> ' + escapeHtml(ped.comprador_telefone || '—') + '</div></div>';
         if (ped.destinatario_nome) tbl += '<div class="mb-2"><strong>Destinatário:</strong> ' + escapeHtml(ped.destinatario_nome) + '</div>';
         tbl += '<div class="mb-2"><strong>Status pedido:</strong> ' + escapeHtml(labelStatusPedido(ped.status_pedido)) + ' &nbsp; <strong>Pagamento:</strong> ' + escapeHtml(ped.status_pagamento || '') + '</div>';
         tbl += '<div class="mb-2"><strong>Tipo entrega:</strong> ' + escapeHtml(ped.tipo_entrega || '') + '</div>';

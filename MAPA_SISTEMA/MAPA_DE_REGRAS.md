@@ -405,6 +405,74 @@ Este documento consolida todas as regras, diretrizes e políticas do PDV Ibix. �
 
 ---
 
+## 3.B MARKETPLACE — IDENTIDADE VISUAL ÚNICA (Vitrine Web + App Mobile)
+
+> O **Marketplace** (vitrine pública + app mobile consumidor final) tem identidade visual SEPARADA do painel admin/PDV. As duas identidades coexistem por design e NÃO se misturam.
+
+### 3.B.1 Painel admin (PDV) vs. Marketplace (consumidor final)
+
+| Sistema | Identidade | Quem usa | Fonte canônica |
+|---|---|---|---|
+| **Painel admin / PDV** | Azul institucional (`#2c3e50`/`#34495e` em gradient) | Lojistas, operadores | `app/templates/base.html`, `app/static/css/dashboard.css` |
+| **Marketplace (Vitrine + App)** | Off-white / azul-ardósia / verde-musgo / terracota / dourado (paleta artesanal premium) | Consumidor final | `app/static/css/loja.css` (tokens `--ibix-*`) |
+
+NUNCA aplique tokens do PDV no Marketplace ou vice-versa. Eles são produtos diferentes para públicos diferentes.
+
+### 3.B.2 Vitrine web é a fonte canônica
+
+**`app/static/css/loja.css` (tokens `--ibix-*`) é a ÚNICA fonte de verdade visual do Marketplace.** O app mobile (`mobile_marketplace/`) **espelha** esses tokens em `theme/colors.ts`, `theme/typography.ts`, `theme/spacing.ts` e `theme/shadows.ts`.
+
+**Mudanças visuais começam pela vitrine.** Se uma cor, fonte, radius ou sombra precisa mudar, o time muda primeiro em `loja.css`/`base_loja.html`, e o app espelha em seguida no mesmo PR.
+
+### 3.B.3 Brand assets (logo Ibix Market)
+
+**Fonte canônica do logo:**
+- `app/static/img/ibix/cab.png` — logo do header da vitrine
+- `app/static/img/ibix/rodape.png` — variante para fundos escuros
+- `app/static/img/landing/logoSfundo.png` — logo institucional (Open Graph, JSON-LD, ícone do app)
+
+**No app mobile** os logos vivem em `mobile_marketplace/assets/brand/` como **cópia bit-a-bit** dos arquivos da vitrine. **NUNCA recriar o logo no Figma/Photoshop local.** Quando a vitrine atualizar `cab.png`, copie para o app no mesmo PR.
+
+**Renderização:** o componente `<BrandLogo>` (`mobile_marketplace/components/common/BrandLogo.tsx`) é o ÚNICO ponto de exibição do logo no app. Onde antes havia "Ibix Market" como texto, agora aparece o logo gráfico.
+
+### 3.B.4 Naming nas lojas (App Store / Play Store)
+
+| Item | Valor |
+|---|---|
+| **Display name nas lojas e no springboard** | **`Ibix`** (curto, marca-mãe) |
+| **Brand visível dentro do app e na vitrine pública** | **`Ibix Market`** (logo `cab.png`) |
+| `expo.name` (`mobile_marketplace/app.json`) | `Ibix` |
+| `slug` Expo | `ibix-market` (interno, não muda) |
+| `bundleIdentifier` iOS | `com.ibix.market` (já publicado, não muda) |
+| `package` Android | `com.ibix.market` |
+| `scheme` deep link | `ibixmarket://` |
+| ASO Apple App Name | `Ibix` |
+| ASO Google Play App Name | `Ibix` |
+
+**Os dois nomes coexistem por design** — não tente unificar. Justificativa: nas lojas o "Ibix" curto reforça a marca-mãe; dentro do app o "Ibix Market" mantém paridade com o `<title>` da vitrine (`{block} | Ibix`) e com o domínio `ibix.com.br`.
+
+### 3.B.5 Tokens críticos (resumo)
+
+| Token | Hex | Origem |
+|---|---|---|
+| `bg` | `#FEF7F1` | `--ibix-bg` |
+| `text` | `#4A627A` | `--ibix-text` |
+| `textStrong` | `#2F3A44` | `--ibix-text-strong` |
+| `action` | `#5C6E4A` | `--ibix-action` (verde-musgo, CTA) |
+| `accent` | `#C47A44` | `--ibix-hover` (terracota, focus, destaque) |
+| `premium` | `#D9B48B` | `--ibix-premium` (dourado) |
+| **Tipografia** | Poppins | `loja.css:1394` |
+| **Radii** | 8 / 10 / 14 | `btn-primary` / `loja-search-form` / `loja-section-block` |
+| **Focus-ring** | 2px sólido `#C47A44`, offset 2 | `loja-header *:focus-visible` |
+
+### 3.B.6 Documentação relacionada
+
+- `app/static/css/loja.css` — fonte canônica de tokens
+- `mobile_marketplace/AGENTS.md` § 6 e § 8.1 — regras detalhadas para o app
+- `MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md` — Fase 1.3 (Design System) e Fase 7.2 (ASO)
+
+---
+
 ## 4. SEGURANÇA HTML - REGRAS OBRIGATÓRIAS
 
 ### Proteção Contra XSS (Cross-Site Scripting)

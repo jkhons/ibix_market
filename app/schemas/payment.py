@@ -82,6 +82,7 @@ class PaymentStatusResponse(BaseModel):
 class PaymentTransactionListItem(BaseModel):
     """Item de listagem operacional de transações."""
     model_config = ConfigDict(from_attributes=True)
+    cliente_id: int
     uuid: str
     status: str
     payment_method: str

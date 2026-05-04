@@ -32,6 +32,14 @@ class Cliente(BaseModel):
     contato = Column(String(100), nullable=False)
     telefone = Column(String(20), nullable=False)
     email = Column(String(100), nullable=False)
+
+    # Dados bancários + PIX (obrigatórios apenas no cadastro do CA; para subclientes pode ficar vazio)
+    banco_nome = Column(String(100), nullable=True)
+    banco_codigo = Column(String(10), nullable=True)
+    agencia = Column(String(20), nullable=True)
+    conta = Column(String(30), nullable=True)
+    tipo_conta = Column(String(20), nullable=True)
+    pix_chave = Column(String(120), nullable=True)
     
     # Relacionamentos
     alertas_email = relationship("AlertaEmail", back_populates="cliente", cascade="all, delete-orphan")

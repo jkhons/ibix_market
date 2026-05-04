@@ -1,12 +1,36 @@
 # Plano-Guia — App Mobile Marketplace (Vitrine PDV Ibix)
 
-**Versão:** 2.0
-**Data:** 2026-04-13
+**Versão:** 2.1
+**Data:** 2026-05-04
 **Objetivo:** Criar app mobile nativo (iOS + Android) para consumidor final comprar na vitrine do marketplace PDV Ibix, com nível profissional comparável a grandes players (Mercado Livre, Shopee, Amazon).
 
 **Stack escolhida:** React Native (Expo) — codebase único para iOS e Android.
 
 **Princípio:** O app consome as APIs REST existentes em `/api/v1/loja` e `/api/v1/marketing-vitrine`. O backend (FastAPI) é a fonte única de verdade. Nenhum dado é hardcoded no app. Seguem-se todas as regras de `MAPA_DE_REGRAS.md` § 0.
+
+---
+
+## Identidade Visual e Naming (regra OBRIGATÓRIA)
+
+**Fonte canônica:** `app/static/css/loja.css` (paleta, tipografia, radii, focus) e `app/static/img/ibix/cab.png` (logo). O app mobile espelha esses tokens — **mudanças visuais começam pela vitrine, o app segue.**
+
+| Aspecto | Vitrine web | App mobile |
+|---|---|---|
+| **Display name** | `Ibix` (`<title>...| Ibix`) | `Ibix` (`expo.name` no `app.json`, exibido nas lojas e no springboard) |
+| **Brand visível** | `Ibix Market` (logo `cab.png` no header) | `Ibix Market` (logo `cab.png` via `<BrandLogo>`) |
+| **Paleta** | tokens `--ibix-*` em `loja.css:9-18` | `mobile_marketplace/theme/colors.ts` (light + dark) |
+| **Fundo** | `#FEF7F1` (off-white) | `colors.background` = `#FEF7F1` |
+| **Texto** | `#4A627A` / `#2F3A44` | `textSecondary` / `textPrimary` |
+| **CTA** | verde-musgo `#5C6E4A` | `colors.primary` |
+| **Hover/destaque** | terracota `#C47A44` | `colors.accent` |
+| **Premium** | dourado `#D9B48B` | `colors.premium` |
+| **Tipografia** | Poppins / DM Sans (`loja.css:1394`) | Poppins (`@expo-google-fonts/poppins`) |
+| **Radius** | 8 (botões), 10 (search), 14 (cards) | `borderRadius.sm/md/lg` = 8/10/14 |
+| **Focus** | `outline 2px #C47A44` | `colors.focusRing` + `focusRing.width=2, offset=2` |
+| **Splash** | `theme-color: #FEF7F1` | `splash.backgroundColor = #FEF7F1` + `splash-icon.png` (cab.png) |
+| **Logo** | `app/static/img/ibix/cab.png` | `mobile_marketplace/assets/brand/cab.png` (cópia bit-a-bit) |
+
+**Regra CRÍTICA:** O logo NUNCA é recriado no app — sempre copiado da vitrine. O componente `<BrandLogo />` (`components/common/BrandLogo.tsx`) é o ÚNICO lugar onde o logo é renderizado.
 
 ---
 
@@ -370,40 +394,72 @@ mobile_marketplace/
 
 ### 1.3 Design System
 
-**Identidade visual** (definir com o cliente):
+**Identidade visual = paridade total com a vitrine web.** Fonte canônica: `app/static/css/loja.css` (tokens `--ibix-*`).
 
-| Token | Valor sugerido | Nota |
-|-------|----------------|------|
-| `primary` | `#2980b9` | Azul institucional (alinhado ao gradient do sidebar PDV) |
-| `primary.dark` | `#1a5276` | Variante escura |
-| `primary.light` | `#5dade2` | Variante clara |
-| `secondary` | `#27ae60` | Verde (ação positiva, compra) |
-| `accent` | `#e74c3c` | Vermelho (promoção, urgência, desconto) |
-| `warning` | `#f39c12` | Amarelo (aviso, parcelas com juros) |
-| `background` | `#f5f5f5` | Fundo claro |
-| `surface` | `#ffffff` | Cards |
-| `text.primary` | `#212121` | Texto principal (alto contraste) |
-| `text.secondary` | `#757575` | Texto secundário |
-| `text.disabled` | `#bdbdbd` | Texto desabilitado |
-| `border` | `#e0e0e0` | Bordas |
-| `success` | `#27ae60` | Sucesso |
-| `error` | `#e74c3c` | Erro |
-| `divider` | `#eeeeee` | Divisores |
+**Paleta (light)** — espelhada de `loja.css:9-18`:
 
-**Tipografia:** Inter (já usada no PDV web)
+| Token | Hex | Uso |
+|-------|-----|-----|
+| `primary` (action) | `#5C6E4A` | CTA primário (verde-musgo) |
+| `primaryDark` | `#4E5F40` | Pressed state |
+| `accent` (terracota) | `#C47A44` | Hover, destaque, focus-ring |
+| `premium` | `#D9B48B` | Detalhes mínimos (dourado suave) |
+| `background` | `#FEF7F1` | Fundo da página (off-white) |
+| `surface` | `#FFFFFF` | Cards, sheets, inputs |
+| `surfaceVariant` | `#F5EDE3` | Faixas alternadas |
+| `textPrimary` | `#2F3A44` | Headings (azul-ardósia escuro) |
+| `textSecondary` | `#4A627A` | Texto base |
+| `textSoft` | `#3B5166` | Variante intermediária |
+| `border` | `rgba(47,58,68,0.14)` | Bordas sutis |
+| `divider` | `rgba(47,58,68,0.08)` | Divisores horizontais |
+| `success` | `#5C6E4A` | Confirmações |
+| `warning` | `#C47A44` | Alertas, "Pendente" |
+| `error` | `#B5453A` | Erros, "Cancelar" |
+| `focusRing` | `#C47A44` | Outline accessível (paridade `loja-header *:focus-visible`) |
+
+**Dark mode:** `colors.ts` exporta `darkColors` com tokens equivalentes (texto claro, surface escura, primary mais luminoso). Estrutura pronta — lançamento do dark fica para fase futura.
+
+**Tipografia:** **Poppins** — paridade com vitrine (`loja.css:1394`). Carregada via `@expo-google-fonts/poppins`.
 
 | Estilo | Tamanho | Peso | Uso |
 |--------|---------|------|-----|
-| `h1` | 28px | Bold (700) | Títulos de página |
-| `h2` | 22px | SemiBold (600) | Seções |
-| `h3` | 18px | SemiBold (600) | Sub-seções |
-| `body1` | 16px | Regular (400) | Texto principal |
-| `body2` | 14px | Regular (400) | Texto secundário |
-| `caption` | 12px | Regular (400) | Legendas, labels |
-| `button` | 16px | SemiBold (600) | Botões |
-| `price` | 24px | Bold (700) | Preço principal |
-| `priceOld` | 16px | Regular (400) | Preço riscado |
-| `installment` | 13px | Medium (500) | Texto de parcela |
+| `h1` | 36px | Bold (700) | Onboarding |
+| `h2` | 30px | Bold (700) | Headers de fluxo (checkout, login) |
+| `h3` | 24px | Bold (700) | Títulos de tela |
+| `h4` | 20px | SemiBold (600) | Seções, modais |
+| `subtitle1` | 17px | SemiBold (600) | Nome do produto, item de menu |
+| `subtitle2` | 15px | Medium (500) | Subtítulos |
+| `body1` | 15px | Regular (400) | Texto corrido |
+| `body2` | 13px | Regular (400) | Descrições, captions |
+| `button` | 15px | SemiBold (600) | Botões |
+| `caption` | 11px | Regular (400) | Microtexto |
+| `overline` | 11px | Medium UPPERCASE | Etiquetas |
+| `price` | 20px | Bold (700) | Preço grande no PDP |
+| `priceSmall` | 15px | SemiBold (600) | Preço em listagens |
+| `priceStrike` | 13px | Regular line-through | Preço cheio riscado |
+
+**Border radius (paridade vitrine):**
+- `radius.sm` = 8 → botões e chips (`btn-primary`, `loja.css:79`)
+- `radius.md` = 10 → inputs e search bar (`loja-search-form`, `loja.css:137`)
+- `radius.lg` = 14 → cards e blocos de seção (`loja-section-block`, `loja.css:175`)
+- `radius.xl` = 18 → bottom sheets
+
+**Sombras (paridade vitrine):**
+- `shadow('sm')` → cards de produto (`--loja-shadow-sm`)
+- `shadow('md')` → blocos de seção (`--loja-shadow-block`)
+- `shadow('lg')` → hero (`--loja-shadow-hero`)
+
+**Focus-ring acessível (paridade `loja.css:111-113`):**
+```
+outline: 2px solid #C47A44; outline-offset: 2px
+```
+Aplicado em botões/inputs com `accessibilityState.focused` via `colors.focusRing` + `focusRing.width/offset`.
+
+**Brand assets (logo Ibix Market):**
+- `mobile_marketplace/assets/brand/cab.png` — cópia bit-a-bit de `app/static/img/ibix/cab.png` (header).
+- `mobile_marketplace/assets/brand/rodape.png` — variante para fundos escuros.
+- `mobile_marketplace/assets/brand/logoSfundo.png` — logo institucional (fonte do `icon.png` 1024×1024).
+- Renderização via `<BrandLogo height={36} />` (`components/common/BrandLogo.tsx`) — único ponto onde o logo aparece no app.
 
 **Componentes do design system (30+):**
 - **Buttons:** Primary, Secondary, Outline, Ghost, Icon, FAB — com estados loading, disabled, pressed
@@ -1019,22 +1075,26 @@ Aberta → Em análise → Aprovada → [Produto devolvido] → Reembolso proces
 
 ### 7.2 App Store Optimization (ASO)
 
+> **Naming nas lojas:** o display name é **`Ibix`** (curto, reforça a marca-mãe). Dentro do app o usuário vê **`Ibix Market`** como brand visível (logo `cab.png` no header), em paridade com a vitrine web servida em `ibix.com.br`.
+
 | Item | Apple App Store | Google Play |
 |------|----------------|-------------|
-| **Nome** | "Ibix Market - Compras Online" (30 chars max) | "Ibix Market - Compras Online" (30 chars) |
-| **Subtítulo** | "Marketplace com as melhores ofertas" (30 chars) | — (usa short description) |
-| **Short description** | — | "Compre online com segurança. PIX, cartão e boleto. Frete grátis." (80 chars) |
+| **Nome** | "Ibix" (4 chars) | "Ibix" (4 chars) |
+| **Subtítulo** | "Marketplace local — comércio que você conhece" (30 chars) | — (usa short description) |
+| **Short description** | — | "Compre nas lojas perto de você. PIX, cartão, boleto. Frete grátis." (80 chars) |
 | **Descrição longa** | Benefícios → Features → Segurança → CTA. 4000 chars. Keywords naturais. | Idem, 4000 chars. |
 | **Keywords** | "compras,marketplace,ofertas,promoção,frete grátis,pix,loja online,cupom" (100 chars) | — (extrai da descrição) |
 | **Categoria** | Shopping | Shopping |
 | **Screenshots** | 5-8 por device (6.7" obrigatório, 5.5" obrigatório). Contextuais com texto overlay. | 4-8 por device. Phone obrigatório. |
 | **Vídeo preview** | 15-30s mostrando fluxo de compra (opcional mas recomendado) | YouTube link (opcional) |
-| **Ícone** | 1024x1024, fundo sólido, sem texto, reconhecível | 512x512 (adaptive icon recomendado) |
-| **Feature graphic** | — | 1024x500 (obrigatório) |
+| **Ícone** | 1024x1024, fundo `#FEF7F1`, logo Ibix Market (`logoSfundo.png` adaptado), sem texto extra | 512x512 (adaptive icon: foreground monocromático verde-musgo `#5C6E4A` sobre `#FEF7F1`) |
+| **Feature graphic** | — | 1024x500 com paleta da vitrine (off-white + verde-musgo + dourado) e logo Ibix Market |
 
 **Screenshots estratégicos (ordem):**
-1. Home com banners e produtos (mostrar variedade)
-2. Produto com preço e parcelas (mostrar economia)
+> Todas as capturas devem mostrar o **header com o logo Ibix Market** (componente `<BrandLogo>`) e a paleta da vitrine — o usuário deve reconhecer instantaneamente que app e vitrine web são o mesmo produto.
+
+1. Home com banners e produtos (mostrar variedade) — header com logo Ibix Market visível
+2. Produto com preço e parcelas (mostrar economia) — CTA verde-musgo
 3. Busca com resultados (mostrar facilidade)
 4. Checkout PIX (mostrar conveniência)
 5. Meus Pedidos com timeline (mostrar confiança)
@@ -1283,11 +1343,31 @@ Semana 24-26:  Fase 7 — Publicação
 6. **LGPD:** Consentimento explícito no cadastro. Exportação e exclusão de dados implementados. Respeitar opt-out de marketing.
 7. **CDC:** Direito de arrependimento (7 dias). Informação clara e completa de preço, frete e prazos.
 8. **Cards de marketing:** Conteúdo vem exclusivamente de `/api/v1/marketing-vitrine` (gerenciado pelo Superadmin), nunca hardcoded no app.
+9. **Identidade visual única:** App mobile DEVE espelhar 100% a vitrine web (`app/static/css/loja.css` é fonte canônica de cores/tipografia/radii; `app/static/img/ibix/cab.png` é fonte canônica do logo). Brand assets são copiados bit-a-bit, NUNCA recriados. Mudanças visuais começam pela vitrine — o app segue.
+10. **Naming nas lojas:** display name = `Ibix` (curto, marca-mãe); brand visível dentro do app = `Ibix Market` (logo `cab.png` no header); slug e bundle permanecem `ibix-market` / `com.ibix.market`.
 
 ---
 
-**Última atualização:** 2026-04-27
-**Status:** Em desenvolvimento — primeira leva de paridade com a vitrine web entregue.
+**Última atualização:** 2026-05-04
+**Status:** Em desenvolvimento — paridade visual total com a vitrine entregue.
+
+---
+
+## Changelog 2026-05-04 — Identidade visual = vitrine web
+
+**Sessão de alinhamento total da identidade visual com a vitrine pública (`mobile_marketplace/`):**
+
+- **Paleta:** `theme/colors.ts` reescrito com tokens `--ibix-*` da `loja.css` (off-white `#FEF7F1`, azul-ardósia `#4A627A`/`#2F3A44`, verde-musgo `#5C6E4A`, terracota `#C47A44`, dourado `#D9B48B`). Light + dark.
+- **Tipografia:** Inter trocado por **Poppins** (`@expo-google-fonts/poppins`) em `theme/typography.ts`; `_layout.tsx` carrega Poppins via `useFonts`.
+- **Sombras:** `theme/shadows.ts` espelha `--loja-shadow-sm/block/hero` (`0 1px 3px / 0 4px 12px / 0 8px 24px`).
+- **Border radius:** `theme/spacing.ts` ajustado (8/10/14/18/22) — paridade com `btn-primary`, `loja-search-form`, `loja-section-block`.
+- **Focus-ring:** novo token `focusRing = { width: 2, offset: 2 }` + `colors.focusRing = #C47A44` replicando `loja-header *:focus-visible`.
+- **Naming nas lojas:** `app.json` `expo.name` mudou de `"Ibix Market"` para **`"Ibix"`** (display name nas lojas e no springboard); slug, bundle e package mantidos como `ibix-market` / `com.ibix.market`.
+- **Splash e ícones:** `app.json` agora usa `#FEF7F1` em `splash.backgroundColor`, `android.adaptiveIcon.backgroundColor` e `expo-splash-screen.backgroundColor`; `expo-notifications.color` agora é `#5C6E4A` (verde-musgo). Os 4 PNGs em `assets/images/` foram regenerados a partir do logo Ibix Market (`cab.png` para splash, `logoSfundo.png` para icon/adaptive/notification).
+- **Brand assets:** novo `assets/brand/` com cópia bit-a-bit de `app/static/img/ibix/cab.png`, `rodape.png` e `app/static/img/landing/logoSfundo.png`. Exports tipados via `assets/brand/index.ts`.
+- **Logo no app:** novo componente `components/common/BrandLogo.tsx` renderiza `cab.png` em headers (home + login) — substitui texto "Ibix Market" como brand visível.
+- **Auditoria de hard-codes:** corrigidas cores literais em `Icon.tsx` (default), `loja/[slug].tsx` (overlays), `endereco.tsx`, `frete.tsx`, `pagamento.tsx`, `(tabs)/carrinho.tsx`, `AddressCard.tsx` (todas as `borderTopColor: '#eee'` agora usam `colors.divider`).
+- **Documentação:** Fase 1.3 (Design System) e Fase 7.2 (ASO) reescritas; nova seção "Identidade Visual e Naming" no topo; `mobile_marketplace/AGENTS.md` § 1, § 6 e § 8 atualizados; nova regra em `MAPA_DE_REGRAS.md`.
 
 ---
 

@@ -2,7 +2,7 @@
 {% block title %}Minhas entregas{% endblock %}
 {% block content %}
 <h2>Minhas entregas</h2>
-<p><a href="/entregador/disponiveis" class="btn-secondary">Ver disponíveis</a></p>
+<p><a href="/entregas/disponiveis" class="btn-secondary">Ver disponíveis</a></p>
 <div id="lista-entregas"></div>
 <p id="msg-vazia" style="display:none;">Você não tem entregas.</p>
 {% endblock %}
@@ -10,10 +10,10 @@
 <script>
 (function() {
     var token = document.cookie.replace(/(?:(?:^|.*;\s*)entregador_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
-    if (!token) { window.location.href = "/entregador/login"; return; }
+    if (!token) { window.location.href = "/entregas"; return; }
     fetch("/api/v1/entregador/minhas-entregas", { headers: { "Authorization": "Bearer " + token } })
         .then(function(r) {
-            if (r.status === 401) { window.location.href = "/entregador/login"; return []; }
+            if (r.status === 401) { window.location.href = "/entregas"; return []; }
             return r.json();
         })
         .then(function(lista) {
@@ -25,7 +25,7 @@
                 card.className = "entregador-card";
                 card.innerHTML = "<h3>Entrega #" + e.id + " – Pedido #" + e.pedido_id + "</h3>" +
                     "<p><span class=\"badge badge-secondary\">" + (e.status || "") + "</span> Frete: R$ " + (e.valor_frete != null ? Number(e.valor_frete).toFixed(2) : "0,00") + "</p>" +
-                    "<a href=\"/entregador/entrega/" + e.id + "\" class=\"btn-primary\">Ver detalhe</a>";
+                    "<a href=\"/entregas/entrega/" + e.id + "\" class=\"btn-primary\">Ver detalhe</a>";
                 el.appendChild(card);
             });
         });

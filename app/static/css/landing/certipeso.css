@@ -217,21 +217,31 @@
   left: auto;
 }
 
-/* Indicadores de notificação */
+/* Indicadores (mensagens etc.; o sino usa regras em base.html .nav-notifications) */
 .nav-icon .position-relative .indicator {
   position: absolute;
-  top: -5px;
-  right: -5px;
+  top: -4px;
+  right: -4px;
+  min-width: 1.125rem;
+  min-height: 1.125rem;
+  padding: 0 0.25rem;
   background: var(--certipeso-danger);
   color: white;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  font-size: 0.75rem;
-  display: flex;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  font-weight: 700;
+  line-height: 1;
+  border: 2px solid var(--bs-body-bg, #fff);
+  box-sizing: content-box;
+}
+
+.nav-notifications.nav-item .nav-icon .position-relative .indicator {
+  top: 0.15rem;
+  right: 0.15rem;
+  background: #3b7ddd;
 }
 
 /* Hover effects para dropdowns */

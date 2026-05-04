@@ -94,6 +94,42 @@
 											<small class="text-muted d-block mt-1" id="codigo-msg"></small>
 										</div>
 
+										<hr class="my-3" />
+										<h6 class="mb-2">Dados bancários e PIX</h6>
+										<div class="row">
+											<div class="col-md-8 mb-2">
+												<label class="form-label">Banco (nome)</label>
+												<input class="form-control" type="text" name="banco_nome" id="banco_nome" placeholder="Ex.: Banco do Brasil" required />
+											</div>
+											<div class="col-md-4 mb-2">
+												<label class="form-label">Banco (código) (opcional)</label>
+												<input class="form-control" type="text" name="banco_codigo" id="banco_codigo" placeholder="Ex.: 001" maxlength="10" />
+											</div>
+										</div>
+										<div class="row">
+											<div class="col-md-4 mb-2">
+												<label class="form-label">Agência</label>
+												<input class="form-control" type="text" name="agencia" id="agencia" placeholder="Ex.: 1234" required />
+											</div>
+											<div class="col-md-4 mb-2">
+												<label class="form-label">Conta</label>
+												<input class="form-control" type="text" name="conta" id="conta" placeholder="Ex.: 12345-6" required />
+											</div>
+											<div class="col-md-4 mb-2">
+												<label class="form-label">Tipo de conta</label>
+												<select class="form-select" name="tipo_conta" id="tipo_conta" required>
+													<option value="" selected disabled>Selecione</option>
+													<option value="corrente">Corrente</option>
+													<option value="poupanca">Poupança</option>
+													<option value="pagamento">Pagamento</option>
+												</select>
+											</div>
+										</div>
+										<div class="mb-3">
+											<label class="form-label">Chave PIX</label>
+											<input class="form-control" type="text" name="pix_chave" id="pix_chave" placeholder="CPF/CNPJ, e-mail, telefone ou chave aleatória" required />
+										</div>
+
 										<div class="d-grid gap-2 mt-3">
 											<button type="submit" class="btn btn-lg btn-primary" id="btn-cadastro">
 												<span class="btn-text">Cadastrar</span>
@@ -195,7 +231,13 @@
 				cidade: document.getElementById('cidade').value.trim(),
 				uf: document.getElementById('uf').value.trim().toUpperCase(),
 				contato: document.getElementById('contato').value.trim(),
-				telefone: document.getElementById('telefone').value.trim()
+				telefone: document.getElementById('telefone').value.trim(),
+				banco_nome: document.getElementById('banco_nome').value.trim(),
+				banco_codigo: (document.getElementById('banco_codigo').value.trim() || null),
+				agencia: document.getElementById('agencia').value.trim(),
+				conta: document.getElementById('conta').value.trim(),
+				tipo_conta: document.getElementById('tipo_conta').value,
+				pix_chave: document.getElementById('pix_chave').value.trim()
 			};
 			// CNPJ: API espera string (pode ser formatada ou só números); backend formata
 			if (payload.cnpj.length === 14) {

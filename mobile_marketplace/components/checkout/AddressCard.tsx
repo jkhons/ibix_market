@@ -66,7 +66,7 @@ export function AddressCard({ address, selected, onPress, onEdit, onDelete, styl
       </View>
 
       {(onEdit || onDelete) && (
-        <View style={styles.actions}>
+        <View style={[styles.actions, { borderTopColor: colors.divider }]}>
           {onEdit && (
             <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text variant="body2" color={colors.textLink}>
@@ -105,6 +105,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
   },
 });

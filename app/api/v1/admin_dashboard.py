@@ -1,9 +1,10 @@
 # PDV Ibix - Admin Dashboard: Super Admin (clientes, logins, pagamentos) e Administrador (CAs, % participação, comissões)
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.middleware import require_superadmin_or_admin
@@ -24,6 +25,9 @@ from app.models.subscription_billing import ComissaoAdministrador
 
 router = APIRouter(prefix="/admin/dashboard", tags=["Admin Dashboard"])
 
+# Vitrine pública: o middleware grava path completo (/loja, /loja/produto/…); filtrar prefixo /loja.
+TZ_BR = ZoneInfo("America/Sao_Paulo")
+
 # Status considerado pago (Mercado Pago)
 PAYMENT_STATUS_PAID = ("approved", "authorized")
 LOGIN_ACAO = "login_sucesso"
@@ -31,6 +35,26 @@ LISTA_CLIENTES_NOVOS_LIMIT = 15
 LISTA_CADASTROS_NOVOS_LIMIT = 15
 ULTIMOS_LOGINS_LIMIT = 15
 PAGAMENTOS_RECENTES_LIMIT = 10
+
+
+def _filtro_path_vitrine():
+    """Acessos HTML da vitrine: home e qualquer subrota /loja/… (API /api/ não entra no access_log)."""
+    return or_(AccessLog.path == "/loja", AccessLog.path.startswith("/loja/"))
+
+
+def _visitantes_vitrine_por_tipo(db: Session, since_utc: datetime) -> dict[str, int]:
+    rows = (
+        db.query(AccessLog.tipo_visitante, func.count(func.distinct(AccessLog.ip)))
+        .filter(AccessLog.created_at >= since_utc, _filtro_path_vitrine())
+        .group_by(AccessLog.tipo_visitante)
+        .all()
+    )
+    counts = {row[0]: row[1] for row in rows}
+    return {
+        "humanos": int(counts.get("HUMANO", 0)),
+        "bots": int(counts.get("BOT", 0)),
+        "cloud": int(counts.get("CLOUD", 0)),
+    }
 
 
 def _get_sub(db: Session, tenant_id: int) -> SubscriptionBilling | None:
@@ -308,23 +332,18 @@ def get_admin_dashboard(
         ],
     }
 
-    # Visitantes hoje (HUMANO, BOT, CLOUD) — visitantes únicos por IP na landing (não duplica mesmo IP)
-    today_start = datetime.combine(today, datetime.min.time()).replace(tzinfo=timezone.utc)
-    paths_landing = ("/loja",)
-    visitantes_hoje = (
-        db.query(AccessLog.tipo_visitante, func.count(func.distinct(AccessLog.ip)))
-        .filter(
-            AccessLog.created_at >= today_start,
-            AccessLog.path.in_(paths_landing),
-        )
-        .group_by(AccessLog.tipo_visitante)
-        .all()
-    )
-    counts = {row[0]: row[1] for row in visitantes_hoje}
-    visitantes_hoje_dict = {
-        "humanos": counts.get("HUMANO", 0),
-        "bots": counts.get("BOT", 0),
-        "cloud": counts.get("CLOUD", 0),
+    # Visitantes vitrine /loja — IPs únicos por tipo (HUMANO, BOT, CLOUD). Calendário "hoje" em America/Sao_Paulo.
+    now_utc = datetime.now(timezone.utc)
+    today_br = now_utc.astimezone(TZ_BR).date()
+    inicio_hoje_br = datetime.combine(today_br, datetime.min.time()).replace(tzinfo=TZ_BR).astimezone(timezone.utc)
+    since_7d = now_utc - timedelta(days=7)
+    since_30d = now_utc - timedelta(days=30)
+
+    visitantes_hoje_dict = _visitantes_vitrine_por_tipo(db, inicio_hoje_br)
+    visitantes_vitrine = {
+        "hoje": visitantes_hoje_dict,
+        "ultimos_7_dias": _visitantes_vitrine_por_tipo(db, since_7d),
+        "ultimos_30_dias": _visitantes_vitrine_por_tipo(db, since_30d),
     }
 
     return {
@@ -336,4 +355,5 @@ def get_admin_dashboard(
         "pagamentos_vencidos": pagamentos_vencidos,
         "proximos_pagamentos_15d": proximos_pagamentos_15d,
         "visitantes_hoje": visitantes_hoje_dict,
+        "visitantes_vitrine": visitantes_vitrine,
     }

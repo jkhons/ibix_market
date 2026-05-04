@@ -97,3 +97,16 @@
 </script>
 {% endif %}
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  document.addEventListener("DOMContentLoaded", function () {
+    if (window.Vitrine && typeof window.Vitrine.applyPendingCartClearIfAny === "function") {
+      window.Vitrine.applyPendingCartClearIfAny();
+      if (typeof window.VitrineUpdateCartBadge === "function") window.VitrineUpdateCartBadge();
+    }
+  });
+})();
+</script>
+{% endblock %}

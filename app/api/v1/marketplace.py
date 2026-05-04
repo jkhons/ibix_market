@@ -5,6 +5,7 @@ import json
 import os
 import re
 import uuid
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -65,13 +66,49 @@ from ...schemas.marketplace import (
     StatusPedidoMarketplaceResponse,
     StatusPedidoMarketplaceUpdate,
 )
+from ...schemas.marketplace_taxa import MarketplaceTaxasVigentesResponse
 from ...services.cupom_receipt import gerar_cupom_resumo_pedido_marketplace
 from ...services.marketplace_reparacao_comprador_service import reparar_comprador_pedidos
+from ...services.marketplace_taxa_service import montar_preview, resolver_regra_e_payload
 from ...services.pedido_status_evento_service import registrar_pedido_status_evento
+from ...services.websocket_manager import publish_event as publish_consumidor_event
 from ...services.reserva_estoque_marketplace_service import restore_marketplace_pedido_stock
+from ...utils.cnpj_validator import formatar_cnpj
+from ...utils.cpf_validator import CPFValidator
 
 router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
 FRETE_FORMATOS_VALIDOS = {"sem_frete", "gratis", "taxa_fixa", "plataforma"}
+
+
+def _resumo_endereco_cliente_cupom(c: Optional[Cliente]) -> str:
+    """Uma linha resumida para cupom: logradouro, cidade/UF, CEP."""
+    if not c:
+        return ""
+    parts: List[str] = []
+    end = " ".join((c.endereco or "").split())
+    if end:
+        parts.append(end)
+    cidade = (c.cidade or "").strip()
+    uf = (c.uf or "").strip()
+    loc = "/".join(x for x in [cidade, uf] if x)
+    if loc:
+        parts.append(loc)
+    cep = " ".join((c.cep or "").split())
+    if cep:
+        parts.append(f"CEP {cep}")
+    return " · ".join(parts)
+
+
+def _documento_cliente_cupom(c: Optional[Cliente]) -> str:
+    if not c:
+        return ""
+    raw_cnpj = (c.cnpj or "").strip()
+    if raw_cnpj:
+        return f"CNPJ {formatar_cnpj(raw_cnpj)}"
+    raw_cpf = (c.cpf or "").strip()
+    if raw_cpf:
+        return f"CPF {CPFValidator.formatar_cpf(raw_cpf)}"
+    return ""
 
 
 def _nome_exibicao_pedido_item_marketplace(
@@ -518,6 +555,49 @@ async def atualizar_loja(
     return _loja_response_com_sugestoes(db, loja)
 
 
+@router.get("/taxas-vigentes", response_model=MarketplaceTaxasVigentesResponse)
+async def marketplace_taxas_vigentes(
+    cliente_id: int = Query(..., description="Estabelecimento (clientes.id)"),
+    preco: Optional[Decimal] = Query(
+        None,
+        description="Preço de referência para calcular preview (opcional); ex.: preço promocional ou original.",
+    ),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_permission("marketplace:visualizar")),
+    _: None = Depends(forbid_cliente_access),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+):
+    """Regra de taxas aplicável ao tenant do usuário + preview opcional por preço."""
+    allowed = _allowed_cliente_ids(scope)
+    if allowed is not None and cliente_id not in allowed:
+        raise HTTPException(status_code=403, detail="Estabelecimento fora do escopo")
+    tid = getattr(current_user, "tenant_id", None)
+    if tid is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Usuário sem tenant_id: não é possível resolver taxas marketplace.",
+        )
+    try:
+        row, escopo_aplicado, payload = resolver_regra_e_payload(db, int(tid))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    preview = None
+    if preco is not None:
+        try:
+            preview = montar_preview(payload, preco)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    return MarketplaceTaxasVigentesResponse(
+        regra_id=row.id,
+        nome_regra=row.nome,
+        escopo_aplicado=escopo_aplicado,
+        payload=payload,
+        preview=preview,
+    )
+
+
 # --- Anúncios ---
 @router.get("/anuncios", response_model=dict)
 async def listar_anuncios(
@@ -604,6 +684,8 @@ async def criar_anuncio(
         taxa_entrega_fixa_produto=anuncio_data.get("taxa_entrega_fixa_produto"),
         entrega_gratis_apos_produto=anuncio_data.get("entrega_gratis_apos_produto"),
         og_image_url=(anuncio_data.get("og_image_url") or "").strip() or None,
+        custo_plataforma_estimado=anuncio_data.get("custo_plataforma_estimado"),
+        custo_cartao_estimado=anuncio_data.get("custo_cartao_estimado"),
     )
     db.add(anuncio)
     # Garantir que a loja esteja ativa para aparecer na vitrine quando há anúncio publicado
@@ -899,11 +981,10 @@ async def obter_cupom_pedido_marketplace(
     if allowed is not None and loja.cliente_id not in allowed:
         raise HTTPException(status_code=403, detail="Pedido fora do escopo")
     tenant_id = getattr(current_user, "tenant_id", None)
+    tenant = db.get(Tenant, tenant_id) if tenant_id else None
     cupom_tipo = "nao_fiscal"
-    if tenant_id:
-        tenant = db.get(Tenant, tenant_id)
-        if tenant and getattr(tenant, "cupom_tipo", None) == "fiscal":
-            cupom_tipo = "fiscal"
+    if tenant and getattr(tenant, "cupom_tipo", None) == "fiscal":
+        cupom_tipo = "fiscal"
     if cupom_tipo == "fiscal":
         return CupomConteudoResponse(tipo="fiscal", linhas=[], html=None)
     nome_loja = (loja.nome_loja or loja.nome_fantasia or "").strip()
@@ -911,6 +992,9 @@ async def obter_cupom_pedido_marketplace(
         nome_loja = (loja.cliente.nome or "").strip()
     if not nome_loja:
         nome_loja = "Loja"
+    cli = loja.cliente
+    loja_endereco_resumo = _resumo_endereco_cliente_cupom(cli)
+    loja_documento = _documento_cliente_cupom(cli)
     itens_data = []
     nome_cache_cupom: dict[int, str] = {}
     for i in ped.itens or []:
@@ -939,6 +1023,8 @@ async def obter_cupom_pedido_marketplace(
         taxa_entrega=ped.taxa_entrega,
         total=ped.total,
         itens=itens_data,
+        loja_endereco_resumo=loja_endereco_resumo or None,
+        loja_documento=loja_documento or None,
     )
     return CupomConteudoResponse(tipo="nao_fiscal", linhas=linhas, html=html)
 
@@ -977,6 +1063,7 @@ async def atualizar_pedido_loja(
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
             setattr(pedido, k, v)
+    status_label_evt = None
     if (
         body.status_pedido is not None
         and str(body.status_pedido).strip()
@@ -987,12 +1074,13 @@ async def atualizar_pedido_loja(
             StatusPedidoMarketplace.codigo == novo_status,
             StatusPedidoMarketplace.ativo.is_(True),
         ).first()
+        status_label_evt = st.label if st else novo_status.replace("_", " ").title()
         registrar_pedido_status_evento(
             db,
             pedido_id=pedido.id,
             tipo_evento="status_alterado",
             status_codigo=novo_status,
-            status_label=st.label if st else novo_status.replace("_", " ").title(),
+            status_label=status_label_evt,
             actor_type="loja",
             actor_id=current_user.id,
         )
@@ -1017,6 +1105,33 @@ async def atualizar_pedido_loja(
         db.flush()
     db.commit()
     db.refresh(pedido)
+    # Real-time para o comprador (consumidor). Best-effort.
+    if status_label_evt and getattr(pedido, "comprador_id", None):
+        try:
+            publish_consumidor_event(
+                int(pedido.comprador_id),
+                "pedido.status_alterado",
+                {
+                    "pedido_id": pedido.id,
+                    "status_codigo": (pedido.status_pedido or "").strip(),
+                    "status_label": status_label_evt,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+        except Exception:
+            pass
+    if status_label_evt:
+        try:
+            from app.worker.tasks import notificar_marketplace_pedido_status_email_comprador
+
+            notificar_marketplace_pedido_status_email_comprador.delay(
+                pedido.id,
+                status_anterior or "",
+                (pedido.status_pedido or "").strip(),
+                status_label_evt,
+            )
+        except Exception:
+            pass
     itens = db.query(PedidoItemMarketplace).filter(PedidoItemMarketplace.pedido_id == pedido.id).all()
     produto_ids_patch = {int(i.produto_id) for i in itens if getattr(i, "produto_id", None) is not None}
     nome_por_patch: dict[int, str] = {}

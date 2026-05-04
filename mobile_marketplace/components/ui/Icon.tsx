@@ -44,7 +44,7 @@ const PATHS: Record<string, string> = {
   package: 'M21 16V8a2 2 0 00-1-1.732l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.732l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z M3.27 6.96L12 12.01l8.73-5.05 M12 22.08V12',
 };
 
-export function Icon({ name, size = 24, color = '#000' }: IconProps) {
+export function Icon({ name, size = 24, color = '#2F3A44' }: IconProps) {
   const pathData = PATHS[name];
   if (!pathData) return null;
 

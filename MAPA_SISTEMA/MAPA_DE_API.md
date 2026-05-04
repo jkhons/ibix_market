@@ -1781,6 +1781,10 @@ APIs otimizadas para aplicativo mobile nativo, com suporte offline e recursos na
 - **GET** `/admin/billing/preco` — Valor mensal (centavos), valor_aplicar_a, desconto_percent, desconto_escopo, desconto_tenant_ids.
 - **POST** `/admin/billing/preco` — Salva valor mensal e regras de desconto (configuracoes).
 - **POST** `/admin/billing/preco/aplicar-valor-todos` — Body: `respeitar_codigos_promocionais` (boolean, default true). Atualiza valor_mensal_centavos de todas as assinaturas: true = mantém desconto de código onde houver codigo_desconto_id; false = aplica o mesmo valor a todas (ignora códigos). Contrato comercial ativo sempre prevalece.
+- **GET** `/admin/billing/marketplace-taxas/regras` — Query `ativo` (bool, opcional). Lista regras de taxas marketplace (faixas plataforma + gateway). Apenas Super Admin.
+- **POST** `/admin/billing/marketplace-taxas/regras` — Cria regra. Body: `nome`, `escopo` (`geral` | `tenant`), `tenant_id` (obrigatório se `escopo=tenant`), `ativo`, `payload` (objeto: `faixas_plataforma` com `preco_min`, `preco_max` opcional, `modo` `fixo`|`percent`, `valor`; `gateway_pix`, `gateway_credito`, `gateway_debito` cada um com `modo` e `valor`). Só uma regra Geral ativa e só uma regra ativa por tenant.
+- **PATCH** `/admin/billing/marketplace-taxas/regras/{id}` — Atualiza nome, ativo ou payload completo.
+- **DELETE** `/admin/billing/marketplace-taxas/regras/{id}` — Remove regra.
 
 ### 17.3 Webhook Mercado Pago (sem JWT)
 
@@ -1890,12 +1894,21 @@ APIs otimizadas para aplicativo mobile nativo, com suporte offline e recursos na
 
 **Escopo:** Operações respeitam `ClienteScope` (Superadministrador/Administrador = todos; Cliente Administrador = clientes vinculados). Rotas usam `forbid_cliente_access` e `get_cliente_scope_dep`. Referência: `app/core/scope.py`, MAPA_RBAC.md.
 
-### Dashboard
+### Dashboard (Negócios / PDV)
 
-- **GET** `/negocios/dashboard` - Resumo financeiro (vendas + ordens de serviço + estoque)
-  - Response: `{ vendas, estoque, ordens_servico }`
-  - Autenticação: Requerida
-  - **Escopo cliente:** Se o token tiver `cliente_id`, filtra vendas e ordens do cliente e retorna `estoque: null`
+- **GET** `/negocios/dashboard` — Resumo para a página **Dashboard** (`GET /dashboard` e `GET /negocio/dashboard`; template `meu_negocio/dashboard.html`; consumo via `window.authenticatedFetch('/api/v1/negocios/dashboard')`).
+  - Response (estrutura atual): `{ vendas, produtos_mais_vendidos, estoque, ordens_servico }` — ver implementação em `app/api/v1/dashboard_negocios.py`.
+  - Autenticação: obrigatória. **Escopo:** `ClienteScope` (`get_cliente_scope_dep`); sem estabelecimentos no escopo do CA, retorno com totais zerados para vendas e sem estoque agregado onde aplicável.
+  - **Fonte de dados das vendas:** KPIs combinam **`Venda`** (PDV / gestão interna) com pedidos **líquidos** da vitrine em **`PedidosMarketplace`** (`pedidos_marketplace`), no mesmo espírito da listagem **Negócio → Pedidos**: escopo pela **`LojaMarketplace.cliente_id`** (join loja ↔ pedido). Pedidos só contam quando estão efetivamente pagos ou confirmados sem pagamento pendente/estornado (ver `_query_pedidos_marketplace_liquidos` em `dashboard_negocios.py`). Assim, vitrine e PDV aparecem unificados nos cards e nas vendas recentes quando as regras de negócio coincidem.
+  - **Modelo subjacente:** continua a existir **`Venda`** ≠ registro isolado em **`PedidosMarketplace`**; o dashboard apenas **agrega** vistas para o CA.
+
+- **GET** `/negocios/dashboard/graficos` — Séries para os gráficos do mesmo template (`authenticatedFetch('/api/v1/negocios/dashboard/graficos')`).
+  - Query opcional: `data_inicio`, `data_fim`, `cliente_id`, `caixa_id` (período limitado por `MAX_PERIODO_DIAS` no backend).
+  - Response: `{ vendas_por_periodo, vendas_por_forma_pagamento, vendas_por_vendedor, horarios_pico, vendas_por_categoria }`.
+  - **Fonte:** séries mesclam **`Venda`** com **`PedidosMarketplace`** (pedidos líquidos, mesmo escopo loja/`cliente_id`), exceto quando **`caixa_id`** está presente — nesse caso aplicam-se apenas vendas da abertura daquele caixa (PDV), sem vitrine.
+  - Autenticação: obrigatória; escopo igual ao dashboard.
+
+**Documentação de evolução (2026-04):** Comportamento “venda na vitrine não aparecia no dashboard CA” devia-se ao dashboard considerar só **`Venda`**. **Implementação atual:** merge marketplace nos KPIs e nos gráficos em `app/api/v1/dashboard_negocios.py`; template `meu_negocio/dashboard.html` trata respostas HTTP e números nos gráficos (Chart.js).
 
 - **GET** `/vendas/estatisticas` - Estatísticas de vendas
   - Response: `{ total_vendas, valor_total_vendas, vendas_pendentes, valor_medio_venda }`
@@ -2256,10 +2269,11 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 - **POST** `/marketplace/status-pedido` — Criar status (body: codigo, label, ordem, ativo). Apenas Super Admin.
 - **PATCH** `/marketplace/status-pedido/{id}` — Atualizar status (label, ordem, ativo). Apenas Super Admin.
 - **PATCH** `/marketplace/status-pedido/{id}/desativar` — Desativa status (ativo=false). Apenas Super Admin.
+- **GET** `/marketplace/taxas-vigentes` — Query: `cliente_id` (obrigatório, estabelecimento), `preco` (opcional, decimal). Resolve a regra de taxas marketplace para o `tenant_id` do usuário (regra `tenant` ativa tem prioridade sobre regra **Geral**). Resposta: `nome_regra`, `escopo_aplicado`, `payload` (faixas + gateway), e `preview` (custos estimados) se `preco` foi informado. Escopo `cliente_id`. Permissão: `marketplace:visualizar`.
 - **GET** `/marketplace/anuncios` — Lista anúncios (loja_id, cliente_id, status, skip, limit). Escopo por loja/cliente. Permissão: `marketplace:visualizar`.
-- **POST** `/marketplace/anuncios` — Criar anúncio (body: AnuncioPlataformaCreate). Valida produto em produtos_cliente do estabelecimento da loja. Permissão: `marketplace:publicar`. Suporta frete por produto (`frete_sobrescrever_loja`, `formato_frete_produto`, `taxa_entrega_fixa_produto`, `entrega_gratis_apos_produto`).
+- **POST** `/marketplace/anuncios` — Criar anúncio (body: AnuncioPlataformaCreate). Valida produto em produtos_cliente do estabelecimento da loja. Permissão: `marketplace:publicar`. Suporta frete por produto (`frete_sobrescrever_loja`, `formato_frete_produto`, `taxa_entrega_fixa_produto`, `entrega_gratis_apos_produto`). Opcionais: `custo_plataforma_estimado`, `custo_cartao_estimado` (planejamento; não expostos na vitrine pública).
 - **GET** `/marketplace/anuncios/{id}` — Obter anúncio. Escopo: loja no escopo. Permissão: `marketplace:visualizar`.
-- **PATCH** `/marketplace/anuncios/{id}` — Atualizar anúncio. Permissão: `marketplace:publicar`. Suporta override de frete por produto com precedência sobre a loja.
+- **PATCH** `/marketplace/anuncios/{id}` — Atualizar anúncio. Permissão: `marketplace:publicar`. Suporta override de frete por produto com precedência sobre a loja. Opcionais: `custo_plataforma_estimado`, `custo_cartao_estimado`.
 - **POST** `/marketplace/sync/estoque?loja_id=` — Sincroniza estoque dos anúncios a partir de produtos_cliente; registra em SyncControle. Permissão: `marketplace:publicar`.
 - **GET** `/marketplace/loja/{loja_id}/pedidos` — Lista pedidos da loja (status_pedido, status_pagamento, skip, limit). Itens incluem `nome_produto_snapshot`. Permissão: `marketplace:gerenciar_pedidos`.
 - **GET** `/marketplace/pedidos/{pedido_id}/cupom` — Cupom não fiscal do pedido marketplace (`CupomConteudoResponse`). Permissão: `marketplace:gerenciar_pedidos`; escopo pela loja do pedido.
@@ -2308,6 +2322,9 @@ Configuração **global** (singleton) e **cards** da home da vitrine (`/loja`): 
 - **PUT** `/loja/minha-conta` — Atualizar nome/telefone/documento. Auth: consumidor.
 - **GET** `/loja/minha-conta/enderecos` — Lista endereços. **POST** `/loja/minha-conta/enderecos` — Criar endereço. Auth: consumidor.
 - **GET** `/loja/meus-pedidos` — Lista pedidos do consumidor. Auth: consumidor.
+- **GET** `/loja/pedidos/{pedido_id}/timeline` — Timeline unificada (**pedido** + **entrega**) para o comprador autenticado. Golden rule: só retorna se `pedido.comprador_id == consumidor.id`; caso contrário 403. Resposta: `{ pedido_id, entrega_id|null, items[] }` com eventos ordenados por `created_at` (`origem`: `pedido` \| `entrega`; campos `tipo_evento`, `status_codigo`, `status_label`). Fonte: `pedido_status_eventos` + `entrega_eventos`. Auth: consumidor.
+- **GET** `/loja/notificacoes` — Inbox do consumidor (`consumidor_notificacoes`): query `offset`, `limit` (1–100). Auth: consumidor.
+- **PATCH** `/loja/notificacoes/lidas` — Marca notificações como lidas (`body.ids`). Auth: consumidor.
 - **POST** `/loja/pedidos/{pedido_id}/avaliar` — Criar avaliação (nota 1–5, comentário). Apenas comprador do pedido. Auth: consumidor.
 - **GET** `/loja/anuncios/{anuncio_id}/avaliacoes` — Lista avaliações do anúncio (público).
 - **POST** `/loja/checkout` — Criar pedido: body PedidoCheckoutCreate (loja_id, itens com anuncio_id e quantidade, comprador_nome/email/telefone/documento, endereco_entrega, tipo_entrega, desconto, taxa_entrega, payment_method opcional). Itens agrupados por anuncio_id; valida estoque; **calcula frete por item com precedência `produto > loja` e soma no pedido**; baixa anuncio e produtos_cliente; atualiza loja total_vendas e faturamento_total; insere extrato_loja. Consumidor opcional (get_current_consumidor_optional). **Quando há gateway ativo** para o estabelecimento da loja: reserva estoque, cria checkout no provedor (Mercado Pago) e retorna `redirect_url` na response; a escolha da credencial (plataforma vs CA) segue `empresa.modo_recebimento` da empresa fiscal do dono da loja (ver MAPA_PAGAMENTO § 2.5.1). Response: PedidoCheckoutResponse.
@@ -2326,6 +2343,13 @@ Configuração **global** (singleton) e **cards** da home da vitrine (`/loja`): 
 **Schemas:** `app/schemas/marketplace.py` — CategoriaPlataforma, LojaMarketplace, AnuncioPlataforma, ConsumidorCadastro/Login/Response, EnderecoConsumidor, PedidoCheckoutCreate/Response, PedidoMarketplaceResponse/Update, StatusPedidoMarketplaceResponse/Create/Update, ExtratoLojaResponse, AvaliacaoCreate/Response, **AnuncioVitrineResponse** (+ distancia_km, cidade_loja, uf_loja, **bairro_loja, distancia_rota_km, duracao_rota_min, rota_estimada**).
 
 **Referência:** Inventário completo (tabelas, modelos, telas, regra "não duplicar") em MAPA_DO_SISTEMA § 12.
+
+### Notificações (painel CA — sino)
+
+Rotas em `app/api/v1/notificacoes.py`. Autenticação: JWT usuário PDV (`get_current_user`).
+
+- **GET** `/api/v1/notificacoes` — Lista até 80 registros de **`usuario_notificacoes`** do usuário logado (`notificacoes`, `total`, `nao_lidas`). Usado pelo sino do layout CA; marketplace grava entradas quando o pagamento é confirmado (tipo `marketplace_pedido_pago`) — ver MAPA_DO_SISTEMA § 12.
+- **POST** `/api/v1/notificacoes/{notificacao_id}/marcar-lido` — Marca como lida (suporta id da `usuario_notificacoes` e compatibilidade com legado `NotificacaoLida`).
 
 ---
 
@@ -2370,6 +2394,7 @@ As permissões seguem o padrão: `modulo:recurso:acao`
 **Versão:** 2.2  
 **Status:** Documentação Ativa - Referência Padrão  
 **Adições:**
+- **Seção 19 – Marketplace: timeline consumidor, inbox consumidor e API do sino CA (2026-04-30):** `GET /loja/pedidos/{pedido_id}/timeline`; `GET /loja/notificacoes` e `PATCH /loja/notificacoes/lidas`; nova subseção **Notificações (painel CA)** com `GET`/`POST` `/api/v1/notificacoes`. Detalhe de fluxos Celery e e-mails em MAPA_DO_SISTEMA § 12.
 - **Seção 19 – Vitrine: Proximidade real (rota) (2026-04-27):** Novos endpoints públicos `GET /loja/geo/geocodificar` (CEP+número+complemento, precisão `rooftop|range_interpolated|geometric_center`, 404 quando só `locality`), `GET /loja/anuncios/perto-de-voce` (home: aleatórios ordenados por **duração de rota**, pool diverso por loja, queda para Haversine com `rota_estimada=true`) e `GET /loja/anuncios/proximos` (pós-busca: filtra por `q`, agrupa por loja com melhor oferta, ordena por rota real). `AnuncioVitrineResponse` ganha `bairro_loja`, `distancia_rota_km`, `duracao_rota_min`, `rota_estimada`. Backend usa `routing_service.distance_matrix` (Google Distance Matrix → OSRM público → Haversine) com cache Redis 24h por geohash do origem; `geo_service.geocode_address` cobre Google → BrasilAPI+Nominatim com cache 30 dias. Detalhes técnicos em MAPA_DO_SISTEMA § 14.
 - **Seção 19 – Marketing Vitrine — regra de governança (2026-03-26):** Texto explícito em MAPA_DE_API: todos os cards da home são cadastrados **somente** pelo Superadmin em `/admin/marketing-vitrine` (sem tela paralela); alinhado a `require_superadmin` nas APIs.
 - **Seção 19 – Marketing Vitrine (2026-03-26):** Novo prefixo `/api/v1/marketing-vitrine` — GET público `vitrine-home` (config + destaques + ofertas_semana, `no-store`); CRUD config e cards apenas Superadministrador; HTML `/admin/marketing-vitrine`. Tabelas `marketing_vitrine_config`, `marketing_vitrine_cards` (mv01); **mv02** adiciona flags/títulos de seções da home (hero, em alta, lojas em destaque, faixa destaques); **mv03** (`mv03_mv_sec_defaults`) define `mostrar_secao_em_alta` e `mostrar_secao_lojas_destaque` com default **true** (compatível com a home legada, sem esconder blocos por padrão). **mv04** (`mv04_mv_config_textos`) grava textos padrão no singleton (`titulo_ofertas_semana`, subtítulos, títulos de faixa/em alta). Front vitrine: `getMarketingVitrineHome` em `vitrine.js`; home `/loja` monta blocos a partir da API e do contexto servidor `marketing_vitrine` em `_loja_context`.

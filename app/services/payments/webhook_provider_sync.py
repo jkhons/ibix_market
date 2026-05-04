@@ -72,11 +72,17 @@ def apply_provider_webhook(db: Session, code: str, payload: Dict[str, Any]) -> D
         }
 
     if tx.pedido_id or getattr(tx, "checkout_session_id", None):
-        from app.services.payments.webhook_marketplace_service import process_payment_notification
+        from app.services.payments.webhook_marketplace_service import (
+            dispatch_marketplace_pedido_pagamento_confirmado_notifications,
+            process_payment_notification,
+        )
 
-        ok = process_payment_notification(db, tx, raw_status, payload)
-        if ok:
+        mp_res = process_payment_notification(db, tx, raw_status, payload)
+        if mp_res:
             db.commit()
+            dispatch_marketplace_pedido_pagamento_confirmado_notifications(
+                mp_res.pedido_ids_notify_pagamento_confirmado
+            )
             return {
                 "received": True,
                 "processed": True,

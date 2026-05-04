@@ -56,12 +56,12 @@
                     <i data-feather="arrow-down-circle" style="width: 18px; height: 18px;"></i>
                     Entrada de Produtos
                 </button>
-                <div class="btn-group me-2">
-                    <button type="button" id="dropdownToggleCadastro" class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">
+                <div class="btn-group me-2" id="dropdownGroupCadastro">
+                    <button type="button" id="dropdownToggleCadastro" class="btn btn-primary dropdown-toggle" aria-expanded="false" aria-haspopup="true">
                         <i data-feather="plus-circle" style="width: 18px; height: 18px;"></i>
                         Cadastro
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
+                    <ul class="dropdown-menu dropdown-menu-end" id="dropdownMenuCadastro">
                         <li>
                             <a class="dropdown-item" href="/negocio/estoque/tipos-material">
                                 <i data-feather="package" style="width: 16px; height: 16px;" class="me-2"></i>
@@ -681,26 +681,74 @@ function trocarLojaSuperadmin(valor) {
     window.location.href = url;
 }
 
-// Fechar dropdown Cadastro (evita ficar aberto ao abrir modal; Bootstrap 5)
+// Dropdown Cadastro (controle manual: independente de bootstrap.Dropdown para evitar
+// race condition com dashboard.js/certipeso.js que reinicializam dropdowns em setTimeouts
+// concorrentes e podem perder o primeiro clique após o page load)
 function fecharDropdownCadastro() {
     var toggle = document.getElementById('dropdownToggleCadastro');
-    if (toggle && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
-        var inst = bootstrap.Dropdown.getInstance(toggle);
-        if (inst) inst.hide();
+    var menu = document.getElementById('dropdownMenuCadastro');
+    var group = document.getElementById('dropdownGroupCadastro');
+    if (menu) menu.classList.remove('show');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.classList.remove('show');
     }
+    if (group) group.classList.remove('show');
 }
 
-// Inicializar dropdown Cadastro e botão Produto (evitar race com dashboard/certipeso e garantir cliques)
+function abrirDropdownCadastro() {
+    var toggle = document.getElementById('dropdownToggleCadastro');
+    var menu = document.getElementById('dropdownMenuCadastro');
+    var group = document.getElementById('dropdownGroupCadastro');
+    document.querySelectorAll('.dropdown-menu.show').forEach(function(m) {
+        if (m !== menu) m.classList.remove('show');
+    });
+    if (menu) menu.classList.add('show');
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.classList.add('show');
+    }
+    if (group) group.classList.add('show');
+}
+
 function initDropdownCadastroEstoque() {
     var toggle = document.getElementById('dropdownToggleCadastro');
+    var menu = document.getElementById('dropdownMenuCadastro');
     var btnProduto = document.getElementById('btnCadastroProduto');
-    if (toggle && typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
-        try {
-            var inst = bootstrap.Dropdown.getInstance(toggle);
-            if (inst) inst.dispose();
-            new bootstrap.Dropdown(toggle);
-        } catch (e) { /* silencioso */ }
+
+    if (toggle && menu && !toggle._cadastroInit) {
+        toggle._cadastroInit = true;
+
+        toggle.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (menu.classList.contains('show')) {
+                fecharDropdownCadastro();
+            } else {
+                abrirDropdownCadastro();
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!menu.classList.contains('show')) return;
+            if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+                fecharDropdownCadastro();
+            }
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && menu.classList.contains('show')) {
+                fecharDropdownCadastro();
+            }
+        });
+
+        menu.querySelectorAll('a.dropdown-item').forEach(function(a) {
+            a.addEventListener('click', function() {
+                fecharDropdownCadastro();
+            });
+        });
     }
+
     if (btnProduto && !btnProduto._cadastroBound) {
         btnProduto._cadastroBound = true;
         btnProduto.addEventListener('click', function(e) {

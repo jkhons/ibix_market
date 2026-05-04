@@ -4,20 +4,20 @@
 <h2>Entrega <span id="entrega-id"></span></h2>
 <div class="entregador-card" id="detalhe"></div>
 <div id="acoes-status"></div>
-<p><a href="/entregador/minhas-entregas" class="btn-secondary">Voltar</a></p>
+<p><a href="/entregas/minhas-entregas" class="btn-secondary">Voltar</a></p>
 {% endblock %}
 {% block scripts %}
 <script>
 (function() {
     var token = document.cookie.replace(/(?:(?:^|.*;\s*)entregador_token\s*=\s*([^;]*).*$)|^.*$/, "$1");
     var path = window.location.pathname;
-    var id = path.split("/entregador/entrega/")[1];
-    if (!token) { window.location.href = "/entregador/login"; return; }
-    if (!id) { window.location.href = "/entregador/minhas-entregas"; return; }
+    var id = path.split("/entregas/entrega/")[1];
+    if (!token) { window.location.href = "/entregas"; return; }
+    if (!id) { window.location.href = "/entregas/minhas-entregas"; return; }
     document.getElementById("entrega-id").textContent = id;
     fetch("/api/v1/entregador/entregas/" + id, { headers: { "Authorization": "Bearer " + token } })
         .then(function(r) {
-            if (r.status === 401) { window.location.href = "/entregador/login"; return null; }
+            if (r.status === 401) { window.location.href = "/entregas"; return null; }
             if (r.status === 404) { document.getElementById("detalhe").innerHTML = "<p>Entrega não encontrada.</p>"; return null; }
             return r.json();
         })

@@ -20,6 +20,7 @@
     <div class="login-card">
         <h1>Entregador</h1>
         <p>Entre com seu e-mail e senha.</p>
+        <p class="mb-3"><a href="/entregas/cadastro">Criar conta (cadastro)</a></p>
         <form id="entregador-login-form">
             <div class="mb-3">
                 <label for="email" class="form-label">E-mail</label>
@@ -49,7 +50,7 @@
                 return r.json().then(function(d) { throw new Error(d.detail || "Falha no login"); });
             }).then(function(data) {
                 document.cookie = "entregador_token=" + data.access_token + "; path=/; max-age=86400; SameSite=Lax";
-                window.location.href = "/entregador/disponiveis";
+                window.location.href = "/entregas/painel";
             }).catch(function(e) {
                 err.textContent = e.message || "Erro ao entrar.";
                 err.style.display = "block";

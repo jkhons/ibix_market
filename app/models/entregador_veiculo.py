@@ -1,5 +1,5 @@
 # PDV Ibix - Veículos do Entregador (N veículos por entregador)
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database.base import BaseModel
@@ -20,6 +20,10 @@ class EntregadorVeiculo(BaseModel):
     descricao = Column(String(100), nullable=True)
     placa = Column(String(10), nullable=True)
     ativo = Column(Boolean, nullable=False, server_default="true")
+    documento_veiculo_path = Column(String(500), nullable=True)
+    documento_aprovado = Column(Boolean, nullable=False, server_default="false")
+    documento_aprovado_em = Column(DateTime(timezone=True), nullable=True)
+    documento_aprovado_por_usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
 
     entregador = relationship("Entregador", back_populates="veiculos")
 

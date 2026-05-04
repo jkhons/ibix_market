@@ -3,6 +3,12 @@ import { View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Font from 'expo-font';
+import {
+  Poppins_400Regular,
+  Poppins_500Medium,
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -84,10 +90,10 @@ export default function RootLayout() {
     async function prepare() {
       try {
         await Font.loadAsync({
-          Inter_400Regular: require('@/assets/fonts/Inter-Regular.ttf'),
-          Inter_500Medium: require('@/assets/fonts/Inter-Medium.ttf'),
-          Inter_600SemiBold: require('@/assets/fonts/Inter-SemiBold.ttf'),
-          Inter_700Bold: require('@/assets/fonts/Inter-Bold.ttf'),
+          Poppins_400Regular,
+          Poppins_500Medium,
+          Poppins_600SemiBold,
+          Poppins_700Bold,
         });
       } catch (e) {
         console.warn('Font loading failed:', e);

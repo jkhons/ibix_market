@@ -124,6 +124,7 @@ ROUTER_SPECS = [
     ("app.api.v1.marketing_vitrine", "router", "marketing_vitrine"),
     ("app.api.v1.integracao", "router", "integracao"),
     ("app.api.v1.entregador", "router", "entregador"),
+    ("app.api.v1.admin_entregadores", "router", "admin_entregadores"),
     ("app.api.v1.logistica", "router", "logistica"),
     ("app.api.v1.influencers", "router", "influencers"),
 ]
@@ -718,6 +719,7 @@ ROUTER_INCLUDE = [
     ("marketing_vitrine", "/api/v1", None),
     ("integracao", "/api", None),
     ("entregador", "/api/v1", None),
+    ("admin_entregadores", "/api/v1", None),
     ("logistica", "/api/v1", None),
 ]
 for name, prefix, tags in ROUTER_INCLUDE:
@@ -1671,6 +1673,27 @@ async def admin_influencers(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/login", status_code=302)
     context = await get_template_context_async(request, db)
     return await _render_template_async("admin/influencers.html", context)
+
+
+@app.get("/admin/entregadores", response_class=HTMLResponse)
+async def admin_entregadores_page(request: Request, db: Session = Depends(get_db)):
+    """Gestão de entregadores — Superadmin."""
+    auth_check = await check_auth_for_html(request, db)
+    if auth_check:
+        return auth_check
+    try:
+        token = request.cookies.get("pdv_solumatica_token")
+        if not token:
+            return RedirectResponse(url="/login", status_code=302)
+        payload = AuthConfig.verify_token(token)
+        user_id = payload.get("sub")
+        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
+        if not user or not user.role or user.role.nome != "Superadministrador":
+            return await _response_403(request, db, "Acesso restrito a Superadministrador.")
+    except Exception:
+        return RedirectResponse(url="/login", status_code=302)
+    context = await get_template_context_async(request, db)
+    return await _render_template_async("admin/entregadores.html", context)
 
 
 @app.get("/admin/billing/codigos-desconto", response_class=HTMLResponse)
@@ -3872,7 +3895,10 @@ async def loja_pagamento_sucesso(request: Request, db: Session = Depends(get_db)
         PedidoMarketplace,
     )
     from app.services.payments.providers_marketplace import get_marketplace_provider
-    from app.services.payments.webhook_marketplace_service import process_payment_notification
+    from app.services.payments.webhook_marketplace_service import (
+        dispatch_marketplace_pedido_pagamento_confirmado_notifications,
+        process_payment_notification,
+    )
     from fastapi.responses import RedirectResponse
 
     session_uuid = (request.query_params.get("session") or "").strip()
@@ -3917,8 +3943,11 @@ async def loja_pagamento_sucesso(request: Request, db: Session = Depends(get_db)
                 if mp_payment:
                     mp_status = (mp_payment.get("status") or "").lower()
                     if mp_status in ("approved", "authorized"):
-                        process_payment_notification(db, tx, mp_status, mp_payment)
+                        mp_res = process_payment_notification(db, tx, mp_status, mp_payment)
                         db.commit()
+                        dispatch_marketplace_pedido_pagamento_confirmado_notifications(
+                            mp_res.pedido_ids_notify_pagamento_confirmado
+                        )
                         for p in pedidos:
                             db.refresh(p)
         all_paid = all((p.status_pagamento or "").lower() == "pago" for p in pedidos)
@@ -3968,8 +3997,11 @@ async def loja_pagamento_sucesso(request: Request, db: Session = Depends(get_db)
                 if mp_payment:
                     mp_status = (mp_payment.get("status") or "").lower()
                     if mp_status in ("approved", "authorized"):
-                        process_payment_notification(db, tx, mp_status, mp_payment)
+                        mp_res = process_payment_notification(db, tx, mp_status, mp_payment)
                         db.commit()
+                        dispatch_marketplace_pedido_pagamento_confirmado_notifications(
+                            mp_res.pedido_ids_notify_pagamento_confirmado
+                        )
                         db.refresh(pedido)
 
     if (pedido.status_pagamento or "").lower() != "pago":
@@ -4061,37 +4093,81 @@ async def loja_acompanhar_pedido(request: Request, db: Session = Depends(get_db)
     return await _render_template_async("loja/acompanhar_pedido.html", ctx)
 
 
-# --- Área Entregador (logística local) ---
-@app.get("/entregador/login", response_class=HTMLResponse)
+# --- Área Entregador (logística local) — URLs públicas em /entregas ---
+@app.get("/entregas", response_class=HTMLResponse)
 async def entregador_login_page(request: Request):
     """Login do entregador."""
     return await _render_template_async("entregador/login.html", {"request": request})
 
 
-@app.get("/entregador/logout", response_class=HTMLResponse)
+@app.get("/entregas/logout", response_class=HTMLResponse)
 async def entregador_logout_page(request: Request):
     """Logout entregador: remove cookie e redireciona para login."""
-    response = RedirectResponse(url="/entregador/login", status_code=302)
+    response = RedirectResponse(url="/entregas", status_code=302)
     response.delete_cookie(key="entregador_token")
     return response
 
 
-@app.get("/entregador/disponiveis", response_class=HTMLResponse)
+@app.get("/entregas/cadastro", response_class=HTMLResponse)
+async def entregador_cadastro_page(request: Request):
+    """Cadastro público do entregador."""
+    return await _render_template_async("entregador/cadastro.html", {"request": request})
+
+
+@app.get("/entregas/aguardando-aprovacao", response_class=HTMLResponse)
+async def entregador_aguardando_aprovacao(request: Request):
+    """Tela para perfil ou documentos pendentes."""
+    return await _render_template_async("entregador/aguardando_aprovacao.html", {"request": request})
+
+
+@app.get("/entregas/painel", response_class=HTMLResponse)
+async def entregador_painel_page(request: Request):
+    """Painel corridas e pagamentos."""
+    return await _render_template_async("entregador/painel.html", {"request": request})
+
+
+@app.get("/entregas/disponiveis", response_class=HTMLResponse)
 async def entregador_disponiveis(request: Request):
     """Entregas disponíveis para aceitar."""
     return await _render_template_async("entregador/disponiveis.html", {"request": request})
 
 
-@app.get("/entregador/minhas-entregas", response_class=HTMLResponse)
+@app.get("/entregas/minhas-entregas", response_class=HTMLResponse)
 async def entregador_minhas_entregas(request: Request):
     """Minhas entregas (entregador)."""
     return await _render_template_async("entregador/minhas_entregas.html", {"request": request})
 
 
-@app.get("/entregador/entrega/{entrega_id:int}", response_class=HTMLResponse)
+@app.get("/entregas/entrega/{entrega_id:int}", response_class=HTMLResponse)
 async def entregador_detalhe_entrega(request: Request, entrega_id: int):
     """Detalhe da entrega e ações de status."""
     return await _render_template_async("entregador/detalhe.html", {"request": request, "entrega_id": entrega_id})
+
+
+@app.get("/entregador/login")
+async def entregador_login_legacy_redirect():
+    """Compatibilidade: antigo /entregador/login → /entregas."""
+    return RedirectResponse(url="/entregas", status_code=302)
+
+
+@app.get("/entregador/logout")
+async def entregador_logout_legacy_redirect():
+    return RedirectResponse(url="/entregas/logout", status_code=302)
+
+
+@app.get("/entregador/disponiveis")
+async def entregador_disponiveis_legacy_redirect():
+    return RedirectResponse(url="/entregas/disponiveis", status_code=302)
+
+
+@app.get("/entregador/minhas-entregas")
+async def entregador_minhas_entregas_legacy_redirect():
+    return RedirectResponse(url="/entregas/minhas-entregas", status_code=302)
+
+
+@app.get("/entregador/entrega/{entrega_id:int}")
+async def entregador_entrega_legacy_redirect(entrega_id: int):
+    return RedirectResponse(url=f"/entregas/entrega/{entrega_id}", status_code=302)
 
 
 @app.get("/negocio/relatorio-conversao-orcamentos", response_class=HTMLResponse)

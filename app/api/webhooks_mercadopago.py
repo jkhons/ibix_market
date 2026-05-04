@@ -270,9 +270,12 @@ def process_webhook_event_by_id_sync(db: Session, webhook_event_id: int) -> bool
         db.commit()
         return False
     mp_status = (mp_payment.get("status") or "").lower()
+    pedido_ids_notify_mp: list[int] = []
     if tx.pedido_id or getattr(tx, "checkout_session_id", None):
         from app.services.payments.webhook_marketplace_service import process_payment_notification
-        process_payment_notification(db, tx, mp_status, mp_payment)
+
+        mp_pay_result = process_payment_notification(db, tx, mp_status, mp_payment)
+        pedido_ids_notify_mp = mp_pay_result.pedido_ids_notify_pagamento_confirmado
     else:
         tx.status = _mp_status_to_internal(mp_status)
         tx.provider_response = json.dumps(
@@ -294,6 +297,12 @@ def process_webhook_event_by_id_sync(db: Session, webhook_event_id: int) -> bool
     ev.payment_transaction_id = tx.id
     ev.normalized_status = tx.status
     db.commit()
+    if pedido_ids_notify_mp:
+        from app.services.payments.webhook_marketplace_service import (
+            dispatch_marketplace_pedido_pagamento_confirmado_notifications,
+        )
+
+        dispatch_marketplace_pedido_pagamento_confirmado_notifications(pedido_ids_notify_mp)
     return True
 
 
@@ -492,9 +501,12 @@ async def mercadopago_webhook(
             tx = _find_transaction_for_mp_payment(db, external_reference, payment_id)
             if tx:
                 mp_status = (mp_payment.get("status") or "").lower()
+                pedido_ids_notify_hook: list[int] = []
                 if tx.pedido_id or getattr(tx, "checkout_session_id", None):
                     from app.services.payments.webhook_marketplace_service import process_payment_notification
-                    process_payment_notification(db, tx, mp_status, mp_payment)
+
+                    mp_pay_hook = process_payment_notification(db, tx, mp_status, mp_payment)
+                    pedido_ids_notify_hook = mp_pay_hook.pedido_ids_notify_pagamento_confirmado
                 else:
                     tx.status = _mp_status_to_internal(mp_status)
                     tx.provider_response = json.dumps(
@@ -516,6 +528,12 @@ async def mercadopago_webhook(
                 webhook_ev.payment_transaction_id = tx.id
                 webhook_ev.normalized_status = tx.status
                 db.commit()
+                if pedido_ids_notify_hook:
+                    from app.services.payments.webhook_marketplace_service import (
+                        dispatch_marketplace_pedido_pagamento_confirmado_notifications,
+                    )
+
+                    dispatch_marketplace_pedido_pagamento_confirmado_notifications(pedido_ids_notify_hook)
                 webhook_processed_total.labels(provider="mercadopago").inc()
                 is_mp = tx.pedido_id or getattr(tx, "checkout_session_id", None)
                 return {"status": "ok", "kind": "marketplace" if is_mp else "venda_pagamento", "transaction_uuid": tx.uuid}

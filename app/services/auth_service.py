@@ -191,6 +191,24 @@ class AuthService:
             )
         if db.query(Cliente).filter(Cliente.cnpj == cnpj_fmt).first():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CNPJ já cadastrado")
+        # Dados bancários + PIX são obrigatórios no cadastro do CA (empresa pagadora)
+        banco_nome = (getattr(data, "banco_nome", "") or "").strip()
+        agencia = (getattr(data, "agencia", "") or "").strip()
+        conta = (getattr(data, "conta", "") or "").strip()
+        tipo_conta = (getattr(data, "tipo_conta", "") or "").strip()
+        pix_chave = (getattr(data, "pix_chave", "") or "").strip()
+        banco_codigo = (getattr(data, "banco_codigo", None) or "").strip() or None
+        if not banco_nome:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Banco (nome) é obrigatório.")
+        if not agencia:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Agência é obrigatória.")
+        if not conta:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Conta é obrigatória.")
+        if not tipo_conta:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Tipo de conta é obrigatório.")
+        if not pix_chave:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Chave PIX é obrigatória.")
+
         role = db.query(Role).filter(func.lower(Role.nome) == "cliente administrador").first()
         if not role:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Role Cliente Administrador não configurada")
@@ -210,6 +228,12 @@ class AuthService:
             contato=data.contato,
             telefone=data.telefone,
             email=data.email,
+            banco_nome=banco_nome[:100],
+            banco_codigo=banco_codigo[:10] if banco_codigo else None,
+            agencia=agencia[:20],
+            conta=conta[:30],
+            tipo_conta=tipo_conta[:20],
+            pix_chave=pix_chave[:120],
         )
         db.add(cliente)
         db.flush()

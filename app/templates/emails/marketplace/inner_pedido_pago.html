@@ -1,0 +1,14 @@
+<h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#0f172a;line-height:1.25;">Pagamento confirmado!</h1>
+<p style="margin:0 0 16px;font-size:16px;color:#334155;line-height:1.55;">Olá, <strong>{{comprador_primeiro_nome}}</strong> — recebemos seu pagamento com sucesso.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;border-radius:12px;margin:16px 0;">
+  <tr>
+    <td style="padding:18px 20px;">
+      <p style="margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:0.06em;color:#64748b;">Pedido</p>
+      <p style="margin:0 0 12px;font-size:18px;font-weight:700;color:#0f172a;">{{numero_pedido}}</p>
+      <p style="margin:0;font-size:14px;color:#475569;">Total pago: <strong style="color:#0f172a;">R$ {{total_pedido}}</strong></p>
+      {{bloco_tipo_entrega}}
+    </td>
+  </tr>
+</table>
+{{bloco_itens_pedido}}
+<p style="margin:16px 0 0;font-size:14px;color:#475569;line-height:1.55;">A loja <strong>{{nome_vitrine}}</strong> pode atualizar o status da sua compra em breve. Use o botão abaixo para acompanhar tudo em tempo real.</p>

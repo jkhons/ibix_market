@@ -284,6 +284,209 @@ def notificar_ca_novo_pedido(pedido_id: int):
         db.close()
 
 
+@celery_app.task(name="app.worker.tasks.notificar_marketplace_pagamento_confirmado")
+def notificar_marketplace_pagamento_confirmado(pedido_id: int):
+    """
+    Após o gateway confirmar pagamento (webhook/reconciliação): e-mail aos responsáveis da loja (CA)
+    e ao comprador; grava notificações no sino do CA e no inbox do consumidor (app).     Idempotência no enqueue.
+    """
+    from app.database.connection import SessionLocal
+    from app.models import AreaCliente, LojaMarketplace, PedidoMarketplace, Usuario
+    from app.models.consumidor_notificacao import ConsumidorNotificacao
+    from app.models.usuario_notificacao import UsuarioNotificacao
+
+    TIPO_INBOX = "marketplace_pedido_pago"
+
+    db = SessionLocal()
+    try:
+        pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
+        if not pedido:
+            return {"sent_ca": 0, "sent_buyer": 0, "reason": "Pedido não encontrado"}
+        if (pedido.status_pagamento or "").strip().lower() != "pago":
+            return {"sent_ca": 0, "sent_buyer": 0, "reason": "Pedido não está com pagamento confirmado"}
+
+        loja = db.query(LojaMarketplace).filter(LojaMarketplace.id == pedido.loja_id).first()
+        if not loja:
+            return {"sent_ca": 0, "sent_buyer": 0, "reason": "Loja não encontrada"}
+
+        cliente_id = loja.cliente_id
+        usuario_ids = [
+            r[0]
+            for r in db.query(AreaCliente.usuario_id)
+            .filter(AreaCliente.cliente_id == cliente_id, AreaCliente.ativo == True)
+            .distinct()
+            .all()
+        ]
+        ca_emails: list[str] = []
+        if usuario_ids:
+            for (email,) in (
+                db.query(Usuario.email)
+                .filter(
+                    Usuario.id.in_(usuario_ids),
+                    Usuario.email.isnot(None),
+                    Usuario.email != "",
+                )
+                .all()
+            ):
+                e = (email or "").strip()
+                if e and e not in ca_emails:
+                    ca_emails.append(e)
+
+        total = str(pedido.total) if pedido.total is not None else "—"
+        num = pedido.numero_pedido or str(pedido.id)
+
+        inbox_ca = 0
+        titulo_inbox = f"Pagamento confirmado — Pedido {num}"
+        msg_inbox = (
+            f"{pedido.comprador_nome or 'Comprador'} · Total R$ {total}. "
+            f"Acesse os pedidos do marketplace para separar e atualizar o status."
+        )
+        link_inbox = "/negocio/pedidos"
+        for uid in usuario_ids:
+            existe = (
+                db.query(UsuarioNotificacao)
+                .filter(
+                    UsuarioNotificacao.usuario_id == uid,
+                    UsuarioNotificacao.tipo == TIPO_INBOX,
+                    UsuarioNotificacao.ref_id == pedido.id,
+                )
+                .first()
+            )
+            if existe:
+                continue
+            db.add(
+                UsuarioNotificacao(
+                    usuario_id=uid,
+                    tenant_id=cliente_id,
+                    tipo=TIPO_INBOX,
+                    ref_id=pedido.id,
+                    titulo=titulo_inbox,
+                    mensagem=msg_inbox,
+                    link=link_inbox,
+                    icone="shopping-cart",
+                    cor="success",
+                    lida=False,
+                    dados_json={"pedido_id": pedido.id, "numero_pedido": num},
+                )
+            )
+            inbox_ca += 1
+
+        inbox_buyer = 0
+        cid = pedido.comprador_id
+        if cid:
+            dup = False
+            for row in (
+                db.query(ConsumidorNotificacao)
+                .filter(
+                    ConsumidorNotificacao.consumidor_id == cid,
+                    ConsumidorNotificacao.tipo == TIPO_INBOX,
+                )
+                .limit(50)
+                .all()
+            ):
+                if (row.dados_json or {}).get("pedido_id") == pedido.id:
+                    dup = True
+                    break
+            if not dup:
+                db.add(
+                    ConsumidorNotificacao(
+                        consumidor_id=cid,
+                        tipo=TIPO_INBOX,
+                        titulo=f"Pagamento confirmado — Pedido {num}",
+                        mensagem=f"Seu pagamento foi confirmado. Total R$ {total}. Acompanhe o pedido no app.",
+                        dados_json={"pedido_id": pedido.id, "numero_pedido": num},
+                    )
+                )
+                inbox_buyer = 1
+
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+        from app.services.marketplace_email_service import (
+            enviar_pedido_pago_comprador,
+            enviar_pedido_pago_loja,
+        )
+
+        sent_ca = enviar_pedido_pago_loja(db, pedido, loja, ca_emails) if ca_emails else 0
+
+        buyer = (pedido.comprador_email or "").strip()
+        sent_buyer = 0
+        if buyer:
+            if enviar_pedido_pago_comprador(db, pedido, loja):
+                sent_buyer = 1
+
+        return {
+            "sent_ca": sent_ca,
+            "sent_buyer": sent_buyer,
+            "ca_emails": ca_emails,
+            "buyer": buyer or None,
+            "inbox_ca_rows": inbox_ca,
+            "inbox_consumidor": inbox_buyer,
+        }
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.worker.tasks.notificar_marketplace_pedido_status_email_comprador")
+def notificar_marketplace_pedido_status_email_comprador(
+    pedido_id: int,
+    status_anterior: str,
+    status_novo: str,
+    status_label: str,
+):
+    """E-mail HTML ao comprador quando a loja altera status_pedido."""
+    from app.database.connection import SessionLocal
+    from app.models import LojaMarketplace, PedidoMarketplace
+    from app.services.marketplace_email_service import enviar_pedido_status_comprador
+
+    db = SessionLocal()
+    try:
+        pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
+        if not pedido or not (pedido.comprador_email or "").strip():
+            return {"sent": 0, "reason": "pedido ou e-mail ausente"}
+        if (status_novo or "").strip() == (status_anterior or "").strip():
+            return {"sent": 0, "reason": "status_inalterado"}
+        loja = db.query(LojaMarketplace).filter(LojaMarketplace.id == pedido.loja_id).first()
+        if not loja:
+            return {"sent": 0, "reason": "loja não encontrada"}
+        ok = enviar_pedido_status_comprador(db, pedido, loja, status_novo, status_label)
+        return {"sent": 1 if ok else 0}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.worker.tasks.notificar_marketplace_entrega_status_email_comprador")
+def notificar_marketplace_entrega_status_email_comprador(entrega_id: int, novo_status: str):
+    """E-mail HTML ao comprador quando o entregador altera o status da entrega."""
+    from app.core.constants import AGUARDANDO_PUBLICACAO, DISPONIVEL
+    from app.database.connection import SessionLocal
+    from app.models import EntregaMarketplace, LojaMarketplace, PedidoMarketplace
+    from app.services.marketplace_email_service import enviar_entrega_status_comprador
+
+    ns = (novo_status or "").strip()
+    if ns in (AGUARDANDO_PUBLICACAO, DISPONIVEL):
+        return {"sent": 0, "reason": "status_interno"}
+
+    db = SessionLocal()
+    try:
+        entrega = db.query(EntregaMarketplace).filter(EntregaMarketplace.id == entrega_id).first()
+        if not entrega:
+            return {"sent": 0, "reason": "entrega não encontrada"}
+        pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == entrega.pedido_id).first()
+        if not pedido or not (pedido.comprador_email or "").strip():
+            return {"sent": 0, "reason": "pedido ou e-mail ausente"}
+        loja = db.query(LojaMarketplace).filter(LojaMarketplace.id == pedido.loja_id).first()
+        if not loja:
+            return {"sent": 0, "reason": "loja não encontrada"}
+        ok = enviar_entrega_status_comprador(db, pedido, loja, ns)
+        return {"sent": 1 if ok else 0}
+    finally:
+        db.close()
+
+
 @celery_app.task(
     bind=True,
     name="app.worker.tasks.dispatch_venda_fechada_webhook",
@@ -361,6 +564,7 @@ def reconcile_pending_marketplace_payments():
     from app.core.logging import log_error, log_struct
     from app.database.connection import SessionLocal
     from app.models import PaymentTransaction, PedidoMarketplace
+    from app.services.payments.checkout_marketplace_service import _resolve_provider_and_credentials
     from app.services.payments.providers_marketplace import get_marketplace_provider
     from app.services.payments.webhook_marketplace_service import process_payment_notification
 
@@ -386,22 +590,33 @@ def reconcile_pending_marketplace_payments():
         if not pending_txs:
             return {"reconciled": 0, "checked": 0}
 
-        billing_token = get_mp_access_token(db)
-        if not billing_token:
-            return {"reconciled": 0, "checked": 0, "reason": "no_billing_token"}
-
+        billing_fallback = get_mp_access_token(db)
         provider = get_marketplace_provider("mercadopago")
         reconciled = 0
 
         for tx in pending_txs:
             try:
+                access_token = None
+                try:
+                    _, _, credentials, _ = _resolve_provider_and_credentials(db, tx.cliente_id)
+                    access_token = (
+                        credentials.get("access_token")
+                        or credentials.get("ACCESS_TOKEN")
+                        or credentials.get("token")
+                    )
+                except ValueError:
+                    access_token = None
+                if not access_token:
+                    access_token = billing_fallback
+                if not access_token:
+                    continue
+
+                creds = {"access_token": access_token}
                 mp_payment = None
                 if tx.provider_transaction_id:
-                    mp_payment = provider.fetch_payment(tx.provider_transaction_id, {"access_token": billing_token})
-                if not mp_payment:
-                    mp_payment = provider.search_payment_by_reference(
-                        str(tx.pedido_id), {"access_token": billing_token}
-                    )
+                    mp_payment = provider.fetch_payment(tx.provider_transaction_id, creds)
+                if not mp_payment and tx.pedido_id:
+                    mp_payment = provider.search_payment_by_reference(str(tx.pedido_id), creds)
                 if not mp_payment:
                     continue
 
@@ -409,9 +624,16 @@ def reconcile_pending_marketplace_payments():
                 if mp_status == "pending":
                     continue
 
-                changed = process_payment_notification(db, tx, mp_status, mp_payment)
-                if changed:
+                mp_result = process_payment_notification(db, tx, mp_status, mp_payment)
+                if mp_result:
                     db.commit()
+                    from app.services.payments.webhook_marketplace_service import (
+                        dispatch_marketplace_pedido_pagamento_confirmado_notifications,
+                    )
+
+                    dispatch_marketplace_pedido_pagamento_confirmado_notifications(
+                        mp_result.pedido_ids_notify_pagamento_confirmado
+                    )
                     reconciled += 1
                     log_struct(
                         "mp_auto_reconcile_success",
