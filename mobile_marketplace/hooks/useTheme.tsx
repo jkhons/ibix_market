@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo } from 'react';
 import { useColorScheme } from 'react-native';
 import { lightColors, darkColors, AppColors } from '@/theme/colors';
 import { typography, fontFamily, fontSize, lineHeight } from '@/theme/typography';
-import { spacing, borderRadius, iconSize, hitSlop } from '@/theme/spacing';
+import { spacing, borderRadius, iconSize, hitSlop, focusRing } from '@/theme/spacing';
 import { shadow } from '@/theme/shadows';
 
 export interface Theme {
@@ -15,6 +15,7 @@ export interface Theme {
   borderRadius: typeof borderRadius;
   iconSize: typeof iconSize;
   hitSlop: typeof hitSlop;
+  focusRing: typeof focusRing;
   shadow: typeof shadow;
   isDark: boolean;
 }
@@ -23,7 +24,10 @@ const ThemeContext = createContext<Theme | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  // Identidade visual canônica do Marketplace é clara (vitrine web).
+  // Dark mode fica desativado por padrão até existir preferência explícita.
+  const enableDarkMode = process.env.EXPO_PUBLIC_ENABLE_DARK_MODE === 'true';
+  const isDark = enableDarkMode ? colorScheme === 'dark' : false;
 
   const theme = useMemo<Theme>(
     () => ({
@@ -36,6 +40,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       borderRadius,
       iconSize,
       hitSlop,
+      focusRing,
       shadow,
       isDark,
     }),

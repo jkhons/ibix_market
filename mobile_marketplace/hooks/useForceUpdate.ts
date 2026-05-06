@@ -31,7 +31,7 @@ export function useForceUpdate() {
       const plataforma = Platform.OS === 'ios' ? 'ios' : 'android';
 
       const { data } = await api.get<AppVersionResponse>(
-        `/loja/app/versao?plataforma=${plataforma}`,
+        `/loja/app-version/${plataforma}`,
       );
 
       if (compareVersions(currentVersion, data.versao_minima) < 0) {

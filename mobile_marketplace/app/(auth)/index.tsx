@@ -15,6 +15,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import { useSocialAuth, type SocialAuthOutcome } from '@/hooks/useSocialAuth';
 import { extractApiError } from '@/services/api';
+import { BrandLogo } from '@/components/common/BrandLogo';
 
 export default function LoginScreen() {
   const { colors, spacing } = useTheme();
@@ -123,6 +124,8 @@ export default function LoginScreen() {
         >
           <Text variant="body1" color={colors.textSecondary}>← Voltar</Text>
         </TouchableOpacity>
+
+        <BrandLogo height={44} style={{ marginBottom: spacing.xl }} />
 
         <Text variant="h2" color={colors.textPrimary}>Entrar</Text>
         <Text variant="body2" color={colors.textSecondary} style={{ marginTop: spacing.sm }}>

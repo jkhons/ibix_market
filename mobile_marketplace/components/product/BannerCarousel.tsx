@@ -11,6 +11,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/hooks/useTheme';
 import type { MarketingCard } from '@/services/marketingService';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 interface BannerCarouselProps {
   cards: MarketingCard[];
@@ -72,23 +73,35 @@ export function BannerCarousel({ cards, autoPlayMs = 5000 }: BannerCarouselProps
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            onPress={() => handlePress(item)}
-            activeOpacity={0.9}
-            accessibilityLabel={item.titulo ?? 'Banner promocional'}
-          >
-            <Image
-              source={{ uri: item.imagem_url_mobile ?? item.imagem_url }}
-              style={[
-                styles.banner,
-                { width: bannerWidth, height: bannerHeight, borderRadius: br.lg },
-              ]}
-              contentFit="cover"
-              transition={300}
-            />
-          </TouchableOpacity>
-        )}
+        renderItem={({ item }) => {
+          const uri = resolveRemoteAssetUrl(item.imagem_url_mobile ?? item.imagem_url);
+          return (
+            <TouchableOpacity
+              onPress={() => handlePress(item)}
+              activeOpacity={0.9}
+              accessibilityLabel={item.titulo ?? 'Banner promocional'}
+            >
+              {uri ? (
+                <Image
+                  source={{ uri }}
+                  style={[
+                    styles.banner,
+                    { width: bannerWidth, height: bannerHeight, borderRadius: br.lg },
+                  ]}
+                  contentFit="cover"
+                  transition={300}
+                />
+              ) : (
+                <View
+                  style={[
+                    styles.banner,
+                    { width: bannerWidth, height: bannerHeight, borderRadius: br.lg, backgroundColor: colors.surfaceVariant },
+                  ]}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        }}
         ItemSeparatorComponent={() => <View style={{ width: spacing.sm }} />}
       />
 

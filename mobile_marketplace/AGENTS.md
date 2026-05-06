@@ -7,15 +7,34 @@
 
 ## 1. O que é este projeto
 
-App **React Native (Expo SDK 52)** para o consumidor final do **PDV Ibix Marketplace**. O backend é **FastAPI (Python)** localizado em `../app/` (mesmo monorepo do PDV), expondo `/api/v1/loja/*` e `/api/v1/marketing-vitrine/*`.
+App **React Native (Expo SDK 52)** para o consumidor final do **Ibix Marketplace**. O backend é **FastAPI (Python)** em `../app/` na **mesma VPS** (cópia de trabalho — **sem** repositório Git próprio para o PDV), expondo `/api/v1/loja/*` e `/api/v1/marketing-vitrine/*`.
 
 - **Plataformas:** iOS, Android, Web (PWA leve)
-- **Identidade comercial:** *Ibix Market* (vitrine pública do marketplace PDV Ibix)
-- **Bundle/Package:** `com.ibix.market`
+- **Display name nas lojas (App Store / Play Store / springboard):** **`Ibix`** (curto, marca-mãe — `expo.name` no `app.json`)
+- **Brand visível dentro do app e na vitrine pública:** **`Ibix Market`** (logo `cab.png` no header via `<BrandLogo>`)
+- **Bundle/Package:** `com.ibix.market` (não muda)
 - **Scheme:** `ibixmarket://` (deep links)
 - **Domínio universal:** `https://www.ibix.com.br/loja/...` (universal/applinks)
 
+> **Por que dois nomes?** Nas lojas o "Ibix" curto reforça a marca-mãe e cabe no espaço limitado do springboard. Dentro do app o usuário vê "Ibix Market" como produto, em paridade total com o `<title>` da vitrine (`{block} | Ibix`) e com o logo `cab.png`.
+
 Documentação macro vive em `../MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md` (plano por fases) e `../MAPA_SISTEMA/MAPA_DO_SISTEMA.md` (sistema completo).
+
+### 1.1 Fluxo oficial de trabalho (método definitivo)
+
+| Etapa | Onde | O quê |
+|-------|------|--------|
+| Desenvolvimento | **VPS** | Alterações em `mobile_marketplace/` e no backend em `../app/` (PDV **sem** repo Git remoto). |
+| Publicar código Expo | **VPS** → **GitHub** | Pasta **`mobile_marketplace/`** é o **único** directório com Git; **`git pull` / `git push`** sempre **lá dentro**. Ver [`PUBLICAR_IBIX_MOBILE.md`](PUBLICAR_IBIX_MOBILE.md). |
+| **Pull** e testes | **PC Windows** (clone **`IBIX_mobile`**) | `git pull origin main` e validação com Expo. |
+
+**DIRETRIZ (obrigatória): UMA ÚNICA CÉLULA de desenvolvimento = VPS.** O PC Windows é **tester** e só valida o que está em **`IBIX_mobile`** no GitHub (`origin/main` **desse** clone).
+
+- **Proibido hotfix no PC tester:** não corrigir “por fora” no Windows sem subir para o Git.
+- **Teste válido = commit publicado:** o tester sempre faz `git pull origin main` no clone **`IBIX_mobile`** antes de validar.
+- **Feedback do tester tem que vir com evidência:** print + passos + log de rede/console quando aplicável.
+
+Pormenores (clone, SSH, credenciais, checklist): **`ALINHAR_OUTRO_PC.md`**.
 
 ---
 
@@ -25,7 +44,7 @@ Quando você (IA ou humano) **clonar este projeto na máquina local** (Windows/L
 
 | Ferramenta | Versão mínima | Instalação |
 |------------|---------------|------------|
-| Node.js | 18 LTS (recomendado 20) | https://nodejs.org |
+| Node.js | **20 LTS** (ou 18 LTS) | https://nodejs.org |
 | npm | 9+ (vem com Node) | — |
 | Git | qualquer recente | — |
 | Expo Go (no celular) | App da App Store / Play Store | iPhone/Android |
@@ -34,6 +53,9 @@ Quando você (IA ou humano) **clonar este projeto na máquina local** (Windows/L
 | Cursor IDE | atual | Edição com IA |
 
 > **Não precisa instalar `expo-cli` global.** Use `npx expo` (vem com o pacote `expo`).
+
+> **Diretriz do tester (obrigatória):** não usar Node 22 no PC de testes. Expo SDK 52 + Metro pode ficar “pendurado” no bundling.
+> Padronize o PC tester com **Node 20 LTS** (preferível) ou **Node 18 LTS**.
 
 ---
 
@@ -69,6 +91,8 @@ npx expo install --fix
 ```
 
 > **Importante:** o backend FastAPI (`../app/`) precisa estar rodando **antes** de abrir o app, ou o app exibirá erros de rede. Para subir o backend: `cd .. && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`.
+
+> **Web dev e HTTP 502:** no navegador, as requisições passam pelo proxy `/__ibix_api/` do Metro. Um **502** quase sempre significa que o FastAPI não está acessível em `EXPO_PUBLIC_API_BASE_URL` ou o Metro não foi reiniciado após mudar o `.env`. Passo a passo: secção *Erro 502 em `/__ibix_api`* em [`SETUP.md`](SETUP.md).
 
 ---
 
@@ -175,49 +199,57 @@ mobile_marketplace/
 
 ## 6. Identidade visual (Design System)
 
-> **Fonte única de verdade:** `theme/colors.ts`, `theme/typography.ts`, `theme/spacing.ts`, `theme/shadows.ts`. **Não hardcode cores, tamanhos ou fontes em telas/componentes** — sempre use `useTheme()`.
+> **REGRA OBRIGATÓRIA — paridade total com a vitrine web.** Fonte canônica é `app/static/css/loja.css` (tokens `--ibix-*`) e `app/static/img/ibix/cab.png` (logo). O app **espelha** a vitrine: mudanças visuais começam pela vitrine; o app segue. Brand assets são copiados bit-a-bit, NUNCA recriados.
+>
+> **Fonte única de verdade no código:** `theme/colors.ts`, `theme/typography.ts`, `theme/spacing.ts`, `theme/shadows.ts`. **Não hardcode cores, tamanhos ou fontes em telas/componentes** — sempre use `useTheme()`.
 
-### 6.1 Paleta principal
+### 6.1 Paleta principal (espelho de `loja.css:9-18`)
 
 | Token | Hex | Uso |
 |-------|-----|-----|
-| **`primary`** (Azul Ibix) | `#2980b9` | Botões CTA, links, destaque, status bar dark, ícone do app |
-| `primaryDark` | `#1a5276` | Botões pressionados, splash screen background |
-| `primaryLight` | `#5dade2` | Hover/focus, dark mode primary |
-| `primarySurface` | `#eaf2f8` | Backgrounds suaves de bloco "informativo" |
-| **`secondary` / `success`** | `#27ae60` | Confirmações, "Pago", "Entregue" |
-| `secondarySurface` | `#e8f8f0` | Background de banners de sucesso |
-| **`accent` / `error`** | `#e74c3c` | Promoções (-X% OFF), erros, "Cancelar" |
-| `accentSurface` | `#fdedec` | Fundo de mensagens de erro suaves |
-| **`warning`** | `#f39c12` | Alertas, "Pendente", "Aguardando pagamento" |
-| `warningSurface` | `#fef9e7` | Fundo de avisos |
+| **`primary`** (verde-musgo `--ibix-action`) | `#5C6E4A` | Botões CTA, links de ação, "Pago", "Entregue", ícone do app |
+| `primaryDark` (`--ibix-action-hover`) | `#4E5F40` | Botões pressionados |
+| `primaryLight` | `#D9B48B` | Hover/focus suave (dourado) |
+| `primarySurface` | `#E6EDDF` | Backgrounds suaves de "Pago"/"Sucesso" |
+| **`accent`** (terracota `--ibix-hover`) | `#C47A44` | Hover, ativo, destaque, **focus-ring**, links inline |
+| `accentDark` | `#B16A38` | Pressed do accent |
+| `accentSurface` | `#FBE6DD` | Fundo de erros suaves |
+| **`premium`** (`--ibix-premium`) | `#D9B48B` | Detalhes mínimos (dourado suave) |
+| **`warning`** | `#C47A44` | Alertas, "Pendente", "Aguardando pagamento" (mesmo terracota) |
+| `warningSurface` | `#FBEDD9` | Fundo de avisos |
+| **`success`** | `#5C6E4A` | Mesmo verde-musgo do `primary` |
+| **`error`** | `#B5453A` | Erros, "Cancelar" |
 
 ### 6.2 Neutros e estados
 
 | Token | Light | Dark | Uso |
 |-------|-------|------|-----|
-| `background` | `#f5f5f5` | `#121212` | Fundo da tela |
-| `surface` | `#ffffff` | `#1e1e1e` | Cards, sheets, inputs |
-| `surfaceVariant` | `#fafafa` | `#2c2c2c` | Chips, faixas alternadas |
-| `textPrimary` | `#212121` | `#e0e0e0` | Texto principal |
-| `textSecondary` | `#757575` | `#a0a0a0` | Texto auxiliar |
-| `textDisabled` | `#bdbdbd` | `#666666` | Placeholders, desabilitado |
-| `textInverse` | `#ffffff` | `#212121` | Texto sobre cor primária |
-| `textLink` | `#2980b9` | (igual primary) | Links inline |
-| `border` | `#e0e0e0` | `#333333` | Bordas de inputs/cards |
-| `divider` | `#eeeeee` | `#2a2a2a` | Separadores horizontais |
-| `overlay` | `rgba(0,0,0,0.5)` | `rgba(0,0,0,0.7)` | Backdrop de modais |
+| `background` (`--ibix-bg`) | `#FEF7F1` | `#1B1F22` | Fundo da tela (off-white) |
+| `surface` | `#FFFFFF` | `#262B30` | Cards, sheets, inputs |
+| `surfaceVariant` | `#F5EDE3` | `#30363B` | Chips, faixas alternadas |
+| `textPrimary` (`--ibix-text-strong`) | `#2F3A44` | `#ECE4D9` | Headings (azul-ardósia escuro) |
+| `textSecondary` (`--ibix-text`) | `#4A627A` | `#C7C0B5` | Texto base (azul-ardósia) |
+| `textSoft` | `#3B5166` | `#A9A296` | Variante intermediária |
+| `textDisabled` | `rgba(47,58,68,0.45)` | `rgba(236,228,217,0.45)` | Desabilitado |
+| `textInverse` | `#FFFFFF` | `#2F3A44` | Texto sobre `primary` |
+| `textLink` | `#C47A44` | `#D9B48B` | Links inline (terracota) |
+| `border` (`--ibix-border`) | `rgba(47,58,68,0.14)` | `rgba(236,228,217,0.16)` | Bordas |
+| `divider` | `rgba(47,58,68,0.08)` | `rgba(236,228,217,0.10)` | Separadores |
+| `overlay` | `rgba(47,58,68,0.55)` | `rgba(0,0,0,0.65)` | Backdrop |
+| `focusRing` | `#C47A44` | `#D9B48B` | Outline accessível (paridade `loja-header *:focus-visible`) |
 
 > **Status PIX:** `warning` (pendente) → `success` (pago) → `error` (recusado/expirado).
-> **Tab bar:** ativo `primary`, inativo `gray500`.
+> **Tab bar:** ativo `primary` (verde-musgo), inativo `textSecondary`.
 
-### 6.3 Tipografia (família **Inter**, em `assets/fonts/`)
+### 6.3 Tipografia: **Poppins** (paridade com `loja.css:1394`)
+
+Carregada via `@expo-google-fonts/poppins` em `_layout.tsx` (sem arquivos físicos em `assets/fonts/`).
 
 | Variante | Peso/Tamanho | Uso |
 |----------|--------------|-----|
 | `h1` | Bold 36 / 44 | Tela "ops, deu erro", onboarding |
 | `h2` | Bold 30 / 38 | Headers de fluxos críticos (checkout) |
-| `h3` | Bold 24 / 32 | Títulos de tela ("Ibix Market", "Meus Pedidos") |
+| `h3` | Bold 24 / 32 | Títulos de tela ("Meus Pedidos", "Carrinho") |
 | `h4` | SemiBold 20 / 28 | Seções, modais |
 | `subtitle1` | SemiBold 17 / 24 | Nome de produto, item de menu |
 | `subtitle2` | Medium 15 / 22 | Subtítulos secundários |
@@ -238,33 +270,71 @@ mobile_marketplace/
 
 Padding padrão de tela: `paddingHorizontal: spacing.lg` (16px). Gap entre cards de produto: `spacing.sm` (8px).
 
-### 6.5 Border radius
+### 6.5 Border radius (paridade com `loja.css`)
 
 ```
-sm=4 · md=8 · lg=12 · xl=16 · 2xl=20 · full=999 (pílula)
+sm=8 · md=10 · lg=14 · xl=18 · 2xl=22 · full=999 (pílula)
 ```
 
-- Cards de produto: `lg` (12)
-- Bottom sheets: `2xl` (20) no topo
-- Chips e tags: `full`
-- Botões grandes: `lg`; botões pequenos: `md`
+- **`sm` (8)** → botões e chips (`btn-primary`, `loja.css:79`)
+- **`md` (10)** → inputs e search bar (`loja-search-form`, `loja.css:137`)
+- **`lg` (14)** → cards e blocos de seção (`loja-section-block`, `loja.css:175`)
+- **`xl` (18)** → bottom sheets
+- **`full`** → chips arredondados, badges
 
-### 6.6 Ícones
+### 6.6 Focus-ring acessível (paridade com `loja.css:111-113`)
+
+```
+outline: 2px solid #C47A44; outline-offset: 2px
+```
+
+No app: token `focusRing = { width: 2, offset: 2 }` + `colors.focusRing` aplicado em `Pressable`/`TouchableOpacity` no estado `accessibilityState.focused` ou `pressed`.
+
+### 6.7 Ícones
 
 `components/ui/Icon.tsx` é um **SVG inline** (paths em `PATHS`). Para adicionar um ícone novo, edite `PATHS` (não use libs externas como `lucide-react-native` para manter o bundle pequeno e visual consistente).
 
 Tamanhos padrão: `iconSize = { xs:16, sm:20, md:24, lg:28, xl:32 }`.
 
-### 6.7 Sombras
+### 6.8 Sombras (paridade com `loja.css`)
 
-Use `shadow('sm' | 'md' | 'lg')` do tema. **Não escreva sombra inline** — perde paridade entre iOS e Android.
+| Nível | Equivalente vitrine | Uso |
+|-------|---------------------|-----|
+| `shadow('sm')` | `--loja-shadow-sm` (`0 1px 3px rgba(0,0,0,0.06)`) | Cards de produto |
+| `shadow('md')` | `--loja-shadow-block` (`0 4px 12px rgba(0,0,0,0.08)`) | Blocos de seção, bottom bars |
+| `shadow('lg')` | `--loja-shadow-hero` (`0 8px 24px rgba(0,0,0,0.10)`) | Hero/destaques |
 
-### 6.8 Splash e ícones do app
+**Não escreva sombra inline** — perde paridade entre iOS e Android.
 
-- Splash background: `#2980b9` (primary)
-- Ícone do app: `assets/images/icon.png` (1024×1024 com fundo)
-- Adaptive icon Android: `assets/images/adaptive-icon.png` + background `#2980b9`
-- Notification icon: `assets/images/notification-icon.png` + tint `#2980b9`
+### 6.9 Brand assets — logo Ibix Market
+
+Os logos vivem em `assets/brand/` e são **cópia bit-a-bit** da vitrine web:
+
+| Arquivo | Origem (vitrine) | Uso |
+|---------|------------------|-----|
+| `cab.png` | `app/static/img/ibix/cab.png` | Logo do header (`<BrandLogo>`) |
+| `rodape.png` | `app/static/img/ibix/rodape.png` | Variante para fundos escuros |
+| `logoSfundo.png` | `app/static/img/landing/logoSfundo.png` | Logo institucional → fonte do `icon.png` |
+
+**Como usar:** importe `<BrandLogo>` de `components/common/BrandLogo.tsx`. Esse é o ÚNICO ponto de renderização do logo. **Nunca** use texto "Ibix Market" como brand visível.
+
+```tsx
+import { BrandLogo } from '@/components/common/BrandLogo';
+// no header:
+<BrandLogo height={36} />
+// em fundo escuro:
+<BrandLogo height={28} variant="footer" />
+```
+
+**Quando a vitrine atualizar `cab.png`,** copiar o novo arquivo para `assets/brand/cab.png` no mesmo PR. Nunca edite o logo no Figma/PS local — sempre puxe da vitrine.
+
+### 6.10 Splash e ícones do app
+
+- **Splash background:** `#FEF7F1` (off-white, paridade com `theme-color` da vitrine — `base_loja.html:14`)
+- **Splash image:** `assets/images/splash-icon.png` (gerado a partir de `cab.png`)
+- **Ícone do app:** `assets/images/icon.png` (1024×1024, gerado a partir de `logoSfundo.png` sobre fundo `#FEF7F1`)
+- **Adaptive icon Android:** foreground monocromático verde-musgo (`#5C6E4A`) sobre background `#FEF7F1` (configurado em `app.json`)
+- **Notification icon Android:** silhueta branca em `notification-icon.png` (192×192) com tint `#5C6E4A` aplicado pelo plugin `expo-notifications`
 
 ---
 
@@ -349,6 +419,18 @@ Estas regras vêm de `../.cursor/skills/saas-golden-rules/SKILL.md` (multi-tenan
    - Imagens → `expo-image` com `recyclingKey` e `transition`.
    - Funções de render em `useCallback`/`useMemo` quando passadas para componentes filhos.
 10. **Testes manuais antes de commit.** Sempre verificar pelo menos 1 fluxo Android (emulador ou device) e, se em macOS, 1 iOS.
+
+### 8.1 Identidade visual = vitrine web (REGRA CRÍTICA)
+
+O app DEVE seguir 100% a identidade visual da vitrine pública.
+
+- **Fonte canônica de cores, tipografia e radii:** `app/static/css/loja.css` (tokens `--ibix-*`).
+- **Fonte canônica do logo:** `app/static/img/ibix/cab.png` (header) e `app/static/img/landing/logoSfundo.png` (institucional).
+- **Mudanças visuais começam pela vitrine.** O app NUNCA introduz uma cor, fonte ou logo que não exista na vitrine. Se algo precisa mudar visualmente, o time muda primeiro em `loja.css`/`base_loja.html`, e o app espelha em seguida.
+- **Brand assets são copiados bit-a-bit** de `app/static/img/ibix/*` para `mobile_marketplace/assets/brand/`. NUNCA recriar o logo no Figma/PS local.
+- **Logo nunca é texto.** O componente `<BrandLogo>` (`components/common/BrandLogo.tsx`) é o único ponto de renderização. Onde antes havia "Ibix Market" como texto (header da home, login), agora aparece o logo gráfico.
+- **Display name nas lojas é `Ibix`** (curto). Brand visível dentro do app é `Ibix Market` (logo). Os dois coexistem por design — não tente unificar.
+- **Painel admin (PDV) tem identidade própria** (azul institucional do `base.html`). Não misture as duas — o PDV é para lojistas, o app é para consumidor final.
 
 ### Padrões de código
 - TypeScript estrito (`tsc --noEmit` deve passar).
@@ -442,7 +524,6 @@ npx eas submit --platform android
 
 ## 13. Referências cruzadas
 
-- **Repositórios GitHub (monorepo vs app só-mobile):** `../MAPA_SISTEMA/REPOSITORIOS_GITHUB.md`
 - **Plano completo do app:** `../MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md`
 - **Sistema completo (PDV + marketplace):** `../MAPA_SISTEMA/MAPA_DO_SISTEMA.md`
 - **APIs do backend:** `../MAPA_SISTEMA/MAPA_DE_API.md`
@@ -454,5 +535,5 @@ npx eas submit --platform android
 ---
 
 **Última atualização:** 2026-04-27
-**Maintainer:** Time PDV Ibix
-**Bug reports / sugestões:** preferencialmente no monorepo remoto `ibix_market` (ver `REPOSITORIOS_GITHUB.md`); app mobile espelhado em `IBIX_mobile`.
+**Maintainer:** Time Ibix Market  
+**Bug reports / sugestões:** issues em [`github.com/jkhons/IBIX_mobile`](https://github.com/jkhons/IBIX_mobile).

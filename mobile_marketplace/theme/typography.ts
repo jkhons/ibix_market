@@ -1,10 +1,14 @@
 import { TextStyle } from 'react-native';
 
+/**
+ * Tipografia Ibix Market — Poppins, espelho da vitrine web (`loja.css:1394`).
+ * Pesos disponíveis: 400 (Regular), 500 (Medium), 600 (SemiBold), 700 (Bold).
+ */
 export const fontFamily = {
-  regular: 'Inter_400Regular',
-  medium: 'Inter_500Medium',
-  semiBold: 'Inter_600SemiBold',
-  bold: 'Inter_700Bold',
+  regular: 'Poppins_400Regular',
+  medium: 'Poppins_500Medium',
+  semiBold: 'Poppins_600SemiBold',
+  bold: 'Poppins_700Bold',
 };
 
 export const fontSize = {

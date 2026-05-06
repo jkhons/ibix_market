@@ -13,7 +13,6 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
-import * as Haptics from 'expo-haptics';
 import GorhomBottomSheet from '@gorhom/bottom-sheet';
 
 import { Text, Button, PriceTag, Skeleton, Card, Icon, Divider, Input, Badge } from '@/components/ui';
@@ -26,9 +25,10 @@ import { useAuthStore } from '@/store/authStore';
 import catalogService, { type Installment } from '@/services/catalogService';
 import favoriteService from '@/services/favoriteService';
 import { api } from '@/services/api';
-import { QUERY_KEYS } from '@/constants/config';
+import { QUERY_KEYS, resolveRemoteAssetUrl } from '@/constants/config';
 import { formatCurrency, calculateDiscount } from '@/utils/format';
 import ENV from '@/constants/config';
+import { impactLight, notifySuccess } from '@/utils/haptics';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -99,7 +99,7 @@ export default function ProductDetailScreen() {
 
   const handleAddToCart = useCallback(() => {
     if (!product) return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notifySuccess();
     addItem({
       productId: product.id,
       name: product.nome,
@@ -126,7 +126,7 @@ export default function ProductDetailScreen() {
       router.push('/(auth)');
       return;
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     setIsFavorite((prev) => !prev);
     try {
       if (isFavorite) {
@@ -199,6 +199,7 @@ export default function ProductDetailScreen() {
   }
 
   const images = product.imagens ?? [];
+  const lojaLogoUri = resolveRemoteAssetUrl(product.loja?.logo_url);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -217,9 +218,14 @@ export default function ProductDetailScreen() {
               setGalleryIndex(idx);
             }}
             keyExtractor={(_, i) => String(i)}
-            renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={{ width, height: width }} contentFit="cover" transition={200} />
-            )}
+            renderItem={({ item }) => {
+              const uri = resolveRemoteAssetUrl(item);
+              return uri ? (
+                <Image source={{ uri }} style={{ width, height: width }} contentFit="cover" transition={200} />
+              ) : (
+                <View style={{ width, height: width, backgroundColor: colors.surfaceVariant }} />
+              );
+            }}
             ListEmptyComponent={
               <View style={{ width, height: width, backgroundColor: colors.surfaceVariant, alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="cart" size={48} color={colors.textDisabled} />
@@ -366,9 +372,9 @@ export default function ProductDetailScreen() {
             style={[styles.lojaCard, { marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: br.lg, ...shadow('sm') }]}
             accessibilityLabel={`Loja ${product.loja.nome}`}
           >
-            {product.loja.logo_url && (
+            {lojaLogoUri && (
               <Image
-                source={{ uri: product.loja.logo_url }}
+                source={{ uri: lojaLogoUri }}
                 style={{ width: 48, height: 48, borderRadius: 24 }}
                 contentFit="cover"
               />

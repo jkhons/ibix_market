@@ -10,6 +10,7 @@ import { useCartStore, CartItem } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { formatCurrency } from '@/utils/format';
 import type { CouponValidation } from '@/services/couponService';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 interface CartSection {
   lojaId: number;
@@ -20,11 +21,12 @@ interface CartSection {
 function CartItemRow({ item }: { item: CartItem }) {
   const { colors, spacing, borderRadius: br } = useTheme();
   const { updateQuantity, removeItem } = useCartStore();
+  const thumbUri = resolveRemoteAssetUrl(item.imageUrl);
 
   return (
     <View style={[styles.itemRow, { paddingVertical: spacing.md }]}>
-      {item.imageUrl && (
-        <Image source={{ uri: item.imageUrl }} style={[styles.thumb, { borderRadius: br.md }]} contentFit="cover" />
+      {thumbUri && (
+        <Image source={{ uri: thumbUri }} style={[styles.thumb, { borderRadius: br.md }]} contentFit="cover" />
       )}
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         <Text variant="body1" color={colors.textPrimary} numberOfLines={2}>
@@ -163,7 +165,7 @@ export default function CarrinhoScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={[styles.bottomBar, { backgroundColor: colors.surface, paddingBottom: insets.bottom + spacing.sm, ...shadow('md') }]}>
+      <View style={[styles.bottomBar, { backgroundColor: colors.surface, borderTopColor: colors.divider, paddingBottom: insets.bottom + spacing.sm, ...shadow('md') }]}>
         <View style={styles.priceRows}>
           <View style={styles.totalRow}>
             <Text variant="body2" color={colors.textSecondary}>Subtotal</Text>
@@ -217,7 +219,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#eee',
   },
   priceRows: {
     gap: 4,

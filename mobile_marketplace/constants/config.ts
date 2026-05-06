@@ -1,10 +1,65 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
 
 const extra = Constants.expoConfig?.extra ?? {};
 
+/** Padrão alinha com testers (API pública). Para backend local, defina EXPO_PUBLIC_* no `.env`. */
+const rawApiBaseUrl =
+  extra.API_BASE_URL ??
+  process.env.EXPO_PUBLIC_API_BASE_URL ??
+  'https://www.ibix.com.br/api/v1';
+
+/**
+ * Origem do site (sem `/api/v1`) para resolver paths relativos `/static/...` da API.
+ * No Web dev o app roda em localhost mas as imagens ficam no domínio público — sem isso o browser pede `localhost/static/...` e falha.
+ */
+function derivePublicSiteOrigin(rawApiBase: string): string {
+  const b = rawApiBase.trim().replace(/\/+$/, '');
+  if (/^https?:\/\//i.test(b)) {
+    const lower = b.toLowerCase();
+    const marker = '/api/v1';
+    const idx = lower.lastIndexOf(marker);
+    if (idx !== -1 && idx + marker.length === lower.length) {
+      return b.slice(0, idx).replace(/\/+$/, '') || b;
+    }
+    return b;
+  }
+  const envOrigin =
+    (typeof process.env.EXPO_PUBLIC_ASSET_ORIGIN === 'string' && process.env.EXPO_PUBLIC_ASSET_ORIGIN.trim()) ||
+    (typeof extra.ASSET_ORIGIN === 'string' && extra.ASSET_ORIGIN.trim());
+  if (envOrigin) return envOrigin.replace(/\/+$/, '');
+  return 'https://www.ibix.com.br';
+}
+
+/** Base absoluta para mídias relativas retornadas pela API (ex.: `/static/uploads/...`). */
+export const PUBLIC_SITE_ORIGIN = derivePublicSiteOrigin(rawApiBaseUrl);
+
+/** Converte URI da API em URL absoluta utilizável no browser e nos builds nativos. */
+export function resolveRemoteAssetUrl(uri: string | null | undefined): string | undefined {
+  if (uri == null || typeof uri !== 'string') return undefined;
+  const u = uri.trim();
+  if (!u) return undefined;
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith('//')) return `https:${u}`;
+  const path = u.startsWith('/') ? u : `/${u}`;
+  return `${PUBLIC_SITE_ORIGIN}${path}`;
+}
+
+const rawWsBaseUrl =
+  extra.WS_BASE_URL ?? process.env.EXPO_PUBLIC_WS_BASE_URL ?? 'wss://api.ibix.com.br';
+
+/**
+ * Web dev (browser) sofre CORS ao chamar `https://www.ibix.com.br/api/v1` direto.
+ * Em dev, preferimos proxy no Metro: `/<prefix>/api/v1` no mesmo origin do dev server.
+ *
+ * Para desativar explicitamente: EXPO_PUBLIC_DISABLE_WEB_PROXY=true
+ */
+const useWebProxy =
+  __DEV__ && Platform.OS === 'web' && process.env.EXPO_PUBLIC_DISABLE_WEB_PROXY !== 'true';
+
 const ENV = {
-  API_BASE_URL: extra.API_BASE_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8000/api/v1',
-  WS_BASE_URL: extra.WS_BASE_URL ?? process.env.EXPO_PUBLIC_WS_BASE_URL ?? 'ws://localhost:8000',
+  API_BASE_URL: useWebProxy ? '/__ibix_api/api/v1' : rawApiBaseUrl,
+  WS_BASE_URL: rawWsBaseUrl,
   SENTRY_DSN: extra.SENTRY_DSN ?? process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
   GOOGLE_WEB_CLIENT_ID: extra.GOOGLE_WEB_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
   GOOGLE_IOS_CLIENT_ID: extra.GOOGLE_IOS_CLIENT_ID ?? process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '',

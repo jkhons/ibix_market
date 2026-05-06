@@ -2,11 +2,12 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import { Text, Badge } from '@/components/ui';
+import { impactLight } from '@/utils/haptics';
 import { useTheme } from '@/hooks/useTheme';
 import { formatCurrency, calculateDiscount } from '@/utils/format';
 import type { ProductSummary } from '@/services/catalogService';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 interface ProductCardProps {
   product: ProductSummary;
@@ -23,6 +24,8 @@ export function ProductCard({ product, onFavoriteToggle, isFavorite, columns = 2
   const cardWidth = (width - spacing.lg * 2 - spacing.sm * (columns - 1)) / columns;
   const imageHeight = cardWidth * 1.1;
 
+  const primaryImageUri = resolveRemoteAssetUrl(product.imagens?.[0]);
+
   const hasDiscount = product.preco_promocional && product.preco_promocional < product.preco;
   const displayPrice = product.preco_promocional ?? product.preco;
   const discount = hasDiscount ? calculateDiscount(product.preco, product.preco_promocional!) : 0;
@@ -32,7 +35,7 @@ export function ProductCard({ product, onFavoriteToggle, isFavorite, columns = 2
   }, [product.id]);
 
   const handleFavorite = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    impactLight();
     onFavoriteToggle?.(product.id);
   }, [product.id, onFavoriteToggle]);
 
@@ -44,9 +47,9 @@ export function ProductCard({ product, onFavoriteToggle, isFavorite, columns = 2
       style={[styles.card, { width: cardWidth, backgroundColor: colors.surface, borderRadius: br.lg, ...shadow('sm') }]}
     >
       <View style={[styles.imageContainer, { height: imageHeight, borderTopLeftRadius: br.lg, borderTopRightRadius: br.lg }]}>
-        {product.imagens?.[0] ? (
+        {primaryImageUri ? (
           <Image
-            source={{ uri: product.imagens[0] }}
+            source={{ uri: primaryImageUri }}
             style={StyleSheet.absoluteFill}
             contentFit="cover"
             transition={200}

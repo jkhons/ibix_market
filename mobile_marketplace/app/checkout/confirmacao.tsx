@@ -2,14 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, ScrollView, Linking } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Haptics from 'expo-haptics';
-
 import { Text, Button, Icon } from '@/components/ui';
 import { PixPayment } from '@/components/checkout';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import checkoutService from '@/services/checkoutService';
 import { formatCurrency } from '@/utils/format';
+import { notifySuccess } from '@/utils/haptics';
 
 type ConfirmationState =
   | 'loading'
@@ -64,7 +63,7 @@ export default function CheckoutConfirmacaoScreen() {
 
     if (APPROVED_STATUSES.has(statusPagamentoInicial)) {
       setState('approved');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      notifySuccess();
       return;
     }
 
@@ -101,7 +100,7 @@ export default function CheckoutConfirmacaoScreen() {
         if (APPROVED_STATUSES.has(status.status_pagamento)) {
           if (pollRef.current) clearInterval(pollRef.current);
           setState('approved');
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          notifySuccess();
         } else if (FAILED_STATUSES.has(status.status_pagamento) || FAILED_STATUSES.has(status.status_pedido)) {
           if (pollRef.current) clearInterval(pollRef.current);
           setState('failed');

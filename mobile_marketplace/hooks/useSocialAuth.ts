@@ -13,6 +13,10 @@ import ENV from '@/constants/config';
 
 WebBrowser.maybeCompleteAuthSession();
 
+/** IDs fictícios só para manter `Google.useIdTokenAuthRequest` estável (Regras dos Hooks) até os IDs reais existirem. */
+const GOOGLE_OAUTH_CLIENT_PLACEHOLDER =
+  '000000000000-placeholder.invalid.apps.googleusercontent.com';
+
 export type SocialAuthOutcome =
   | { status: 'authenticated' }
   | { status: 'pending_link'; linkToken: string; requiresPassword?: boolean }
@@ -47,10 +51,32 @@ export function useSocialAuth() {
     [configQuery.data],
   );
 
+  /**
+   * UI/API realmente disponível (botão Google) — depende dos IDs reais.
+   * Os hooks do Google **sempre** rodam (mesma ordem entre renders); placeholders evitam crash Web quando o ID ainda não carregou.
+   */
+  const googleReady =
+    Platform.OS === 'web'
+      ? !!googleClientIds.webClientId
+      : !!(googleClientIds.androidClientId || googleClientIds.iosClientId || googleClientIds.webClientId);
+
+  const googleHookConfig = useMemo(
+    () => ({
+      webClientId: googleClientIds.webClientId ?? GOOGLE_OAUTH_CLIENT_PLACEHOLDER,
+      iosClientId: googleClientIds.iosClientId ?? GOOGLE_OAUTH_CLIENT_PLACEHOLDER,
+      androidClientId: googleClientIds.androidClientId ?? GOOGLE_OAUTH_CLIENT_PLACEHOLDER,
+    }),
+    [
+      googleClientIds.androidClientId,
+      googleClientIds.iosClientId,
+      googleClientIds.webClientId,
+    ],
+  );
+
   const [, googleResponse, googlePromptAsync] = Google.useIdTokenAuthRequest({
-    clientId: googleClientIds.webClientId,
-    iosClientId: googleClientIds.iosClientId,
-    androidClientId: googleClientIds.androidClientId,
+    clientId: googleHookConfig.webClientId,
+    iosClientId: googleHookConfig.iosClientId,
+    androidClientId: googleHookConfig.androidClientId,
     selectAccount: true,
   });
 
@@ -123,7 +149,7 @@ export function useSocialAuth() {
   }, []);
 
   const signInWithGoogle = useCallback(async (): Promise<SocialAuthOutcome> => {
-    if (!googleClientIds.webClientId && !googleClientIds.androidClientId && !googleClientIds.iosClientId) {
+    if (!googleReady) {
       return { status: 'unsupported' };
     }
     return new Promise<SocialAuthOutcome>((resolve) => {
@@ -133,7 +159,7 @@ export function useSocialAuth() {
         resolve({ status: 'error', message: String(err) });
       });
     });
-  }, [googleClientIds, googlePromptAsync]);
+  }, [googleReady, googlePromptAsync]);
 
   const signInWithFacebook = useCallback(async (): Promise<SocialAuthOutcome> => {
     if (!configQuery.data?.facebook_app_id) {
@@ -179,11 +205,7 @@ export function useSocialAuth() {
   return {
     config: configQuery.data,
     isConfigLoading: configQuery.isLoading,
-    googleAvailable: !!(
-      googleClientIds.webClientId ||
-      googleClientIds.androidClientId ||
-      googleClientIds.iosClientId
-    ),
+    googleAvailable: googleReady,
     facebookAvailable: !!configQuery.data?.facebook_app_id,
     appleAvailable: Platform.OS === 'ios' && appleAvailable,
     signInWithGoogle,

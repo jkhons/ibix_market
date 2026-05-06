@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { Text } from './Text';
+import { impactLight } from '@/utils/haptics';
 import { useTheme } from '@/hooks/useTheme';
 
 interface QuantitySelectorProps {
@@ -30,7 +30,7 @@ export function QuantitySelector({
   const handleChange = (delta: number) => {
     const next = value + delta;
     if (next >= min && next <= max) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      impactLight();
       onChange(next);
     }
   };

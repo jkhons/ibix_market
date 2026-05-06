@@ -7,8 +7,8 @@ import {
   TextStyle,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { Text } from './Text';
+import { impactLight } from '@/utils/haptics';
 import { useTheme } from '@/hooks/useTheme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
@@ -92,9 +92,7 @@ export function Button({
   const isDisabled = disabled || loading;
 
   const handlePress = () => {
-    if (haptic) {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    if (haptic) impactLight();
     onPress();
   };
 

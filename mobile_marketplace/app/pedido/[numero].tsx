@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { Text, Card, Divider, StatusBadge, Skeleton, Button, EmptyState, Icon } from '@/components/ui';
 import { useTheme } from '@/hooks/useTheme';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import orderService from '@/services/orderService';
 import { extractApiError } from '@/services/api';
 import { QUERY_KEYS } from '@/constants/config';
@@ -37,6 +38,29 @@ export default function PedidoDetalheScreen() {
     queryFn: () => orderService.getMyOrder(String(numero)),
     enabled: !!numero,
   });
+
+  const onWsMessage = useCallback(
+    (msg: any) => {
+      const type = msg?.type;
+      const data = msg?.data || {};
+      if (!type) return;
+      if (type === 'pedido.status_alterado') {
+        // Se o evento for de outro pedido, ignorar (quando tivermos o id em cache).
+        const currentId = orderQuery.data?.id;
+        if (currentId && data?.pedido_id && Number(data.pedido_id) !== Number(currentId)) return;
+        orderQuery.refetch();
+        return;
+      }
+      if (type === 'entrega.status_alterado') {
+        const currentId = orderQuery.data?.id;
+        if (currentId && data?.pedido_id && Number(data.pedido_id) !== Number(currentId)) return;
+        orderQuery.refetch();
+      }
+    },
+    [orderQuery],
+  );
+
+  useWebSocket('/ws/loja/consumidor', onWsMessage, { autoConnect: true });
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
