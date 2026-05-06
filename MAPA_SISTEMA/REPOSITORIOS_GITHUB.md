@@ -13,6 +13,22 @@ Scripts na raiz do projeto (executar no VPS **depois** de configurar SSH para `g
 
 Variáveis opcionais: `IBIX_MOBILE_SSH`, `IBIX_MOBILE_BRANCH`, `IBIX_MOBILE_PUSH_BRANCH`.
 
+### Fingerprints SSH (duas coisas diferentes)
+
+1. **Host key de `github.com` (servidor)** — aparece na primeira conexão SSH (`git clone`, `ssh -T git@github.com`). Deve bater **exatamente** com a lista oficial do GitHub: [SSH key fingerprints](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints). Neste ambiente, `ssh-keyscan github.com` combinou com:
+
+   | Algoritmo | SHA256 |
+   |-----------|--------|
+   | ED25519 | `+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU` |
+   | ECDSA | `p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM` |
+   | RSA | `uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s` |
+
+   Para fixar sem prompt interativo, use as linhas `github.com ssh-ed25519 …` (e opcionalmente ECDSA/RSA) da própria página oficial no `~/.ssh/known_hosts`.
+
+2. **Fingerprint da *sua* chave (deploy key / conta)** — o GitHub mostra um SHA256 para cada chave **que você cadastrou**. Isso **não** é o mesmo que o fingerprint do host acima. Exemplo anotado pela equipe para o fluxo mobile: `SHA256:JaGjE4hLZJc0nFjv2LScAd/0FoABWfN5nCEA5fAChuk` — trate como identificador da **chave permitida no repo** `IBIX_mobile`; confira no GitHub em **Settings → Deploy keys** ou **SSH keys** se bate com a chave `.pub` local (`ssh-keygen -lf ~/.ssh/sua_chave.pub`).
+
+Se ao conectar em **`github.com`** aparecer um SHA256 que **não** está na tabela oficial do item 1, **não aceite** até investigar (host errado, typo ou interceptação).
+
 ## Tabela de referência
 
 | Repositório | HTTPS | SSH | Escopo no disco |
@@ -144,4 +160,4 @@ flowchart LR
 
 ---
 
-**Última atualização:** 2026-05-06
+**Última atualização:** 2026-05-06 — fingerprints de host conferidos com `ssh-keyscan` / doc oficial GitHub.
