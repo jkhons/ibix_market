@@ -442,6 +442,7 @@ npx eas submit --platform android
 
 ## 13. Referências cruzadas
 
+- **Repositórios GitHub (monorepo vs app só-mobile):** `../MAPA_SISTEMA/REPOSITORIOS_GITHUB.md`
 - **Plano completo do app:** `../MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md`
 - **Sistema completo (PDV + marketplace):** `../MAPA_SISTEMA/MAPA_DO_SISTEMA.md`
 - **APIs do backend:** `../MAPA_SISTEMA/MAPA_DE_API.md`
@@ -454,4 +455,4 @@ npx eas submit --platform android
 
 **Última atualização:** 2026-04-27
 **Maintainer:** Time PDV Ibix
-**Bug reports / sugestões:** abrir issue no repositório do monorepo `central_solumatica/pdv_solumatica`.
+**Bug reports / sugestões:** preferencialmente no monorepo remoto `ibix_market` (ver `REPOSITORIOS_GITHUB.md`); app mobile espelhado em `IBIX_mobile`.
