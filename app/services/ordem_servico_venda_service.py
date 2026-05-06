@@ -17,8 +17,10 @@ def criar_venda_a_partir_da_os(
     usuario_id: int,
 ) -> Venda:
     """
-    Cria uma Venda a partir de uma OS concluída (Enviar para vendas).
-    Valida: status concluida, sem venda já vinculada, todos os itens com produto_cliente_id.
+    Cria uma Venda a partir de uma OS concluída (Enviar para vendas / Finalizar venda).
+    Valida: status concluida, sem venda já vinculada, pelo menos um item na OS.
+    Itens sem produto_cliente_id viram linhas de venda apenas com descrição em observacoes
+    (nome/código da OS), para peças e serviços digitados na ordem.
     Vincula nota_servico (rascunho NFS-e da OS) se existir.
     """
     ordem = (
@@ -51,12 +53,6 @@ def criar_venda_a_partir_da_os(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="A ordem de serviço não possui itens para enviar para vendas.",
         )
-    for item in itens:
-        if not getattr(item, "produto_cliente_id", None):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Todos os itens da ordem de serviço devem ter um produto (produto_cliente_id) vinculado para enviar para vendas.",
-            )
 
     # NFS-e rascunho vinculada à OS (criada ao concluir a OS); filtrar por ordem_servico_id e status em Python para evitar envio de enum em maiúsculo ao PostgreSQL
     notas_da_os = (
@@ -74,6 +70,10 @@ def criar_venda_a_partir_da_os(
     data_venda = datetime.now()
     numero_venda = gerar_numero_venda(db)
 
+    header_obs = f"Pedido {numero_venda} — Origem OS {ordem.codigo}"
+    corpo_os = (ordem.observacoes or "").strip()
+    observacoes_venda = f"{header_obs}\n\n{corpo_os}" if corpo_os else header_obs
+
     venda = Venda(
         numero_venda=numero_venda,
         data_venda=data_venda,
@@ -87,7 +87,7 @@ def criar_venda_a_partir_da_os(
         tipo_pagamento=None,
         valor_pago=Decimal("0"),
         troco=Decimal("0"),
-        observacoes=ordem.observacoes or None,
+        observacoes=observacoes_venda,
         ordem_servico_id=ordem_id,
         nota_servico_id=nota_servico_id,
     )
@@ -99,14 +99,26 @@ def criar_venda_a_partir_da_os(
         quantidade = Decimal(str(getattr(item_os, "quantidade") or 0))
         valor_unitario = Decimal(str(getattr(item_os, "valor_unitario") or 0))
         desconto_item = Decimal(str(getattr(item_os, "desconto") or 0))
+        obs_orig = getattr(item_os, "observacao", None)
+        pc_id = getattr(item_os, "produto_cliente_id", None)
+        if pc_id:
+            obs_linha = obs_orig
+        else:
+            partes = []
+            if getattr(item_os, "codigo", None):
+                partes.append(str(item_os.codigo).strip())
+            if getattr(item_os, "nome", None):
+                partes.append(str(item_os.nome).strip())
+            desc = " — ".join(partes) if partes else "Peça/serviço (ordem de serviço)"
+            obs_linha = f"{desc} | {obs_orig}" if obs_orig else desc
         item_venda = VendaItem(
             venda_id=venda.id,
-            produto_cliente_id=item_os.produto_cliente_id,
+            produto_cliente_id=pc_id,
             quantidade=quantidade,
             valor_unitario=valor_unitario,
             valor_total=valor_total,
             desconto_item=desconto_item,
-            observacoes=getattr(item_os, "observacao", None),
+            observacoes=obs_linha,
         )
         db.add(item_venda)
 

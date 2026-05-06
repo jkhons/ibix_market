@@ -68,9 +68,13 @@ class OrcamentoResponse(BaseModel):
     observacoes: Optional[str] = None
     condicoes_pagamento: Optional[str] = None
     convertido_em_pedido_id: Optional[int] = None
+    convertido_em_ordem_servico_id: Optional[int] = None
+    convertido_em_venda_id: Optional[int] = None
     data_conversao: Optional[datetime] = None
     created_at: datetime
     itens: List[OrcamentoItemResponse] = []
+    cliente_nome: Optional[str] = None
+    destinatario_nome: Optional[str] = None
 
 
 class OrcamentoListResponse(BaseModel):
@@ -83,9 +87,18 @@ class OrcamentoListResponse(BaseModel):
     status: str
     total: Optional[Decimal] = None
     convertido_em_pedido_id: Optional[int] = None
+    convertido_em_ordem_servico_id: Optional[int] = None
+    convertido_em_venda_id: Optional[int] = None
     created_at: datetime
+    cliente_nome: Optional[str] = None
+    destinatario_nome: Optional[str] = None
 
 
 class OrcamentoConverterRequest(BaseModel):
     """Body para conversão orçamento → pedido."""
     reservar_estoque: bool = Field(False, description="Se true, reserva estoque ao criar o pedido")
+
+
+class OrcamentoConverterOsRequest(BaseModel):
+    """Body para conversão orçamento → ordem de serviço."""
+    tipo_id: int = Field(..., description="ID do tipo de ordem de serviço (obrigatório)")

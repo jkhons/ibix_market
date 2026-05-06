@@ -48,8 +48,8 @@ def gerar_pdf_orcamento(dados: dict) -> bytes:
     <body style="font-family: sans-serif; padding: 20px;">
         <h1>Orçamento {dados.get('numero_orcamento') or ''}</h1>
         <p>Validade: {_fmt_date(dados.get('data_validade'))} | Status: {dados.get('status') or ''}</p>
-        <p>Estabelecimento: {dados.get('cliente_nome') or ''}</p>
-        <p>Destinatário: {dados.get('destinatario_nome') or '-'}</p>
+        <p>{dados.get('titulo_unidade') or 'Unidade (estabelecimento)'}: {dados.get('cliente_nome') or ''}</p>
+        <p>{dados.get('titulo_consumidor') or 'Consumidor'}: {dados.get('destinatario_nome') or '-'}</p>
         <table style="width:100%; border-collapse: collapse; margin-top: 16px;">
             <thead>
                 <tr style="background: #eee;">

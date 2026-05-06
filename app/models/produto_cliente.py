@@ -1,5 +1,6 @@
 # PDV Ibix - Modelo Produto por Estabelecimento (Fase 2)
-"""Catálogo de produtos por estabelecimento (cliente_id = loja). Isolamento Loja A vs Loja B."""
+"""Catálogo de produtos por estabelecimento. cliente_id é obrigatório: identifica o CA/empresa fiscal
+(cadastro em clientes) e isola catálogo e estoque entre tenants."""
 from sqlalchemy import Boolean, Column, Date, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -15,7 +16,7 @@ class ProdutoCliente(BaseModel):
         ForeignKey("clientes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Estabelecimento (clientes.id)",
+        comment="Obrigatório: clientes.id do estabelecimento (CA / empresa fiscal no desenho atual).",
     )
     codigo = Column(String(50), nullable=False, comment="Código/SKU único por estabelecimento")
     nome = Column(String(255), nullable=False)

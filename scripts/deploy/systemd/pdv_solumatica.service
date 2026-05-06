@@ -4,8 +4,9 @@
 [Unit]
 Description=PDV SOLUMATICA - Sistema PDV e Caixa
 Documentation=https://www.ibix.com.br
-After=network.target postgresql.service redis-server.service
-Wants=postgresql.service redis-server.service
+# Postgres e Redis via Docker (compose: db + redis). Não usar redis-server/postgresql do apt neste host.
+After=network-online.target docker.service
+Wants=docker.service
 
 [Service]
 Type=simple

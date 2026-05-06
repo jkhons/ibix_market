@@ -14,11 +14,16 @@ from app.core.scope import ClienteScope
 from app.database.connection import get_db
 from app.models import Orcamento, OrcamentoItem, Pedido, PedidoItem, ProdutoCliente, Usuario
 from app.schemas.orcamento import (
+    OrcamentoConverterOsRequest,
     OrcamentoConverterRequest,
     OrcamentoCreate,
     OrcamentoListResponse,
     OrcamentoResponse,
     OrcamentoUpdate,
+)
+from app.services.orcamento_conversao_service import (
+    converter_orcamento_em_ordem_servico,
+    converter_orcamento_em_venda_pendente,
 )
 from app.services.orcamento_service import expirar_orcamentos
 from app.services.pdf_orcamento_pedido import gerar_pdf_orcamento
@@ -32,10 +37,22 @@ def _allowed_ids(scope: ClienteScope):
     return scope.allowed_ids or []
 
 
-def _orcamento_no_escopo(db: Session, orcamento_id: int, scope: ClienteScope, load_itens: bool = False) -> Orcamento | None:
+def _orcamento_no_escopo(
+    db: Session,
+    orcamento_id: int,
+    scope: ClienteScope,
+    load_itens: bool = False,
+    load_clientes: bool = False,
+) -> Orcamento | None:
     q = db.query(Orcamento).filter(Orcamento.id == orcamento_id)
+    opts = []
     if load_itens:
-        q = q.options(joinedload(Orcamento.itens))
+        opts.append(joinedload(Orcamento.itens))
+    if load_clientes:
+        opts.append(joinedload(Orcamento.cliente))
+        opts.append(joinedload(Orcamento.destinatario))
+    if opts:
+        q = q.options(*opts)
     o = q.first()
     if not o:
         return None
@@ -83,8 +100,24 @@ async def listar_orcamentos(
             raise HTTPException(status_code=403, detail="Cliente fora do escopo")
         q = q.filter(Orcamento.cliente_id == cliente_id)
     total = q.count()
-    rows = q.order_by(desc(Orcamento.created_at)).offset(skip).limit(limit).all()
-    itens = [OrcamentoListResponse.model_validate(r) for r in rows]
+    rows = (
+        q.options(joinedload(Orcamento.cliente), joinedload(Orcamento.destinatario))
+        .order_by(desc(Orcamento.created_at))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    itens = []
+    for r in rows:
+        base = OrcamentoListResponse.model_validate(r)
+        itens.append(
+            base.model_copy(
+                update={
+                    "cliente_nome": (r.cliente.nome if r.cliente else None),
+                    "destinatario_nome": (r.destinatario.nome if r.destinatario else None),
+                }
+            )
+        )
     return {"orcamentos": itens, "total": total, "skip": skip, "limit": limit}
 
 
@@ -95,10 +128,16 @@ async def obter_orcamento(
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     """Detalhe de um orçamento."""
-    o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True)
+    o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True, load_clientes=True)
     if not o:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
-    return OrcamentoResponse.model_validate(o)
+    base = OrcamentoResponse.model_validate(o)
+    return base.model_copy(
+        update={
+            "cliente_nome": (o.cliente.nome if o.cliente else None),
+            "destinatario_nome": (o.destinatario.nome if o.destinatario else None),
+        }
+    )
 
 
 @router.post("", response_model=OrcamentoResponse, status_code=status.HTTP_201_CREATED)
@@ -270,7 +309,16 @@ async def emitir_orcamento(
     o.status = "emitido"
     db.commit()
     db.refresh(o)
-    return OrcamentoResponse.model_validate(o)
+    o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True, load_clientes=True)
+    if not o:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    base = OrcamentoResponse.model_validate(o)
+    return base.model_copy(
+        update={
+            "cliente_nome": (o.cliente.nome if o.cliente else None),
+            "destinatario_nome": (o.destinatario.nome if o.destinatario else None),
+        }
+    )
 
 
 @router.post("/{orcamento_id}/converter", response_model=dict)
@@ -307,8 +355,8 @@ async def converter_orcamento_em_pedido(
         raise HTTPException(status_code=400, detail="Só orçamento emitido ou aprovado pode ser convertido")
     if o.data_validade < date.today():
         raise HTTPException(status_code=400, detail="Orçamento expirado")
-    if o.convertido_em_pedido_id:
-        raise HTTPException(status_code=400, detail="Orçamento já convertido em pedido")
+    if o.convertido_em_pedido_id or o.convertido_em_ordem_servico_id or o.convertido_em_venda_id:
+        raise HTTPException(status_code=400, detail="Orçamento já convertido")
     numero_ped = _proximo_numero_pedido(db, o.cliente_id)
     ped = Pedido(
         orcamento_id=o.id,
@@ -346,6 +394,47 @@ async def converter_orcamento_em_pedido(
     return {"message": "Orçamento convertido em pedido", "pedido_id": ped.id, "numero_pedido": ped.numero_pedido}
 
 
+@router.post("/{orcamento_id}/converter-os", response_model=dict)
+async def converter_orcamento_em_os(
+    orcamento_id: int,
+    body: OrcamentoConverterOsRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    _: None = Depends(forbid_cliente_access),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+):
+    """Converte orçamento emitido/aprovado em ordem de serviço. Exige consumidor (destinatário) e tipo_id."""
+    o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True)
+    if not o:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    if o.status not in ("emitido", "aprovado"):
+        raise HTTPException(status_code=400, detail="Só orçamento emitido ou aprovado pode ser convertido")
+    if o.data_validade < date.today():
+        raise HTTPException(status_code=400, detail="Orçamento expirado")
+    os_id, codigo = converter_orcamento_em_ordem_servico(db, o, body.tipo_id, current_user.id)
+    return {"message": "Orçamento convertido em ordem de serviço", "ordem_servico_id": os_id, "codigo": codigo}
+
+
+@router.post("/{orcamento_id}/converter-venda", response_model=dict)
+async def converter_orcamento_em_venda_route(
+    orcamento_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    _: None = Depends(forbid_cliente_access),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+):
+    """Converte orçamento emitido/aprovado em venda pendente (sem baixa de estoque até finalização no PDV)."""
+    o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True)
+    if not o:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    if o.status not in ("emitido", "aprovado"):
+        raise HTTPException(status_code=400, detail="Só orçamento emitido ou aprovado pode ser convertido")
+    if o.data_validade < date.today():
+        raise HTTPException(status_code=400, detail="Orçamento expirado")
+    vid, numero = converter_orcamento_em_venda_pendente(db, o, current_user.id)
+    return {"message": "Orçamento convertido em venda pendente", "venda_id": vid, "numero_venda": numero}
+
+
 def _dados_orcamento_para_pdf(o: Orcamento) -> dict:
     """Monta dicionário para geração de PDF do orçamento."""
     return {
@@ -354,6 +443,8 @@ def _dados_orcamento_para_pdf(o: Orcamento) -> dict:
         "status": o.status,
         "cliente_nome": (o.cliente.nome if o.cliente else ""),
         "destinatario_nome": (o.destinatario.nome if o.destinatario else "-"),
+        "titulo_unidade": "Unidade (estabelecimento / catálogo)",
+        "titulo_consumidor": "Consumidor",
         "subtotal": o.subtotal,
         "desconto": o.desconto,
         "total": o.total,

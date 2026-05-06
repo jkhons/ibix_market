@@ -18,6 +18,7 @@ from app.models import (
 from app.schemas.marketplace import PedidoCheckoutCreate
 from app.services.marketplace_frete_checkout import calcular_taxa_item_frete
 from app.services.marketplace_guest_service import build_item_snapshots, emit_integration_event, generate_numero_pedido
+from app.services.marketplace_cliente_crm_service import sync_cliente_crm_from_pedido_marketplace
 from app.services.pedido_status_evento_service import registrar_pedido_status_evento
 
 
@@ -237,6 +238,16 @@ def criar_pedido_marketplace_checkout(
         status_codigo="aguardando_pagamento",
         status_label="Pedido recebido",
         actor_type="sistema",
+    )
+    sync_cliente_crm_from_pedido_marketplace(
+        db,
+        loja,
+        body,
+        comprador_nome,
+        comprador_email,
+        comprador_telefone,
+        comprador_documento,
+        tenant_id,
     )
     return pedido
 

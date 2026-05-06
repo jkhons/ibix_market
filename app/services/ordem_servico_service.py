@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.logging import log_error
@@ -15,6 +16,7 @@ from app.models import (
     OrdemServico,
     OrdemServicoItem,
     OrdemServicoTipo,
+    TipoMaterial,
     Usuario,
 )
 from app.schemas.ordem_servico import (
@@ -71,6 +73,52 @@ class OrdemServicoService:
             return Decimal(str(valor))
         except Exception:
             return default
+
+    @staticmethod
+    def garantir_tipo_servico_do_catalogo_estoque(db: Session, tenant_id: int) -> None:
+        """
+        Se o tenant ainda não tem nenhum tipo de ordem de serviço, cria um registro em
+        `ordem_servico_tipo` espelhando o tipo de material global SERVICO (catálogo de estoque).
+
+        Tipos de OS e tipos de material são tabelas distintas; esta rotina só faz o bootstrap
+        para o dropdown não ficar vazio quando o CA nunca usou «Gerenciar tipos de ordem».
+        Idempotente: se já existir qualquer tipo para o tenant, não altera nada.
+        """
+        existe = (
+            db.query(OrdemServicoTipo.id)
+            .filter(OrdemServicoTipo.tenant_id == tenant_id)
+            .limit(1)
+            .first()
+        )
+        if existe:
+            return
+        tm = (
+            db.query(TipoMaterial)
+            .filter(TipoMaterial.codigo == "SERVICO", TipoMaterial.ativo.is_(True))
+            .first()
+        )
+        if tm:
+            db.add(
+                OrdemServicoTipo(
+                    tenant_id=tenant_id,
+                    nome=tm.nome,
+                    codigo=tm.codigo,
+                    ativo=True,
+                )
+            )
+        else:
+            db.add(
+                OrdemServicoTipo(
+                    tenant_id=tenant_id,
+                    nome="Serviço",
+                    codigo="SERVICO",
+                    ativo=True,
+                )
+            )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
 
     @staticmethod
     def _preparar_itens(itens_payload: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

@@ -6,6 +6,7 @@
 #
 import asyncio
 from datetime import datetime
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -28,8 +29,17 @@ from app.models.produto_cliente import ProdutoCliente
 from app.models.tenant import Tenant
 from app.models.usuario import Usuario
 from app.models.venda import StatusVenda, TipoPagamento, Venda, VendaItem
+from app.models.venda_pagamento import VendaPagamento
 from app.schemas.cupom import CupomConteudoResponse
-from app.schemas.venda import VendaCreate, VendaEstornoRequest, VendaResponse
+from app.schemas.venda import (
+    VendaCancelarRequest,
+    VendaCreate,
+    VendaEstornoRequest,
+    VendaFinalizarRequest,
+    VendaItemResponse,
+    VendaPedidoPendenteCreate,
+    VendaResponse,
+)
 from app.services.cupom_receipt import gerar_cupom_nao_fiscal
 from app.services.fiscal.emissao_service import FiscalEmissaoService
 from app.services.integration_webhooks import queue_venda_fechada_webhook
@@ -491,6 +501,386 @@ async def criar_venda(
             detail=f"Erro interno do servidor: {str(e)}"
         )
 
+
+def _venda_badge_status_pendente(status_bruto) -> bool:
+    return normalizar_status_venda(status_bruto) == "pendente"
+
+
+def _validar_turno_caixa_venda(
+    db: Session, abertura_caixa_id: int, current_user: Usuario
+) -> AberturaCaixa:
+    """Reutiliza a mesma regra de POST /vendas (empresa fiscal + turno aberto)."""
+    ab = (
+        db.query(AberturaCaixa)
+        .options(joinedload(AberturaCaixa.caixa))
+        .filter(AberturaCaixa.id == abertura_caixa_id)
+        .first()
+    )
+    if not ab:
+        raise HTTPException(status_code=404, detail="Turno de caixa (abertura) não encontrado")
+    if str(ab.status).lower() != StatusAberturaCaixa.ABERTA.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Turno de caixa não está aberto. Abra o caixa em Negócios > Caixa.",
+        )
+    empresa_fiscal_venda = get_empresa_fiscal_empresa(
+        db, current_user.id, current_user.role.nome if current_user.role else None
+    )
+    if not empresa_fiscal_venda:
+        raise HTTPException(
+            status_code=400,
+            detail="Empresa fiscal obrigatória para registrar venda. Configure em /fiscal/empresa",
+        )
+    cx_turno = ab.caixa if getattr(ab, "caixa", None) else db.query(Caixa).filter(Caixa.id == ab.caixa_id).first()
+    if not cx_turno or cx_turno.empresa_id != empresa_fiscal_venda.id:
+        raise HTTPException(status_code=403, detail="Turno de caixa não pertence à sua empresa fiscal.")
+    return ab
+
+
+def _venda_response_orm(db: Session, venda_id: int) -> VendaResponse:
+    venda_completa = (
+        db.query(Venda)
+        .options(
+            joinedload(Venda.itens),
+            joinedload(Venda.abertura_caixa).joinedload(AberturaCaixa.caixa),
+        )
+        .filter(Venda.id == venda_id)
+        .first()
+    )
+    if not venda_completa:
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
+    itens_resp: List[VendaItemResponse] = []
+    for item in venda_completa.itens or []:
+        itens_resp.append(VendaItemResponse.model_validate(item, from_attributes=True))
+    _ab = venda_completa.abertura_caixa
+    _cx = _ab.caixa if _ab and getattr(_ab, "caixa", None) else None
+    return VendaResponse(
+        id=venda_completa.id,
+        numero_venda=venda_completa.numero_venda,
+        data_venda=venda_completa.data_venda,
+        status=normalizar_status_venda(venda_completa.status),
+        cliente_id=venda_completa.cliente_id,
+        abertura_caixa_id=getattr(venda_completa, "abertura_caixa_id", None),
+        caixa_id=_cx.id if _cx else None,
+        caixa_identificador=_cx.identificador if _cx else None,
+        vendedor_id=venda_completa.vendedor_id,
+        subtotal=float(venda_completa.subtotal),
+        desconto=float(venda_completa.desconto),
+        acrescimo=float(venda_completa.acrescimo),
+        total=float(venda_completa.total),
+        tipo_pagamento=venda_completa.tipo_pagamento,
+        valor_pago=float(venda_completa.valor_pago),
+        troco=float(venda_completa.troco),
+        observacoes=venda_completa.observacoes,
+        itens=itens_resp,
+        nota_fiscal_id=getattr(venda_completa, "nota_fiscal_id", None),
+        created_at=venda_completa.created_at,
+        updated_at=venda_completa.updated_at,
+    )
+
+
+@router.post("/pedido-pendente", response_model=VendaResponse, status_code=status.HTTP_201_CREATED)
+async def criar_pedido_venda_pendente(
+    body: VendaPedidoPendenteCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+    _: None = Depends(forbid_cliente_access),
+):
+    """
+    Cria venda com status PENDENTE (sem pagamento, sem baixa de estoque).
+    Finalize depois com POST /vendas/{id}/finalizar.
+    """
+    if scope.must_filter_by_cliente() and body.cliente_id is not None and body.cliente_id not in scope.allowed_ids:
+        raise HTTPException(status_code=403, detail="Cliente fora do seu escopo de acesso")
+    if body.cliente_id:
+        cliente = db.query(Cliente).filter(Cliente.id == body.cliente_id).first()
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    for i, item in enumerate(body.itens):
+        try:
+            if item.produto_cliente_id is None:
+                raise HTTPException(status_code=400, detail=f"Item {i+1}: produto_cliente_id é obrigatório")
+            produto_pc = db.query(ProdutoCliente).filter(ProdutoCliente.id == item.produto_cliente_id).first()
+            if not produto_pc:
+                raise HTTPException(status_code=404, detail=f"Produto estabelecimento ID {item.produto_cliente_id} não encontrado")
+            if not produto_pc.ativo:
+                raise HTTPException(status_code=400, detail=f"Produto {produto_pc.nome} está inativo")
+        except HTTPException:
+            raise
+
+    data_atual = datetime.now()
+    numero_venda = _gerar_numero_venda(db)
+
+    nova_venda = Venda(
+        numero_venda=numero_venda,
+        data_venda=data_atual,
+        status=StatusVenda.PENDENTE.value,
+        cliente_id=body.cliente_id,
+        vendedor_id=current_user.id,
+        subtotal=body.subtotal,
+        desconto=body.desconto,
+        acrescimo=body.acrescimo,
+        total=body.total,
+        tipo_pagamento=None,
+        valor_pago=Decimal("0"),
+        troco=Decimal("0"),
+        observacoes=body.observacoes,
+        abertura_caixa_id=None,
+    )
+    db.add(nova_venda)
+    db.flush()
+
+    for item_data in body.itens:
+        db.add(
+            VendaItem(
+                venda_id=nova_venda.id,
+                produto_cliente_id=item_data.produto_cliente_id,
+                quantidade=item_data.quantidade,
+                valor_unitario=item_data.valor_unitario,
+                valor_total=item_data.valor_total,
+                desconto_item=item_data.desconto_item,
+                observacoes=item_data.observacoes,
+            )
+        )
+
+    db.commit()
+    db.refresh(nova_venda)
+    audit_action(
+        db,
+        "venda_pendente_criada",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="venda",
+        recurso_id=nova_venda.id,
+        detalhes=f"numero={nova_venda.numero_venda} pendente=True",
+    )
+    return _venda_response_orm(db, nova_venda.id)
+
+
+@router.post("/{venda_id}/finalizar", response_model=VendaResponse)
+async def finalizar_venda_pendente(
+    venda_id: int,
+    body: VendaFinalizarRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+    _: None = Depends(forbid_cliente_access),
+):
+    """Conclui venda PENDENTE: pagamentos, baixa de estoque nos itens com produto, status finalizada."""
+    venda = (
+        db.query(Venda)
+        .options(joinedload(Venda.itens))
+        .filter(Venda.id == venda_id)
+        .first()
+    )
+    if not venda:
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
+    if scope.must_filter_by_cliente():
+        cid = venda.cliente_id
+        if cid is None:
+            estab = _estabelecimento_cliente_id_da_venda(db, venda)
+            if estab is None or estab not in scope.allowed_ids:
+                raise HTTPException(status_code=404, detail="Venda não encontrada")
+        elif cid not in scope.allowed_ids:
+            raise HTTPException(status_code=404, detail="Venda não encontrada")
+
+    if not _venda_badge_status_pendente(venda.status):
+        raise HTTPException(
+            status_code=400,
+            detail="Somente vendas com status pendente podem ser finalizadas por esta rota.",
+        )
+
+    total_dec = Decimal(str(venda.total or 0))
+    valor_pago_dec = Decimal(str(body.valor_pago))
+    troco_dec = Decimal(str(body.troco))
+    if valor_pago_dec + Decimal("0.001") < total_dec:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Valor pago ({valor_pago_dec}) não pode ser menor que o total ({total_dec}).",
+        )
+    esperado_troco = valor_pago_dec - total_dec if valor_pago_dec > total_dec else Decimal("0")
+    if abs(float(esperado_troco - troco_dec)) > 0.02:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Troco inconsistente. Esperado {esperado_troco:.2f}, informado {troco_dec:.2f}.",
+        )
+
+    _validar_turno_caixa_venda(db, body.abertura_caixa_id, current_user)
+
+    linhas_pg = body.pagamentos if body.pagamentos and len(body.pagamentos) > 0 else None
+    if linhas_pg:
+        soma_pg = sum(Decimal(str(p.valor)) for p in linhas_pg)
+        if abs(float(soma_pg - valor_pago_dec)) > 0.02:
+            raise HTTPException(
+                status_code=400,
+                detail="A soma dos pagamentos fracionados deve coincidir com valor_pago.",
+            )
+
+    try:
+        tipo_pg_enum = TipoPagamento(body.tipo_pagamento)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Tipo de pagamento inválido")
+
+    for vi in venda.itens or []:
+        if not getattr(vi, "produto_cliente_id", None):
+            continue
+        produto_pc = db.query(ProdutoCliente).filter(ProdutoCliente.id == vi.produto_cliente_id).first()
+        if not produto_pc:
+            raise HTTPException(status_code=404, detail=f"Produto item id {vi.produto_cliente_id} não encontrado")
+        qtd = Decimal(str(vi.quantidade or 0))
+        if float(produto_pc.quantidade_atual) < float(qtd):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Estoque insuficiente para {produto_pc.nome}. Disponível: {produto_pc.quantidade_atual}, necessário: {qtd}",
+            )
+
+    for vi in venda.itens or []:
+        if not getattr(vi, "produto_cliente_id", None):
+            continue
+        produto_pc = db.query(ProdutoCliente).filter(ProdutoCliente.id == vi.produto_cliente_id).first()
+        if not produto_pc:
+            continue
+        qtd = Decimal(str(vi.quantidade or 0))
+        produto_pc.quantidade_atual -= qtd
+        db.add(
+            MovimentacaoEstoque(
+                produto_cliente_id=produto_pc.id,
+                tipo="saida",
+                quantidade=qtd,
+                valor_unitario=Decimal(str(vi.valor_unitario or 0)),
+                documento_ref=f"Venda {venda.numero_venda}",
+                usuario_id=current_user.id,
+            )
+        )
+
+    venda.abertura_caixa_id = body.abertura_caixa_id
+    venda.tipo_pagamento = tipo_pg_enum.value
+    venda.valor_pago = valor_pago_dec
+    venda.troco = troco_dec
+    venda.status = StatusVenda.FINALIZADA_LEGADO.value
+    if body.observacoes and body.observacoes.strip():
+        prefix = (venda.observacoes or "").strip()
+        venda.observacoes = (
+            prefix + ("\n\n" if prefix else "") + "[Pagamento] " + body.observacoes.strip()
+        )
+
+    db.flush()
+
+    if linhas_pg:
+        for pg in linhas_pg:
+            db.add(
+                VendaPagamento(
+                    venda_id=venda.id,
+                    forma=pg.forma,
+                    valor=Decimal(str(pg.valor)),
+                    status="confirmado",
+                )
+            )
+    else:
+        db.add(
+            VendaPagamento(
+                venda_id=venda.id,
+                forma=tipo_pg_enum.value,
+                valor=valor_pago_dec,
+                status="confirmado",
+            )
+        )
+
+    db.commit()
+    db.refresh(venda)
+
+    venda_completa = (
+        db.query(Venda)
+        .options(
+            joinedload(Venda.itens),
+            joinedload(Venda.abertura_caixa).joinedload(AberturaCaixa.caixa),
+        )
+        .filter(Venda.id == venda_id)
+        .first()
+    )
+    if venda_completa and normalizar_status_venda(venda_completa.status) == "finalizada":
+        try:
+            empresa_do_ca = get_empresa_fiscal_empresa(
+                db, current_user.id, current_user.role.nome if current_user.role else None
+            )
+            _criar_rascunho_nfe_ao_finalizar_venda(db, venda_completa, current_user.id, empresa_fiscal_usuario=empresa_do_ca)
+            db.commit()
+        except Exception as e:
+            log_error(f"Erro ao criar rascunho NF-e para venda {venda_completa.id}: {e}")
+            try:
+                db.rollback()
+            except Exception:
+                pass
+        try:
+            queue_venda_fechada_webhook(
+                db=db,
+                venda_id=venda_completa.id,
+                numero_venda=venda_completa.numero_venda,
+                cliente_id=venda_completa.cliente_id,
+                total=venda_completa.total,
+                vendedor_id=current_user.id,
+                tenant_id=getattr(current_user, "tenant_id", None),
+            )
+        except Exception as e:
+            log_error(f"Erro webhook venda.fechada {venda_completa.id}: {e}")
+
+    audit_action(
+        db,
+        "venda_finalizada",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="venda",
+        recurso_id=venda_id,
+        detalhes=f"finalizada_de_pendente numero={venda.numero_venda}",
+    )
+    return _venda_response_orm(db, venda_id)
+
+
+@router.post("/{venda_id}/cancelar", response_model=VendaResponse)
+async def cancelar_venda_pendente(
+    venda_id: int,
+    body: VendaCancelarRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+    _: None = Depends(forbid_cliente_access),
+):
+    """Cancela venda PENDENTE (pedido não concluído)."""
+    venda = db.query(Venda).filter(Venda.id == venda_id).first()
+    if not venda:
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
+    if scope.must_filter_by_cliente():
+        cid = venda.cliente_id
+        if cid is None:
+            estab = _estabelecimento_cliente_id_da_venda(db, venda)
+            if estab is None or estab not in scope.allowed_ids:
+                raise HTTPException(status_code=404, detail="Venda não encontrada")
+        elif cid not in scope.allowed_ids:
+            raise HTTPException(status_code=404, detail="Venda não encontrada")
+
+    if not _venda_badge_status_pendente(venda.status):
+        raise HTTPException(status_code=400, detail="Somente vendas pendentes podem ser canceladas por esta rota.")
+
+    obs_extra = (body.motivo or "").strip()
+    if obs_extra:
+        prefix = (venda.observacoes or "").strip()
+        venda.observacoes = prefix + ("\n\n" if prefix else "") + "[Cancelado] " + obs_extra
+    venda.status = StatusVenda.CANCELADA.value
+    db.commit()
+    audit_action(
+        db,
+        "venda_cancelada",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="venda",
+        recurso_id=venda_id,
+        detalhes=f"pedido_pendente_cancelado numero={venda.numero_venda}",
+    )
+    return _venda_response_orm(db, venda_id)
+
+
 @router.get("", response_model=dict)
 async def listar_vendas(
     skip: int = Query(0, ge=0, description="Offset para paginação"),
@@ -683,8 +1073,15 @@ async def obter_venda(
 
         itens_dict = []
         for item in itens_rows:
-            codigo = item.get("produto_cliente_codigo") or (f"ID {item.get('produto_cliente_id')}")
-            nome = item.get("produto_cliente_nome") or "Produto não encontrado"
+            pc_id = item.get("produto_cliente_id")
+            obs = (item.get("observacoes") or "").strip()
+            if pc_id:
+                codigo = item.get("produto_cliente_codigo") or (f"ID {pc_id}")
+                nome = item.get("produto_cliente_nome") or "Produto não encontrado"
+            else:
+                primeira_linha = obs.split("\n")[0].strip() if obs else ""
+                nome = primeira_linha or "Peça/serviço (OS)"
+                codigo = "—"
             itens_dict.append({
                 "id": item["id"],
                 "produto_cliente_id": item.get("produto_cliente_id"),

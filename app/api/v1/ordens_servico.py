@@ -117,7 +117,7 @@ def _mapear_ordem(ordem: OrdemServico) -> OrdemServicoResponse:
         data_conclusao=ordem.data_conclusao,
         responsavel_id=ordem.responsavel_id,
         responsavel_nome=ordem.responsavel.nome if ordem.responsavel else None,
-        lacre_utilizado_id=ordem.lacre_utilizado_id,
+        lacre_utilizado_id=getattr(ordem, "lacre_utilizado_id", None),
         observacoes=ordem.observacoes,
         itens=_mapear_itens(ordem),
         venda_id=venda.id if venda else None,
@@ -138,6 +138,7 @@ def listar_tipos_ordem_servico(
     tid = tenant_id if tenant_id is not None else _tenant_efetivo_para_tipos(db, current_user, scope)
     if tid is None:
         return []
+    OrdemServicoService.garantir_tipo_servico_do_catalogo_estoque(db, tid)
     q = db.query(OrdemServicoTipo).filter(OrdemServicoTipo.tenant_id == tid)
     if not incluir_inativos and ativo is not None:
         q = q.filter(OrdemServicoTipo.ativo == ativo)
@@ -392,7 +393,7 @@ def enviar_ordem_para_vendas(
     scope: ClienteScope = Depends(get_cliente_scope_dep),
     _: None = Depends(forbid_cliente_access),
 ) -> VendaResponse:
-    """Cria uma Venda a partir da OS concluída (fluxo Enviar para vendas). Requer status concluida e todos os itens com produto_cliente_id."""
+    """Cria uma Venda a partir da OS concluída (Finalizar venda / Enviar para vendas). Exige OS concluída e com itens."""
     ordem = OrdemServicoService.obter_ordem(db, ordem_id)
     if scope.must_filter_by_cliente() and ordem.cliente_id not in scope.allowed_ids:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ordem de serviço não encontrada")

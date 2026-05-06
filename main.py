@@ -80,6 +80,7 @@ ROUTER_SPECS = [
     ("app.api.v1.form_builder", "router", "form_builder"),
     ("app.api.v1.billing", "router", "billing"),
     ("app.api.v1.admin_billing", "router", "admin_billing"),
+    ("app.api.v1.admin_compras_global", "router", "admin_compras_global"),
     ("app.api.v1.admin_audit_pagamentos", "router", "admin_audit_pagamentos"),
     ("app.api.v1.nfse", "router", "nfse"),
     ("app.api.v1.tenant_config", "router", "tenant_config"),
@@ -675,6 +676,7 @@ ROUTER_INCLUDE = [
     ("form_builder", "/api/v1", None),
     ("billing", "/api/v1", None),
     ("admin_billing", "/api/v1", None),
+    ("admin_compras_global", "/api/v1", None),
     ("admin_audit_pagamentos", "/api/v1", None),
     ("nfse", "/api/v1", None),
     ("tenant_config", "/api/v1", None),
@@ -1462,6 +1464,27 @@ async def admin_dashboard_page(request: Request, db: Session = Depends(get_db)):
     if role_nome == "Superadministrador":
         return await _render_template_async("admin/dashboard_super_admin.html", context)
     return await _render_template_async("admin/dashboard_administrador.html", context)
+
+
+@app.get("/admin/leads", response_class=HTMLResponse)
+async def admin_leads_page(request: Request, db: Session = Depends(get_db)):
+    """Leads — compras PDV e vitrine (Superadmin). Evoluirá para pipeline completo de leads."""
+    auth_check = await check_auth_for_html(request, db)
+    if auth_check:
+        return auth_check
+    try:
+        token = request.cookies.get("pdv_solumatica_token")
+        if not token:
+            return RedirectResponse(url="/login", status_code=302)
+        payload = AuthConfig.verify_token(token)
+        user_id = payload.get("sub")
+        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
+        if not user or not user.role or user.role.nome != "Superadministrador":
+            return await _response_403(request, db, "Acesso restrito a Superadministrador.")
+    except Exception:
+        return RedirectResponse(url="/login", status_code=302)
+    context = await get_template_context_async(request, db)
+    return await _render_template_async("admin/leads.html", context)
 
 
 @app.get("/admin/billing/tenants", response_class=HTMLResponse)

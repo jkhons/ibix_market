@@ -18,14 +18,14 @@
         <input type="hidden" id="orcamento-id" value="{{ orcamento_id or '' }}">
         <div class="row mb-3">
           <div class="col-md-4">
-            <label class="form-label">Estabelecimento <span class="text-danger">*</span></label>
-            <select class="form-select" id="cliente_id" required></select>
+            <label class="form-label">Cliente (consumidor)</label>
+            <select class="form-select" id="destinatario_id">
+              <option value="">— Consumidor não informado —</option>
+            </select>
           </div>
           <div class="col-md-4">
-            <label class="form-label">Destinatário (cliente final)</label>
-            <select class="form-select" id="destinatario_id">
-              <option value="">— Nenhum —</option>
-            </select>
+            <label class="form-label">Unidade / estabelecimento (catálogo) <span class="text-danger">*</span></label>
+            <select class="form-select" id="cliente_id" required></select>
           </div>
           <div class="col-md-4">
             <label class="form-label">Data de validade <span class="text-danger">*</span></label>
@@ -55,7 +55,8 @@
               <tbody id="tbody-itens"></tbody>
             </table>
           </div>
-          <p class="text-muted small mb-0" id="msg-itens">Adicione ao menos um item.</p>
+          <p class="text-muted small mb-1" id="msg-itens">Adicione ao menos um item.</p>
+          <p class="mb-0 fw-semibold" id="resumo-totais" style="display:none;">Total do orçamento: <span id="valor-total-geral">R$ 0,00</span></p>
         </div>
         <div class="d-flex gap-2">
           <button type="submit" class="btn btn-primary" id="btn-salvar">Salvar</button>
@@ -65,7 +66,6 @@
     </div>
   </div>
 </div>
-<!-- Modal busca produto -->
 <div class="modal fade" id="modalProduto" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -74,6 +74,10 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
+        <label class="form-label small">Tipo de material (opcional)</label>
+        <select class="form-select form-select-sm mb-2" id="filtro-tipo-material">
+          <option value="">Todos os tipos</option>
+        </select>
         <input type="text" class="form-control mb-2" id="busca-produto" placeholder="Buscar por código ou nome...">
         <div id="lista-produtos" class="list-group" style="max-height: 300px; overflow-y: auto;"></div>
       </div>
@@ -83,7 +87,8 @@
 <script>
 (function() {
   const orcamentoId = document.getElementById('orcamento-id').value ? parseInt(document.getElementById('orcamento-id').value, 10) : null;
-  let clientes = [], produtosPorCliente = {}, rowIndex = 0, modalRowIndex = null;
+  let produtosCache = {};
+  let tiposMaterialCarregados = false;
 
   function getToken() {
     const c = document.cookie.split(';');
@@ -107,30 +112,84 @@
     });
   }
 
-  async function carregarClientes() {
-    const r = await api('/api/v1/clientes/todos');
-    if (!r.ok) return;
-    clientes = await r.json();
-    const sel = document.getElementById('cliente_id');
-    const dest = document.getElementById('destinatario_id');
-    sel.innerHTML = '<option value="">— Selecione —</option>';
-            dest.innerHTML = '<option value="">— Nenhum —</option>';
-    clientes.forEach(c => {
-      sel.innerHTML += `<option value="${c.id}">${(c.nome || '').substring(0, 50)}</option>`;
-      dest.innerHTML += `<option value="${c.id}">${(c.nome || '').substring(0, 50)}</option>`;
-    });
-    if (clientes.length === 1) sel.value = clientes[0].id;
+  function cacheKey(clienteId, tipoId) {
+    return String(clienteId) + '_' + (tipoId || 'all');
   }
 
-  async function carregarProdutos(clienteId) {
+  async function carregarEstabelecimentos() {
+    let r = await api('/api/v1/clientes/todos?para_empresa_fiscal=true');
+    let list = r.ok ? await r.json() : [];
+    if (!list.length) {
+      r = await api('/api/v1/clientes/todos');
+      if (r.ok) list = await r.json();
+    }
+    const sel = document.getElementById('cliente_id');
+    sel.innerHTML = '<option value="">— Selecione a unidade —</option>';
+    list.forEach(function(c) {
+      sel.innerHTML += '<option value="' + c.id + '">' + (c.nome || '').substring(0, 80) + '</option>';
+    });
+    if (list.length === 1) sel.value = String(list[0].id);
+  }
+
+  async function carregarConsumidores() {
+    const r = await api('/api/v1/clientes/?para_venda=true&por_pagina=500&pagina=1');
+    if (!r.ok) return;
+    const data = await r.json();
+    const list = data.clientes || [];
+    const dest = document.getElementById('destinatario_id');
+    const cur = dest.value;
+    dest.innerHTML = '<option value="">— Consumidor não informado —</option>';
+    list.forEach(function(c) {
+      dest.innerHTML += '<option value="' + c.id + '">' + (c.nome || '').substring(0, 80) + '</option>';
+    });
+    if (cur) dest.value = cur;
+  }
+
+  async function carregarTiposMaterialModal() {
+    if (tiposMaterialCarregados) return;
+    const r = await api('/api/v1/tipo-material/?limit=500&ativo=true');
+    if (!r.ok) return;
+    const tipos = await r.json();
+    const sel = document.getElementById('filtro-tipo-material');
+    (tipos || []).forEach(function(t) {
+      const opt = document.createElement('option');
+      opt.value = t.id;
+      opt.textContent = t.nome || ('Tipo ' + t.id);
+      sel.appendChild(opt);
+    });
+    tiposMaterialCarregados = true;
+  }
+
+  async function carregarProdutosLista(clienteId, tipoMaterialId) {
     if (!clienteId) return [];
-    if (produtosPorCliente[clienteId]) return produtosPorCliente[clienteId];
-    const r = await api('/api/v1/produtos-cliente/?cliente_id=' + clienteId + '&limit=500');
+    const key = cacheKey(clienteId, tipoMaterialId);
+    if (produtosCache[key]) return produtosCache[key];
+    let url = '/api/v1/produtos-cliente/?cliente_id=' + clienteId + '&limit=2000';
+    if (tipoMaterialId) url += '&tipo_material_id=' + encodeURIComponent(tipoMaterialId);
+    const r = await api(url);
     if (!r.ok) return [];
     const data = await r.json();
     const items = data.items || [];
-    produtosPorCliente[clienteId] = items;
+    produtosCache[key] = items;
     return items;
+  }
+
+  function atualizarTotalGeral() {
+    let sum = 0;
+    document.querySelectorAll('#tbody-itens tr.item-row').forEach(function(tr) {
+      const qtd = parseFloat(tr.querySelector('.qtd').value) || 0;
+      const preco = parseFloat(tr.querySelector('.preco').value) || 0;
+      const desc = parseFloat(tr.querySelector('.desc').value) || 0;
+      sum += Math.max(0, qtd * preco - desc);
+    });
+    const el = document.getElementById('valor-total-geral');
+    const box = document.getElementById('resumo-totais');
+    if (!document.querySelectorAll('#tbody-itens tr.item-row').length) {
+      box.style.display = 'none';
+      return;
+    }
+    box.style.display = 'block';
+    el.textContent = 'R$ ' + sum.toFixed(2).replace('.', ',');
   }
 
   function recalcularLinha(tr) {
@@ -139,6 +198,7 @@
     const desc = parseFloat(tr.querySelector('.desc').value) || 0;
     const total = Math.max(0, qtd * preco - desc);
     tr.querySelector('.total-item').textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+    atualizarTotalGeral();
   }
 
   function adicionarLinha(produto) {
@@ -146,44 +206,86 @@
     const tr = document.createElement('tr');
     tr.className = 'item-row';
     tr.dataset.produtoId = produto.id;
-    tr.innerHTML = `
-      <td><span class="nome-produto">${(produto.nome || '').substring(0, 40)}</span> <small class="text-muted">${produto.codigo || ''}</small></td>
-      <td><input type="number" class="form-control form-control-sm qtd" min="0.001" step="0.001" value="1" style="width:80px"></td>
-      <td><input type="number" class="form-control form-control-sm preco" min="0" step="0.01" value="${produto.valor_venda || 0}" style="width:100px"></td>
-      <td><input type="number" class="form-control form-control-sm desc" min="0" step="0.01" value="0" style="width:80px"></td>
-      <td><span class="total-item">R$ ${(produto.valor_venda || 0).toFixed(2).replace('.', ',')}</span></td>
-      <td><button type="button" class="btn btn-sm btn-outline-danger btn-remover"><i data-feather="trash-2" style="width:14px;height:14px"></i></button></td>
-    `;
+    tr.innerHTML =
+      '<td><span class="nome-produto">' + (produto.nome || '').substring(0, 40) + '</span> <small class="text-muted">' + (produto.codigo || '') + '</small></td>' +
+      '<td><input type="number" class="form-control form-control-sm qtd" min="0.001" step="0.001" value="1" style="width:80px"></td>' +
+      '<td><input type="number" class="form-control form-control-sm preco" min="0" step="0.01" value="' + (produto.valor_venda || 0) + '" style="width:100px"></td>' +
+      '<td><input type="number" class="form-control form-control-sm desc" min="0" step="0.01" value="0" style="width:80px"></td>' +
+      '<td><span class="total-item">R$ ' + (produto.valor_venda || 0).toFixed(2).replace('.', ',') + '</span></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remover"><i data-feather="trash-2" style="width:14px;height:14px"></i></button></td>';
     tbody.appendChild(tr);
-    tr.querySelector('.qtd').addEventListener('input', () => recalcularLinha(tr));
-    tr.querySelector('.preco').addEventListener('input', () => recalcularLinha(tr));
-    tr.querySelector('.desc').addEventListener('input', () => recalcularLinha(tr));
-    tr.querySelector('.btn-remover').addEventListener('click', () => tr.remove());
+    tr.querySelector('.qtd').addEventListener('input', function() { recalcularLinha(tr); });
+    tr.querySelector('.preco').addEventListener('input', function() { recalcularLinha(tr); });
+    tr.querySelector('.desc').addEventListener('input', function() { recalcularLinha(tr); });
+    tr.querySelector('.btn-remover').addEventListener('click', function() {
+      tr.remove();
+      if (!document.querySelectorAll('#tbody-itens tr.item-row').length) {
+        document.getElementById('msg-itens').classList.remove('d-none');
+      }
+      atualizarTotalGeral();
+    });
     if (typeof feather !== 'undefined') feather.replace();
     document.getElementById('msg-itens').classList.add('d-none');
+    atualizarTotalGeral();
   }
 
-  document.getElementById('btn-add-item').addEventListener('click', async () => {
-    const cid = document.getElementById('cliente_id').value;
-    if (!cid) { alert('Selecione o estabelecimento primeiro.'); return; }
-    await carregarProdutos(parseInt(cid, 10));
-    const produtos = produtosPorCliente[cid] || [];
+  function renderListaProdutos(produtos) {
     const lista = document.getElementById('lista-produtos');
-    lista.innerHTML = produtos.length ? produtos.map(p =>
-      `<a href="#" class="list-group-item list-group-item-action" data-id="${p.id}" data-nome="${(p.nome||'').replace(/"/g,'')}" data-codigo="${(p.codigo||'')}" data-valor="${p.valor_venda || 0}">${p.codigo || ''} — ${(p.nome||'').substring(0, 50)} — R$ ${(p.valor_venda||0)}</a>`
-    ).join('') : '<p class="text-muted p-2">Nenhum produto cadastrado.</p>';
-    lista.querySelectorAll('a[data-id]').forEach(a => {
-      a.addEventListener('click', function(e) { e.preventDefault(); adicionarLinha({ id: parseInt(this.dataset.id), nome: this.dataset.nome, codigo: this.dataset.codigo, valor_venda: parseFloat(this.dataset.valor) || 0 }); document.getElementById('modalProduto').querySelector('.btn-close').click(); });
+    if (!produtos.length) {
+      lista.innerHTML = '<p class="text-muted p-2">Nenhum produto encontrado para este filtro.</p>';
+      return;
+    }
+    lista.innerHTML = produtos.map(function(p) {
+      const nome = (p.nome || '').replace(/"/g, '');
+      return '<a href="#" class="list-group-item list-group-item-action" data-id="' + p.id + '" data-nome="' + nome + '" data-codigo="' + (p.codigo || '') + '" data-valor="' + (p.valor_venda || 0) + '">' +
+        (p.codigo || '') + ' — ' + (p.nome || '').substring(0, 50) + ' — R$ ' + (p.valor_venda || 0) + '</a>';
+    }).join('');
+    lista.querySelectorAll('a[data-id]').forEach(function(a) {
+      a.addEventListener('click', function(e) {
+        e.preventDefault();
+        adicionarLinha({
+          id: parseInt(a.dataset.id, 10),
+          nome: a.dataset.nome,
+          codigo: a.dataset.codigo,
+          valor_venda: parseFloat(a.dataset.valor) || 0
+        });
+        document.getElementById('modalProduto').querySelector('.btn-close').click();
+      });
     });
+  }
+
+  document.getElementById('btn-add-item').addEventListener('click', async function() {
+    const cid = document.getElementById('cliente_id').value;
+    if (!cid) {
+      alert('Selecione primeiro a unidade / estabelecimento (catálogo de produtos).');
+      return;
+    }
+    await carregarTiposMaterialModal();
+    document.getElementById('filtro-tipo-material').value = '';
+    const produtos = await carregarProdutosLista(parseInt(cid, 10), null);
+    renderListaProdutos(produtos);
     document.getElementById('busca-produto').value = '';
     new bootstrap.Modal(document.getElementById('modalProduto')).show();
   });
 
+  document.getElementById('filtro-tipo-material').addEventListener('change', async function() {
+    const cid = document.getElementById('cliente_id').value;
+    if (!cid) return;
+    const tipo = this.value ? parseInt(this.value, 10) : null;
+    const produtos = await carregarProdutosLista(parseInt(cid, 10), tipo);
+    renderListaProdutos(produtos);
+    document.getElementById('busca-produto').value = '';
+  });
+
   document.getElementById('busca-produto').addEventListener('input', function() {
     const q = this.value.toLowerCase();
-    document.querySelectorAll('#lista-produtos a[data-id]').forEach(a => {
+    document.querySelectorAll('#lista-produtos a[data-id]').forEach(function(a) {
       a.style.display = (a.dataset.nome.toLowerCase().includes(q) || (a.dataset.codigo || '').toLowerCase().includes(q)) ? '' : 'none';
     });
+  });
+
+  document.getElementById('cliente_id').addEventListener('change', function() {
+    produtosCache = {};
   });
 
   document.getElementById('form-orcamento').addEventListener('submit', async function(e) {
@@ -194,25 +296,47 @@
     const observacoes = document.getElementById('observacoes').value || null;
     const condicoesPagamento = document.getElementById('condicoes_pagamento').value || null;
     const itens = [];
-    document.querySelectorAll('#tbody-itens tr.item-row').forEach(tr => {
+    document.querySelectorAll('#tbody-itens tr.item-row').forEach(function(tr) {
       const qtd = parseFloat(tr.querySelector('.qtd').value);
       const preco = parseFloat(tr.querySelector('.preco').value);
       const desc = parseFloat(tr.querySelector('.desc').value) || 0;
-      if (qtd > 0 && preco >= 0)
-        itens.push({ produto_cliente_id: parseInt(tr.dataset.produtoId, 10), quantidade: qtd, preco_unitario: preco, desconto_valor: desc });
+      if (qtd > 0 && preco >= 0) {
+        itens.push({
+          produto_cliente_id: parseInt(tr.dataset.produtoId, 10),
+          quantidade: qtd,
+          preco_unitario: preco,
+          desconto_valor: desc
+        });
+      }
     });
-    if (!itens.length) { alert('Adicione ao menos um item.'); return; }
+    if (!itens.length) {
+      alert('Adicione ao menos um item.');
+      return;
+    }
     const btn = document.getElementById('btn-salvar');
     btn.disabled = true;
     try {
-      const body = { cliente_id: clienteId, destinatario_id: destinatarioId, data_validade: dataValidade, observacoes, condicoes_pagamento: condicoesPagamento, itens };
+      const body = {
+        cliente_id: clienteId,
+        destinatario_id: destinatarioId,
+        data_validade: dataValidade,
+        observacoes: observacoes,
+        condicoes_pagamento: condicoesPagamento,
+        itens: itens
+      };
       if (orcamentoId) {
         const r = await api('/api/v1/orcamentos/' + orcamentoId, { method: 'PUT', body: JSON.stringify(body) });
-        if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || r.statusText); }
+        if (!r.ok) {
+          const err = await r.json().catch(function() { return {}; });
+          throw new Error(err.detail || r.statusText);
+        }
         window.location.href = '/negocio/orcamentos';
       } else {
         const r = await api('/api/v1/orcamentos', { method: 'POST', body: JSON.stringify(body) });
-        if (!r.ok) { const err = await r.json().catch(() => ({})); throw new Error(err.detail || r.statusText); }
+        if (!r.ok) {
+          const err = await r.json().catch(function() { return {}; });
+          throw new Error(err.detail || r.statusText);
+        }
         window.location.href = '/negocio/orcamentos';
       }
     } catch (err) {
@@ -231,13 +355,13 @@
     document.getElementById('data_validade').value = (o.data_validade || '').substring(0, 10);
     document.getElementById('observacoes').value = o.observacoes || '';
     document.getElementById('condicoes_pagamento').value = o.condicoes_pagamento || '';
-    await carregarProdutos(o.cliente_id);
-    (o.itens || []).forEach(i => {
+    await carregarProdutosLista(o.cliente_id, null);
+    (o.itens || []).forEach(function(i) {
       adicionarLinha({
         id: i.produto_cliente_id,
         nome: i.descricao_produto || '',
         codigo: i.codigo_produto || '',
-        valor_venda: parseFloat(i.preco_unitario) || 0,
+        valor_venda: parseFloat(i.preco_unitario) || 0
       });
       const tr = document.getElementById('tbody-itens').lastElementChild;
       if (tr) {
@@ -250,7 +374,8 @@
   }
 
   (async function init() {
-    await carregarClientes();
+    await carregarEstabelecimentos();
+    await carregarConsumidores();
     if (orcamentoId) await carregarEdicao();
     if (!orcamentoId) {
       const d = new Date();

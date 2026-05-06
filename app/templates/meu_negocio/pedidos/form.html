@@ -107,7 +107,7 @@
     const r = await api('/api/v1/orcamentos?limit=500&status=emitido&cliente_id=' + cid);
     if (!r.ok) return;
     const data = await r.json();
-    orcamentosEmitidos = (data.orcamentos || []).filter(o => !o.convertido_em_pedido_id);
+    orcamentosEmitidos = (data.orcamentos || []).filter(o => !o.convertido_em_pedido_id && !o.convertido_em_ordem_servico_id && !o.convertido_em_venda_id);
     const sel = document.getElementById('orcamento_id');
     sel.innerHTML = '<option value="">— Criar sem orçamento —</option>';
     orcamentosEmitidos.forEach(o => { sel.innerHTML += `<option value="${o.id}">${o.numero_orcamento} — R$ ${(o.total||0).toFixed(2)}</option>`; });

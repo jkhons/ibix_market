@@ -6,8 +6,9 @@
 [Unit]
 Description=PDV SOLUMATICA Celery Worker - Relatórios, PDFs, tarefas assíncronas
 Documentation=https://www.solumatica.com.br
-After=network.target postgresql.service redis-server.service pdv_solumatica.service
-Wants=redis-server.service
+# Broker Redis no container pdv_solumatica_redis (compose).
+After=network-online.target docker.service pdv_solumatica.service
+Wants=docker.service
 
 [Service]
 Type=simple

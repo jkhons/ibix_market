@@ -65,12 +65,14 @@ class Venda(BaseModel):
     nota_servico_id = Column(Integer, ForeignKey("notas_servico.id", ondelete="SET NULL"), nullable=True, comment="# ID da nota de serviço relacionada (FK para notas_servico.id)")
     cupom_fiscal_id = Column(Integer, ForeignKey("cupons_fiscais.id", ondelete="SET NULL"), nullable=True, comment="# ID do cupom fiscal relacionado (FK para cupons_fiscais.id)")
     ordem_servico_id = Column(Integer, ForeignKey("ordem_servico.id", ondelete="SET NULL"), nullable=True, comment="# ID da ordem de serviço que originou a venda (1:1)")
+    orcamento_id = Column(Integer, ForeignKey("orcamentos.id", ondelete="SET NULL"), nullable=True, index=True, comment="# Orçamento que originou a venda (conversão)")
     abertura_caixa_id = Column(Integer, ForeignKey("aberturas_caixa.id", ondelete="SET NULL"), nullable=True, index=True, comment="# Abertura de caixa (turno) vinculada à venda")
     
     # Relacionamentos
     cliente = relationship("Cliente", foreign_keys=[cliente_id])
     abertura_caixa = relationship("AberturaCaixa", foreign_keys=[abertura_caixa_id])
     ordem_servico = relationship("OrdemServico", back_populates="vendas", foreign_keys=[ordem_servico_id])
+    orcamento = relationship("Orcamento", foreign_keys=[orcamento_id])
     vendedor = relationship("Usuario", foreign_keys=[vendedor_id])
     itens = relationship("VendaItem", back_populates="venda", cascade="all, delete-orphan")
     pagamentos = relationship("VendaPagamento", back_populates="venda", cascade="all, delete-orphan")

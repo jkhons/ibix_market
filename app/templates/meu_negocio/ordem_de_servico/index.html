@@ -877,21 +877,21 @@
 </div>
 
 <div id="modalCaixaOS" class="modal-os-overlay">
-    <div class="modal-os-container">
+    <div class="modal-os-container" style="max-width: 640px;">
         <div class="modal-os-header">
-            <h3><i data-feather="dollar-sign"></i> Caixa - Finalizar OS</h3>
+            <h3><i data-feather="shopping-cart"></i> Finalizar venda</h3>
             <button class="modal-os-close" onclick="fecharModalCaixaOS()">×</button>
         </div>
         <div class="modal-os-body" id="corpoModalCaixaOS">
             <div class="text-muted">
-                <p class="mb-0">Nenhuma informação preenchida.</p>
+                <p class="mb-0">Carregando itens…</p>
             </div>
         </div>
         <div class="modal-os-footer">
             <button class="modal-os-btn modal-os-btn-secundario" type="button" onclick="fecharModalCaixaOS()">Cancelar</button>
-            <button class="modal-os-btn modal-os-btn-principal" type="button" onclick="confirmarFinalizacaoOS()">
+            <button class="modal-os-btn modal-os-btn-principal" type="button" id="btnConfirmarFinalizarVendaOS" onclick="confirmarFinalizacaoOS()">
                 <i data-feather="check-circle"></i>
-                Finalizar
+                Finalizar venda
             </button>
         </div>
     </div>
@@ -1537,10 +1537,11 @@ function atualizarBotoesDetalhesOrdem() {
     const concluida = statusAtual === 'concluida';
     const vendaId = ordem?.venda_id ?? null;
     const mostrarEnviarVendas = possuiOrdem && concluida && !vendaId;
+    const jaTemVenda = vendaId != null && vendaId !== '';
 
     if (botaoEtapa) botaoEtapa.disabled = !possuiOrdem;
     if (botaoEditar) botaoEditar.disabled = !possuiOrdem || concluida;
-    if (botaoFinalizar) botaoFinalizar.disabled = !possuiOrdem || concluida;
+    if (botaoFinalizar) botaoFinalizar.disabled = !possuiOrdem || jaTemVenda;
     if (botaoEnviarVendas) {
         botaoEnviarVendas.disabled = !mostrarEnviarVendas;
         if (mostrarEnviarVendas) {
@@ -2169,6 +2170,17 @@ function formatarMoeda(valor) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(valor || 0));
 }
 
+function escapeOsHtml(str) {
+    if (str === undefined || str === null) {
+        return '';
+    }
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 function parseValorMonetario(valorTexto) {
     if (valorTexto === null || valorTexto === undefined) {
         return null;
@@ -2576,35 +2588,86 @@ async function atualizarEtapaOrdem(novaEtapa) {
     }
 }
 
-function abrirModalCaixaOS() {
-    const ordem = estadoOrdemServico.ordemSelecionada;
+async function abrirModalCaixaOS() {
+    let ordem = estadoOrdemServico.ordemSelecionada;
     if (!ordem) {
         mostrarToastOS('Selecione uma ordem para finalizar.', 'info');
         return;
     }
-    if ((ordem.status || '') === 'concluida') {
-        mostrarToastOS('Esta ordem já está finalizada.', 'info');
+    if (ordem.venda_id) {
+        mostrarToastOS('Esta ordem já possui pedido de venda registrado.', 'info');
         return;
     }
 
     const modal = document.getElementById('modalCaixaOS');
-    if (!modal) {
+    const corpo = document.getElementById('corpoModalCaixaOS');
+    if (!modal || !corpo) {
         return;
     }
 
-    const corpo = document.getElementById('corpoModalCaixaOS');
-    if (corpo) {
-        corpo.innerHTML = `
-            <div>
-                <p class="mb-1"><strong>Ordem:</strong> ${ordem.codigo || `OS-${ordem.id}`}</p>
-                <p class="mb-1"><strong>Cliente:</strong> ${ordem.cliente_nome || '--'}</p>
-                <p class="text-muted mb-0">Preencha as informações de caixa (em breve).</p>
-            </div>
-        `;
-    }
-
+    corpo.innerHTML = '<p class="text-muted mb-0">Carregando itens da ordem…</p>';
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
+
+    try {
+        const resposta = await fetch(`/api/v1/ordens-servico/${ordem.id}`, { headers: montarHeadersAutenticados() });
+        if (!resposta.ok) {
+            throw new Error('Não foi possível carregar a ordem.');
+        }
+        ordem = await resposta.json();
+        estadoOrdemServico.ordemSelecionada = ordem;
+    } catch (erro) {
+        logInfoOS('Erro ao carregar ordem para finalizar venda', { erro });
+        mostrarToastOS(erro.message || 'Erro ao carregar a ordem.', 'error');
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        return;
+    }
+
+    const codigoOs = ordem.codigo || `OS-${ordem.id}`;
+    const jaConcluida = (ordem.status || '') === 'concluida';
+    const itens = Array.isArray(ordem.itens) ? ordem.itens : [];
+
+    let subtotal = 0;
+    let linhasItens = '';
+    if (itens.length) {
+        linhasItens = itens.map((item) => {
+            const q = Number(item.quantidade || 0);
+            const vu = Number(item.valor_unitario || 0);
+            const vt = Number(item.valor_total != null ? item.valor_total : (q * vu));
+            subtotal += q * vu;
+            const nome = escapeOsHtml(item.nome || '—');
+            const cod = item.codigo ? `${escapeOsHtml(item.codigo)} — ` : '';
+            return `<tr>
+                <td>${cod}<strong>${nome}</strong></td>
+                <td class="text-end">${q}</td>
+                <td class="text-end">${formatarMoeda(vu)}</td>
+                <td class="text-end"><strong>${formatarMoeda(vt)}</strong></td>
+            </tr>`;
+        }).join('');
+    }
+
+    const avisoEtapa = jaConcluida
+        ? '<p class="small text-muted mb-3">A ordem já está concluída. Ao confirmar, apenas o pedido em <strong>Vendas</strong> será criado com os valores abaixo.</p>'
+        : '<p class="small text-muted mb-3">Ao confirmar, a ordem será <strong>concluída</strong> e será criado um pedido em <strong>Vendas</strong> com número gerado automaticamente. O histórico da venda exibirá <strong>Pedido … — Origem OS …</strong>.</p>';
+
+    corpo.innerHTML = `
+        <div class="mb-3">
+            <p class="mb-1"><strong>Ordem de serviço:</strong> ${escapeOsHtml(codigoOs)}</p>
+            <p class="mb-1"><strong>Cliente:</strong> ${escapeOsHtml(ordem.cliente_nome || '—')}</p>
+        </div>
+        ${avisoEtapa}
+        ${itens.length ? `
+        <div class="table-responsive border rounded">
+            <table class="table table-sm table-striped mb-0">
+                <thead><tr><th>Peça / serviço</th><th class="text-end">Qtd</th><th class="text-end">Unit.</th><th class="text-end">Total</th></tr></thead>
+                <tbody>${linhasItens}</tbody>
+            </table>
+        </div>
+        <p class="mt-3 mb-0 text-end"><strong>Subtotal:</strong> ${formatarMoeda(subtotal)}</p>
+        ` : '<p class="text-warning mb-0">Não há itens nesta ordem. Inclua peças ou serviços antes de finalizar a venda.</p>'}
+    `;
+
     setTimeout(() => feather.replace(), 50);
 }
 
@@ -2622,13 +2685,78 @@ async function confirmarFinalizacaoOS() {
         mostrarToastOS('Selecione uma ordem para finalizar.', 'info');
         return;
     }
-    if ((ordem.status || '') === 'concluida') {
-        mostrarToastOS('Esta ordem já está finalizada.', 'info');
+    if (ordem.venda_id) {
+        mostrarToastOS('Esta ordem já possui pedido de venda registrado.', 'info');
         fecharModalCaixaOS();
         return;
     }
-    await atualizarEtapaOrdem('concluida');
-    fecharModalCaixaOS();
+
+    const btn = document.getElementById('btnConfirmarFinalizarVendaOS');
+    if (btn) {
+        btn.disabled = true;
+    }
+
+    try {
+        const resFresh = await fetch(`/api/v1/ordens-servico/${ordem.id}`, { headers: montarHeadersAutenticados() });
+        if (!resFresh.ok) {
+            throw new Error('Não foi possível atualizar os dados da ordem.');
+        }
+        let dados = await resFresh.json();
+        estadoOrdemServico.ordemSelecionada = dados;
+
+        const itens = Array.isArray(dados.itens) ? dados.itens : [];
+        if (!itens.length) {
+            mostrarToastOS('Inclua pelo menos um item (peça ou serviço) na ordem antes de finalizar a venda.', 'warning');
+            return;
+        }
+
+        const statusAtual = (dados.status && (dados.status.value || dados.status.name || dados.status)) || dados.status || '';
+        const normalizado = String(statusAtual).toLowerCase();
+
+        if (normalizado !== 'concluida') {
+            const resStatus = await fetch(`/api/v1/ordens-servico/${dados.id}/status?status_novo=${encodeURIComponent('concluida')}`, {
+                method: 'PATCH',
+                headers: montarHeadersAutenticados()
+            });
+            if (!resStatus.ok) {
+                const errPayload = await resStatus.json().catch(() => ({}));
+                throw new Error(errPayload.detail || 'Falha ao concluir a ordem de serviço.');
+            }
+            dados = await resStatus.json();
+            estadoOrdemServico.ordemSelecionada = dados;
+        }
+
+        const resVenda = await fetch(`/api/v1/ordens-servico/${dados.id}/enviar-para-vendas`, {
+            method: 'POST',
+            headers: montarHeadersAutenticados()
+        });
+        const payloadVenda = await resVenda.json().catch(() => ({}));
+        if (!resVenda.ok) {
+            let msg = 'Falha ao registrar a venda.';
+            if (payloadVenda.detail) {
+                msg = Array.isArray(payloadVenda.detail)
+                    ? payloadVenda.detail.map(function(d) { return d.msg || d; }).join(', ')
+                    : String(payloadVenda.detail);
+            }
+            throw new Error(msg);
+        }
+
+        const numeroPedido = payloadVenda.numero_venda || payloadVenda.id;
+        limparCacheFinanceiroOS(dados.id);
+        fecharModalCaixaOS();
+        mostrarToastOS(`Venda ${numeroPedido} registrada (origem OS ${dados.codigo || dados.id}). Abrindo módulo de vendas…`, 'success');
+        await selecionarOrdemOS(dados.id);
+        setTimeout(() => {
+            window.location.href = '/negocio/venda';
+        }, 900);
+    } catch (erro) {
+        logInfoOS('Erro ao finalizar venda pela OS', { erro });
+        mostrarToastOS(erro.message || 'Erro ao finalizar a venda.', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+        }
+    }
 }
 
 async function enviarOrdemParaVendas() {

@@ -27,6 +27,10 @@ class Orcamento(BaseModel):
     observacoes = Column(Text, nullable=True)
     condicoes_pagamento = Column(Text, nullable=True)
     convertido_em_pedido_id = Column(Integer, ForeignKey("pedidos.id", ondelete="SET NULL"), nullable=True, index=True)
+    convertido_em_ordem_servico_id = Column(
+        Integer, ForeignKey("ordem_servico.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    convertido_em_venda_id = Column(Integer, ForeignKey("vendas.id", ondelete="SET NULL"), nullable=True, index=True)
     data_conversao = Column(DateTime(timezone=True), nullable=True)
 
     cliente = relationship("Cliente", foreign_keys=[cliente_id])
@@ -35,6 +39,18 @@ class Orcamento(BaseModel):
     convertido_em_pedido = relationship(
         "Pedido",
         foreign_keys=[convertido_em_pedido_id],
+        uselist=False,
+        viewonly=True,
+    )
+    convertido_em_ordem_servico = relationship(
+        "OrdemServico",
+        foreign_keys=[convertido_em_ordem_servico_id],
+        uselist=False,
+        viewonly=True,
+    )
+    convertido_em_venda = relationship(
+        "Venda",
+        foreign_keys=[convertido_em_venda_id],
         uselist=False,
         viewonly=True,
     )

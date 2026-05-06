@@ -138,6 +138,79 @@ class VendaUpdate(BaseModel):
                 raise ValueError(f"Status deve ser um de: {', '.join(status_validos)}")
         return v
 
+class VendaPedidoPendenteCreate(BaseModel):
+    """Cria venda sem pagamento nem baixa de estoque (status PENDENTE). Finalização em POST /vendas/{id}/finalizar."""
+
+    cliente_id: Optional[int] = Field(None, description="Cliente da venda")
+    observacoes: Optional[str] = Field(None, description="Observações")
+    subtotal: float = Field(..., ge=0, description="Subtotal dos itens")
+    desconto: float = Field(0.0, ge=0, description="Desconto geral")
+    acrescimo: float = Field(0.0, ge=0, description="Acréscimo geral")
+    total: float = Field(..., ge=0, description="Total da venda")
+    itens: List[VendaItemCreate] = Field(..., min_items=1, description="Itens (produto_cliente_id obrigatório)")
+
+    @validator("total")
+    def validar_total(cls, v, values):
+        if "subtotal" in values and "desconto" in values and "acrescimo" in values:
+            expected = values["subtotal"] - values["desconto"] + values["acrescimo"]
+            if abs(v - expected) > 0.01:
+                raise ValueError(f"Total deve ser {expected:.2f}, recebido {v:.2f}")
+        return v
+
+    @validator("itens")
+    def validar_subtotal_itens(cls, v, values):
+        if v and "subtotal" in values:
+            s = sum(item.valor_total for item in v)
+            if abs(s - values["subtotal"]) > 0.01:
+                raise ValueError(
+                    f"Subtotal dos itens ({s:.2f}) não confere com subtotal ({values['subtotal']:.2f})"
+                )
+        return v
+
+
+class PagamentoFracionadoIn(BaseModel):
+    """Uma linha de pagamento na finalização."""
+
+    forma: str = Field(..., description="dinheiro, cartao_credito, pix, etc.")
+    valor: float = Field(..., ge=0, description="Valor desta forma")
+
+
+class VendaFinalizarRequest(BaseModel):
+    """Conclui venda PENDENTE: turno de caixa, totais de pagamento e (opcional) fracionamento."""
+
+    abertura_caixa_id: int = Field(..., description="Turno de caixa aberto")
+    tipo_pagamento: str = Field(..., description="Forma principal (compatível com venda.tipo_pagamento)")
+    valor_pago: float = Field(..., ge=0, description="Soma recebida")
+    troco: float = Field(0.0, ge=0, description="Troco")
+    observacoes: Optional[str] = Field(None, description="Acrescenta às observações existentes se houver")
+    pagamentos: Optional[List[PagamentoFracionadoIn]] = Field(
+        None,
+        description="Se omitido, registra um único pagamento implícito (tipo_pagamento / valor_pago)",
+    )
+
+    @validator("tipo_pagamento")
+    def validar_tipo_pagamento(cls, v):
+        tipos_validos = [
+            "dinheiro",
+            "cartao_credito",
+            "cartao_debito",
+            "pix",
+            "boleto",
+            "transferencia",
+            "vale",
+            "crediario",
+        ]
+        if v not in tipos_validos:
+            raise ValueError(f"Tipo de pagamento deve ser um de: {', '.join(tipos_validos)}")
+        return v
+
+
+class VendaCancelarRequest(BaseModel):
+    """Cancela pedido pendente (não estorna estoque — não houve baixa)."""
+
+    motivo: Optional[str] = Field(None, max_length=500, description="Motivo opcional")
+
+
 class VendaEstornoRequest(BaseModel):
     """Schema para estorno de venda"""
     motivo: str = Field(..., min_length=3, description="Motivo do estorno da venda")

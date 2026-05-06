@@ -58,6 +58,7 @@ if not empresa:
 - **Isolamento Subcliente:** Subcliente não vê dados de outro Subcliente; escopo obrigatório por `cliente_id`
 - **Cliente Administrador** não acessa `/usuarios` nem `/configuracoes` (apenas Superadmin e Admin)
 - **Empresa Fiscal obrigatória:** operações fiscais usam exclusivamente a Empresa Fiscal do CA (`get_empresa_fiscal_empresa` / `get_empresa_fiscal_cliente_id`)
+- **Produto do estabelecimento (`produtos_cliente`):** **`cliente_id` é obrigatório** (NOT NULL no modelo). Esse `cliente_id` é o cadastro do **CA / empresa fiscal** no domínio atual (isolamento entre tenants e respeito a CNPJs distintos). Não tratar produto de catálogo sem estabelecimento; no futuro, se um tenant tiver várias empresas fiscais, cada uma continua representada pelo seu `cliente_id` correspondente.
 - **Escopo por tenant:** APIs devem filtrar por `ClienteScope.allowed_ids` quando `must_filter_by_cliente()`
 - Verificar `require_permission`, `forbid_cliente_access` e `get_cliente_scope_dep` em todas as rotas
 
@@ -96,6 +97,7 @@ if not empresa:
 - [ ] Dado obrigatório ausente → lanço erro explícito (não uso fallback)?
 - [ ] Dados dinâmicos vêm de API/banco (não hardcoded no front)?
 - [ ] Verifiquei permissões e escopo tenant para a rota/API?
+- [ ] Catálogo `produtos_cliente`: todo produto com `cliente_id` (CA/empresa fiscal), sem “produto global” sem estabelecimento?
 - [ ] Consultei o mapa relevante para consistência?
 - [ ] Confirmações de venda/pagamento refletem o fluxo real (não publico sucesso sem prova)?
 - [ ] Cards de marketing da vitrine: alteração só via `/admin/marketing-vitrine` (Superadmin), não hardcode de cards?

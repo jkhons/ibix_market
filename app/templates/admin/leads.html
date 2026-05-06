@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Leads — compras (PDV + vitrine) | PDV Ibix{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-start flex-wrap gap-2">
+        <div>
+            <h1 class="h3 mb-1">Leads</h1>
+            <p class="text-muted small mb-0">
+                Compradores e itens de <strong>PDV</strong> e <strong>vitrine</strong> (pagamento confirmado na loja online).
+                Esta área será expandida para gestão completa de leads (pipeline, cookies e integrações).
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="/admin/dashboard" class="btn btn-outline-secondary btn-sm">Dashboard Super Admin</a>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end">
+                <div class="col-12 col-md-2">
+                    <label class="form-label small mb-0" for="filtroOrigem">Origem</label>
+                    <select id="filtroOrigem" class="form-select form-select-sm">
+                        <option value="todos">Todos</option>
+                        <option value="pdv">PDV</option>
+                        <option value="vitrine">Vitrine</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label class="form-label small mb-0" for="filtroEmail">E-mail (contém)</label>
+                    <input type="text" id="filtroEmail" class="form-control form-control-sm" placeholder="opcional" autocomplete="off">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="filtroDataIni">Data inicial</label>
+                    <input type="date" id="filtroDataIni" class="form-control form-control-sm">
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-0" for="filtroDataFim">Data final</label>
+                    <input type="date" id="filtroDataFim" class="form-control form-control-sm">
+                </div>
+                <div class="col-12 col-md-3">
+                    <div class="form-check mt-3 mt-md-4">
+                        <input class="form-check-input" type="checkbox" id="filtroSemCliente">
+                        <label class="form-check-label small" for="filtroSemCliente">PDV: incluir vendas sem cliente (consumidor final)</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-2">
+                    <button type="button" id="btnBuscar" class="btn btn-primary btn-sm w-100">Buscar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                <span id="leadsResumo" class="text-muted small"></span>
+                <div class="btn-group btn-group-sm">
+                    <button type="button" class="btn btn-outline-secondary" id="btnPrev" disabled>Anterior</button>
+                    <button type="button" class="btn btn-outline-secondary" id="btnNext" disabled>Próxima</button>
+                </div>
+            </div>
+            <div id="loading" class="text-muted small">Carregando...</div>
+            <div id="content" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Origem</th>
+                                <th>Estabelecimento</th>
+                                <th>Comprador</th>
+                                <th>E-mail</th>
+                                <th>Produto</th>
+                                <th>Categoria</th>
+                                <th class="text-end">Qtd</th>
+                                <th class="text-end">Valor item</th>
+                                <th>Ref.</th>
+                                <th>Atribuição</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div id="error" class="text-danger small d-none"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    var skip = 0;
+    var limit = 50;
+    var total = 0;
+
+    function getToken() {
+        var parts = document.cookie.split(';');
+        for (var i = 0; i < parts.length; i++) {
+            var p = parts[i].trim().split('=');
+            var n = p[0];
+            var v = decodeURIComponent((p[1] || '').trim());
+            if (n === 'pdv_solumatica_token' || n === 'pdv_automscale_token') return v || '';
+        }
+        return localStorage.getItem('pdv_automscale_token') || localStorage.getItem('token') || '';
+    }
+
+    function authFetch(url) {
+        if (typeof window.authenticatedFetch === 'function') {
+            return window.authenticatedFetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
+        }
+        var token = getToken();
+        var h = { 'Accept': 'application/json' };
+        if (token) h['Authorization'] = 'Bearer ' + token;
+        return fetch(url, { credentials: 'same-origin', headers: h });
+    }
+
+    function esc(s) {
+        if (s == null || s === '') return '';
+        var d = document.createElement('div');
+        d.textContent = String(s);
+        return d.innerHTML;
+    }
+
+    function fmtMoeda(v) {
+        if (v == null || v === '') return '—';
+        var n = Number(v);
+        if (isNaN(n)) return esc(v);
+        return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function fmtData(iso) {
+        if (!iso) return '—';
+        try {
+            var d = new Date(iso);
+            if (isNaN(d.getTime())) return esc(iso);
+            return d.toLocaleString('pt-BR');
+        } catch (e) {
+            return esc(iso);
+        }
+    }
+
+    function atualizarPaginacao() {
+        document.getElementById('btnPrev').disabled = skip <= 0;
+        document.getElementById('btnNext').disabled = skip + limit >= total;
+        document.getElementById('leadsResumo').textContent =
+            total ? ('Total: ' + total + ' linhas · mostrando ' + (skip + 1) + '–' + Math.min(skip + limit, total)) : 'Nenhum resultado';
+    }
+
+    function montarUrl() {
+        var params = new URLSearchParams();
+        params.set('origem', document.getElementById('filtroOrigem').value || 'todos');
+        params.set('skip', String(skip));
+        params.set('limit', String(limit));
+        var em = document.getElementById('filtroEmail').value.trim();
+        if (em) params.set('busca_email', em);
+        var di = document.getElementById('filtroDataIni').value;
+        var df = document.getElementById('filtroDataFim').value;
+        if (di) params.set('data_inicio', di);
+        if (df) params.set('data_fim', df);
+        if (document.getElementById('filtroSemCliente').checked) {
+            params.set('incluir_pdv_sem_cliente', 'true');
+        }
+        return '/api/v1/admin/compras-globais/linhas?' + params.toString();
+    }
+
+    function carregar() {
+        document.getElementById('loading').classList.remove('d-none');
+        document.getElementById('content').classList.add('d-none');
+        document.getElementById('error').classList.add('d-none');
+
+        authFetch(montarUrl())
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function(data) {
+                total = data.total != null ? data.total : 0;
+                var items = data.items || [];
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('content').classList.remove('d-none');
+                atualizarPaginacao();
+
+                var tbody = document.getElementById('tbody');
+                tbody.innerHTML = items.map(function(row) {
+                    var estab = row.estabelecimento_nome || ('#' + row.estabelecimento_cliente_id);
+                    var attr = '';
+                    if (row.atribuicao && typeof row.atribuicao === 'object') {
+                        try {
+                            attr = esc(JSON.stringify(row.atribuicao));
+                        } catch (e) {
+                            attr = '—';
+                        }
+                    } else {
+                        attr = '<span class="text-muted">—</span>';
+                    }
+                    var origemBadge = row.origem === 'vitrine'
+                        ? '<span class="badge bg-info text-dark">Vitrine</span>'
+                        : '<span class="badge bg-secondary">PDV</span>';
+                    return '<tr>' +
+                        '<td class="text-nowrap small">' + fmtData(row.data_ref) + '</td>' +
+                        '<td>' + origemBadge + '</td>' +
+                        '<td class="small">' + esc(estab) + '</td>' +
+                        '<td class="small">' + esc(row.comprador_nome) + '</td>' +
+                        '<td class="small">' + esc(row.comprador_email || '') + '</td>' +
+                        '<td class="small">' + esc(row.produto_nome) + '</td>' +
+                        '<td class="small">' + esc(row.categoria || '') + '</td>' +
+                        '<td class="text-end small">' + esc(String(row.quantidade)) + '</td>' +
+                        '<td class="text-end small">' + fmtMoeda(row.valor_total_item) + '</td>' +
+                        '<td class="small text-nowrap">' + esc(row.documento_ref) + '</td>' +
+                        '<td class="small"><code class="small user-select-all">' + attr + '</code></td>' +
+                        '</tr>';
+                }).join('');
+
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">Nenhuma linha encontrada.</td></tr>';
+                }
+            })
+            .catch(function(e) {
+                document.getElementById('loading').classList.add('d-none');
+                document.getElementById('content').classList.add('d-none');
+                document.getElementById('error').textContent = 'Erro ao carregar: ' + (e.message || e);
+                document.getElementById('error').classList.remove('d-none');
+            });
+    }
+
+    document.getElementById('btnBuscar').addEventListener('click', function() {
+        skip = 0;
+        carregar();
+    });
+    document.getElementById('btnPrev').addEventListener('click', function() {
+        skip = Math.max(0, skip - limit);
+        carregar();
+    });
+    document.getElementById('btnNext').addEventListener('click', function() {
+        if (skip + limit < total) {
+            skip += limit;
+            carregar();
+        }
+    });
+
+    carregar();
+})();
+</script>
+{% endblock %}

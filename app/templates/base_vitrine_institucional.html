@@ -13,13 +13,13 @@
     <link rel="shortcut icon" href="{{ _base }}/static/img/arte-pdv.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="preload" href="{{ _base }}/static/css/loja.css?v=31" as="style">
+    <link rel="preload" href="{{ _base }}/static/css/loja.css?v=55" as="style">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link href="{{ _base }}/static/css/dashboard.css" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="{{ _base }}/static/css/dashboard.css" rel="stylesheet"></noscript>
     <link href="{{ _base }}/static/css/certipeso.css" rel="stylesheet">
     <link href="{{ _base }}/static/css/landing/header.css" rel="stylesheet">
-    <link href="{{ _base }}/static/css/loja.css?v=31" rel="stylesheet">
+    <link href="{{ _base }}/static/css/loja.css?v=55" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
         body.loja-page { background: var(--loja-bg, #FEF7F1); }
@@ -53,7 +53,7 @@
         .loja-nav-city .loja-nav-line2 { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cp-footer { border-top: 1px solid rgba(0,0,0,.08); background: #fff; padding: 18px 0; color: #6b7280; font-size: .9rem; }
         .cp-footer a { color: #6b7280; text-decoration: none; }
-        .cp-footer a:hover { color: var(--cp-primary, var(--certipeso-primary, #2c3e50)); }
+        .cp-footer a:hover { color: var(--ibix-hover, #C47A44); }
         .cp-footer .cp-credits { font-size: .85rem; }
         @media (max-width: 767px) {
             .loja-header.cp-navbar .loja-nav-belt {
@@ -176,6 +176,7 @@
                 <span aria-hidden="true">·</span>
                 <a href="{{ _base }}/como-funciona-vitrine">Como funciona a vitrine</a>
                 <span aria-hidden="true">·</span>
+                {% block footer_extra_trailing %}{% endblock %}
                 <span>&copy; 2022</span>
             </div>
         </div>

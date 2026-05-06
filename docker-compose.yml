@@ -5,6 +5,7 @@
 # Portas em 127.0.0.1 para não expor DB/Redis à internet (produção).
 services:
   db:
+    restart: unless-stopped
     image: postgres:16-alpine
     container_name: pdv_solumatica_db
     environment:
@@ -21,6 +22,7 @@ services:
       timeout: 5s
       retries: 5
   redis:
+    restart: unless-stopped
     image: redis:7-alpine
     container_name: pdv_solumatica_redis
     command: redis-server --requirepass "${REDIS_PASSWORD:-fOg7PYg2N8t-ES3uZAIA1-pW88GjxPRAph1_ladhE74}" --protected-mode no
