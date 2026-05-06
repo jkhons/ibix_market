@@ -25,7 +25,7 @@ import { ProductCard, RatingStars } from '@/components/product';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import catalogService, { type ProductSummary } from '@/services/catalogService';
-import { QUERY_KEYS, PAGINATION } from '@/constants/config';
+import { QUERY_KEYS, PAGINATION, resolveRemoteAssetUrl } from '@/constants/config';
 
 const BANNER_HEIGHT = 200;
 
@@ -87,12 +87,15 @@ export default function StoreDetailScreen() {
     router.push(`/chat?loja_id=${store?.id}` as any);
   }, [isAuthenticated, store, router]);
 
+  const bannerUri = resolveRemoteAssetUrl(store?.banner_url);
+  const logoUri = resolveRemoteAssetUrl(store?.logo_url);
+
   const renderHeader = () => (
     <>
       {/* Parallax Banner */}
       <View style={{ height: BANNER_HEIGHT, position: 'relative' }}>
-        {store?.banner_url ? (
-          <Image source={{ uri: store.banner_url }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {bannerUri ? (
+          <Image source={{ uri: bannerUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
         ) : (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primary }]} />
         )}
@@ -110,9 +113,9 @@ export default function StoreDetailScreen() {
         {/* Store info overlay */}
         <View style={[styles.storeOverlay, { bottom: 16, left: 16, right: 16 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            {store?.logo_url && (
+            {logoUri && (
               <Image
-                source={{ uri: store.logo_url }}
+                source={{ uri: logoUri }}
                 style={{ width: 56, height: 56, borderRadius: 28, borderWidth: 2, borderColor: colors.white }}
                 contentFit="cover"
               />

@@ -3,6 +3,7 @@ import { View, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import { Text } from './Text';
 import { useTheme } from '@/hooks/useTheme';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -42,15 +43,16 @@ export function Avatar({ uri, name = '', size = 'md', style }: AvatarProps) {
     overflow: 'hidden',
   };
 
-  if (uri) {
+  const resolvedUri = resolveRemoteAssetUrl(uri);
+  if (resolvedUri) {
     return (
       <View style={[containerStyle, style]} accessibilityLabel={name || 'Avatar'}>
         <Image
-          source={{ uri }}
+          source={{ uri: resolvedUri }}
           style={{ width: dim, height: dim }}
           contentFit="cover"
           transition={200}
-          recyclingKey={uri}
+          recyclingKey={resolvedUri}
         />
       </View>
     );

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui';
 import { useTheme } from '@/hooks/useTheme';
 import type { Category } from '@/services/catalogService';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 interface CategoryCardProps {
   category: Category;
@@ -16,6 +17,7 @@ export function CategoryCard({ category, size = 'md' }: CategoryCardProps) {
   const router = useRouter();
 
   const dim = size === 'sm' ? 64 : 80;
+  const iconUri = resolveRemoteAssetUrl(category.icone_url);
 
   return (
     <TouchableOpacity
@@ -29,9 +31,9 @@ export function CategoryCard({ category, size = 'md' }: CategoryCardProps) {
           { width: dim, height: dim, borderRadius: dim / 2, backgroundColor: colors.primarySurface },
         ]}
       >
-        {category.icone_url ? (
+        {iconUri ? (
           <Image
-            source={{ uri: category.icone_url }}
+            source={{ uri: iconUri }}
             style={{ width: dim * 0.6, height: dim * 0.6 }}
             contentFit="contain"
           />

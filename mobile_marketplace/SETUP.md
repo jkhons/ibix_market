@@ -1,5 +1,7 @@
 # Ibix Market — App Mobile Marketplace
 
+Desenvolvimento e **`git push`** para o GitHub são feitos no ambiente principal da equipe; **`git pull`** e os **testes com Expo** (web / celular / emulador) costumam ocorrer noutro local — método oficial na secção **1.1** de [`AGENTS.md`](AGENTS.md), checklist do tester em [`ALINHAR_OUTRO_PC.md`](ALINHAR_OUTRO_PC.md).
+
 ## Pré-requisitos
 
 - Node.js **>= 18**
@@ -37,6 +39,28 @@ npx expo start
 npm run web
 # ou: npx expo start --web
 ```
+
+### Erro 502 em `/__ibix_api` (web em desenvolvimento)
+
+No navegador, em modo dev, a API é chamada via proxy no Metro sob o prefixo `/__ibix_api/` (mesmo host/porta do Expo, ex.: `http://192.168.x.x:8082/__ibix_api/api/v1/...`). O destino real é `EXPO_PUBLIC_API_BASE_URL` definido no `.env` ([`metro.config.js`](metro.config.js)).
+
+**Importante:** abrir o app em `http://192.168.0.7:8082` só muda o host **do bundle**; quem precisa alcançar a API é o **processo Node do Metro na mesma máquina** onde corre `expo start`. Se o `.env` tiver `http://127.0.0.1:8000/api/v1`, tem de haver FastAPI **nessa máquina** na porta 8000 — caso contrário todos os pedidos (categorias, anúncios, fotos) falham com **502**.
+
+1. **Resposta no DevTools (Network):** corpo JSON `{ "detail": "Proxy error", ... }` indica que o Metro não conseguiu conectar ao backend (ex.: `ECONNREFUSED` se o FastAPI não estiver rodando ou a porta estiver errada).
+2. **Terminal do Expo:** em desenvolvimento (`NODE_ENV !== 'production'`), falhas do proxy são impressas como `[__ibix_api proxy] falha ao falar com o upstream:` seguidas da URL-alvo e da mensagem de erro.
+3. **Teste rápido no shell** (na máquina onde roda o Expo), ajustando host/porta ao seu `.env`:
+
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" http://127.0.0.1:8000/api/v1/loja/categorias
+   ```
+
+   Código **000** ou erro de conexão → o proxy também retornará 502. **401/200** → backend alcançável (401 é esperado em algumas rotas sem token).
+
+4. Após alterar `.env`, **reinicie** o Metro (`npx expo start --clear`).
+
+5. Rotas como `/loja/notificacoes` falham da mesma forma quando o upstream está inacessível; o problema é infraestrutura/proxy, não um bug isolado da tela.
+
+**Opcional:** `EXPO_PUBLIC_DISABLE_WEB_PROXY=true` faz o web chamar a API direto pela URL do `.env`; exige CORS configurado no backend para o origin do dev.
 
 ## 5. Typecheck e bundle de verificação
 

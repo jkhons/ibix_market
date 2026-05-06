@@ -8,6 +8,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "web:prod-api": "EXPO_PUBLIC_API_BASE_URL=https://www.ibix.com.br/api/v1 EXPO_PUBLIC_WS_BASE_URL=wss://api.ibix.com.br expo start --web --clear --port 8082",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "jest"

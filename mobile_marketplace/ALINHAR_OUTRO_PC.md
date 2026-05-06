@@ -1,8 +1,66 @@
 # Alinhar outro computador (mesmo usuário / mesma conta)
 
-> **Monorepo:** este diretório (`mobile_marketplace`) é a mesma base de código do repositório **`https://github.com/jkhons/IBIX_mobile.git`** — sincronize mudanças entre os dois quando publicar o app.
+> **VPS:** o backend (**sem** Git) e o app ficam na mesma máquina; **`mobile_marketplace/`** é a **única** pasta com `.git`. O remoto é **`https://github.com/jkhons/IBIX_mobile.git`**. Trabalha sempre com Git **dentro** de `mobile_marketplace/` (`git pull` / `git push`) — ver [`PUBLICAR_IBIX_MOBILE.md`](PUBLICAR_IBIX_MOBILE.md). A pasta pai (`pdv_solumatica/`) **não** deve ter `.git` activo no dia a dia (só eventual backup `../.git.backup_full_repo`).
 
 Use este checklist para ter **o mesmo repositório, Git e fluxo** em outra máquina (Windows, macOS ou Linux), mantendo o **mesmo usuário GitHub** (`jkhons`) e o mesmo app **Ibix Market**.
+
+### Onde clonar o quê
+
+| Quem | O quê | Comando típico |
+|------|--------|----------------|
+| **Tester / loja** | Só app Expo — **`IBIX_mobile`** | `git clone git@github.com:jkhons/IBIX_mobile.git` → na raiz: `git pull origin main` |
+| **VPS (desenvolvimento)** | Backend em `../` + Git **só** em **`mobile_marketplace/`** | `cd mobile_marketplace` → `git pull` / `git push` → [`PUBLICAR_IBIX_MOBILE.md`](PUBLICAR_IBIX_MOBILE.md) |
+
+---
+
+## Fluxo oficial de trabalho (método definitivo)
+
+| Etapa | Onde | O quê |
+|-------|------|--------|
+| **1. Desenvolver** | **VPS** | Alterações em `mobile_marketplace/` e no backend (`../app/`, etc.). **O PDV não tem repo Git separado** — versionação remota é só o app. |
+| **2. Publicar app (`IBIX_mobile`)** | **VPS** → **GitHub** | Dentro de **`mobile_marketplace/`**: `git commit` + **`git push origin main`** — **fonte de verdade remota do código Expo**. |
+| **3. Testar** | **PC Windows** (ou outro PC local) | Clone **`IBIX_mobile`** apenas; `git pull origin main` e Expo. |
+
+- **DIRETRIZ (obrigatória): existe UMA ÚNICA CÉLULA de desenvolvimento = VPS.** O PC tester é apenas validação.
+- O **PC de testes** **baixa** a versão corrigida; **não faz hotfix** local (não altera `main` no Windows). Se precisar corrigir algo, reporte e a VPS corrige.
+- Sempre **puxe** (`git pull origin main`) antes de testar, para coincidir com o que acabou de subir da VPS.
+- Qualquer teste que não esteja em `origin/main` **não vale** como validação do produto (evita “testei algo que não foi publicado”).
+- Evite editar o mesmo `main` em duas máquinas sem `pull` / `push` entre elas, para não divergir o histórico.
+
+### Checklist do tester (antes de abrir o app)
+
+```bash
+git status -sb
+git pull origin main
+git log -1 --oneline
+```
+
+Se o `git pull` trouxer commits novos, reinicie o Metro/Expo (cache) e só então valide.
+
+### Diretriz obrigatória do tester: Node LTS (evitar Metro “pendurado”)
+
+> Sintoma típico com Node 22+: a página `http://localhost:8082/` abre HTML, mas o bundle `/node_modules/expo-router/entry.bundle?...` fica travado e o app “fica carregando infinito”.
+> Para **Expo SDK 52**, o ambiente suportado e estável é **Node LTS**.
+
+- **Proibido testar com Node 22** no PC tester.
+- Padronizar o PC tester com **Node 20 LTS** (preferível) ou **Node 18 LTS**.
+
+Comandos padrão do tester (web):
+
+```bash
+git pull origin main
+npm install
+npx expo start --web --clear --port 8082
+```
+
+Se ainda travar, confirme versão:
+
+```bash
+node -v
+npx expo --version
+```
+
+As secções abaixo (clone, identidade Git, SSH, `npm install`, `.env`) servem sobretudo para **preparar o Windows** (ou outro computador) nesse papel de teste.
 
 ---
 
@@ -125,8 +183,10 @@ Detalhes de API, EAS e typecheck: **`SETUP.md`**. Regras de produto, stack e pas
 
 ## 6. Sincronizar com o remoto (dia a dia)
 
+**Na VPS:** entra na pasta do app (onde está o `.git`):
+
 ```bash
-cd IBIX_mobile
+cd /caminho/para/pdv_solumatica/mobile_marketplace
 git fetch origin
 git status
 git pull origin main
@@ -141,7 +201,9 @@ git commit -m "Descrição clara do que mudou"
 git push origin main
 ```
 
-Se o GitHub rejeitar push (histórico divergente), não force sem entender: em time, alinhe com `git pull --rebase origin main` ou merge conforme o fluxo combinado.
+**No PC tester** (clone só Expo): mesmo fluxo a partir da raiz do clone `IBIX_mobile`.
+
+Se o GitHub rejeitar push (histórico divergente), não force sem entender: alinha com `git pull --rebase origin main` ou merge conforme combinado com a equipa.
 
 ---
 
@@ -170,4 +232,4 @@ Na primeira vez neste repo: `npx eas init` só se ainda não existir projeto EAS
 
 ---
 
-**Última revisão:** documento focado em alinhar **Git + GitHub + ambiente local**; detalhes de negócio e API continuam em `AGENTS.md` e `SETUP.md`.
+**Última revisão:** documento focado em alinhar **Git + GitHub + ambiente local**; detalhes de negócio e API continuam em `AGENTS.md` e `SETUP.md`. **Fluxo VPS → GitHub → Windows:** secção *Fluxo oficial de trabalho (método definitivo)* acima.

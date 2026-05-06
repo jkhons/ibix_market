@@ -7,7 +7,7 @@ import { Image } from 'expo-image';
 import { Text, Skeleton, SearchBar } from '@/components/ui';
 import { useTheme } from '@/hooks/useTheme';
 import catalogService, { type Category } from '@/services/catalogService';
-import { QUERY_KEYS } from '@/constants/config';
+import { QUERY_KEYS, resolveRemoteAssetUrl } from '@/constants/config';
 
 export default function CategoriasScreen() {
   const { colors, spacing, borderRadius: br, shadow } = useTheme();
@@ -24,7 +24,9 @@ export default function CategoriasScreen() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const renderCategory = ({ item }: { item: Category }) => (
+  const renderCategory = ({ item }: { item: Category }) => {
+    const iconUri = resolveRemoteAssetUrl(item.icone_url);
+    return (
     <TouchableOpacity
       onPress={() => router.push(`/categoria/${item.id}`)}
       style={[
@@ -44,9 +46,9 @@ export default function CategoriasScreen() {
           { width: cardWidth * 0.55, height: cardWidth * 0.55, borderRadius: (cardWidth * 0.55) / 2, backgroundColor: colors.primarySurface },
         ]}
       >
-        {item.icone_url ? (
+        {iconUri ? (
           <Image
-            source={{ uri: item.icone_url }}
+            source={{ uri: iconUri }}
             style={{ width: cardWidth * 0.35, height: cardWidth * 0.35 }}
             contentFit="contain"
           />
@@ -65,7 +67,8 @@ export default function CategoriasScreen() {
         </Text>
       )}
     </TouchableOpacity>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

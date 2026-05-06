@@ -1,7 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/hooks/useTheme';
+import { impactLight } from '@/utils/haptics';
 
 interface IconButtonProps {
   icon: React.ReactNode;
@@ -27,7 +27,7 @@ export function IconButton({
   const { colors, borderRadius: br, hitSlop: hs } = useTheme();
 
   const handlePress = () => {
-    if (haptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (haptic) impactLight();
     onPress();
   };
 

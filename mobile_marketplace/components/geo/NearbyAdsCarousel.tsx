@@ -13,6 +13,7 @@ import { Text, Icon } from '@/components/ui';
 import { useTheme } from '@/hooks/useTheme';
 import { formatCurrency } from '@/utils/format';
 import type { NearbyAd } from '@/services/geoService';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 interface NearbyAdsCarouselProps {
   items: NearbyAd[];
@@ -56,6 +57,7 @@ export function NearbyAdsCarousel({ items }: NearbyAdsCarouselProps) {
         const cidade = item.cidade_loja
           ? `${item.cidade_loja}${item.uf_loja ? ` • ${item.uf_loja}` : ''}`
           : null;
+        const thumbUri = resolveRemoteAssetUrl(item.imagens?.[0]);
 
         return (
           <TouchableOpacity
@@ -83,9 +85,9 @@ export function NearbyAdsCarousel({ items }: NearbyAdsCarouselProps) {
                 backgroundColor: colors.surfaceVariant,
               }}
             >
-              {item.imagens?.[0] ? (
+              {thumbUri ? (
                 <Image
-                  source={{ uri: item.imagens[0] }}
+                  source={{ uri: thumbUri }}
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
                   transition={200}

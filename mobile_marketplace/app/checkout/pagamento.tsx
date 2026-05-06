@@ -382,7 +382,8 @@ export default function CheckoutPagamentoScreen() {
               Li e aceito a{' '}
               <Text variant="body2" color={colors.textLink}>Política de Privacidade</Text>
               {' '}e os{' '}
-              <Text variant="body2" color={colors.textLink}>Termos de Uso</Text>.
+              <Text variant="body2" color={colors.textLink}>Termos de Uso</Text>
+              <Text variant="body2" color={colors.textSecondary}>.</Text>
             </Text>
           </View>
           <View style={[styles.consentRow, { marginTop: spacing.md }]}>

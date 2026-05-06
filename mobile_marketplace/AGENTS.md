@@ -7,7 +7,7 @@
 
 ## 1. O que é este projeto
 
-App **React Native (Expo SDK 52)** para o consumidor final do **PDV Ibix Marketplace**. O backend é **FastAPI (Python)** localizado em `../app/` (mesmo monorepo do PDV), expondo `/api/v1/loja/*` e `/api/v1/marketing-vitrine/*`.
+App **React Native (Expo SDK 52)** para o consumidor final do **Ibix Marketplace**. O backend é **FastAPI (Python)** em `../app/` na **mesma VPS** (cópia de trabalho — **sem** repositório Git próprio para o PDV), expondo `/api/v1/loja/*` e `/api/v1/marketing-vitrine/*`.
 
 - **Plataformas:** iOS, Android, Web (PWA leve)
 - **Display name nas lojas (App Store / Play Store / springboard):** **`Ibix`** (curto, marca-mãe — `expo.name` no `app.json`)
@@ -24,10 +24,17 @@ Documentação macro vive em `../MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md` (
 
 | Etapa | Onde | O quê |
 |-------|------|--------|
-| Desenvolvimento e **push** | **VPS** | Alterações e `git push` para `IBIX_mobile` no GitHub. |
-| **Pull** e testes | **PC Windows** (local) | `git pull origin main` e validação com Expo (emulador / celular / Expo Go). |
+| Desenvolvimento | **VPS** | Alterações em `mobile_marketplace/` e no backend em `../app/` (PDV **sem** repo Git remoto). |
+| Publicar código Expo | **VPS** → **GitHub** | Pasta **`mobile_marketplace/`** é o **único** directório com Git; **`git pull` / `git push`** sempre **lá dentro**. Ver [`PUBLICAR_IBIX_MOBILE.md`](PUBLICAR_IBIX_MOBILE.md). |
+| **Pull** e testes | **PC Windows** (clone **`IBIX_mobile`**) | `git pull origin main` e validação com Expo. |
 
-Este é o método **definitivo** da equipa: a VPS é onde se corrige e publica; o Windows recebe a versão do GitHub e testa. Pormenores (clone, SSH, credenciais, checklist): **`ALINHAR_OUTRO_PC.md`**.
+**DIRETRIZ (obrigatória): UMA ÚNICA CÉLULA de desenvolvimento = VPS.** O PC Windows é **tester** e só valida o que está em **`IBIX_mobile`** no GitHub (`origin/main` **desse** clone).
+
+- **Proibido hotfix no PC tester:** não corrigir “por fora” no Windows sem subir para o Git.
+- **Teste válido = commit publicado:** o tester sempre faz `git pull origin main` no clone **`IBIX_mobile`** antes de validar.
+- **Feedback do tester tem que vir com evidência:** print + passos + log de rede/console quando aplicável.
+
+Pormenores (clone, SSH, credenciais, checklist): **`ALINHAR_OUTRO_PC.md`**.
 
 ---
 
@@ -37,7 +44,7 @@ Quando você (IA ou humano) **clonar este projeto na máquina local** (Windows/L
 
 | Ferramenta | Versão mínima | Instalação |
 |------------|---------------|------------|
-| Node.js | 18 LTS (recomendado 20) | https://nodejs.org |
+| Node.js | **20 LTS** (ou 18 LTS) | https://nodejs.org |
 | npm | 9+ (vem com Node) | — |
 | Git | qualquer recente | — |
 | Expo Go (no celular) | App da App Store / Play Store | iPhone/Android |
@@ -46,6 +53,9 @@ Quando você (IA ou humano) **clonar este projeto na máquina local** (Windows/L
 | Cursor IDE | atual | Edição com IA |
 
 > **Não precisa instalar `expo-cli` global.** Use `npx expo` (vem com o pacote `expo`).
+
+> **Diretriz do tester (obrigatória):** não usar Node 22 no PC de testes. Expo SDK 52 + Metro pode ficar “pendurado” no bundling.
+> Padronize o PC tester com **Node 20 LTS** (preferível) ou **Node 18 LTS**.
 
 ---
 
@@ -81,6 +91,8 @@ npx expo install --fix
 ```
 
 > **Importante:** o backend FastAPI (`../app/`) precisa estar rodando **antes** de abrir o app, ou o app exibirá erros de rede. Para subir o backend: `cd .. && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000`.
+
+> **Web dev e HTTP 502:** no navegador, as requisições passam pelo proxy `/__ibix_api/` do Metro. Um **502** quase sempre significa que o FastAPI não está acessível em `EXPO_PUBLIC_API_BASE_URL` ou o Metro não foi reiniciado após mudar o `.env`. Passo a passo: secção *Erro 502 em `/__ibix_api`* em [`SETUP.md`](SETUP.md).
 
 ---
 
@@ -524,5 +536,5 @@ npx eas submit --platform android
 ---
 
 **Última atualização:** 2026-04-27
-**Maintainer:** Time PDV Ibix
-**Bug reports / sugestões:** abrir issue no repositório do monorepo `central_solumatica/pdv_solumatica`.
+**Maintainer:** Time Ibix Market  
+**Bug reports / sugestões:** issues em [`github.com/jkhons/IBIX_mobile`](https://github.com/jkhons/IBIX_mobile).

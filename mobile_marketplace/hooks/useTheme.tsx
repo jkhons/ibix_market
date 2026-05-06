@@ -24,7 +24,10 @@ const ThemeContext = createContext<Theme | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  // Identidade visual canônica do Marketplace é clara (vitrine web).
+  // Dark mode fica desativado por padrão até existir preferência explícita.
+  const enableDarkMode = process.env.EXPO_PUBLIC_ENABLE_DARK_MODE === 'true';
+  const isDark = enableDarkMode ? colorScheme === 'dark' : false;
 
   const theme = useMemo<Theme>(
     () => ({

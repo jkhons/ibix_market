@@ -27,7 +27,7 @@ import catalogService, { type ProductSummary } from '@/services/catalogService';
 import marketingService, { type MarketingBlock } from '@/services/marketingService';
 import favoriteService from '@/services/favoriteService';
 import geoService from '@/services/geoService';
-import { QUERY_KEYS, PAGINATION } from '@/constants/config';
+import { QUERY_KEYS, PAGINATION, resolveRemoteAssetUrl } from '@/constants/config';
 import { formatCurrency } from '@/utils/format';
 
 export default function HomeScreen() {
@@ -145,18 +145,23 @@ export default function HomeScreen() {
       keyExtractor={(item) => String(item.id)}
       renderItem={({ item }) => {
         const cardW = width * 0.38;
+        const cardImgUri = resolveRemoteAssetUrl(item.imagem_url_mobile ?? item.imagem_url);
         return (
           <TouchableOpacity
             onPress={() => item.anuncio_id && router.push(`/produto/${item.anuncio_id}`)}
             style={[styles.marketingCard, { width: cardW, marginRight: spacing.sm, borderRadius: br.lg, backgroundColor: colors.surface }]}
             accessibilityLabel={item.titulo ?? 'Produto em destaque'}
           >
-            <Image
-              source={{ uri: item.imagem_url_mobile ?? item.imagem_url }}
-              style={{ width: cardW, height: cardW * 1.1, borderTopLeftRadius: br.lg, borderTopRightRadius: br.lg }}
-              contentFit="cover"
-              transition={200}
-            />
+            {cardImgUri ? (
+              <Image
+                source={{ uri: cardImgUri }}
+                style={{ width: cardW, height: cardW * 1.1, borderTopLeftRadius: br.lg, borderTopRightRadius: br.lg }}
+                contentFit="cover"
+                transition={200}
+              />
+            ) : (
+              <View style={{ width: cardW, height: cardW * 1.1, borderTopLeftRadius: br.lg, borderTopRightRadius: br.lg, backgroundColor: colors.surfaceVariant }} />
+            )}
             {item.titulo && (
               <View style={{ padding: spacing.sm }}>
                 <Text variant="body2" color={colors.textPrimary} numberOfLines={2}>
@@ -189,15 +194,16 @@ export default function HomeScreen() {
           keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => {
             const cardW = width * 0.3;
+            const recentUri = resolveRemoteAssetUrl(item.imageUrl);
             return (
               <TouchableOpacity
                 onPress={() => router.push(`/produto/${item.id}`)}
                 style={[styles.recentCard, { width: cardW, marginRight: spacing.sm, borderRadius: br.md, backgroundColor: colors.surface }]}
                 accessibilityLabel={item.nome}
               >
-                {item.imageUrl ? (
+                {recentUri ? (
                   <Image
-                    source={{ uri: item.imageUrl }}
+                    source={{ uri: recentUri }}
                     style={{ width: cardW, height: cardW, borderTopLeftRadius: br.md, borderTopRightRadius: br.md }}
                     contentFit="cover"
                     transition={150}

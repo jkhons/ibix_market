@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
 import { Text, Button } from '@/components/ui';
+import { notifySuccess } from '@/utils/haptics';
 import { useTheme } from '@/hooks/useTheme';
 
 interface PixPaymentProps {
@@ -39,7 +39,7 @@ export function PixPayment({ copiaCola, expiracaoMinutos, onExpired, style }: Pi
 
   const handleCopy = useCallback(async () => {
     await Clipboard.setStringAsync(copiaCola);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    notifySuccess();
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
   }, [copiaCola]);

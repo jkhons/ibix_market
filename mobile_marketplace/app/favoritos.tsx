@@ -8,7 +8,7 @@ import { Image } from 'expo-image';
 import { Text, EmptyState, Skeleton } from '@/components/ui';
 import { useTheme } from '@/hooks/useTheme';
 import favoriteService from '@/services/favoriteService';
-import { QUERY_KEYS } from '@/constants/config';
+import { QUERY_KEYS, resolveRemoteAssetUrl } from '@/constants/config';
 import { formatCurrency } from '@/utils/format';
 
 export default function FavoritosScreen() {
@@ -58,15 +58,17 @@ export default function FavoritosScreen() {
           data={data.items}
           estimatedItemSize={90}
           contentContainerStyle={{ paddingHorizontal: spacing.lg }}
-          renderItem={({ item }) => (
+          renderItem={({ item }) => {
+            const thumbUri = resolveRemoteAssetUrl(item.produto_imagem);
+            return (
             <TouchableOpacity
               onPress={() => router.push(`/produto/${item.produto_id}`)}
               style={[styles.row, { borderBottomColor: colors.divider }]}
               accessibilityLabel={item.produto_nome}
             >
-              {item.produto_imagem && (
+              {thumbUri && (
                 <Image
-                  source={{ uri: item.produto_imagem }}
+                  source={{ uri: thumbUri }}
                   style={[styles.thumb, { borderRadius: br.md }]}
                   contentFit="cover"
                 />
@@ -87,7 +89,8 @@ export default function FavoritosScreen() {
                 <Text variant="body2" color={colors.error}>✕</Text>
               </TouchableOpacity>
             </TouchableOpacity>
-          )}
+            );
+          }}
         />
       )}
     </View>

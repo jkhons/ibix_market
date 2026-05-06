@@ -10,6 +10,7 @@ import { useCartStore, CartItem } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { formatCurrency } from '@/utils/format';
 import type { CouponValidation } from '@/services/couponService';
+import { resolveRemoteAssetUrl } from '@/constants/config';
 
 interface CartSection {
   lojaId: number;
@@ -20,11 +21,12 @@ interface CartSection {
 function CartItemRow({ item }: { item: CartItem }) {
   const { colors, spacing, borderRadius: br } = useTheme();
   const { updateQuantity, removeItem } = useCartStore();
+  const thumbUri = resolveRemoteAssetUrl(item.imageUrl);
 
   return (
     <View style={[styles.itemRow, { paddingVertical: spacing.md }]}>
-      {item.imageUrl && (
-        <Image source={{ uri: item.imageUrl }} style={[styles.thumb, { borderRadius: br.md }]} contentFit="cover" />
+      {thumbUri && (
+        <Image source={{ uri: thumbUri }} style={[styles.thumb, { borderRadius: br.md }]} contentFit="cover" />
       )}
       <View style={{ flex: 1, marginLeft: spacing.md }}>
         <Text variant="body1" color={colors.textPrimary} numberOfLines={2}>

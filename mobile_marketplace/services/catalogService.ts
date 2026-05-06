@@ -268,8 +268,12 @@ const catalogService = {
   },
 
   async getCategories(): Promise<Category[]> {
-    const { data } = await api.get<Category[]>('/loja/categorias');
-    return data;
+    const { data } = await api.get<Array<Category & { icone?: string }>>('/loja/categorias');
+    const rows = Array.isArray(data) ? data : [];
+    return rows.map((row) => ({
+      ...row,
+      icone_url: row.icone_url ?? row.icone ?? undefined,
+    }));
   },
 
   async getStores(params?: { page?: number; page_size?: number }): Promise<PaginatedResponse<StoreSummary>> {
