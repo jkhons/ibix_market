@@ -60,13 +60,26 @@
                 min-height: 64px;
                 display: grid;
                 grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-rows: auto auto;
                 gap: 8px;
                 align-items: center;
             }
-            .loja-nav-left { min-width: 0; }
-            .loja-nav-right { justify-content: flex-end; gap: 0.35rem; }
+            .loja-nav-left {
+                grid-column: 1;
+                grid-row: 1;
+                min-width: 0;
+            }
+            .loja-nav-right {
+                grid-column: 2;
+                grid-row: 1;
+                justify-content: flex-end;
+                gap: 0.35rem;
+                align-self: center;
+                min-width: 0;
+            }
             .loja-nav-fill {
                 grid-column: 1 / -1;
+                grid-row: 2;
                 max-width: 100%;
                 width: 100%;
                 min-width: 0;

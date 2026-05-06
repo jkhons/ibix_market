@@ -364,6 +364,33 @@
                 <p class="small text-muted mb-0 mt-1">Ao preencher, o preço promocional é ajustado automaticamente.</p>
             </div>
             <div class="mb-2">
+                <label class="form-label small d-flex align-items-center gap-2 flex-wrap">
+                    Custos estimados (planejamento)
+                    <button type="button" class="btn btn-link btn-sm p-0 small d-inline-flex align-items-center gap-1 text-secondary" id="btn-helper-custos-marketplace" title="Valores configurados para sua loja">
+                        <span class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:11px;line-height:1;">?</span>
+                        Taxas aplicáveis
+                    </button>
+                </label>
+                <div class="small mb-2" id="helper-custos-marketplace-wrap" style="display: none;">
+                    <div id="helper-custos-marketplace-texto" class="p-2 rounded border bg-light small text-start" style="max-height: 200px; overflow-y: auto;"></div>
+                </div>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label small mb-0">Custo est. plataforma (R$)</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="modal-anuncio-custo-plat" placeholder="Opcional">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-0">Custo est. cartão (R$)</label>
+                        <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="modal-anuncio-custo-cartao" placeholder="Opcional">
+                    </div>
+                </div>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-preencher-plataforma">Pré-preencher plataforma</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-preencher-cartao">Pré-preencher cartão (crédito)</button>
+                </div>
+                <p class="small text-muted mb-0 mt-1">Valores vindos das regras definidas pelo administrador (Billing). Não aparecem na vitrine para o comprador.</p>
+            </div>
+            <div class="mb-2">
                 <label class="form-label small">Estoque</label>
                 <select class="form-select form-select-sm" id="modal-anuncio-tipo-estoque">
                     <option value="sincronizado">Sincronizado com meu estoque</option>
@@ -1121,6 +1148,105 @@
   }
   document.getElementById('btn-add-caracteristica').addEventListener('click', function() { addCaracteristicaRow('', ''); });
 
+  function modalPrecoEfetivo() {
+    var po = parseFloat(document.getElementById('modal-anuncio-preco').value);
+    var pp = parseFloat(document.getElementById('modal-anuncio-preco-promo').value);
+    if (!isNaN(pp) && pp > 0) return pp;
+    if (!isNaN(po) && po >= 0) return po;
+    return NaN;
+  }
+
+  function _htmlEsc(s) {
+    var t = document.createElement('div');
+    t.textContent = s == null ? '' : String(s);
+    return t.innerHTML;
+  }
+
+  function formatarTextoHelperTaxas(d) {
+    if (!d || !d.payload) return '<p class="mb-0 text-muted">Sem dados.</p>';
+    var p = d.payload;
+    var h = '<p class="mb-1 small"><strong>Regra:</strong> ' + _htmlEsc(d.nome_regra || '') + ' (' + (d.escopo_aplicado === 'tenant' ? 'específica do tenant' : 'Geral') + ')</p>';
+    h += '<strong>Faixas plataforma</strong><ul class="mb-2 ps-3 small">';
+    var fx = p.faixas_plataforma || [];
+    if (!fx.length) h += '<li class="text-warning">Nenhuma faixa cadastrada — configure no Admin Billing.</li>';
+    fx.forEach(function(f) {
+      var modo = f.modo === 'percent' ? (f.valor + '% do preço') : ('R$ ' + f.valor + ' fixo');
+      var teto = (f.preco_max != null && f.preco_max !== '') ? (' até R$ ' + f.preco_max) : ' (sem teto superior)';
+      h += '<li>De R$ ' + f.preco_min + teto + ': ' + modo + '</li>';
+    });
+    h += '</ul><div class="small"><strong>Gateway</strong><br>';
+    function linhaGw(label, item) {
+      if (!item) return '';
+      var txt = item.modo === 'percent' ? (item.valor + '%') : ('R$ ' + item.valor);
+      return '<div>' + _htmlEsc(label) + ': ' + _htmlEsc(txt) + '</div>';
+    }
+    h += linhaGw('PIX', p.gateway_pix);
+    h += linhaGw('Cartão crédito', p.gateway_credito);
+    h += linhaGw('Cartão débito', p.gateway_debito);
+    h += '</div>';
+    return h;
+  }
+
+  async function carregarTaxasParaHelper() {
+    if (!clienteId) return null;
+    var r = await api('/api/v1/marketplace/taxas-vigentes?cliente_id=' + encodeURIComponent(clienteId));
+    if (!r.ok) return null;
+    return r.json();
+  }
+
+  document.getElementById('btn-helper-custos-marketplace').addEventListener('click', async function() {
+    var wrap = document.getElementById('helper-custos-marketplace-wrap');
+    var el = document.getElementById('helper-custos-marketplace-texto');
+    if (!wrap || !el) return;
+    var vis = wrap.style.display !== 'none';
+    if (vis) {
+      wrap.style.display = 'none';
+      return;
+    }
+    el.innerHTML = '<span class="text-muted">Carregando…</span>';
+    wrap.style.display = 'block';
+    var d = await carregarTaxasParaHelper();
+    if (!d) {
+      el.innerHTML = '<span class="text-danger">Não foi possível carregar as taxas. Cadastre uma regra Geral em Admin Billing &gt; Preço ou verifique permissões.</span>';
+      return;
+    }
+    el.innerHTML = formatarTextoHelperTaxas(d);
+  });
+
+  document.getElementById('btn-preencher-plataforma').addEventListener('click', async function() {
+    var p = modalPrecoEfetivo();
+    if (isNaN(p) || p < 0) { alert('Informe preço válido para calcular.'); return; }
+    var r = await api('/api/v1/marketplace/taxas-vigentes?cliente_id=' + encodeURIComponent(clienteId) + '&preco=' + encodeURIComponent(String(p)));
+    if (!r.ok) {
+      var err = await r.json().catch(function() { return {}; });
+      alert(typeof err.detail === 'string' ? err.detail : 'Erro ao calcular.');
+      return;
+    }
+    var data = await r.json();
+    if (!data.preview) {
+      alert('Sem valores calculados — inclua faixas de preço na regra (Admin Billing).');
+      return;
+    }
+    document.getElementById('modal-anuncio-custo-plat').value = Number(data.preview.custo_plataforma_estimado).toFixed(2);
+  });
+
+  document.getElementById('btn-preencher-cartao').addEventListener('click', async function() {
+    var p = modalPrecoEfetivo();
+    if (isNaN(p) || p < 0) { alert('Informe preço válido para calcular.'); return; }
+    var r = await api('/api/v1/marketplace/taxas-vigentes?cliente_id=' + encodeURIComponent(clienteId) + '&preco=' + encodeURIComponent(String(p)));
+    if (!r.ok) {
+      var err = await r.json().catch(function() { return {}; });
+      alert(typeof err.detail === 'string' ? err.detail : 'Erro ao calcular.');
+      return;
+    }
+    var data = await r.json();
+    if (!data.preview) {
+      alert('Sem valores calculados — verifique as regras em Admin Billing.');
+      return;
+    }
+    document.getElementById('modal-anuncio-custo-cartao').value = Number(data.preview.gateway_credito_valor_estimado).toFixed(2);
+  });
+
   document.getElementById('btn-publicar-anuncio').addEventListener('click', function() {
     if (!clienteId) {
       alert('Nenhum estabelecimento em contexto. Acesse a página do seu negócio.');
@@ -1148,6 +1274,12 @@
     document.getElementById('modal-anuncio-preco').value = '';
     document.getElementById('modal-anuncio-preco-promo').value = '';
     document.getElementById('modal-anuncio-desconto-pct').value = '';
+    var c1 = document.getElementById('modal-anuncio-custo-plat');
+    var c2 = document.getElementById('modal-anuncio-custo-cartao');
+    if (c1) c1.value = '';
+    if (c2) c2.value = '';
+    var hw = document.getElementById('helper-custos-marketplace-wrap');
+    if (hw) hw.style.display = 'none';
     document.getElementById('modal-anuncio-tipo-estoque').value = 'sincronizado';
     document.getElementById('modal-anuncio-frete-modo').value = 'loja';
     document.getElementById('modal-anuncio-badge-frete-gratis').style.display = 'none';
@@ -1301,6 +1433,12 @@
       document.getElementById('modal-anuncio-badge-frete-gratis').style.display = (document.getElementById('modal-anuncio-frete-modo').value === 'gratis') ? 'inline-flex' : 'none';
       document.getElementById('modal-anuncio-status').value = a.status || 'rascunho';
       document.getElementById('modal-anuncio-msg').textContent = '';
+      var platEl = document.getElementById('modal-anuncio-custo-plat');
+      var cartEl = document.getElementById('modal-anuncio-custo-cartao');
+      if (platEl) platEl.value = (a.custo_plataforma_estimado != null && a.custo_plataforma_estimado !== '') ? String(a.custo_plataforma_estimado) : '';
+      if (cartEl) cartEl.value = (a.custo_cartao_estimado != null && a.custo_cartao_estimado !== '') ? String(a.custo_cartao_estimado) : '';
+      var hw2 = document.getElementById('helper-custos-marketplace-wrap');
+      if (hw2) hw2.style.display = 'none';
       var ogInpEd = document.getElementById('modal-anuncio-og-image-url');
       if (ogInpEd) ogInpEd.value = (a.og_image_url != null && String(a.og_image_url).trim() !== '') ? String(a.og_image_url).trim() : '';
       document.getElementById('modal-anuncio-desconto-pct').value = '';
@@ -1350,7 +1488,9 @@
       var titulo = document.getElementById('modal-anuncio-input-titulo').value.trim();
       if (!titulo) { msgEl.textContent = 'Informe o título.'; return; }
       var ogTrim = (document.getElementById('modal-anuncio-og-image-url') && document.getElementById('modal-anuncio-og-image-url').value) ? document.getElementById('modal-anuncio-og-image-url').value.trim() : '';
-      var body = { titulo: titulo, descricao: document.getElementById('modal-anuncio-descricao').value.trim() || null, atributos: getCaracteristicasJson(), preco_original: preco, preco_promocional: document.getElementById('modal-anuncio-preco-promo').value ? parseFloat(document.getElementById('modal-anuncio-preco-promo').value) : null, tipo_estoque: document.getElementById('modal-anuncio-tipo-estoque').value, status: document.getElementById('modal-anuncio-status').value, og_image_url: ogTrim || null };
+      var cp = document.getElementById('modal-anuncio-custo-plat').value.trim();
+      var cc = document.getElementById('modal-anuncio-custo-cartao').value.trim();
+      var body = { titulo: titulo, descricao: document.getElementById('modal-anuncio-descricao').value.trim() || null, atributos: getCaracteristicasJson(), preco_original: preco, preco_promocional: document.getElementById('modal-anuncio-preco-promo').value ? parseFloat(document.getElementById('modal-anuncio-preco-promo').value) : null, tipo_estoque: document.getElementById('modal-anuncio-tipo-estoque').value, status: document.getElementById('modal-anuncio-status').value, og_image_url: ogTrim || null, custo_plataforma_estimado: cp ? parseFloat(cp) : null, custo_cartao_estimado: cc ? parseFloat(cc) : null };
       var freteModoEdicao = document.getElementById('modal-anuncio-frete-modo').value;
       body.frete_sobrescrever_loja = freteModoEdicao !== 'loja';
       body.formato_frete_produto = freteModoEdicao === 'gratis' ? 'gratis' : null;
@@ -1378,6 +1518,8 @@
           msgEl.textContent = 'Informe o título ou garanta nome do produto no cadastro.';
           return;
         }
+        var cpL = document.getElementById('modal-anuncio-custo-plat').value.trim();
+        var ccL = document.getElementById('modal-anuncio-custo-cartao').value.trim();
         var body = {
           loja_id: lojaId,
           produto_ca_id: parseInt(optSel.value, 10),
@@ -1389,7 +1531,9 @@
           tipo_estoque: document.getElementById('modal-anuncio-tipo-estoque').value,
           frete_sobrescrever_loja: document.getElementById('modal-anuncio-frete-modo').value !== 'loja',
           formato_frete_produto: document.getElementById('modal-anuncio-frete-modo').value === 'gratis' ? 'gratis' : null,
-          og_image_url: ogUrlNovo || null
+          og_image_url: ogUrlNovo || null,
+          custo_plataforma_estimado: cpL ? parseFloat(cpL) : null,
+          custo_cartao_estimado: ccL ? parseFloat(ccL) : null
         };
         var r = await api('/api/v1/marketplace/anuncios', { method: 'POST', body: JSON.stringify(body) });
         if (!r.ok) {

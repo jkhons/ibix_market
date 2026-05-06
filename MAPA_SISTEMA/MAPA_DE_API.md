@@ -1781,6 +1781,10 @@ APIs otimizadas para aplicativo mobile nativo, com suporte offline e recursos na
 - **GET** `/admin/billing/preco` — Valor mensal (centavos), valor_aplicar_a, desconto_percent, desconto_escopo, desconto_tenant_ids.
 - **POST** `/admin/billing/preco` — Salva valor mensal e regras de desconto (configuracoes).
 - **POST** `/admin/billing/preco/aplicar-valor-todos` — Body: `respeitar_codigos_promocionais` (boolean, default true). Atualiza valor_mensal_centavos de todas as assinaturas: true = mantém desconto de código onde houver codigo_desconto_id; false = aplica o mesmo valor a todas (ignora códigos). Contrato comercial ativo sempre prevalece.
+- **GET** `/admin/billing/marketplace-taxas/regras` — Query `ativo` (bool, opcional). Lista regras de taxas marketplace (faixas plataforma + gateway). Apenas Super Admin.
+- **POST** `/admin/billing/marketplace-taxas/regras` — Cria regra. Body: `nome`, `escopo` (`geral` | `tenant`), `tenant_id` (obrigatório se `escopo=tenant`), `ativo`, `payload` (objeto: `faixas_plataforma` com `preco_min`, `preco_max` opcional, `modo` `fixo`|`percent`, `valor`; `gateway_pix`, `gateway_credito`, `gateway_debito` cada um com `modo` e `valor`). Só uma regra Geral ativa e só uma regra ativa por tenant.
+- **PATCH** `/admin/billing/marketplace-taxas/regras/{id}` — Atualiza nome, ativo ou payload completo.
+- **DELETE** `/admin/billing/marketplace-taxas/regras/{id}` — Remove regra.
 
 ### 17.3 Webhook Mercado Pago (sem JWT)
 
@@ -2256,10 +2260,11 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 - **POST** `/marketplace/status-pedido` — Criar status (body: codigo, label, ordem, ativo). Apenas Super Admin.
 - **PATCH** `/marketplace/status-pedido/{id}` — Atualizar status (label, ordem, ativo). Apenas Super Admin.
 - **PATCH** `/marketplace/status-pedido/{id}/desativar` — Desativa status (ativo=false). Apenas Super Admin.
+- **GET** `/marketplace/taxas-vigentes` — Query: `cliente_id` (obrigatório, estabelecimento), `preco` (opcional, decimal). Resolve a regra de taxas marketplace para o `tenant_id` do usuário (regra `tenant` ativa tem prioridade sobre regra **Geral**). Resposta: `nome_regra`, `escopo_aplicado`, `payload` (faixas + gateway), e `preview` (custos estimados) se `preco` foi informado. Escopo `cliente_id`. Permissão: `marketplace:visualizar`.
 - **GET** `/marketplace/anuncios` — Lista anúncios (loja_id, cliente_id, status, skip, limit). Escopo por loja/cliente. Permissão: `marketplace:visualizar`.
-- **POST** `/marketplace/anuncios` — Criar anúncio (body: AnuncioPlataformaCreate). Valida produto em produtos_cliente do estabelecimento da loja. Permissão: `marketplace:publicar`. Suporta frete por produto (`frete_sobrescrever_loja`, `formato_frete_produto`, `taxa_entrega_fixa_produto`, `entrega_gratis_apos_produto`).
+- **POST** `/marketplace/anuncios` — Criar anúncio (body: AnuncioPlataformaCreate). Valida produto em produtos_cliente do estabelecimento da loja. Permissão: `marketplace:publicar`. Suporta frete por produto (`frete_sobrescrever_loja`, `formato_frete_produto`, `taxa_entrega_fixa_produto`, `entrega_gratis_apos_produto`). Opcionais: `custo_plataforma_estimado`, `custo_cartao_estimado` (planejamento; não expostos na vitrine pública).
 - **GET** `/marketplace/anuncios/{id}` — Obter anúncio. Escopo: loja no escopo. Permissão: `marketplace:visualizar`.
-- **PATCH** `/marketplace/anuncios/{id}` — Atualizar anúncio. Permissão: `marketplace:publicar`. Suporta override de frete por produto com precedência sobre a loja.
+- **PATCH** `/marketplace/anuncios/{id}` — Atualizar anúncio. Permissão: `marketplace:publicar`. Suporta override de frete por produto com precedência sobre a loja. Opcionais: `custo_plataforma_estimado`, `custo_cartao_estimado`.
 - **POST** `/marketplace/sync/estoque?loja_id=` — Sincroniza estoque dos anúncios a partir de produtos_cliente; registra em SyncControle. Permissão: `marketplace:publicar`.
 - **GET** `/marketplace/loja/{loja_id}/pedidos` — Lista pedidos da loja (status_pedido, status_pagamento, skip, limit). Itens incluem `nome_produto_snapshot`. Permissão: `marketplace:gerenciar_pedidos`.
 - **GET** `/marketplace/pedidos/{pedido_id}/cupom` — Cupom não fiscal do pedido marketplace (`CupomConteudoResponse`). Permissão: `marketplace:gerenciar_pedidos`; escopo pela loja do pedido.

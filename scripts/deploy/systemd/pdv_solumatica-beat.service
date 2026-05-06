@@ -4,8 +4,8 @@
 [Unit]
 Description=PDV SOLUMATICA Celery Beat - Job diário billing (03:00)
 Documentation=https://www.solumatica.com.br
-After=network.target redis-server.service pdv_solumatica.service
-Wants=redis-server.service
+After=network.target docker.service pdv_solumatica-docker-deps.service redis-server.service pdv_solumatica.service
+Wants=docker.service pdv_solumatica-docker-deps.service redis-server.service
 
 [Service]
 Type=simple

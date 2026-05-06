@@ -182,6 +182,8 @@ class AnuncioPlataformaBase(BaseModel):
     taxa_entrega_fixa_produto: Optional[Decimal] = None
     entrega_gratis_apos_produto: Optional[Decimal] = None
     og_image_url: Optional[str] = Field(None, max_length=500, description="URL absoluta (CDN) imagem OG 1.91:1; opcional")
+    custo_plataforma_estimado: Optional[Decimal] = None
+    custo_cartao_estimado: Optional[Decimal] = None
 
 
 class AnuncioPlataformaCreate(AnuncioPlataformaBase):
@@ -205,6 +207,8 @@ class AnuncioPlataformaUpdate(BaseModel):
     formato_frete_produto: Optional[str] = None
     taxa_entrega_fixa_produto: Optional[Decimal] = None
     entrega_gratis_apos_produto: Optional[Decimal] = None
+    custo_plataforma_estimado: Optional[Decimal] = None
+    custo_cartao_estimado: Optional[Decimal] = None
 
 
 class AnuncioPlataformaResponse(BaseModel):
@@ -233,6 +237,8 @@ class AnuncioPlataformaResponse(BaseModel):
     taxa_entrega_fixa_produto: Optional[Decimal] = None
     entrega_gratis_apos_produto: Optional[Decimal] = None
     og_image_url: Optional[str] = None
+    custo_plataforma_estimado: Optional[Decimal] = None
+    custo_cartao_estimado: Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
 

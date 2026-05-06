@@ -429,6 +429,95 @@ def _imagens_anuncio_ou_fallback(anuncio: AnuncioPlataforma, db: Session) -> Lis
     return _imagens_as_list(galeria_json) if galeria_json else []
 
 
+# --- Público: lojas parceiras (marketplace público) ---
+
+@router.get("/lojas-parceiras", response_model=dict)
+async def listar_lojas_parceiras(
+    response: Response,
+    q: Optional[str] = Query(None, max_length=100, description="Filtro parcial por nome da loja, fantasia ou cidade"),
+    cidade: Optional[str] = Query(None, max_length=100, description="Filtra apenas lojas com Cliente.cidade igual (case-insensitive, trim)"),
+    uf: Optional[str] = Query(None, max_length=2, description="Filtra apenas lojas com Cliente.uf igual (case-insensitive)"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(48, ge=1, le=120),
+    db: Session = Depends(get_db),
+):
+    """Lista lojas parceiras ativas (publicadas) com logo, descrição curta e endereço da Empresa Fiscal (Cliente).
+
+    Apenas lojas com `status='ativo'` e `slug` definido aparecem (são as que possuem URL pública).
+    O endereço usado é o do Cliente (CA) — fonte oficial em `clientes` para a Empresa Fiscal do tenant.
+    """
+    from sqlalchemy import func as sqlfunc, or_
+
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    base = (
+        db.query(LojaMarketplace, Cliente)
+        .join(Cliente, Cliente.id == LojaMarketplace.cliente_id)
+        .filter(
+            LojaMarketplace.status == "ativo",
+            LojaMarketplace.slug.isnot(None),
+        )
+    )
+
+    if cidade and cidade.strip():
+        base = base.filter(
+            sqlfunc.lower(sqlfunc.trim(Cliente.cidade)) == cidade.strip().lower()
+        )
+    if uf and uf.strip():
+        base = base.filter(
+            sqlfunc.upper(sqlfunc.trim(Cliente.uf)) == uf.strip().upper()
+        )
+    if q and q.strip():
+        termo = f"%{q.strip()}%"
+        base = base.filter(
+            or_(
+                LojaMarketplace.nome_loja.ilike(termo),
+                LojaMarketplace.nome_fantasia.ilike(termo),
+                LojaMarketplace.slug.ilike(termo),
+                Cliente.nome.ilike(termo),
+                Cliente.cidade.ilike(termo),
+            )
+        )
+
+    total = base.count()
+    rows = (
+        base.order_by(
+            sqlfunc.coalesce(LojaMarketplace.nome_fantasia, LojaMarketplace.nome_loja).asc(),
+            LojaMarketplace.id.asc(),
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    items: List[dict] = []
+    for loja, cli in rows:
+        nome_publico = (
+            (getattr(loja, "nome_fantasia", None) or "").strip()
+            or (getattr(loja, "nome_loja", None) or "").strip()
+            or (getattr(cli, "nome", None) or "").strip()
+            or f"Loja {loja.id}"
+        )
+        items.append(
+            {
+                "id": loja.id,
+                "slug": loja.slug,
+                "nome": nome_publico,
+                "logo_url": _normalize_image_url(loja.logo_url or ""),
+                "banner_url": _normalize_image_url(loja.banner_url or ""),
+                "descricao_curta": (loja.descricao_curta or "").strip() or None,
+                "categoria_principal": loja.categoria_principal or None,
+                "cidade": (cli.cidade or "").strip() or None,
+                "uf": (cli.uf or "").strip().upper() or None,
+                "endereco": (cli.endereco or "").strip() or None,
+                "cep": (cli.cep or "").strip() or None,
+                "url": f"/{loja.slug}",
+            }
+        )
+
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
+
+
 # --- Público: geolocalização ---
 
 @router.get("/geo/cidades")

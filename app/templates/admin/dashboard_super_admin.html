@@ -16,6 +16,7 @@
     .admin-dashboard .card-table .card-header { background: #f8f9fa; font-weight: 600; }
     .admin-dashboard .card-table .table { font-size: 0.8125rem; }
     .admin-dashboard .card-table .table thead th { border-bottom-width: 1px; font-weight: 600; color: #495057; }
+    .admin-dashboard .visitantes-period .btn-check:checked + .btn { background-color: #0d6efd; color: #fff; border-color: #0d6efd; }
 </style>
 {% endblock %}
 
@@ -126,8 +127,21 @@
         </div>
     </div>
 
-    <!-- Visitantes (Hoje) -->
-    <p class="section-title mb-2 mt-3">Visitantes hoje</p>
+    <!-- Visitantes vitrine /loja -->
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2 mt-3">
+        <div>
+            <p class="section-title mb-1">Visitantes da vitrine</p>
+            <p class="text-muted small mb-0">IPs únicos em <code class="small">/loja</code> (humanos, bots e cloud conforme user-agent). Período &quot;hoje&quot; usa o calendário no horário de Brasília.</p>
+        </div>
+        <div class="btn-group visitantes-period" role="group" aria-label="Período de visitantes">
+            <input type="radio" class="btn-check" name="visitantesPeriodo" id="vpHoje" value="hoje" autocomplete="off" checked>
+            <label class="btn btn-outline-primary btn-sm" for="vpHoje">Hoje</label>
+            <input type="radio" class="btn-check" name="visitantesPeriodo" id="vp7d" value="ultimos_7_dias" autocomplete="off">
+            <label class="btn btn-outline-primary btn-sm" for="vp7d">7 dias</label>
+            <input type="radio" class="btn-check" name="visitantesPeriodo" id="vp30d" value="ultimos_30_dias" autocomplete="off">
+            <label class="btn btn-outline-primary btn-sm" for="vp30d">30 dias</label>
+        </div>
+    </div>
     <div class="row g-3 mb-4">
         <div class="col-12 col-sm-4">
             <div class="card h-100 card-stat border-0 shadow-sm">
@@ -290,10 +304,19 @@
         if (!iso) return '-';
         return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR');
     }
+    function aplicarVisitantesVitrine(payload, periodo) {
+        var vv = payload.visitantes_vitrine || {};
+        var chave = periodo || 'hoje';
+        var v = vv[chave] || payload.visitantes_hoje || {};
+        set(ids.visitantesHumanos, v.humanos != null ? v.humanos : 0);
+        set(ids.visitantesBots, v.bots != null ? v.bots : 0);
+        set(ids.visitantesCloud, v.cloud != null ? v.cloud : 0);
+    }
     function load() {
         authFetch('/api/v1/admin/dashboard')
             .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Erro ' + r.status)); })
             .then(function(data) {
+                window._dashVisitantesPayload = data;
                 set(ids.clientes7d, data.clientes_novos && data.clientes_novos.total_7d != null ? data.clientes_novos.total_7d : 0);
                 set(ids.cadastros7d, data.cadastros_novos && data.cadastros_novos.total_7d != null ? data.cadastros_novos.total_7d : 0);
                 set(ids.usuarios24h, data.usuarios_ativos_24h && data.usuarios_ativos_24h.total != null ? data.usuarios_ativos_24h.total : 0);
@@ -301,10 +324,8 @@
                 set(ids.pagamentosMesValor, formatBRL(data.pagamentos_realizados && data.pagamentos_realizados.valor_mes_centavos));
                 set(ids.vencidos, data.pagamentos_vencidos && data.pagamentos_vencidos.total != null ? data.pagamentos_vencidos.total : 0);
                 set(ids.proximos15d, (data.proximos_pagamentos_15d && data.proximos_pagamentos_15d.lista ? data.proximos_pagamentos_15d.lista.length : 0));
-                var v = data.visitantes_hoje || {};
-                set(ids.visitantesHumanos, v.humanos != null ? v.humanos : 0);
-                set(ids.visitantesBots, v.bots != null ? v.bots : 0);
-                set(ids.visitantesCloud, v.cloud != null ? v.cloud : 0);
+                var periodoSel = document.querySelector('input[name="visitantesPeriodo"]:checked');
+                aplicarVisitantesVitrine(data, periodoSel ? periodoSel.value : 'hoje');
                 var cadastros = (data.cadastros_novos && data.cadastros_novos.lista) || [];
                 var tbodyCadastros = document.getElementById(ids.tabelaCadastros);
                 if (tbodyCadastros) {
@@ -358,6 +379,13 @@
     }
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof feather !== 'undefined') feather.replace();
+        document.querySelectorAll('input[name="visitantesPeriodo"]').forEach(function(inp) {
+            inp.addEventListener('change', function(ev) {
+                var t = ev.target;
+                if (!t.checked || !window._dashVisitantesPayload) return;
+                aplicarVisitantesVitrine(window._dashVisitantesPayload, t.value);
+            });
+        });
         load();
     });
 })();

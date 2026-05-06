@@ -48,6 +48,8 @@ class AnuncioPlataforma(BaseModel):
     ultima_sincronizacao = Column(DateTime(timezone=True), nullable=True)
     # URL absoluta (CDN) de imagem OG 1.91:1 opcional; gerada/manual (Fase 02). Se null, usa galeria do anúncio.
     og_image_url = Column(String(500), nullable=True)
+    custo_plataforma_estimado = Column(Numeric(10, 2), nullable=True)
+    custo_cartao_estimado = Column(Numeric(10, 2), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("loja_id", "produto_ca_id", name="uq_anuncios_plataforma_loja_produto"),

@@ -1,0 +1,399 @@
+{% extends "loja/base_loja.html" %}
+
+{% block title %}Lojas Parceiras{% endblock %}
+
+{% block seo_description %}Conheça as lojas parceiras da Ibix. Veja logo, endereço e categoria de cada parceiro e clique para ver os produtos da loja na vitrine.{% endblock %}
+
+{% block seo_og_title %}Lojas Parceiras | Ibix{% endblock %}
+
+{% block seo_og_description %}Catálogo das lojas parceiras Ibix: logo, endereço, categoria. Clique em uma loja para abrir sua vitrine de produtos.{% endblock %}
+
+{% block seo_keywords %}lojas parceiras, parceiros ibix, marketplace, lojas online, comércio local, vitrine{% endblock %}
+
+{% block seo_extra %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="loja-vitrine-page-shell loja-vitrine-page-shell--sem-ofertas">
+  <div class="loja-vitrine-rail loja-vitrine-rail--top">
+    <section class="loja-section-block loja-marketplace-how secao-vitrine" aria-labelledby="lojas-parceiras-h1">
+      <div class="container">
+        <div class="loja-section-head loja-marketplace-how-head">
+          <div>
+            <span class="loja-section-kicker">Marketplace</span>
+            <h1 id="lojas-parceiras-h1">Lojas Parceiras</h1>
+            <p class="loja-section-subtitle">Conheça as lojas que vendem na Ibix. Clique em uma loja para abrir a sua vitrine e ver todos os produtos publicados por ela.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="loja-vitrine-rail">
+    <section class="loja-section-block secao-vitrine" aria-label="Filtros e listagem de lojas">
+      <div class="container">
+        <div class="loja-card-listagem">
+          <div class="loja-card-listagem-header" style="gap:.75rem;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;flex:1 1 auto;">
+              <label for="lojas-parceiras-q" class="mb-0 visually-hidden">Buscar lojas</label>
+              <div style="position:relative;flex:1 1 260px;max-width:420px;">
+                <input
+                  type="search"
+                  id="lojas-parceiras-q"
+                  class="form-control"
+                  placeholder="Buscar por nome, fantasia ou cidade"
+                  autocomplete="off"
+                  style="padding-left:38px;"
+                >
+                <i data-feather="search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:#6b7280;pointer-events:none;"></i>
+              </div>
+              <div id="lojas-parceiras-info" class="text-muted small" style="margin-left:.25rem;"></div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+              <select id="lojas-parceiras-uf" class="form-select form-select-sm" style="min-width:120px;">
+                <option value="">UF (todas)</option>
+              </select>
+              <select id="lojas-parceiras-cidade" class="form-select form-select-sm" style="min-width:200px;">
+                <option value="">Cidade (todas)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="loja-card-listagem-body">
+            <div id="lojas-parceiras-grid" class="loja-lojas-parceiras-grid" aria-busy="true" aria-live="polite"></div>
+            <div id="lojas-parceiras-empty" class="text-muted text-center py-5" style="display:none;">Nenhuma loja parceira encontrada para os filtros aplicados.</div>
+            <div id="lojas-parceiras-error" class="loja-error-box" style="display:none;" role="alert">
+              <p class="mb-2" id="lojas-parceiras-error-msg"></p>
+              <a href="/" class="btn btn-sm btn-outline-primary">Voltar à vitrine</a>
+            </div>
+            <div id="lojas-parceiras-load-more" class="mt-3 text-center" style="display:none;">
+              <button type="button" class="btn btn-outline-primary" id="lojas-parceiras-btn-more">Carregar mais</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<style>
+.loja-lojas-parceiras-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+@media (max-width: 991px) {
+  .loja-lojas-parceiras-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 575px) {
+  .loja-lojas-parceiras-grid { grid-template-columns: 1fr; gap: 12px; }
+}
+.loja-parceira-card {
+  background: var(--loja-surface, #fff);
+  border: 1px solid rgba(0,0,0,.08);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  box-shadow: 0 3px 10px rgba(0,0,0,.04);
+  height: 100%;
+}
+.loja-parceira-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(47, 58, 68, .10);
+  border-color: rgba(196, 122, 68, .35);
+  color: inherit;
+  text-decoration: none;
+}
+.loja-parceira-logo-wrap {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #FAFAFA;
+  border: 1px solid rgba(0,0,0,.05);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.loja-parceira-logo-wrap img {
+  max-width: 80%;
+  max-height: 78%;
+  object-fit: contain;
+  display: block;
+}
+.loja-parceira-logo-wrap--placeholder {
+  background: linear-gradient(135deg, #F5EFE7 0%, #FEF7F1 100%);
+  color: #C47A44;
+  font-weight: 800;
+  font-size: 1.6rem;
+  letter-spacing: .04em;
+}
+.loja-parceira-nome {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+  color: var(--ibix-text-strong, #2F3A44);
+}
+.loja-parceira-cat {
+  font-size: .78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #C47A44;
+  margin: 0;
+}
+.loja-parceira-desc {
+  font-size: .875rem;
+  color: #5b6470;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.loja-parceira-endereco {
+  font-size: .82rem;
+  color: #5b6470;
+  display: flex;
+  align-items: flex-start;
+  gap: .35rem;
+  margin: 0;
+}
+.loja-parceira-endereco .feather {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: #5C6E4A;
+}
+.loja-parceira-cta {
+  margin-top: auto;
+  font-size: .82rem;
+  font-weight: 700;
+  color: var(--loja-action, #5C6E4A);
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+}
+.loja-parceira-skeleton {
+  background: linear-gradient(90deg, #F2EDE5 0%, #FAF5EE 50%, #F2EDE5 100%);
+  background-size: 200% 100%;
+  animation: lojaParceiraShimmer 1.2s linear infinite;
+  border-radius: 14px;
+  height: 280px;
+}
+@keyframes lojaParceiraShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var API = "/api/v1/loja/lojas-parceiras";
+  var grid = document.getElementById("lojas-parceiras-grid");
+  var emptyEl = document.getElementById("lojas-parceiras-empty");
+  var errorEl = document.getElementById("lojas-parceiras-error");
+  var errorMsg = document.getElementById("lojas-parceiras-error-msg");
+  var loadMoreWrap = document.getElementById("lojas-parceiras-load-more");
+  var btnMore = document.getElementById("lojas-parceiras-btn-more");
+  var inputQ = document.getElementById("lojas-parceiras-q");
+  var selUf = document.getElementById("lojas-parceiras-uf");
+  var selCidade = document.getElementById("lojas-parceiras-cidade");
+  var infoEl = document.getElementById("lojas-parceiras-info");
+
+  var PAGE_LIMIT = 24;
+  var state = { skip: 0, total: 0, q: "", uf: "", cidade: "", loading: false };
+  var debounceTimer = null;
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function iniciaisLoja(nome) {
+    var t = String(nome || "").trim();
+    if (!t) return "?";
+    var parts = t.split(/\s+/).slice(0, 2);
+    return parts.map(function (p) { return p.charAt(0).toUpperCase(); }).join("") || "?";
+  }
+
+  function buildCard(loja) {
+    var nome = escapeHtml(loja.nome || "Loja");
+    var cidade = loja.cidade ? escapeHtml(loja.cidade) + (loja.uf ? "/" + escapeHtml(loja.uf) : "") : "";
+    var endereco = escapeHtml(loja.endereco || "");
+    var enderecoLinha = endereco ? endereco + (cidade ? " — " + cidade : "") : cidade;
+    var cat = loja.categoria_principal ? escapeHtml(String(loja.categoria_principal).replace(/[-_]+/g, " ")) : "";
+    var desc = loja.descricao_curta ? escapeHtml(loja.descricao_curta) : "";
+    var url = escapeHtml(loja.url || ("/" + (loja.slug || "")));
+
+    var logoHtml;
+    if (loja.logo_url) {
+      logoHtml = '<div class="loja-parceira-logo-wrap">' +
+        '<img src="' + escapeHtml(loja.logo_url) + '" alt="Logo ' + nome + '" loading="lazy" onerror="this.parentNode.classList.add(\'loja-parceira-logo-wrap--placeholder\');this.outerHTML=\'' + escapeHtml(iniciaisLoja(loja.nome)).replace(/'/g, "\\'") + '\';">' +
+        '</div>';
+    } else {
+      logoHtml = '<div class="loja-parceira-logo-wrap loja-parceira-logo-wrap--placeholder">' + escapeHtml(iniciaisLoja(loja.nome)) + '</div>';
+    }
+
+    return (
+      '<a href="' + url + '" class="loja-parceira-card" aria-label="Abrir vitrine da loja ' + nome + '">' +
+        logoHtml +
+        (cat ? '<p class="loja-parceira-cat">' + cat + '</p>' : '') +
+        '<h2 class="loja-parceira-nome">' + nome + '</h2>' +
+        (desc ? '<p class="loja-parceira-desc">' + desc + '</p>' : '') +
+        (enderecoLinha ? '<p class="loja-parceira-endereco"><i data-feather="map-pin"></i><span>' + enderecoLinha + '</span></p>' : '') +
+        '<span class="loja-parceira-cta">Ver produtos da loja <i data-feather="arrow-right" style="width:14px;height:14px;"></i></span>' +
+      '</a>'
+    );
+  }
+
+  function renderSkeletons(n) {
+    var out = "";
+    for (var i = 0; i < n; i++) out += '<div class="loja-parceira-skeleton" aria-hidden="true"></div>';
+    grid.innerHTML = out;
+    grid.setAttribute("aria-busy", "true");
+  }
+
+  function showError(msg) {
+    errorMsg.textContent = msg || "Não foi possível carregar as lojas parceiras.";
+    errorEl.style.display = "block";
+    grid.innerHTML = "";
+    grid.setAttribute("aria-busy", "false");
+    loadMoreWrap.style.display = "none";
+    emptyEl.style.display = "none";
+  }
+
+  function hideError() {
+    errorEl.style.display = "none";
+    errorMsg.textContent = "";
+  }
+
+  function fetchLojas(append) {
+    if (state.loading) return;
+    state.loading = true;
+    hideError();
+    if (!append) {
+      state.skip = 0;
+      renderSkeletons(8);
+    }
+    var sp = new URLSearchParams();
+    sp.set("skip", state.skip);
+    sp.set("limit", PAGE_LIMIT);
+    if (state.q) sp.set("q", state.q);
+    if (state.uf) sp.set("uf", state.uf);
+    if (state.cidade) sp.set("cidade", state.cidade);
+
+    fetch(API + "?" + sp.toString(), { cache: "no-store" })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        var items = (data && data.items) ? data.items : [];
+        state.total = data && data.total != null ? data.total : items.length;
+        if (!append) grid.innerHTML = "";
+        grid.setAttribute("aria-busy", "false");
+
+        if (!append && items.length === 0) {
+          emptyEl.style.display = "block";
+          loadMoreWrap.style.display = "none";
+          if (infoEl) infoEl.textContent = "0 lojas";
+          return;
+        }
+        emptyEl.style.display = "none";
+        var html = "";
+        items.forEach(function (l) { html += buildCard(l); });
+        grid.insertAdjacentHTML("beforeend", html);
+        state.skip += items.length;
+        if (typeof feather !== "undefined" && feather.replace) feather.replace();
+        loadMoreWrap.style.display = state.skip < state.total ? "block" : "none";
+        if (infoEl) {
+          infoEl.textContent = state.total === 1
+            ? "1 loja"
+            : state.total + " lojas";
+        }
+      })
+      .catch(function () {
+        showError("Falha ao carregar as lojas parceiras. Tente novamente.");
+      })
+      .finally(function () {
+        state.loading = false;
+      });
+  }
+
+  function loadCidadesUfs() {
+    fetch("/api/v1/loja/geo/cidades", { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (cidades) {
+        if (!Array.isArray(cidades)) return;
+        var ufs = {};
+        cidades.forEach(function (c) {
+          if (c && c.uf) ufs[c.uf] = true;
+        });
+        Object.keys(ufs).sort().forEach(function (uf) {
+          var opt = document.createElement("option");
+          opt.value = uf;
+          opt.textContent = uf;
+          selUf.appendChild(opt);
+        });
+        cidades.sort(function (a, b) { return String(a.cidade || "").localeCompare(String(b.cidade || ""), "pt-BR"); });
+        cidades.forEach(function (c) {
+          if (!c || !c.cidade) return;
+          var opt = document.createElement("option");
+          opt.value = c.cidade;
+          opt.dataset.uf = c.uf || "";
+          opt.textContent = c.cidade + (c.uf ? "/" + c.uf : "");
+          selCidade.appendChild(opt);
+        });
+      })
+      .catch(function () {});
+  }
+
+  function applyUfFilterToCidades() {
+    var current = state.uf;
+    Array.prototype.forEach.call(selCidade.querySelectorAll("option"), function (opt) {
+      if (!opt.value) { opt.style.display = ""; return; }
+      opt.style.display = (!current || opt.dataset.uf === current) ? "" : "none";
+    });
+    if (selCidade.options[selCidade.selectedIndex] && selCidade.options[selCidade.selectedIndex].style.display === "none") {
+      selCidade.value = "";
+      state.cidade = "";
+    }
+  }
+
+  inputQ.addEventListener("input", function () {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(function () {
+      state.q = inputQ.value.trim();
+      fetchLojas(false);
+    }, 280);
+  });
+
+  selUf.addEventListener("change", function () {
+    state.uf = selUf.value;
+    applyUfFilterToCidades();
+    fetchLojas(false);
+  });
+  selCidade.addEventListener("change", function () {
+    state.cidade = selCidade.value;
+    fetchLojas(false);
+  });
+
+  if (btnMore) btnMore.addEventListener("click", function () { fetchLojas(true); });
+
+  loadCidadesUfs();
+  fetchLojas(false);
+})();
+</script>
+{% endblock %}

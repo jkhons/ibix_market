@@ -120,6 +120,7 @@ from .loja_slug_history import LojaSlugHistory
 from .marketing_vitrine_card import MarketingVitrineCard
 from .marketing_vitrine_config import MarketingVitrineConfig
 from .marketplace_checkout_session import MarketplaceCheckoutSession, MarketplaceCheckoutSessionPedido
+from .marketplace_taxa_regra import MarketplaceTaxaRegra
 
 # Modelos de Negócios
 from .material_categoria import MaterialCategoria
@@ -344,6 +345,7 @@ __all__ = [
     "PedidoItemMarketplace",
     "MarketplaceCheckoutSession",
     "MarketplaceCheckoutSessionPedido",
+    "MarketplaceTaxaRegra",
     "PedidoStatusEvento",
     "IntegrationEvent",
     "AvaliacaoMarketplace",

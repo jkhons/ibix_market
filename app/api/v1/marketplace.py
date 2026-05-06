@@ -5,6 +5,7 @@ import json
 import os
 import re
 import uuid
+from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -65,8 +66,10 @@ from ...schemas.marketplace import (
     StatusPedidoMarketplaceResponse,
     StatusPedidoMarketplaceUpdate,
 )
+from ...schemas.marketplace_taxa import MarketplaceTaxasVigentesResponse
 from ...services.cupom_receipt import gerar_cupom_resumo_pedido_marketplace
 from ...services.marketplace_reparacao_comprador_service import reparar_comprador_pedidos
+from ...services.marketplace_taxa_service import montar_preview, resolver_regra_e_payload
 from ...services.pedido_status_evento_service import registrar_pedido_status_evento
 from ...services.reserva_estoque_marketplace_service import restore_marketplace_pedido_stock
 
@@ -518,6 +521,49 @@ async def atualizar_loja(
     return _loja_response_com_sugestoes(db, loja)
 
 
+@router.get("/taxas-vigentes", response_model=MarketplaceTaxasVigentesResponse)
+async def marketplace_taxas_vigentes(
+    cliente_id: int = Query(..., description="Estabelecimento (clientes.id)"),
+    preco: Optional[Decimal] = Query(
+        None,
+        description="Preço de referência para calcular preview (opcional); ex.: preço promocional ou original.",
+    ),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_permission("marketplace:visualizar")),
+    _: None = Depends(forbid_cliente_access),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+):
+    """Regra de taxas aplicável ao tenant do usuário + preview opcional por preço."""
+    allowed = _allowed_cliente_ids(scope)
+    if allowed is not None and cliente_id not in allowed:
+        raise HTTPException(status_code=403, detail="Estabelecimento fora do escopo")
+    tid = getattr(current_user, "tenant_id", None)
+    if tid is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Usuário sem tenant_id: não é possível resolver taxas marketplace.",
+        )
+    try:
+        row, escopo_aplicado, payload = resolver_regra_e_payload(db, int(tid))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    preview = None
+    if preco is not None:
+        try:
+            preview = montar_preview(payload, preco)
+        except ValueError as e:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    return MarketplaceTaxasVigentesResponse(
+        regra_id=row.id,
+        nome_regra=row.nome,
+        escopo_aplicado=escopo_aplicado,
+        payload=payload,
+        preview=preview,
+    )
+
+
 # --- Anúncios ---
 @router.get("/anuncios", response_model=dict)
 async def listar_anuncios(
@@ -604,6 +650,8 @@ async def criar_anuncio(
         taxa_entrega_fixa_produto=anuncio_data.get("taxa_entrega_fixa_produto"),
         entrega_gratis_apos_produto=anuncio_data.get("entrega_gratis_apos_produto"),
         og_image_url=(anuncio_data.get("og_image_url") or "").strip() or None,
+        custo_plataforma_estimado=anuncio_data.get("custo_plataforma_estimado"),
+        custo_cartao_estimado=anuncio_data.get("custo_cartao_estimado"),
     )
     db.add(anuncio)
     # Garantir que a loja esteja ativa para aparecer na vitrine quando há anúncio publicado

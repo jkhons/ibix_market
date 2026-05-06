@@ -2,11 +2,12 @@
 import logging
 from typing import List
 
-from sqlalchemy import text
+from sqlalchemy import func, or_, text
 from sqlalchemy.orm import Session
 
 from app.models.anuncio_plataforma import AnuncioPlataforma
 from app.models.categoria_plataforma import CategoriaPlataforma
+from app.models.loja_marketplace import LojaMarketplace
 from app.models.termo_buscado import TermoBuscado
 
 logger = logging.getLogger(__name__)
@@ -18,12 +19,31 @@ def _escape_like(value: str) -> str:
 
 
 def autocomplete(db: Session, termo: str, limit: int = 8) -> List[str]:
+    """Sugestões de busca: combina nomes de lojas (Tenant CA), categorias e títulos
+    de anúncios. Lojas ganham prioridade no topo (são entidades de alto sinal para
+    o usuário que digita um nome conhecido)."""
     if not termo or len(termo) < 2:
         return []
 
     escaped = _escape_like(termo.lower())
     pattern = f"%{escaped}%"
 
+    lojas = (
+        db.query(
+            func.coalesce(LojaMarketplace.nome_fantasia, LojaMarketplace.nome_loja).label("nome")
+        )
+        .filter(
+            LojaMarketplace.status == "ativo",
+            LojaMarketplace.slug.isnot(None),
+            or_(
+                LojaMarketplace.nome_loja.ilike(pattern),
+                LojaMarketplace.nome_fantasia.ilike(pattern),
+                LojaMarketplace.slug.ilike(pattern),
+            ),
+        )
+        .limit(3)
+        .all()
+    )
     anuncios = (
         db.query(AnuncioPlataforma.titulo)
         .filter(
@@ -45,14 +65,26 @@ def autocomplete(db: Session, termo: str, limit: int = 8) -> List[str]:
 
     termos_unicos = []
     vistos = set()
+    for row in lojas:
+        nome = (row[0] or "").strip()
+        if not nome:
+            continue
+        lower = nome.lower()
+        if lower not in vistos:
+            vistos.add(lower)
+            termos_unicos.append(nome)
     for row in categorias:
-        t = row[0].strip()
+        t = (row[0] or "").strip()
+        if not t:
+            continue
         lower = t.lower()
         if lower not in vistos:
             vistos.add(lower)
             termos_unicos.append(t)
     for row in anuncios:
-        t = row[0].strip()
+        t = (row[0] or "").strip()
+        if not t:
+            continue
         lower = t.lower()
         if lower not in vistos:
             vistos.add(lower)

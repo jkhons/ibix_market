@@ -4,8 +4,8 @@
 [Unit]
 Description=PDV SOLUMATICA - Sistema PDV e Caixa
 Documentation=https://www.ibix.com.br
-After=network.target postgresql.service redis-server.service
-Wants=postgresql.service redis-server.service
+After=network.target docker.service pdv_solumatica-docker-deps.service postgresql.service redis-server.service
+Wants=docker.service pdv_solumatica-docker-deps.service postgresql.service redis-server.service
 
 [Service]
 Type=simple
