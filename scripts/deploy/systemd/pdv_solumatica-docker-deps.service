@@ -1,0 +1,22 @@
+# PostgreSQL + Redis do docker-compose.yml (portas 127.0.0.1:5432 e :6379).
+# Sem este serviço ativo, Celery gera milhares de erros "Connection refused" no syslog
+# quando redis-server/postgresql nativos não estão instalados.
+#
+# Habilitar no boot (junto com a app):
+#   sudo systemctl enable --now pdv_solumatica-docker-deps.service
+[Unit]
+Description=PDV SOLUMATICA - PostgreSQL e Redis (Docker Compose)
+Documentation=file:///central_solumatica/pdv_solumatica/docker-compose.yml
+After=docker.service network.target
+Wants=docker.service
+Before=pdv_solumatica.service pdv_solumatica-celery.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/central_solumatica/pdv_solumatica
+# sobe apenas db + redis (não mexe no restante do stack)
+ExecStart=/usr/bin/docker compose up -d db redis
+
+[Install]
+WantedBy=multi-user.target

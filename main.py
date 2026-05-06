@@ -3814,12 +3814,62 @@ async def loja_produto(request: Request, slug_id: str, db: Session = Depends(get
 
 @app.get("/loja/busca", response_class=HTMLResponse)
 async def loja_busca(request: Request, db: Session = Depends(get_db)):
-    """Busca na vitrine."""
+    """Busca na vitrine. Pesquisa produtos (via API) e também lojas (Tenant CA) por
+    nome / fantasia / slug / razão social / cidade. Lojas casadas aparecem em uma
+    faixa no topo dos resultados; cada card abre /{slug} (vitrine filtrada por loja).
+    """
     q = request.query_params.get("q", "").strip()
-    return await _render_template_async(
-        "loja/index.html",
-        await _loja_context(request, db=db, busca_q=q, busca_ativa=len(q) > 0),
+    lojas_busca: list[dict] = []
+    if q:
+        from sqlalchemy import func, or_
+
+        termo = f"%{q}%"
+        rows = (
+            db.query(LojaMarketplace, Cliente)
+            .join(Cliente, Cliente.id == LojaMarketplace.cliente_id)
+            .filter(
+                LojaMarketplace.status == "ativo",
+                LojaMarketplace.slug.isnot(None),
+                or_(
+                    LojaMarketplace.nome_loja.ilike(termo),
+                    LojaMarketplace.nome_fantasia.ilike(termo),
+                    LojaMarketplace.slug.ilike(termo),
+                    Cliente.nome.ilike(termo),
+                    Cliente.cidade.ilike(termo),
+                ),
+            )
+            .order_by(
+                func.coalesce(
+                    LojaMarketplace.nome_fantasia, LojaMarketplace.nome_loja
+                ).asc()
+            )
+            .limit(12)
+            .all()
+        )
+        for loja, cli in rows:
+            nome_publico = _public_loja_display_name(loja)
+            lojas_busca.append(
+                {
+                    "id": loja.id,
+                    "slug": loja.slug,
+                    "nome": nome_publico,
+                    "logo_url": (loja.logo_url or "").strip() or None,
+                    "descricao_curta": (loja.descricao_curta or "").strip() or None,
+                    "categoria_principal": loja.categoria_principal or None,
+                    "cidade": (cli.cidade or "").strip() or None,
+                    "uf": (cli.uf or "").strip().upper() or None,
+                    "endereco": (cli.endereco or "").strip() or None,
+                    "url": f"/{loja.slug}",
+                }
+            )
+    ctx = await _loja_context(
+        request,
+        db=db,
+        busca_q=q,
+        busca_ativa=len(q) > 0,
+        lojas_busca=lojas_busca,
     )
+    return await _render_template_async("loja/index.html", ctx)
 
 
 @app.get("/loja/cadastro", response_class=HTMLResponse)
@@ -4292,6 +4342,19 @@ async def ui_maps(request: Request, db: Session = Depends(get_db)):
 async def categoria_local_sem_slug_redirect():
     """URL local exige /categoria/{categoria}-{cidade}; sem isso, /categoria colidia com /{slug}='categoria'."""
     return RedirectResponse(url="/", status_code=301)
+
+
+@app.get("/lojas-parceiras", response_class=HTMLResponse)
+async def lojas_parceiras_page(request: Request, db: Session = Depends(get_db)):
+    """Página pública 'Lojas Parceiras': lista todas as lojas ativas (logo + endereço).
+    Cada card aponta para /{slug} (vitrine filtrada por loja). Listagem é carregada
+    via /api/v1/loja/lojas-parceiras (paginação + filtros).
+    """
+    await check_loja_public_page_rate_limit(request)
+    return await _render_template_async(
+        "loja/lojas_parceiras.html",
+        await _loja_context(request, db=db),
+    )
 
 
 @app.get("/{slug}", response_class=HTMLResponse)
