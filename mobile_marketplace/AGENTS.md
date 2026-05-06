@@ -20,6 +20,15 @@ App **React Native (Expo SDK 52)** para o consumidor final do **PDV Ibix Marketp
 
 Documentação macro vive em `../MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md` (plano por fases) e `../MAPA_SISTEMA/MAPA_DO_SISTEMA.md` (sistema completo).
 
+### 1.1 Fluxo oficial de trabalho (método definitivo)
+
+| Etapa | Onde | O quê |
+|-------|------|--------|
+| Desenvolvimento e **push** | **VPS** | Alterações e `git push` para `IBIX_mobile` no GitHub. |
+| **Pull** e testes | **PC Windows** (local) | `git pull origin main` e validação com Expo (emulador / celular / Expo Go). |
+
+Este é o método **definitivo** da equipa: a VPS é onde se corrige e publica; o Windows recebe a versão do GitHub e testa. Pormenores (clone, SSH, credenciais, checklist): **`ALINHAR_OUTRO_PC.md`**.
+
 ---
 
 ## 2. Pré-requisitos para rodar localmente
@@ -510,6 +519,7 @@ npx eas submit --platform android
 - **RBAC e tenants:** `../MAPA_SISTEMA/MAPA_RBAC.md`
 - **Pagamento:** `../MAPA_SISTEMA/MAPA_PAGAMENTO.md`
 - **Frete e geo:** `../MAPA_SISTEMA/MAPA_Frete_Transporte.md`
+- **Repositórios Git e sync com GitHub:** `../REPOSITORIOS_GITHUB.md`
 
 ---
 
