@@ -103,12 +103,32 @@ def _valor_centavos_para_tenant(db: Session, tenant_id: int) -> int:
     pct = get_desconto_percent(db)
     if pct <= 0 or not _tenant_tem_desconto(db, tenant_id):
         return base
+    if pct >= 100:
+        return 0
     return max(1, int(round(base * (1 - pct / 100.0))))
 
 
 def get_valor_centavos_para_tenant(db: Session, tenant_id: int) -> int:
     """Interface pública para obter valor mensal vigente do tenant."""
     return _valor_centavos_para_tenant(db, tenant_id)
+
+
+def _renew_subscription_complimentary(db: Session, sub: SubscriptionBilling) -> None:
+    """Renova ciclo sem gateway quando mensalidade efetiva é zero. Caller faz commit."""
+    tenant_id = sub.tenant_id
+    if _valor_centavos_para_tenant(db, tenant_id) > 0:
+        return
+    today = _today()
+    now_dt = datetime.utcnow()
+    sub.valor_mensal_centavos = 0
+    sub.status = "ativa"
+    sub.last_paid_at = now_dt
+    sub.blocked_at = None
+    sub.period_end = today + timedelta(days=TRIAL_DAYS)
+    sub.next_charge_at = sub.period_end
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if tenant:
+        tenant.ativo = True
 
 
 def apply_grace_policy(db: Session) -> int:
@@ -126,6 +146,8 @@ def apply_grace_policy(db: Session) -> int:
     )
     changed = 0
     for sub in subs:
+        if get_valor_centavos_para_tenant(db, sub.tenant_id) <= 0:
+            continue
         grace_limit = sub.next_charge_at + timedelta(days=sub.grace_days or 15)
         if today > grace_limit:
             sub.status = "bloqueada"
@@ -273,6 +295,10 @@ def create_checkout_preference(
     valor_cobrar = _valor_centavos_para_tenant(db, tenant_id)
     sub.valor_mensal_centavos = valor_cobrar
     db.commit()
+    if valor_cobrar <= 0:
+        _renew_subscription_complimentary(db, sub)
+        db.commit()
+        return "", ""
     app_url = _get_app_url(db)
     # source_news=webhooks garante receber apenas Webhooks assinados (não IPN)
     notification_url = f"{app_url}/api/webhooks/mercadopago?source_news=webhooks" if app_url else ""
@@ -543,16 +569,19 @@ def _tenant_billing_emails(db: Session, tenant_id: int) -> List[str]:
     return [e[0] for e in emails if e[0]]
 
 
-def process_billing_notifications(db: Session) -> int:
+def process_billing_notifications(db: Session) -> Tuple[int, bool]:
     """
     Job diário: envia e-mails trial_d7, trial_d3, trial_d1, trial_d0 (e D0 seta inadimplente),
     pastdue_d1, pastdue_d7, pastdue_d14, pastdue_d15. Respeita billing_notificacoes (anti-spam).
-    Retorna quantidade de notificações enviadas.
+    Tenants com mensalidade efetiva zero não viram inadimplentes nem recebem e-mails de atraso;
+    assinatura é renovada em cortesia quando aplicável.
+    Retorna (quantidade de notificações enviadas, precisa invalidar cache subscription_blocked).
     """
     today = _today()
     app_url = _get_app_url(db)
     link_pagar = f"{app_url}/financeiro/assinatura" if app_url else "/financeiro/assinatura"
     sent = 0
+    invalidate_blocked_cache = False
 
     # Trial: subs com status trial e period_end definido
     subs_trial = (
@@ -565,8 +594,13 @@ def process_billing_notifications(db: Session) -> int:
         if not period_end:
             continue
         days_left = (period_end - today).days
-        # D0: último dia do trial -> inadimplente
+        # D0: último dia do trial -> inadimplente (exceto mensalidade zero)
         if days_left <= 0:
+            if get_valor_centavos_para_tenant(db, sub.tenant_id) <= 0:
+                _renew_subscription_complimentary(db, sub)
+                invalidate_blocked_cache = True
+                db.commit()
+                continue
             sub.status = "inadimplente"
             tipo = "trial_d0"
             if (
@@ -580,6 +614,8 @@ def process_billing_notifications(db: Session) -> int:
                 _record_billing_notification(db, sub.tenant_id, tipo)
                 sent += 1
             db.commit()
+            continue
+        if get_valor_centavos_para_tenant(db, sub.tenant_id) <= 0:
             continue
         if days_left == 7:
             tipo = "trial_d7"
@@ -611,6 +647,11 @@ def process_billing_notifications(db: Session) -> int:
         .all()
     )
     for sub in subs_past:
+        if get_valor_centavos_para_tenant(db, sub.tenant_id) <= 0:
+            _renew_subscription_complimentary(db, sub)
+            invalidate_blocked_cache = True
+            db.commit()
+            continue
         due = sub.next_charge_at
         if not due:
             continue
@@ -639,7 +680,7 @@ def process_billing_notifications(db: Session) -> int:
 
     if sent:
         db.commit()
-    return sent
+    return sent, invalidate_blocked_cache
 
 
 def _record_billing_notification(db: Session, tenant_id: int, tipo: str, canal: str = "email") -> None:

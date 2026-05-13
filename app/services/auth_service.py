@@ -289,7 +289,7 @@ class AuthService:
                 pct = codigo_obj.desconto_primeira_parcela_percent or 0
             elif codigo_obj.desconto_mensalidade_percent is not None:
                 pct = codigo_obj.desconto_mensalidade_percent
-            valor_centavos = max(1, int(round(base_centavos * (1 - pct / 100.0))))
+            valor_centavos = 0 if pct >= 100 else max(1, int(round(base_centavos * (1 - pct / 100.0))))
         else:
             valor_centavos = base_centavos
         today = date.today()

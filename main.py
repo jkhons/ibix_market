@@ -1293,6 +1293,20 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request, db: Session = Depends(get_db)):
     """Página de login (mesmo padrão visual da vitrine: base loja, logo e header)."""
+    user_id = getattr(request.state, "user_id", None)
+    if user_id:
+        try:
+            user = (
+                db.query(Usuario)
+                .options(joinedload(Usuario.role))
+                .filter(Usuario.id == user_id)
+                .first()
+            )
+            if user and user.role and user.role.nome == "Subcliente":
+                return RedirectResponse(url="/portal", status_code=302)
+        except Exception:
+            pass
+        return RedirectResponse(url="/dashboard", status_code=302)
     ctx = await _loja_context(request, db=db)
     return await _render_template_async("auth/login.html", ctx)
 
@@ -1590,6 +1604,34 @@ async def admin_marketing_vitrine(request: Request, db: Session = Depends(get_db
         return RedirectResponse(url="/login", status_code=302)
     context = await get_template_context_async(request, db)
     return await _render_template_async("admin/marketing_vitrine.html", context)
+
+
+@app.get("/admin/montagen_anuncio", response_class=HTMLResponse)
+async def admin_montagen_anuncio_redirect():
+    """Alias do slug informado no produto — redireciona para /admin/montagem_anuncio."""
+    return RedirectResponse(url="/admin/montagem_anuncio", status_code=302)
+
+
+@app.get("/admin/montagem_anuncio", response_class=HTMLResponse)
+async def admin_montagem_anuncio(request: Request, db: Session = Depends(get_db)):
+    """Montagem de anúncio (layout vitrine) — apenas Superadministrador."""
+    auth_check = await check_auth_for_html(request, db)
+    if auth_check:
+        return auth_check
+    try:
+        token = request.cookies.get("pdv_solumatica_token")
+        if not token:
+            return RedirectResponse(url="/login", status_code=302)
+        payload = AuthConfig.verify_token(token)
+        user_id = payload.get("sub")
+        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
+        if not user or not user.role or user.role.nome != "Superadministrador":
+            return await _response_403(request, db, "Acesso restrito a Superadministrador.")
+    except Exception:
+        return RedirectResponse(url="/login", status_code=302)
+    context = await get_template_context_async(request, db)
+    context["montagem_public_base"] = _landing_base_url(request)
+    return await _render_template_async("admin/montagem_anuncio.html", context)
 
 
 @app.get("/admin/billing/tenant/{tenant_id:int}", response_class=HTMLResponse)

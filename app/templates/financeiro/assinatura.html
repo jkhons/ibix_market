@@ -35,13 +35,13 @@
         </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="card mb-4" id="card-checkout-mp">
         <div class="card-body">
             <p class="mb-2" id="valor-aviso"><strong id="valor-aviso-text">Valor a ser cobrado: -</strong></p>
             <button type="button" class="btn btn-primary" id="btn-pagar-agora">
                 Pagar agora
             </button>
-            <p class="text-muted small mt-2 mb-0">Você será redirecionado ao checkout do Mercado Pago para pagar com Pix, cartão ou boleto.</p>
+            <p class="text-muted small mt-2 mb-0" id="checkout-mp-hint">Você será redirecionado ao checkout do Mercado Pago para pagar com Pix, cartão ou boleto.</p>
         </div>
     </div>
 
@@ -101,6 +101,13 @@
             descontoRow.classList.add('d-none');
             totalLabel.textContent = 'Total:';
         }
+        var cardMp = document.getElementById('card-checkout-mp');
+        var isento = data.valor_mensal_centavos !== undefined && data.valor_mensal_centavos !== null && Number(data.valor_mensal_centavos) <= 0;
+        if (isento) {
+            cardMp.classList.add('d-none');
+        } else {
+            cardMp.classList.remove('d-none');
+        }
         if (data.valor_exibicao) {
             document.getElementById('valor-exibicao').textContent = data.valor_exibicao;
             document.getElementById('valor-aviso-text').textContent = 'Valor a ser cobrado: ' + data.valor_exibicao + ' / mês';
@@ -158,6 +165,11 @@
                 });
             })
             .then(function(data) {
+                if (data.isento) {
+                    alert(data.message || 'Assinatura isenta; período renovado.');
+                    window.location.reload();
+                    return;
+                }
                 var url = data.init_point || data.sandbox_init_point;
                 if (url) window.open(url, '_blank');
                 else alert('Link não disponível. Tente mais tarde.');

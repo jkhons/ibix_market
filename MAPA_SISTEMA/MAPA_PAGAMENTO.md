@@ -238,7 +238,8 @@ Ou seja: o CA configura o gateway em **Negócios → Recebíveis**, escolhendo o
 - **Página:** `/admin/billing/preco` — botão "Valor e descontos" na tela Cobranças > Tenants.
 - **Valor mensal (R$):** Valor padrão da mensalidade. Persistido em **configuracoes** (`billing_valor_mensal_centavos`). Fallback 49000 (R$ 490,00).
 - **Aplicar valor a:** `todos` (todos os assinantes) ou `novos` (apenas novas assinaturas). Chave `billing_valor_aplicar_a`. Botão **"Aplicar valor a todas as assinaturas atuais"** chama POST `/admin/billing/preco/aplicar-valor-todos` com opção escolhida: **Respeitar códigos promocionais** (default) — assinaturas com `codigo_desconto_id` mantêm o desconto sobre o novo valor base; **Substituir em todas (ignorar códigos)** — todas recebem o mesmo valor configurado (com desconto por escopo). Contrato comercial ativo sempre prevalece.
-- **Desconto (%):** 0–100. Chave `billing_desconto_percent`. Valor cobrado = valor_mensal × (1 − desconto/100).
+- **Desconto (%):** 0–100. Chave `billing_desconto_percent`. Valor cobrado = valor_mensal × (1 − desconto/100); **desconto 100%** ⇒ mensalidade efetiva **0 centavos** (não é mais forçado `max(1, …)`).
+- **Isenção real:** Se `get_valor_centavos_para_tenant` for **0** (desconto admin no escopo, ou **contrato comercial** com valor mensal zero), o sistema **não** aplica bloqueio por carência nesse tenant; trial que encerra **não** vira inadimplente; **inadimplente** com valor zero é renovado em cortesia (+30 dias, como após pagamento); **não** há e-mails pastdue; `create_checkout_preference` / `POST /billing/pay-now` renovam sem Mercado Pago. Contrato comercial ativo com valor > 0 continua prevalecendo sobre o desconto admin.
 - **Desconto para (escopo):** `todos` | `ca` (Cliente Administrador: tenant com usuário role "Cliente Administrador") | `admin_cliente` (tenant com usuário role "Administrador de Cliente") | `especifico` (lista de tenant_id em `billing_desconto_tenant_ids`). No **especifico**, o select "Tenants com desconto" é preenchido via GET `/api/v1/admin/billing/tenants?apenas_com_ca=true&per_page=10000` — lista apenas tenants que possuem pelo menos um usuário com role "Cliente Administrador" (apenas C; não lista CF).
 - **Lógica no serviço:** `billing_service._valor_centavos_para_tenant(db, tenant_id)` usa `get_valor_mensal_centavos(db)` e, se `_tenant_tem_desconto(db, tenant_id)` (conforme escopo), aplica o percentual. Usado em `create_trial_subscription`, `create_checkout_preference` e ao aplicar valor a todos (com ou sem respeito a codigo_desconto_id conforme body).
 - **Configuração:** `app/core/billing_config.py` — getters `get_valor_mensal_centavos`, `get_valor_aplicar_a`, `get_desconto_percent`, `get_desconto_escopo`, `get_desconto_tenant_ids`.
@@ -330,15 +331,16 @@ O front **não calcula datas** (evitar fuso/relógio). Exibe apenas o que a API 
 - **Anti-spam:** Tabela **billing_notificacoes** (tenant_id, tipo, sent_at, canal). UNIQUE(tenant_id, tipo). O job só envia se **não** existir registro para aquele (tenant_id, tipo).
 - **Tipos (ex.):** trial_d7, trial_d3, trial_d1, trial_d0; pastdue_d1, pastdue_d7, pastdue_d14, pastdue_d15.
 - **Conteúdo:** Assunto objetivo; 3 linhas de texto; link "Pagar agora" (para `/financeiro/assinatura` ou init_point gerado na hora); assinatura PDV Ibix.
-- **D0:** Além do e-mail trial_d0, o job seta subscription.status = inadimplente.
+- **D0:** Se a mensalidade efetiva for **zero**, o job renova em cortesia (`ativa`, próximo ciclo em +30 dias); caso contrário, além do e-mail trial_d0, o job seta subscription.status = inadimplente.
 
 ---
 
 ## 8. Job diário (Celery)
 
 - **Task principal:** `app.worker.tasks.billing_daily_job` — chama `apply_grace_policy(db)` e `process_billing_notifications(db)`.
-- **apply_grace_policy:** Para subscriptions com status ativa ou inadimplente e `hoje > next_charge_at + grace_days`: seta status = bloqueada, blocked_at = now, **Tenant.ativo = False**. Retorna quantidade alterada.
-- **process_billing_notifications:** Envia e-mails trial_d7, trial_d3, trial_d1, trial_d0 (e no D0 seta status = inadimplente); pastdue_d1, pastdue_d7, pastdue_d14, pastdue_d15. Respeita tabela **billing_notificacoes** (anti-spam). Usa `EmailService` e `_tenant_billing_emails(db, tenant_id)`.
+- **apply_grace_policy:** Para subscriptions com status ativa ou inadimplente e `hoje > next_charge_at + grace_days`: seta status = bloqueada, blocked_at = now, **Tenant.ativo = False**, exceto quando **get_valor_centavos_para_tenant == 0** (isenção). Retorna quantidade alterada.
+- **process_billing_notifications:** Retorna `(notifications_sent, precisa_invalidar_cache)`. Envia e-mails trial_d7… e pastdue… apenas quando há cobrança efetiva (**valor mensal > 0**). No D0 do trial, mensalidade zero ⇒ cortesia (sem inadimplente, sem e-mail de cobrança). Para **inadimplente** com mensalidade zero, renova cortesia e não envia pastdue. Usa `EmailService` e `_tenant_billing_emails(db, tenant_id)`.
+- **Cache:** `billing_daily_job` chama `invalidate_subscription_blocked_all()` quando `apply_grace_policy` alterou assinaturas **ou** quando as notificações sinalizaram mudança relevante (ex.: cortesia que reativou tenant).
 - **Task legada:** `app.worker.tasks.apply_billing_grace_policy` — apenas apply_grace_policy (mantida para compatibilidade).
 - **Beat:** `app/worker/celery_app.py` — `beat_schedule`: `billing-daily-job` com `crontab(hour=3, minute=0)`.
 - **Execução:** `celery -A app.worker.celery_app worker -l info` e `celery -A app.worker.celery_app beat -l info`.

@@ -167,9 +167,9 @@ def billing_daily_job():
     db = SessionLocal()
     try:
         changed = billing_service.apply_grace_policy(db)
-        if changed:
+        sent, notif_invalidate = billing_service.process_billing_notifications(db)
+        if changed or notif_invalidate:
             invalidate_subscription_blocked_all()
-        sent = billing_service.process_billing_notifications(db)
         return {"grace_changed": changed, "notifications_sent": sent}
     finally:
         db.close()

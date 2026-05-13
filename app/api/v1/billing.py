@@ -137,7 +137,7 @@ def get_my_subscription(
     is_blocked = tenant is not None and not tenant.ativo
     # Valor vigente: calculado (com desconto por escopo). Detalhe para exibir valor base, desconto e total.
     valor_centavos = billing_service.get_valor_centavos_para_tenant(db, tenant_id)
-    valor_exibicao = "R$ {:.2f}".format(valor_centavos / 100.0) if valor_centavos else None
+    valor_exibicao = "R$ {:.2f}".format(valor_centavos / 100.0)
     from ...core.billing_config import get_desconto_percent, get_valor_mensal_centavos
     valor_base = get_valor_mensal_centavos(db)
     pct = get_desconto_percent(db)
@@ -196,7 +196,7 @@ def get_meus_limites(
     else:
         pdvs_usados = 0
 
-    valor = sub.valor_mensal_centavos if sub else 0
+    valor = billing_service.get_valor_centavos_para_tenant(db, tenant_id)
     return MeusLimitesResponse(
         max_pdvs=max_pdvs,
         pdvs_usados=pdvs_usados,
@@ -225,7 +225,7 @@ def post_pay_now(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
-    """Gera preferência Checkout Pro e retorna init_point e preference_id."""
+    """Gera preferência Checkout Pro e retorna init_point e preference_id. Mensalidade zero renova sem Mercado Pago."""
     tenant_id = _ensure_ca_tenant_and_subscription(db, current_user)
     if not tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant de cobrança não identificado.")
@@ -247,7 +247,15 @@ def post_pay_now(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Não foi possível gerar o link de pagamento. Verifique Cobranças (Admin) > Config (Access Token e APP_URL). Detalhe: " + msg[:150],
         )
-    return PayNowResponse(init_point=init_point, preference_id=preference_id)
+    if not init_point and not preference_id and billing_service.get_valor_centavos_para_tenant(db, tenant_id) <= 0:
+        from ...core.redis_cache import invalidate_subscription_blocked_all
+
+        invalidate_subscription_blocked_all()
+        return PayNowResponse(
+            isento=True,
+            message="Sua assinatura está isenta de mensalidade. O período foi renovado sem cobrança pelo Mercado Pago.",
+        )
+    return PayNowResponse(init_point=init_point or "", preference_id=preference_id or "")
 
 
 @router.get("/my-payments", response_model=List[PaymentListItem])

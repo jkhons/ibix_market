@@ -29,8 +29,11 @@ class MySubscriptionResponse(BaseModel):
 
 class PayNowResponse(BaseModel):
     """Resposta POST /billing/pay-now."""
-    init_point: str
-    preference_id: str
+
+    init_point: str = ""
+    preference_id: str = ""
+    isento: bool = False
+    message: Optional[str] = None
 
 
 class PaymentListItem(BaseModel):

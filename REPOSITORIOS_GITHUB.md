@@ -1,28 +1,72 @@
-# Repositórios GitHub e pastas (PDV Ibix)
+# Repositórios GitHub — escopos separados (PDV vs mobile)
 
-Este ficheiro evita confusão entre **monorepo na VPS**, **app mobile no GitHub** e fluxos de sincronização.
+Este ficheiro define **dois destinos** no GitHub e como publicar **sem misturar** conteúdos nem **sobrescrever a VPS** por engano.
 
-## Fontes de verdade (regra fixa)
+## Regra fixa (o que vai para cada repo)
 
-| Área | Fonte canónica | Notas |
-|------|----------------|--------|
-| **`mobile_marketplace/`** (Expo / Ibix Market) | **GitHub** [`jkhons/IBIX_mobile`](https://github.com/jkhons/IBIX_mobile) | Na GitHub, o código do app está na **raiz** do repositório. Nesta VPS, o mesmo código vive em **`mobile_marketplace/`**. |
-| **Resto do monorepo** (`app/`, Python, `MAPA_SISTEMA/`, etc.) | **Este servidor (VPS)** | Espelho público em [`jkhons/ibix_market`](https://github.com/jkhons/ibix_market) via `git push ibix_market main` — a VPS é a fonte operacional; o GitHub recebe cópia para backup/colaboração. |
+| Repositório GitHub | Conteúdo que deve existir **na raiz do repo remoto** | Origem na VPS |
+|--------------------|------------------------------------------------------|---------------|
+| **[`jkhons/ibix_market`](https://github.com/jkhons/ibix_market)** | **Só o PDV** (`app/`, `MAPA_SISTEMA/`, templates, `scripts/`, etc.) **sem** a pasta `mobile_marketplace/` | Disco em `/central_solumatica/pdv_solumatica`, **excluindo** `mobile_marketplace/` |
+| **[`jkhons/IBIX_mobile`](https://github.com/jkhons/IBIX_mobile)** | **Só o app Expo** (equivalente ao interior de `mobile_marketplace/`) | Pasta `mobile_marketplace/` |
 
-**Direcção de atualização do mobile:** GitHub → pasta `mobile_marketplace/` nesta máquina (não o contrário quando o remoto já está à frente).
+## Fonte de verdade operacional (⚠️ leitura obrigatória)
 
-## Publicar o monorepo PDV (raiz) no GitHub
+| Onde está o código **a correr** e mais atual | O GitHub |
+|-----------------------------------------------|----------|
+| **Esta VPS** (`/central_solumatica/pdv_solumatica`) | Espelho / backup / colaboração — **não** é o deploy automático da produção só por existir `git push`. |
 
-Remote **`ibix_market`** → `git@github.com:jkhons/ibix_market.git`.
+- **Nunca** faças `git pull` na raiz da VPS a partir de GitHub para “atualizar produção” **sem** rever o diff e backups — podes apagar ou desalinhar o que já está estável no servidor.
+- Para publicar **para** o GitHub, usa **sempre** os scripts abaixo (espelho controlado), ou commits conscientes após `git status`.
+
+## Publicar para o GitHub (comandos na VPS)
+
+Após SSH para `github.com` configurado (`ssh -T git@github.com`):
+
+### 1) PDV → `ibix_market` (**sem** `mobile_marketplace/`)
 
 ```bash
 cd /central_solumatica/pdv_solumatica
-git status
-git add -A && git commit -m "descreva as alterações"   # se houver mudanças
-git push ibix_market main
+./scripts/push_root_sem_mobile_ibix_market.sh
 ```
 
-**Não** use `git push origin main` para subir o monorepo inteiro se `origin` for **`IBIX_mobile`** — esse repositório é só o app mobile (estrutura na raiz do repo).
+Opcional: `IBIX_MARKET_SSH`, `IBIX_MARKET_PUSH_BRANCH` (default `main`).
+
+### 2) App mobile → `IBIX_mobile` (**só** `mobile_marketplace/`)
+
+```bash
+cd /central_solumatica/pdv_solumatica
+./scripts/sync-mobile-to-github.sh
+```
+
+Opcional: `IBIX_MOBILE_SSH`, `IBIX_MOBILE_PUSH_BRANCH` (ver script).
+
+### 3) Trazer mobile do GitHub → pasta local (quando o remoto estiver **à frente** e isso for desejado)
+
+```bash
+cd /central_solumatica/pdv_solumatica
+./scripts/sync-mobile-from-github.sh
+# ou: ./scripts/sync_mobile_from_github.sh
+```
+
+Revê `git status` no monorepo antes de commitar qualquer coisa na raiz.
+
+## Remotes Git na pasta da VPS (recomendação)
+
+Evita confusão típica: **`origin` apontado para `IBIX_mobile` enquanto o trabalho é monorepo na raiz**.
+
+Estado **recomendado** (ajusta uma vez, com cuidado):
+
+```bash
+cd /central_solumatica/pdv_solumatica
+git remote -v
+# Exemplo: renomear ou corrigir URLs para ficar explícito:
+#   origin      → jkhons/ibix_market.git   (push do monorepo local, se ainda versionares tudo na raiz)
+#   IBIX_mobile → jkhons/IBIX_mobile.git   (só via script sync-mobile-to-github.sh)
+```
+
+**Importante:** enquanto o Git local na raiz **ainda** versionar `mobile_marketplace/` dentro do mesmo repositório, um `git push` genérico para `ibix_market` pode **voltar** a incluir mobile no histórico. O script `push_root_sem_mobile_ibix_market.sh` **não** depende disso: ele gera um clone limpo e remove `mobile_marketplace/` antes do commit no remoto `ibix_market`.
+
+Passo **opcional** (mudança estrutural, conversar com a equipa antes): `git rm -r --cached mobile_marketplace` + `.gitignore` em `mobile_marketplace/` no monorepo + Git **só** dentro de `mobile_marketplace/` — aí o histórico local fica alinhado ao modelo “dois produtos”.
 
 ## SSH — chave pública desta VPS (cadastrar no GitHub)
 
@@ -33,47 +77,16 @@ git push ibix_market main
 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPNEZ4TLERUPOXryuELRiwUEAFt3MFuMIz9niGp9UYTJ pdv_solumatica-vps-ibix-2026
 ```
 
-3. Teste no servidor: `ssh -T git@github.com` (deve identificar o utilizador).
+3. Teste: `ssh -T git@github.com`
 
-Ficheiros locais (não versionados): privado `~/.ssh/id_ed25519_ibix`, config em `~/.ssh/config` com `IdentityFile` para `github.com` (`IdentitiesOnly yes`). Há fallback para `~/.ssh/id_ed25519_github` na mesma entrada `Host github.com`.
-
-**Nunca** commite a chave **privada**.
-
-## Sincronizar `mobile_marketplace/` com o GitHub
-
-Após a chave SSH estar aceite pelo GitHub:
-
-```bash
-cd /central_solumatica/pdv_solumatica
-./scripts/sync_mobile_from_github.sh
-```
-
-O script faz `git clone --depth 1` de `git@github.com:jkhons/IBIX_mobile.git` (branch `main`) e **rsync** para `mobile_marketplace/`, excluindo `node_modules`, `.expo`, builds e `.git`.
-
-Depois, revê e commita no monorepo:
-
-```bash
-git status
-git add mobile_marketplace
-git commit -m "sync: mobile_marketplace desde IBIX_mobile"
-```
-
-Volta a instalar dependências se necessário: `cd mobile_marketplace && npm install`.
-
-## Git remoto neste monorepo
-
-| Remote típico | URL SSH | Uso |
-|---------------|---------|-----|
-| **`ibix_market`** | `git@github.com:jkhons/ibix_market.git` | Monorepo completo (PDV + `mobile_marketplace/` como pasta). |
-| **`origin`** (se existir) | `git@github.com:jkhons/IBIX_mobile.git` | Histórico legado / não empurrar o monorepo inteiro para aqui. |
-
-Para **conteúdo** do app na pasta local, usar sync desde **`IBIX_mobile`** (`scripts/sync_mobile_from_github.sh`) quando o GitHub do mobile estiver à frente.
+**Nunca** commite chave **privada** nem `.env`.
 
 ## Documentação relacionada
 
-- [`mobile_marketplace/ALINHAR_OUTRO_PC.md`](mobile_marketplace/ALINHAR_OUTRO_PC.md) — clone, credenciais, fluxo VPS ↔ GitHub ↔ PC de testes.
-- [`mobile_marketplace/AGENTS.md`](mobile_marketplace/AGENTS.md) — stack e normas do app.
+- [`mobile_marketplace/PUBLICAR_IBIX_MOBILE.md`](mobile_marketplace/PUBLICAR_IBIX_MOBILE.md) — contexto do app Expo.
+- [`mobile_marketplace/ALINHAR_OUTRO_PC.md`](mobile_marketplace/ALINHAR_OUTRO_PC.md) — clone no PC Windows / tester.
+- [`MAPA_SISTEMA/REPOSITORIOS_GITHUB.md`](MAPA_SISTEMA/REPOSITORIOS_GITHUB.md) — detalhe SSH e tabela histórica (manter coerente com este ficheiro).
 
 ---
 
-**Última atualização:** 2026-05-06 — `main` em `ibix_market` atualizado a partir desta VPS.
+**Última atualização:** 2026-05-13 — escopos separados `ibix_market` (sem mobile) vs `IBIX_mobile`; scripts `push_root_sem_mobile_ibix_market.sh` e `sync-mobile-to-github.sh`.

@@ -257,7 +257,12 @@ def admin_create_charge(
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant não encontrado")
     init_point, preference_id = billing_service.create_checkout_preference(db, tenant_id)
-    return PayNowResponse(init_point=init_point, preference_id=preference_id)
+    if not init_point and not preference_id and billing_service.get_valor_centavos_para_tenant(db, tenant_id) <= 0:
+        return PayNowResponse(
+            isento=True,
+            message="Tenant com mensalidade zero; período renovado sem Mercado Pago.",
+        )
+    return PayNowResponse(init_point=init_point or "", preference_id=preference_id or "")
 
 
 @router.post("/tenant/{tenant_id}/block")
@@ -589,7 +594,10 @@ def admin_aplicar_valor_todos(
             cod = db.query(CodigoDesconto).filter(CodigoDesconto.id == sub.codigo_desconto_id).first()
             if cod and (cod.desconto_mensalidade_percent or 0) > 0:
                 pct = cod.desconto_mensalidade_percent
-                novo_valor = max(1, int(round(base * (1 - pct / 100.0))))
+                if pct >= 100:
+                    novo_valor = 0
+                else:
+                    novo_valor = max(1, int(round(base * (1 - pct / 100.0))))
             else:
                 novo_valor = base
         else:

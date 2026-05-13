@@ -99,6 +99,11 @@
                     <i class="align-middle" data-feather="layout"></i> <span class="align-middle">Marketing Vitrine</span>
                 </a>
             </li>
+            <li class="sidebar-item {% if request.url.path == '/admin/montagem_anuncio' %}active{% endif %}">
+                <a class="sidebar-link" href="/admin/montagem_anuncio">
+                    <i class="align-middle" data-feather="share-2"></i> <span class="align-middle">Montagem de anúncio</span>
+                </a>
+            </li>
             <li class="sidebar-item {% if request.url.path == '/admin/influencers' %}active{% endif %}">
                 <a class="sidebar-link" href="/admin/influencers">
                     <i class="align-middle" data-feather="users"></i> <span class="align-middle">Influencers</span>

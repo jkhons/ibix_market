@@ -8,10 +8,13 @@ Os repositórios **`IBIX_mobile`** e **`ibix_market`** são privados ou exigem a
 
 Scripts na raiz do projeto (executar no VPS **depois** de configurar SSH para `github.com`):
 
-- **GitHub → pasta local:** [`scripts/sync-mobile-from-github.sh`](../scripts/sync-mobile-from-github.sh)
+- **GitHub → pasta local:** [`scripts/sync-mobile-from-github.sh`](../scripts/sync-mobile-from-github.sh) (equivalente: `sync_mobile_from_github.sh`)
 - **Pasta local → GitHub (espelho mobile):** [`scripts/sync-mobile-to-github.sh`](../scripts/sync-mobile-to-github.sh)
+- **Raiz PDV → GitHub (`ibix_market`, sem `mobile_marketplace/`):** [`scripts/push_root_sem_mobile_ibix_market.sh`](../scripts/push_root_sem_mobile_ibix_market.sh)
 
-Variáveis opcionais: `IBIX_MOBILE_SSH`, `IBIX_MOBILE_BRANCH`, `IBIX_MOBILE_PUSH_BRANCH`.
+Variáveis opcionais: `IBIX_MOBILE_SSH`, `IBIX_MOBILE_PUSH_BRANCH`; `IBIX_MARKET_SSH`, `IBIX_MARKET_PUSH_BRANCH`.
+
+Documento canónico de política e avisos (fonte de verdade = VPS): [`../REPOSITORIOS_GITHUB.md`](../REPOSITORIOS_GITHUB.md).
 
 ### Fingerprints SSH (duas coisas diferentes)
 
@@ -33,13 +36,17 @@ Se ao conectar em **`github.com`** aparecer um SHA256 que **não** está na tabe
 
 | Repositório | HTTPS | SSH | Escopo no disco |
 |-------------|-------|-----|-----------------|
-| **IBIX_mobile** | `https://github.com/jkhons/IBIX_mobile.git` | `git@github.com:jkhons/IBIX_mobile.git` | Conteúdo da pasta `mobile_marketplace/` deste monorepo. A **raiz** do repo remoto = raiz do app Expo (sem backend Python na raiz). |
-| **ibix_market** | `https://github.com/jkhons/ibix_market.git` | `git@github.com:jkhons/ibix_market.git` | Monorepo completo em `/central_solumatica/pdv_solumatica`: backend `app/`, templates, `mobile_marketplace/` como subpasta, scripts, documentação, etc. |
+| **IBIX_mobile** | `https://github.com/jkhons/IBIX_mobile.git` | `git@github.com:jkhons/IBIX_mobile.git` | Só o interior de `mobile_marketplace/`. A **raiz** do repo remoto = raiz do app Expo (sem backend Python). |
+| **ibix_market** | `https://github.com/jkhons/ibix_market.git` | `git@github.com:jkhons/ibix_market.git` | **PDV sem pasta `mobile_marketplace/`** — espelho via [`push_root_sem_mobile_ibix_market.sh`](../scripts/push_root_sem_mobile_ibix_market.sh). |
 
 ## Estado no disco (importante)
 
-- A pasta `mobile_marketplace/` **não** é um repositório Git separado; ela é versionada pelo Git da **raiz** do projeto (`pdv_solumatica`).
-- Sincronizar com `IBIX_mobile` é feita por **clone + cópia/rsync** (ou futuramente `git subtree`), não por `git pull` dentro de `mobile_marketplace/`.
+- Na VPS o trabalho costuma ser **monorepo** em `/central_solumatica/pdv_solumatica` (inclui `mobile_marketplace/`).
+- Para o GitHub, o conteúdo é **separado por script**: mobile → `IBIX_mobile`; raiz sem mobile → `ibix_market`. Ver [`../REPOSITORIOS_GITHUB.md`](../REPOSITORIOS_GITHUB.md).
+
+## Fonte de verdade
+
+- **Produção / mais atual:** disco na VPS. **Não** fazer `git pull` na raiz sem rever diff e backup — risco de sobrescrever o sistema em curso.
 
 ## CI / `.github/`
 
@@ -50,12 +57,10 @@ Não há pasta `.github/` versionada neste projeto (sem GitHub Actions configura
 - Raiz: `.gitignore` ignora `.env`, `client_secret*.json`, uploads, etc.
 - Mobile: seguir `mobile_marketplace/.env.example`. **Nunca** commitar `.env`, keystores, `google-services.json`, `GoogleService-Info.plist` ou certificados.
 
-## Fluxo contínuo adotado (Opção A)
+## Fluxo contínuo (recomendado)
 
-- **Fonte do dia a dia:** monorepo (`ibix_market`) — desenvolvimento integrado com backend no mesmo clone.
-- **Espelho só-mobile:** `IBIX_mobile` — atualizado quando for necessário release/build focado no app (EAS, revisão só do front mobile).
-
-**Opção B** (alternativa): desenvolver só em `IBIX_mobile` e periodicamente copiar para `mobile_marketplace/` dentro do monorepo. Menos recomendado para quem altera API + app na mesma sprint.
+- **Dia a dia:** editar na VPS no monorepo (backend + `mobile_marketplace/`).
+- **Publicar:** `sync-mobile-to-github.sh` → `IBIX_mobile`; `push_root_sem_mobile_ibix_market.sh` → `ibix_market` (sem pasta mobile no remoto).
 
 ---
 
@@ -96,17 +101,14 @@ cd mobile_marketplace && npm ci && npm run typecheck
 
 ---
 
-## Subir monorepo → GitHub (`ibix_market`)
-
-Primeira vez (remoto vazio):
+## Subir PDV (sem `mobile_marketplace/`) → GitHub (`ibix_market`)
 
 ```bash
 cd /central_solumatica/pdv_solumatica
-git remote add ibix_market git@github.com:jkhons/ibix_market.git   # se já existir, use outro nome
-git push -u ibix_market main
+./scripts/push_root_sem_mobile_ibix_market.sh
 ```
 
-Se `origin` já estiver ocupado por outro remote, mantenha `ibix_market` como nome do remote para este destino.
+Evita empurrar o monorepo inteiro com `git push` para o remoto errado. Remotes e avisos: [`../REPOSITORIOS_GITHUB.md`](../REPOSITORIOS_GITHUB.md).
 
 ---
 
@@ -155,9 +157,9 @@ flowchart LR
   GHmobile[IBIX_mobile]
   GHmono[ibix_market]
   mob <-->|espelho| GHmobile
-  root -->|push completo| GHmono
+  root -->|push_root_sem_mobile| GHmono
 ```
 
 ---
 
-**Última atualização:** 2026-05-06 — fingerprints de host conferidos com `ssh-keyscan` / doc oficial GitHub.
+**Última atualização:** 2026-05-13 — `ibix_market` sem `mobile_marketplace/` no remoto; script dedicado. Fingerprints de host: ver secção acima.
