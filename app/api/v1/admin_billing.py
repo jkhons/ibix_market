@@ -2,11 +2,15 @@
 from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from app.core.audit import audit_action
+from app.core.convite_lojista_email_template import (
+    get_convite_lojista_template_effective_html,
+    set_convite_lojista_template_html,
+)
 from app.core.billing_config import (
     CHAVE_APP_URL,
     CHAVE_DESCONTO_ESCOPO,
@@ -30,6 +34,13 @@ from app.core.billing_config import (
     get_valor_mensal_centavos,
 )
 from app.core.middleware import require_superadmin
+from app.core.platform_novo_ca_config import (
+    CHAVE_NOVO_CA_EMAIL_ENABLED,
+    CHAVE_NOVO_CA_IN_APP_ENABLED,
+    get_novo_ca_email_enabled,
+    get_novo_ca_in_app_enabled,
+    upsert_config_bool,
+)
 from app.core.payment_gateway_policy import (
     CHAVE_PAYMENT_LOJAS_GATEWAY_SELF_SERVICE,
     payment_lojas_gateway_self_service_enabled,
@@ -37,7 +48,7 @@ from app.core.payment_gateway_policy import (
 from app.core.scope import get_cliente_ids_for_tenant
 from app.database.connection import get_db
 from app.integrations.mercadopago import MercadoPagoClient
-from app.models import Caixa, Configuracao, Empresa, MarketplaceTaxaRegra, Payment, SubscriptionBilling, Tenant, Usuario
+from app.models import Brand, Caixa, Configuracao, Empresa, MarketplaceTaxaRegra, Payment, SubscriptionBilling, Tenant, Usuario
 from app.models.codigo_desconto import CodigoDesconto
 from app.models.contrato_comercial import ContratoComercial
 from app.models.subscription_billing import ComissaoAdministrador
@@ -58,10 +69,24 @@ from app.schemas.marketplace_taxa import (
     payload_to_json_str,
 )
 from app.services import billing_service
+from app.services.brand_scope_service import assert_tenant_in_admin_brand_scope, resolve_admin_brand_scope
+from app.services.platform_novo_ca_notify_service import enviar_convite_cadastro_lojista
 from app.services.marketplace_taxa_service import (
     validar_unica_geral_ativa,
     validar_unico_tenant_ativo,
 )
+
+
+def _normalize_billing_app_url(value: str) -> str:
+    """Garante esquema http(s) para APP_URL (URLs absolutas sem esquema são inválidas para convites e gateways)."""
+    raw = (value or "").strip().rstrip("/")
+    if not raw:
+        return ""
+    low = raw.lower()
+    if not (low.startswith("http://") or low.startswith("https://")):
+        raw = "https://" + raw.lstrip("/")
+    return raw.rstrip("/")
+
 
 router = APIRouter(prefix="/admin/billing", tags=["Admin Billing"])
 
@@ -80,6 +105,14 @@ def _get_sub(db: Session, tenant_id: int) -> Optional[SubscriptionBilling]:
     )
 
 
+def _require_tenant_in_admin_scope(db: Session, tenant_id: int, request: Request) -> Tenant:
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant não encontrado")
+    assert_tenant_in_admin_brand_scope(db, tenant, request)
+    return tenant
+
+
 def _pdvs_em_uso_tenant(db: Session, tenant_id: int) -> int:
     """Contagem de caixas lógicos dos estabelecimentos do tenant (substitui PDVs físicos)."""
     cliente_ids = get_cliente_ids_for_tenant(db, tenant_id)
@@ -95,8 +128,10 @@ def _pdvs_em_uso_tenant(db: Session, tenant_id: int) -> int:
 
 @router.get("/tenants", response_model=List[AdminTenantBillingListItem])
 def admin_list_tenants(
+    request: Request,
     status_filter: Optional[str] = None,
     q: Optional[str] = None,
+    brand_id: Optional[int] = Query(None, description="Recorte por marca (tenants.brand_id)"),
     page: int = 1,
     per_page: int = 50,
     apenas_com_ca: bool = False,
@@ -106,8 +141,11 @@ def admin_list_tenants(
     """Lista tenants com status de assinatura (Super Admin).
     apenas_com_ca=True: apenas tenants que possuem pelo menos um usuário com role Cliente Administrador (C);
     exclui tenants sem CA (evita listar CF ou outros). Usado no select 'Específico' da página Valor e descontos."""
+    effective_brand = resolve_admin_brand_scope(request, db, brand_id)
     today = date.today()
     query = db.query(Tenant).order_by(Tenant.id)
+    if effective_brand is not None:
+        query = query.filter(Tenant.brand_id == effective_brand)
     if q:
         query = query.filter(Tenant.nome.ilike(f"%{q}%"))
     if apenas_com_ca:
@@ -153,13 +191,12 @@ def admin_list_tenants(
 @router.get("/tenant/{tenant_id}")
 def admin_tenant_detail(
     tenant_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     _=Depends(require_superadmin()),
 ):
     """Detalhe do tenant: assinatura e pagamentos."""
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant não encontrado")
+    tenant = _require_tenant_in_admin_scope(db, tenant_id, request)
     sub = _get_sub(db, tenant_id)
     pdvs_em_uso = _pdvs_em_uso_tenant(db, tenant_id)
     payments = []
@@ -210,14 +247,13 @@ def admin_tenant_detail(
 @router.patch("/tenant/{tenant_id}/limite-pdvs")
 def admin_patch_limite_pdvs(
     tenant_id: int,
+    request: Request,
     body: LimitePdvsRequest,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_superadmin()),
 ):
     """Altera o limite de PDVs contratados do tenant (SuperAdmin). Não permite reduzir abaixo de pdvs_em_uso."""
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant não encontrado")
+    _require_tenant_in_admin_scope(db, tenant_id, request)
     pdvs_em_uso = _pdvs_em_uso_tenant(db, tenant_id)
     if body.qtd_pdvs_contratados < pdvs_em_uso:
         raise HTTPException(
@@ -249,13 +285,12 @@ def admin_patch_limite_pdvs(
 @router.post("/tenant/{tenant_id}/create-charge", response_model=PayNowResponse)
 def admin_create_charge(
     tenant_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     _=Depends(require_superadmin()),
 ):
     """Gera preferência Checkout Pro para o tenant (copiar link)."""
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant não encontrado")
+    _require_tenant_in_admin_scope(db, tenant_id, request)
     init_point, preference_id = billing_service.create_checkout_preference(db, tenant_id)
     if not init_point and not preference_id and billing_service.get_valor_centavos_para_tenant(db, tenant_id) <= 0:
         return PayNowResponse(
@@ -268,14 +303,13 @@ def admin_create_charge(
 @router.post("/tenant/{tenant_id}/block")
 def admin_block_tenant(
     tenant_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_superadmin()),
 ):
     """Seta subscription.status = bloqueada e Tenant.ativo = False."""
     from datetime import datetime
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant não encontrado")
+    tenant = _require_tenant_in_admin_scope(db, tenant_id, request)
     sub = _get_sub(db, tenant_id)
     if sub:
         sub.status = "bloqueada"
@@ -299,13 +333,12 @@ def admin_block_tenant(
 @router.post("/tenant/{tenant_id}/unblock")
 def admin_unblock_tenant(
     tenant_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_superadmin()),
 ):
     """Seta Tenant.ativo = True e subscription.status = inadimplente ou ativa."""
-    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant não encontrado")
+    tenant = _require_tenant_in_admin_scope(db, tenant_id, request)
     sub = _get_sub(db, tenant_id)
     if sub and sub.status == "bloqueada":
         sub.status = "inadimplente"
@@ -327,13 +360,18 @@ def admin_unblock_tenant(
 
 
 def _upsert_config(db: Session, chave: str, valor: str, descricao: str = "") -> None:
+    from app.core.billing_secrets import encrypt_stored_secret, is_billing_secret_key
+
+    stored = valor
+    if is_billing_secret_key(chave):
+        stored = encrypt_stored_secret(valor)
     row = db.query(Configuracao).filter(Configuracao.chave == chave).first()
     if row:
-        row.valor = valor
+        row.valor = stored
         if descricao:
             row.descricao = descricao
     else:
-        db.add(Configuracao(chave=chave, valor=valor, descricao=descricao or chave))
+        db.add(Configuracao(chave=chave, valor=stored, descricao=descricao or chave))
 
 
 def _mask_secret(value: Optional[str], prefix_len: int = 8, suffix_len: int = 4) -> Optional[str]:
@@ -346,13 +384,10 @@ def _mask_secret(value: Optional[str], prefix_len: int = 8, suffix_len: int = 4)
     return f"{s[:prefix_len]}...{s[-suffix_len:]}"
 
 
-@router.get("/config", response_model=AdminBillingConfigResponse)
-def admin_get_config(
-    db: Session = Depends(get_db),
-    _=Depends(require_superadmin()),
-):
-    """Retorna status, app_url e valores (mascarados e inteiros) de Access Token e Webhook Secret para verificação no front."""
+def _billing_config_response(db: Session) -> AdminBillingConfigResponse:
+    """Monta resposta de config billing — segredos só mascarados (Fase 4 LGPD)."""
     from app.core.pagbank_config import get_pagbank_client_id, get_pagbank_client_secret, is_pagbank_sandbox
+
     token = get_mp_access_token(db)
     secret = get_mp_webhook_secret(db)
     app_url = get_app_url(db)
@@ -373,8 +408,8 @@ def admin_get_config(
         app_url=app_url or None,
         mp_access_token_masked=_mask_secret(token),
         mp_webhook_secret_masked=_mask_secret(secret),
-        mp_access_token=token,
-        mp_webhook_secret=secret,
+        mp_access_token=None,
+        mp_webhook_secret=None,
         pagbank_configured=bool(pb_client_id and pb_client_secret),
         pagbank_client_id_masked=_mask_secret(pb_client_id),
         pagbank_client_id=pb_client_id or None,
@@ -382,12 +417,21 @@ def admin_get_config(
         pagbank_sandbox=pb_sandbox,
         plataforma_pagbank_configured=bool(plat_pb),
         plataforma_pagbank_access_token_masked=_mask_secret(plat_pb),
-        plataforma_pagbank_access_token=plat_pb or None,
+        plataforma_pagbank_access_token=None,
         plataforma_pagarme_configured=bool(plat_pg),
         plataforma_pagarme_secret_key_masked=_mask_secret(plat_pg),
-        plataforma_pagarme_secret_key=plat_pg or None,
+        plataforma_pagarme_secret_key=None,
         payment_lojas_gateway_self_service=lojas_gateway,
     )
+
+
+@router.get("/config", response_model=AdminBillingConfigResponse)
+def admin_get_config(
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    """Retorna status, app_url e valores mascarados de tokens (segredos nunca em claro na resposta)."""
+    return _billing_config_response(db)
 
 
 @router.get("/config/validate", response_model=AdminBillingConfigValidateResponse)
@@ -408,7 +452,7 @@ async def admin_validate_mp_config(
 def admin_post_config(
     body: AdminBillingConfigRequest,
     db: Session = Depends(get_db),
-    _=Depends(require_superadmin()),
+    current_user=Depends(require_superadmin()),
 ):
     """Salva configuração na tabela configuracoes (chaves billing_* e payment_pagbank_*). Valores em branco removem o override (passa a usar .env)."""
     from app.core.pagbank_config import get_pagbank_client_id, get_pagbank_client_secret, is_pagbank_sandbox
@@ -427,8 +471,9 @@ def admin_post_config(
         else:
             db.query(Configuracao).filter(Configuracao.chave == CHAVE_MP_WEBHOOK_SECRET).delete()
     if body.app_url is not None:
-        if body.app_url.strip():
-            _upsert_config(db, CHAVE_APP_URL, body.app_url.strip().rstrip("/"), "URL base da aplicação (billing)")
+        norm_url = _normalize_billing_app_url(body.app_url)
+        if norm_url:
+            _upsert_config(db, CHAVE_APP_URL, norm_url, "URL base da aplicação (billing)")
         else:
             db.query(Configuracao).filter(Configuracao.chave == CHAVE_APP_URL).delete()
     if body.pagbank_client_id is not None:
@@ -471,41 +516,15 @@ def admin_post_config(
             "Liberado para lojas: Mercado Pago, PagBank e Pagar.me em Recebíveis (CA / Administrador)",
         )
     db.commit()
-    token = get_mp_access_token(db)
-    secret = get_mp_webhook_secret(db)
-    app_url = get_app_url(db)
-    try:
-        pb_client_id = get_pagbank_client_id(db)
-    except ValueError:
-        pb_client_id = ""
-    try:
-        pb_client_secret = get_pagbank_client_secret(db)
-    except ValueError:
-        pb_client_secret = ""
-    pb_sandbox = is_pagbank_sandbox(db)
-    plat_pb = get_plataforma_pagbank_access_token(db)
-    plat_pg = get_plataforma_pagarme_secret_key(db)
-    lojas_gateway = payment_lojas_gateway_self_service_enabled(db)
-    return AdminBillingConfigResponse(
-        mp_configured=bool(token),
-        app_url=app_url or None,
-        mp_access_token_masked=_mask_secret(token),
-        mp_webhook_secret_masked=_mask_secret(secret),
-        mp_access_token=token,
-        mp_webhook_secret=secret,
-        pagbank_configured=bool(pb_client_id and pb_client_secret),
-        pagbank_client_id_masked=_mask_secret(pb_client_id),
-        pagbank_client_id=pb_client_id or None,
-        pagbank_client_secret_masked=_mask_secret(pb_client_secret),
-        pagbank_sandbox=pb_sandbox,
-        plataforma_pagbank_configured=bool(plat_pb),
-        plataforma_pagbank_access_token_masked=_mask_secret(plat_pb),
-        plataforma_pagbank_access_token=plat_pb or None,
-        plataforma_pagarme_configured=bool(plat_pg),
-        plataforma_pagarme_secret_key_masked=_mask_secret(plat_pg),
-        plataforma_pagarme_secret_key=plat_pg or None,
-        payment_lojas_gateway_self_service=lojas_gateway,
+    audit_action(
+        db,
+        "billing_config_alterada",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="configuracao",
+        detalhes="billing secrets atualizados (valores cifrados em repouso)",
     )
+    return _billing_config_response(db)
 
 
 @router.get("/preco", response_model=AdminBillingPrecoResponse)
@@ -811,3 +830,156 @@ def admin_delete_marketplace_taxa_regra(
     db.delete(row)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- Onboarding plataforma: notificações de novo CA + convite por e-mail ---
+
+
+class NovoCaNotificacoesConfigResponse(BaseModel):
+    """Espelho do que o front de Superadmin exibe (switches)."""
+
+    email_enabled: bool
+    in_app_enabled: bool
+
+
+class NovoCaNotificacoesConfigUpdate(BaseModel):
+    email_enabled: bool
+    in_app_enabled: bool
+
+
+_DESCR_NOVO_CA_EMAIL = (
+    "Quando true, envia e-mail aos Superadministradores ao concluir cadastro público de lojista (CA)."
+)
+_DESCR_NOVO_CA_IN_APP = (
+    "Quando true, grava notificação no sino (usuario_notificacoes) para cada Superadministrador."
+)
+
+
+@router.get("/onboarding/novo-ca-notificacoes", response_model=NovoCaNotificacoesConfigResponse)
+def get_novo_ca_notificacoes_config(
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    return NovoCaNotificacoesConfigResponse(
+        email_enabled=get_novo_ca_email_enabled(db),
+        in_app_enabled=get_novo_ca_in_app_enabled(db),
+    )
+
+
+@router.patch("/onboarding/novo-ca-notificacoes", response_model=NovoCaNotificacoesConfigResponse)
+def patch_novo_ca_notificacoes_config(
+    body: NovoCaNotificacoesConfigUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    upsert_config_bool(db, CHAVE_NOVO_CA_EMAIL_ENABLED, body.email_enabled, _DESCR_NOVO_CA_EMAIL)
+    upsert_config_bool(db, CHAVE_NOVO_CA_IN_APP_ENABLED, body.in_app_enabled, _DESCR_NOVO_CA_IN_APP)
+    db.commit()
+    return NovoCaNotificacoesConfigResponse(
+        email_enabled=get_novo_ca_email_enabled(db),
+        in_app_enabled=get_novo_ca_in_app_enabled(db),
+    )
+
+
+class ConviteLojistaTemplateResponse(BaseModel):
+    """HTML efetivo do e-mail (arquivo padrão ou override em configuracoes)."""
+
+    html: str
+    is_custom: bool
+
+
+class ConviteLojistaTemplatePatch(BaseModel):
+    """Salvar HTML customizado ou restaurar o arquivo padrão."""
+
+    reset_to_default: bool = False
+    html: Optional[str] = None
+
+
+@router.get("/onboarding/convite-lojista-template", response_model=ConviteLojistaTemplateResponse)
+def get_convite_lojista_template(
+    db: Session = Depends(get_db),
+    _=Depends(require_superadmin()),
+):
+    html, is_custom = get_convite_lojista_template_effective_html(db)
+    return ConviteLojistaTemplateResponse(html=html or "", is_custom=is_custom)
+
+
+@router.patch("/onboarding/convite-lojista-template", response_model=ConviteLojistaTemplateResponse)
+def patch_convite_lojista_template(
+    body: ConviteLojistaTemplatePatch,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_superadmin()),
+):
+    """Grava override em `configuracoes` ou remove quando `reset_to_default=true`."""
+    try:
+        if body.reset_to_default:
+            set_convite_lojista_template_html(db, None)
+        elif body.html is not None:
+            set_convite_lojista_template_html(db, body.html)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Informe html (string) ou reset_to_default=true.",
+            )
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    audit_action(
+        db,
+        "convite_lojista_template_atualizado",
+        user_id=current_user.id,
+        tenant_id=None,
+        recurso_tipo="email_template",
+        detalhes="reset" if body.reset_to_default else "custom",
+    )
+    html, is_custom = get_convite_lojista_template_effective_html(db)
+    return ConviteLojistaTemplateResponse(html=html or "", is_custom=is_custom)
+
+
+class ConviteLojistaRequest(BaseModel):
+    """Convite de captação de lojistas (lead): apenas dados do e-mail; link sempre para /cadastro sem código promocional."""
+
+    email: EmailStr
+    nome_destinatario: Optional[str] = Field(None, max_length=120)
+    mensagem: Optional[str] = Field(None, max_length=2000)
+
+
+class ConviteLojistaResponse(BaseModel):
+    ok: bool
+    email: str
+    cadastro_url: str
+
+
+@router.post("/onboarding/convite-lojista", response_model=ConviteLojistaResponse)
+def post_convite_lojista(
+    body: ConviteLojistaRequest,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_superadmin()),
+):
+    """Envia e-mail de convite com link para /cadastro (captação de lojistas—sem código promocional na URL)."""
+    base = (get_app_url(db) or "").strip()
+    if not base:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configure a URL base da aplicação (APP_URL) em Cobranças > Config antes de enviar convites.",
+        )
+
+    ok, cadastro_url, err = enviar_convite_cadastro_lojista(
+        db,
+        destinatario_email=str(body.email).strip().lower(),
+        nome_destinatario=body.nome_destinatario,
+        mensagem_personalizada=body.mensagem,
+        codigo_promocional=None,
+    )
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=err or "Falha ao enviar e-mail.")
+
+    audit_action(
+        db,
+        "convite_cadastro_lojista",
+        user_id=current_user.id,
+        tenant_id=None,
+        recurso_tipo="email",
+        detalhes=f"para={str(body.email).strip().lower()}",
+    )
+    return ConviteLojistaResponse(ok=True, email=str(body.email).strip().lower(), cadastro_url=cadastro_url)

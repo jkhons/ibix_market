@@ -1,0 +1,18 @@
+{# Banner de escopo de marca — Superadmin/Admin em páginas admin #}
+{% set _bs = brand_scope|default({}, true) %}
+{% set _role = user_role|default('', true) %}
+{% if _role in ('Superadministrador', 'Administrador') and _bs.scope_label %}
+<div class="brand-scope-banner alert alert-light border mb-3 py-2 px-3 d-flex align-items-center flex-wrap gap-2" role="status">
+    <span class="badge brand-scope-badge {% if _bs.scope_locked %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+        {{ _bs.scope_label }}
+    </span>
+    {% if _bs.scope_locked %}
+    <span class="text-muted small mb-0">
+        Exibindo apenas dados de <strong>{{ _bs.nome }}</strong>
+        {% if request.headers.get('host') %} · {{ request.headers.get('host') }}{% endif %}
+    </span>
+    {% else %}
+    <span class="text-muted small mb-0">Todas as marcas (filtro opcional por <code>brand_id</code> na API)</span>
+    {% endif %}
+</div>
+{% endif %}

@@ -11,8 +11,23 @@ const canEdit = has('usuarios:editar');
 const canDelete = has('usuarios:excluir');
 
 function getTokenUsuarios() {
-    const m = document.cookie.match(/(?:^|;\s*)pdv_automscale_token=([^;]*)/);
-    return m ? m[1] : null;
+    if (typeof window.getAuthToken === 'function') {
+        return window.getAuthToken();
+    }
+    const m = document.cookie.match(/(?:^|;\s*)pdv_solumatica_token=([^;]*)/)
+        || document.cookie.match(/(?:^|;\s*)pdv_automscale_token=([^;]*)/);
+    return m ? decodeURIComponent(m[1]) : (
+        sessionStorage.getItem('pdv_solumatica_token')
+        || sessionStorage.getItem('pdv_automscale_token')
+        || null
+    );
+}
+
+function fetchUsuariosApi(url, options = {}) {
+    const token = getTokenUsuarios();
+    const headers = { ...(options.headers || {}) };
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    return fetch(url, { ...options, headers, credentials: 'include' });
 }
 
 class GerenciamentoUsuarios {
@@ -39,6 +54,7 @@ class GerenciamentoUsuarios {
         }
         this.configurarEventos();
         this.carregarUsuarios();
+        this.carregarRepresentantes();
         this.carregarRoles();
         this.configurarFeatherIcons();
         const btnNovo = document.getElementById('btnNovoUsuario');
@@ -129,10 +145,7 @@ class GerenciamentoUsuarios {
             if (this.filtros.nome) params.append('nome', this.filtros.nome);
             if (this.filtros.role) params.append('role_id', this.filtros.role);
 
-            const token = getTokenUsuarios();
-            const headers = {};
-            if (token) headers['Authorization'] = 'Bearer ' + token;
-            const response = await fetch(`/api/v1/usuarios/?${params}`, { headers });
+            const response = await fetchUsuariosApi(`/api/v1/usuarios/?${params}`);
             
             if (!response.ok) {
                 throw new Error(`Erro HTTP: ${response.status}`);
@@ -155,12 +168,11 @@ class GerenciamentoUsuarios {
 
     async carregarRoles() {
         try {
-            const response = await fetch('/api/v1/auth/roles');
+            const response = await fetch('/api/v1/auth/roles', { credentials: 'include' });
             if (response.ok) {
                 this.roles = await response.json();
                 this.preencherSelectRoles(this.roles);
                 this.preencherFiltroRoles(this.roles);
-                this.carregarRepresentantes();
             }
         } catch (error) {
             console.error('Erro ao carregar roles:', error);
@@ -171,26 +183,16 @@ class GerenciamentoUsuarios {
         const tbody = document.getElementById('tbodyRepresentantes');
         const totalEl = document.getElementById('totalRepresentantes');
         if (!tbody) return;
-        const adminRole = this.roles && this.roles.find(r => r.nome === 'Administrador');
         const colSpan = canEdit ? 4 : 3;
-        if (!adminRole) {
-            tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted">Função Administrador não encontrada.</td></tr>`;
-            if (totalEl) totalEl.textContent = '0';
-            return;
-        }
         try {
-            const token = getTokenUsuarios();
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = `Bearer ${token}`;
-            const params = new URLSearchParams({ role_id: adminRole.id, limit: 500 });
-            const response = await fetch(`/api/v1/usuarios/?${params}`, { headers });
+            const response = await fetchUsuariosApi('/api/v1/usuarios/representantes');
             if (!response.ok) {
                 tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-danger">Erro ao carregar representantes.</td></tr>`;
                 if (totalEl) totalEl.textContent = '0';
                 return;
             }
             const data = await response.json();
-            const lista = data.usuarios || [];
+            const lista = data.representantes || [];
             if (totalEl) totalEl.textContent = lista.length;
             if (lista.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="${colSpan}" class="text-center text-muted">Nenhum representante cadastrado.</td></tr>`;
@@ -267,11 +269,16 @@ class GerenciamentoUsuarios {
         const colCount = showActions ? 7 : 6;
 
         if (usuariosParaRenderizar.length === 0) {
+            const brandNome = document.body.getAttribute('data-brand-nome') || 'esta marca';
+            const scopeLocked = document.body.getAttribute('data-brand-scope-locked') === 'true';
+            const emptyMsg = scopeLocked
+                ? `Nenhum usuário para ${brandNome}. Cadastros neste domínio aparecerão aqui.`
+                : 'Nenhum usuário encontrado';
             tbody.innerHTML = `
                 <tr>
                     <td colspan="${colCount}" class="text-center text-muted py-4">
                         <i class="align-middle me-2" data-feather="users"></i>
-                        Nenhum usuário encontrado
+                        ${emptyMsg}
                     </td>
                 </tr>
             `;
@@ -450,7 +457,7 @@ class GerenciamentoUsuarios {
 
     async editarUsuario(id) {
         try {
-            const response = await fetch(`/api/v1/usuarios/${id}`);
+            const response = await fetchUsuariosApi(`/api/v1/usuarios/${id}`);
             if (!response.ok) {
                 throw new Error(`Erro HTTP: ${response.status}`);
             }
@@ -553,10 +560,7 @@ class GerenciamentoUsuarios {
         const sel = document.getElementById('clientesVinculados');
         if (!sel) return;
         try {
-            const token = getTokenUsuarios();
-            const headers = { 'Content-Type': 'application/json' };
-            if (token) headers['Authorization'] = 'Bearer ' + token;
-            const response = await fetch(`/api/v1/usuarios/${usuarioId}/clientes-vinculados`, { headers });
+            const response = await fetchUsuariosApi(`/api/v1/usuarios/${usuarioId}/clientes-vinculados`);
             if (!response.ok) return;
             const data = await response.json();
             const ids = (data.cliente_ids || []).map(String);
@@ -640,7 +644,7 @@ class GerenciamentoUsuarios {
 
             console.log('Enviando dados:', dados);
 
-            const response = await fetch(url, {
+            const response = await fetchUsuariosApi(url, {
                 method: method,
                 headers: {
                     'Content-Type': 'application/json',
@@ -662,12 +666,9 @@ class GerenciamentoUsuarios {
             if (roleNome === 'Administrador' && savedUserId) {
                 const sel = document.getElementById('clientesVinculados');
                 const clienteIds = sel ? Array.from(sel.selectedOptions).map(o => parseInt(o.value, 10)).filter(id => !isNaN(id)) : [];
-                const token = getTokenUsuarios();
-                const headers = { 'Content-Type': 'application/json' };
-                if (token) headers['Authorization'] = 'Bearer ' + token;
-                await fetch(`/api/v1/usuarios/${savedUserId}/clientes-vinculados`, {
+                await fetchUsuariosApi(`/api/v1/usuarios/${savedUserId}/clientes-vinculados`, {
                     method: 'PUT',
-                    headers,
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cliente_ids: clienteIds })
                 });
             }

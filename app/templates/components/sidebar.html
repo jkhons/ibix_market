@@ -1,9 +1,14 @@
-<!-- Ibix - Componente Sidebar -->
+<!-- Sidebar PDV — logo/nome da marca (Host → brand) -->
+{% set _brand = brand|default({}, true) %}
+{% set _brand_logo_display = _brand.logo_display_url|default('', true) %}
+{% set _brand_nome = _brand.nome_curto|default(_brand.nome_exibicao|default('PDV', true), true) %}
 <nav id="sidebar" class="sidebar js-sidebar">
     <div class="sidebar-content js-simplebar">
         <a class="sidebar-brand" href="/dashboard">
-            <img src="/static/img/landing/logoSfundo.png" alt="IBIX PDV" class="sidebar-brand-icon me-2" style="height: 38px; width: auto; object-fit: contain;">
-            <span class="align-middle">IBIX PDV</span>
+            {% if _brand_logo_display %}
+            <img src="{{ _brand_logo_display }}" alt="{{ _brand_nome }}" class="sidebar-brand-icon me-2" style="height: 38px; width: auto; object-fit: contain;">
+            {% endif %}
+            <span class="align-middle">{{ _brand_nome }}</span>
         </a>
 
         <ul class="sidebar-nav">
@@ -76,7 +81,7 @@
             {% if user_role == 'Superadministrador' %}
             <li class="sidebar-item {% if '/admin/billing' in request.url.path %}active{% endif %}">
                 <a class="sidebar-link" href="/admin/billing/tenants">
-                    <i class="align-middle" data-feather="dollar-sign"></i> <span class="align-middle">Cobranças (Admin)</span>
+                    <i class="align-middle" data-feather="dollar-sign"></i> <span class="align-middle">Mensalidade PDV</span>
                 </a>
             </li>
             <li class="sidebar-item {% if '/admin/integracoes/google-custom-search' in request.url.path %}active{% endif %}">
@@ -89,6 +94,7 @@
                     <i class="align-middle" data-feather="mail"></i> <span class="align-middle">E-mail</span>
                 </a>
             </li>
+            {% if brand_has_marketplace %}
             <li class="sidebar-item {% if request.url.path == '/admin/marketplace-seo-lojas' %}active{% endif %}">
                 <a class="sidebar-link" href="/admin/marketplace-seo-lojas">
                     <i class="align-middle" data-feather="search"></i> <span class="align-middle">SEO vitrine (lojas)</span>
@@ -99,9 +105,16 @@
                     <i class="align-middle" data-feather="layout"></i> <span class="align-middle">Marketing Vitrine</span>
                 </a>
             </li>
+            {% endif %}
+            {% if brand_has_marketplace %}
             <li class="sidebar-item {% if request.url.path == '/admin/montagem_anuncio' %}active{% endif %}">
                 <a class="sidebar-link" href="/admin/montagem_anuncio">
                     <i class="align-middle" data-feather="share-2"></i> <span class="align-middle">Montagem de anúncio</span>
+                </a>
+            </li>
+            <li class="sidebar-item {% if request.url.path == '/admin/lojas_produtos' %}active{% endif %}">
+                <a class="sidebar-link" href="/admin/lojas_produtos">
+                    <i class="align-middle" data-feather="grid"></i> <span class="align-middle">Lojas/produtos</span>
                 </a>
             </li>
             <li class="sidebar-item {% if request.url.path == '/admin/influencers' %}active{% endif %}">
@@ -114,6 +127,7 @@
                     <i class="align-middle" data-feather="truck"></i> <span class="align-middle">Entregadores</span>
                 </a>
             </li>
+            {% endif %}
             {% endif %}
             {% endif %}
 
@@ -166,13 +180,11 @@
                     <i class="align-middle" data-feather="credit-card"></i> <span class="align-middle">Caixa</span>
                 </a>
             </li>
-            {% if user_role != 'Cliente Administrador' %}
             <li class="sidebar-item {% if request.url.path == '/negocio/configuracoes-cupom' %}active{% endif %}">
                 <a class="sidebar-link" href="/negocio/configuracoes-cupom">
-                    <i class="align-middle" data-feather="printer"></i> <span class="align-middle">Cupom</span>
+                    <i class="align-middle" data-feather="printer"></i> <span class="align-middle">Comprovantes</span>
                 </a>
             </li>
-            {% endif %}
             {% endif %}
 
             {% if user_permissions and 'negocios.estoque:visualizar' in user_permissions %}
@@ -190,10 +202,10 @@
             </li>
             {% endif %}
 
-            {% if user_permissions and 'negocios.financeiro:visualizar' in user_permissions %}
+            {% if user_role == 'Superadministrador' %}
             <li class="sidebar-item {% if request.url.path == '/negocio/financeiro' %}active{% endif %}">
                 <a class="sidebar-link" href="/negocio/financeiro">
-                    <i class="align-middle" data-feather="dollar-sign"></i> <span class="align-middle">Financeiro</span>
+                    <i class="align-middle" data-feather="dollar-sign"></i> <span class="align-middle">Repasses</span>
                 </a>
             </li>
             {% endif %}
@@ -211,6 +223,11 @@
                     <i class="align-middle" data-feather="file-plus"></i> <span class="align-middle">Orçamentos</span>
                 </a>
             </li>
+            <li class="sidebar-item {% if request.url.path == '/negocio/formatos-impressao' %}active{% endif %}">
+                <a class="sidebar-link" href="/negocio/formatos-impressao">
+                    <i class="align-middle" data-feather="printer"></i> <span class="align-middle">Formatos de impressão</span>
+                </a>
+            </li>
             {% endif %}
             {% if user_permissions and 'negocios.pedido:visualizar' in user_permissions %}
             <li class="sidebar-item {% if request.url.path == '/negocio/pedidos' %}active{% endif %}">
@@ -220,7 +237,7 @@
             </li>
             {% endif %}
 
-            {% if user_permissions and 'marketplace:visualizar' in user_permissions %}
+            {% if brand_has_marketplace and user_permissions and 'marketplace:visualizar' in user_permissions %}
             <li class="sidebar-item {% if '/negocio/marketplace' in request.url.path %}active{% endif %}">
                 <a class="sidebar-link" href="/negocio/marketplace">
                     <i class="align-middle" data-feather="shopping-bag"></i> <span class="align-middle">Marketplace</span>

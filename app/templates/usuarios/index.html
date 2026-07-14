@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Gerenciamento de Usuários | PDV Ibix{% endblock %}
+{% block title %}Gerenciamento de Usuários | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -679,6 +679,7 @@
 {% endblock %}
 
 {% block content %}
+{% include 'components/brand_scope_banner.html' %}
 {% set can_view = user_permissions and 'usuarios:visualizar' in user_permissions %}
 {% set can_create = user_permissions and 'usuarios:criar' in user_permissions %}
 {% set can_edit = user_permissions and 'usuarios:editar' in user_permissions %}
@@ -1346,6 +1347,6 @@
 </script>
 <script src="/static/js/custom-modal.js?v=1.3"></script>
 <script src="/static/js/permissoes-manager.js?v=1.0"></script>
-<script src="/static/js/roles-manager.js?v=1.2"></script>
-<script src="/static/js/usuarios.js?v=3.5"></script>
+<script src="/static/js/roles-manager.js?v=1.3"></script>
+<script src="/static/js/usuarios.js?v=3.8"></script>
 {% endblock %}

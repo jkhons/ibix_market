@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import and_, case, false, func, literal, or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -34,6 +34,47 @@ router = APIRouter(
 
 # Status considerados como vendas concluídas (para faturamento e indicadores)
 STATUS_VENDA_LIQUIDA = (StatusVenda.CONFIRMADA.value, StatusVenda.FINALIZADA.value, StatusVenda.FINALIZADA_LEGADO.value)
+
+
+def _empty_dashboard_negocios_payload() -> Dict[str, Any]:
+    """Payload vazio quando escopo de cliente não permite dados (marca derivada sem clientes)."""
+    return {
+        "vendas": {
+            "total_vendas": 0,
+            "valor_total_vendas": 0.0,
+            "vendas_pendentes": 0,
+            "ticket_medio": 0.0,
+            "recentes": [],
+            "itens_por_venda_media": 0.0,
+            "itens_por_venda_hoje": 0.0,
+            "cancelamentos_30d": 0,
+            "taxa_cancelamento": 0.0,
+            "faturamento_hoje": 0.0,
+            "vendas_hoje": 0,
+            "clientes_atendidos_hoje": 0,
+            "ticket_medio_hoje": 0.0,
+        },
+        "produtos_mais_vendidos": {"dia": [], "semana": [], "mes": []},
+        "estoque": None,
+        "ordens_servico": {
+            "total": 0,
+            "por_status": {
+                "aberta": 0,
+                "em_andamento": 0,
+                "aguardando_material": 0,
+                "aguardando_cliente": 0,
+                "concluida": 0,
+                "cancelada": 0,
+            },
+            "recentes": [],
+        },
+    }
+
+
+def _resolve_negocios_scope(request: Request, db: Session, scope: ClienteScope) -> ClienteScope:
+    from app.services.brand_scope_service import apply_host_brand_cliente_scope
+
+    return apply_host_brand_cliente_scope(request, db, scope)
 
 
 def _mp_pedido_liquido_cond():
@@ -295,6 +336,7 @@ def _mapear_os_recentes(rows: List[tuple]) -> List[Dict[str, Any]]:
 
 @router.get("/dashboard", response_model=dict)
 async def obter_dashboard_negocios(
+    request: Request,
     db: Session = Depends(get_db),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
     current_user: Usuario = Depends(get_current_user),
@@ -303,6 +345,7 @@ async def obter_dashboard_negocios(
     Inclui: vendas (total, faturamento, ticket médio, pendentes, itens_por_venda_media,
     itens_por_venda_hoje, cancelamentos_30d, taxa_cancelamento), produtos_mais_vendidos,
     estoque, ordens_servico."""
+    scope = _resolve_negocios_scope(request, db, scope)
     must_filter = scope.must_filter_by_cliente()
     allowed_ids = scope.allowed_ids if must_filter else None
     role_nome = current_user.role.nome if current_user.role else None
@@ -323,16 +366,7 @@ async def obter_dashboard_negocios(
     )
     if must_filter:
         if not allowed_ids:
-            return {
-                "vendas": {
-                    "total_vendas": 0, "valor_total_vendas": 0.0, "vendas_pendentes": 0, "ticket_medio": 0.0,
-                    "recentes": [], "itens_por_venda_media": 0.0, "itens_por_venda_hoje": 0.0,
-                    "cancelamentos_30d": 0, "taxa_cancelamento": 0.0,
-                },
-                "produtos_mais_vendidos": {"dia": [], "semana": [], "mes": []},
-                "estoque": None,
-                "ordens_servico": {"total": 0, "por_status": {"aberta": 0, "em_andamento": 0, "aguardando_material": 0, "aguardando_cliente": 0, "concluida": 0, "cancelada": 0}, "recentes": []},
-            }
+            return _empty_dashboard_negocios_payload()
         vendas_query = vendas_query.filter(Venda.cliente_id.in_(allowed_ids))
 
     vendas_stats = vendas_query.one()
@@ -628,6 +662,7 @@ async def obter_dashboard_negocios(
 
 @router.get("/dashboard/graficos", response_model=dict)
 async def obter_graficos_dashboard(
+    request: Request,
     data_inicio: Optional[date] = Query(None, description="Início do período"),
     data_fim: Optional[date] = Query(None, description="Fim do período"),
     cliente_id: Optional[int] = Query(None, description="Filtrar por estabelecimento"),
@@ -637,6 +672,7 @@ async def obter_graficos_dashboard(
     current_user: Usuario = Depends(get_current_user),
 ):
     """Gráficos do dashboard: vendas por período, por forma de pagamento, por vendedor, horários de pico, por categoria. Respeita ClienteScope."""
+    scope = _resolve_negocios_scope(request, db, scope)
     must_filter = scope.must_filter_by_cliente()
     allowed_ids = scope.allowed_ids if must_filter else None
     if must_filter and not allowed_ids:

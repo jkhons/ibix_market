@@ -14,22 +14,30 @@ class RolesManager {
     }
 
     async inicializar() {
-        // Usar role do servidor (template) como fallback para Superadministrador/Administrador
-        const roleDoServidor = typeof window.__USER_ROLE__ !== 'undefined' ? window.__USER_ROLE__ : null;
+        const roleDoServidor = window.USER_ROLE || window.__USER_ROLE__ || null;
         if (roleDoServidor === 'Administrador' || roleDoServidor === 'Superadministrador') {
             this.currentUserRole = roleDoServidor;
+        } else {
+            await this.verificarPermissao();
         }
-        await this.verificarPermissao();
 
         const podeGerenciarRoles = this.currentUserRole === 'Administrador' || this.currentUserRole === 'Superadministrador';
-        if (podeGerenciarRoles) {
-            const cardContainer = document.getElementById('cardRolesContainer');
-            if (cardContainer) {
-                cardContainer.style.display = 'block';
-            }
+        if (!podeGerenciarRoles) {
+            return;
+        }
+        const cardContainer = document.getElementById('cardRolesContainer');
+        if (cardContainer) {
+            cardContainer.style.display = 'block';
+        }
+        const carregar = async () => {
             await this.carregarTotalPermissoesSistema();
             await this.carregarRoles();
             this.configurarEventos();
+        };
+        if (typeof requestIdleCallback === 'function') {
+            requestIdleCallback(() => { carregar(); }, { timeout: 1500 });
+        } else {
+            setTimeout(() => { carregar(); }, 0);
         }
     }
 
@@ -49,7 +57,7 @@ class RolesManager {
 
     async carregarTotalPermissoesSistema() {
         try {
-            const response = await fetch('/api/v1/permissoes/agrupadas/modulos');
+            const response = await fetch('/api/v1/permissoes/agrupadas/modulos', { credentials: 'include' });
             if (response.ok) {
                 const data = await response.json();
                 this.totalPermissoesSistema = data.total_permissoes || 28;
@@ -118,7 +126,7 @@ class RolesManager {
 
     async carregarRoles() {
         try {
-            const response = await fetch('/api/v1/roles/');
+            const response = await fetch('/api/v1/roles/', { credentials: 'include' });
             
             if (!response.ok) {
                 throw new Error(`Erro HTTP: ${response.status}`);

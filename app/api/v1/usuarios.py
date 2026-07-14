@@ -2,7 +2,7 @@
 # Enforcement por permissão granular (usuarios:visualizar, usuarios:criar, etc.) e escopo para Administrador
 from typing import List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -12,6 +12,8 @@ from app.core.auth import AuthConfig
 from app.core.db_errors import is_unique_violation
 from app.core.logging import log_error
 from app.core.middleware import require_permission, require_superadmin, require_superadmin_or_admin
+from app.core.pii import apply_usuario_pii_mask, mask_email
+from app.core.pii_access import audit_pii_access, user_can_view_pii
 from app.database.connection import get_db
 from app.models.administrador_cliente import AdministradorCliente
 from app.models.administrador_cliente_administrador import AdministradorClienteAdministrador
@@ -19,8 +21,23 @@ from app.models.area_cliente import AreaCliente
 from app.models.cliente_administrador_cliente import ClienteAdministradorCliente
 from app.models.cliente_administrador_tecnico import ClienteAdministradorTecnico
 from app.models.role import Role
+from app.models.tenant import Tenant
 from app.models.usuario import Usuario
-from app.schemas.usuario import UsuarioCreate, UsuarioListResponse, UsuarioResponse, UsuarioUpdate
+from app.schemas.usuario import (
+    RepresentanteListResponse,
+    UsuarioCreate,
+    UsuarioListResponse,
+    UsuarioResponse,
+    UsuarioUpdate,
+)
+from app.services.brand_scope_service import (
+    assert_usuario_in_admin_brand_scope,
+    brand_scope_meta,
+    filter_user_ids_by_admin_brand,
+    filter_usuario_query_by_admin_brand,
+    resolve_admin_brand_scope,
+    tenant_ids_for_admin_brand,
+)
 
 # Roles que o Cliente Administrador pode atribuir: Técnico, Subcliente e Contador (Contador já fica vinculado a ele)
 ROLES_PERMITIDAS_CLIENTE_ADMIN: Tuple[str, ...] = ("Técnico", "Subcliente", "Contador")
@@ -113,8 +130,119 @@ usuarios_router = APIRouter(
     dependencies=[Depends(require_superadmin_or_admin)]
 )
 
+def _usuario_payload(usuario: Usuario, db: Session, current_user: Usuario, *, reveal: Optional[bool] = None) -> dict:
+    is_superadmin = current_user.role and current_user.role.nome == "Superadministrador"
+    payload = {
+        "id": usuario.id,
+        "nome": usuario.nome,
+        "email": usuario.email,
+        "cargo": usuario.cargo or "",
+        "ativo": usuario.ativo,
+        "cpf": getattr(usuario, "cpf", None),
+        "rg": getattr(usuario, "rg", None),
+        "documento_path": getattr(usuario, "documento_path", None),
+        "role_id": usuario.role_id,
+        "role": usuario.role,
+        "contador_vinculado_cliente_administrador_id": getattr(
+            usuario, "contador_vinculado_cliente_administrador_id", None
+        ),
+        "created_at": usuario.created_at,
+        "updated_at": usuario.updated_at,
+        "vinculo_cliente_administrador_id": getattr(usuario, "vinculo_cliente_administrador_id", None),
+        "vinculo_cliente_administrador_nome": getattr(usuario, "vinculo_cliente_administrador_nome", None),
+    }
+    if is_superadmin:
+        ca_id, ca_nome = _vinculo_cliente_administrador(db, usuario)
+        payload["vinculo_cliente_administrador_id"] = ca_id
+        payload["vinculo_cliente_administrador_nome"] = ca_nome
+    if reveal is None:
+        reveal = user_can_view_pii(db, current_user)
+    return apply_usuario_pii_mask(payload, reveal=reveal)
+
+
+def _admin_role_id(db: Session) -> Optional[int]:
+    row = db.query(Role.id).filter(Role.nome == "Administrador", Role.ativo.is_(True)).first()
+    return int(row[0]) if row else None
+
+
+def _scoped_usuarios_query(
+    db: Session,
+    current_user: Usuario,
+    effective_brand: Optional[int],
+):
+    """Query base de Usuario com o mesmo escopo de listar_usuarios."""
+    role_nome = current_user.role.nome if current_user.role else None
+    query = db.query(Usuario)
+    if role_nome == "Superadministrador":
+        query, force_empty = filter_usuario_query_by_admin_brand(query, effective_brand, db)
+        if force_empty:
+            return query, True
+    elif role_nome == "Administrador":
+        allowed_ids = _allowed_user_ids_for_admin(db, current_user.id)
+        if effective_brand is not None:
+            allowed_ids = filter_user_ids_by_admin_brand(db, allowed_ids, effective_brand)
+            if not allowed_ids:
+                return query, True
+        query = query.filter(Usuario.id.in_(allowed_ids))
+    elif role_nome == "Cliente Administrador":
+        allowed_ids = _allowed_user_ids_for_cliente_admin(db, current_user.id)
+        if effective_brand is not None:
+            allowed_ids = filter_user_ids_by_admin_brand(db, allowed_ids, effective_brand)
+            if not allowed_ids:
+                return query, True
+        query = query.filter(Usuario.id.in_(allowed_ids))
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso restrito a Superadministrador, Administrador ou Cliente Administrador com escopo",
+        )
+    return query, False
+
+
+@usuarios_router.get("/representantes", response_model=RepresentanteListResponse)
+def listar_representantes(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(require_permission("usuarios:visualizar")),
+):
+    """Lista leve de Administradores para o card Representantes (sem serialização pesada)."""
+    effective_brand = resolve_admin_brand_scope(request, db)
+    admin_role_id = _admin_role_id(db)
+    if not admin_role_id:
+        return {"representantes": [], "total": 0}
+    if current_user.role and current_user.role.nome == "Superadministrador" and effective_brand is not None:
+        if not tenant_ids_for_admin_brand(db, effective_brand):
+            return {"representantes": [], "total": 0}
+
+    query, force_empty = _scoped_usuarios_query(db, current_user, effective_brand)
+    if force_empty:
+        return {"representantes": [], "total": 0}
+
+    rows = (
+        query.filter(Usuario.role_id == admin_role_id)
+        .with_entities(Usuario.id, Usuario.nome, Usuario.email, Usuario.ativo)
+        .order_by(Usuario.nome.asc())
+        .limit(100)
+        .all()
+    )
+    reveal_pii = user_can_view_pii(db, current_user)
+    representantes = []
+    for uid, nome, email, ativo in rows:
+        email_out = email if reveal_pii else mask_email(email)
+        representantes.append(
+            {
+                "id": uid,
+                "nome": nome or "",
+                "email": email_out or "",
+                "ativo": bool(ativo),
+            }
+        )
+    return {"representantes": representantes, "total": len(representantes)}
+
+
 @usuarios_router.get("/", response_model=UsuarioListResponse)
 def listar_usuarios(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     ativo: Optional[bool] = None,
@@ -123,18 +251,21 @@ def listar_usuarios(
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_permission("usuarios:visualizar")),
 ):
-    """Listar usuários. Superadmin: todos. Administrador: escopo abaixo dele. Cliente Administrador: ele + técnicos da equipe."""
-    query = db.query(Usuario).options(joinedload(Usuario.role))
-    if current_user.role and current_user.role.nome == "Superadministrador":
-        pass
-    elif current_user.role and current_user.role.nome == "Administrador":
-        allowed_ids = _allowed_user_ids_for_admin(db, current_user.id)
-        query = query.filter(Usuario.id.in_(allowed_ids))
-    elif current_user.role and current_user.role.nome == "Cliente Administrador":
-        allowed_ids = _allowed_user_ids_for_cliente_admin(db, current_user.id)
-        query = query.filter(Usuario.id.in_(allowed_ids))
-    else:
-        raise HTTPException(status_code=403, detail="Acesso restrito a Superadministrador, Administrador ou Cliente Administrador com escopo")
+    """Listar usuários. Superadmin: todos (ou só da marca no host derivado). Administrador/CA: escopo + marca."""
+    effective_brand = resolve_admin_brand_scope(request, db)
+    brand_scope = brand_scope_meta(request, db, effective_brand)
+    empty_payload = {"usuarios": [], "total": 0, "skip": skip, "limit": limit, "brand_scope": brand_scope}
+
+    role_nome = current_user.role.nome if current_user.role else None
+    if role_nome == "Superadministrador" and effective_brand is not None:
+        if not tenant_ids_for_admin_brand(db, effective_brand):
+            return empty_payload
+
+    scoped, force_empty = _scoped_usuarios_query(db, current_user, effective_brand)
+    if force_empty:
+        return empty_payload
+
+    query = scoped.options(joinedload(Usuario.role))
     if ativo is not None:
         query = query.filter(Usuario.ativo == ativo)
     if nome:
@@ -143,17 +274,17 @@ def listar_usuarios(
         query = query.filter(Usuario.role_id == role_id)
     total = query.count()
     usuarios = query.offset(skip).limit(limit).all()
-    is_superadmin = current_user.role and current_user.role.nome == "Superadministrador"
-    if is_superadmin:
-        for u in usuarios:
-            ca_id, ca_nome = _vinculo_cliente_administrador(db, u)
-            setattr(u, "vinculo_cliente_administrador_id", ca_id)
-            setattr(u, "vinculo_cliente_administrador_nome", ca_nome)
-    return {"usuarios": usuarios, "total": total, "skip": skip, "limit": limit}
+    reveal_pii = user_can_view_pii(db, current_user)
+    serialized = [
+        UsuarioResponse.model_validate(_usuario_payload(u, db, current_user, reveal=reveal_pii))
+        for u in usuarios
+    ]
+    return {"usuarios": serialized, "total": total, "skip": skip, "limit": limit, "brand_scope": brand_scope}
 
 @usuarios_router.get("/{usuario_id}", response_model=UsuarioResponse)
 def obter_usuario(
     usuario_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_permission("usuarios:visualizar")),
 ):
@@ -169,32 +300,29 @@ def obter_usuario(
         allowed = _allowed_user_ids_for_cliente_admin(db, current_user.id)
         if usuario_id not in allowed:
             raise HTTPException(status_code=403, detail="Usuário fora do seu escopo")
+    elif current_user.role and current_user.role.nome == "Superadministrador":
+        assert_usuario_in_admin_brand_scope(db, usuario, request)
     if current_user.role and current_user.role.nome == "Superadministrador":
         ca_id, ca_nome = _vinculo_cliente_administrador(db, usuario)
         setattr(usuario, "vinculo_cliente_administrador_id", ca_id)
         setattr(usuario, "vinculo_cliente_administrador_nome", ca_nome)
-    # Garantir serialização com cpf, rg e documento_path para o formulário de edição (frontend)
-    payload = {
-        "id": usuario.id,
-        "nome": usuario.nome,
-        "email": usuario.email,
-        "cargo": usuario.cargo or "",
-        "ativo": usuario.ativo,
-        "cpf": getattr(usuario, "cpf", None),
-        "rg": getattr(usuario, "rg", None),
-        "documento_path": getattr(usuario, "documento_path", None),
-        "role_id": usuario.role_id,
-        "role": usuario.role,
-        "contador_vinculado_cliente_administrador_id": getattr(usuario, "contador_vinculado_cliente_administrador_id", None),
-        "created_at": usuario.created_at,
-        "updated_at": usuario.updated_at,
-        "vinculo_cliente_administrador_id": getattr(usuario, "vinculo_cliente_administrador_id", None),
-        "vinculo_cliente_administrador_nome": getattr(usuario, "vinculo_cliente_administrador_nome", None),
-    }
-    return UsuarioResponse.model_validate(payload)
+    if user_can_view_pii(db, current_user):
+        from app.core.rate_limiter import get_client_ip
+
+        audit_pii_access(
+            db,
+            acao="pii_acesso_usuario",
+            actor=current_user,
+            recurso_tipo="usuario",
+            recurso_id=usuario_id,
+            ip=get_client_ip(request),
+            request_id=getattr(request.state, "request_id", None),
+        )
+    return UsuarioResponse.model_validate(_usuario_payload(usuario, db, current_user))
 
 @usuarios_router.post("/", response_model=UsuarioResponse)
 def criar_usuario(
+    request: Request,
     usuario: UsuarioCreate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_permission("usuarios:criar")),
@@ -259,6 +387,7 @@ def criar_usuario(
 @usuarios_router.put("/{usuario_id}", response_model=UsuarioResponse)
 def atualizar_usuario(
     usuario_id: int,
+    request: Request,
     usuario: UsuarioUpdate,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_permission("usuarios:editar")),
@@ -283,6 +412,8 @@ def atualizar_usuario(
                         status_code=403,
                         detail="Cliente Administrador só pode atribuir função Técnico, Subcliente ou Contador."
                     )
+        elif current_user.role and current_user.role.nome == "Superadministrador":
+            assert_usuario_in_admin_brand_scope(db, db_usuario, request)
         
         # Verificar se email já existe (exceto para o usuário atual)
         if usuario.email and usuario.email != db_usuario.email:
@@ -300,12 +431,28 @@ def atualizar_usuario(
             db_usuario.email = usuario.email
         if usuario.cargo:
             db_usuario.cargo = usuario.cargo
-        if "cpf" in usuario.model_dump(exclude_unset=True):
+        dump = usuario.model_dump(exclude_unset=True)
+        pii_fields = {"cpf", "rg", "documento_path"}
+        if pii_fields.intersection(dump.keys()) and not user_can_view_pii(db, current_user):
+            raise HTTPException(
+                status_code=403,
+                detail="Permissão necessária para alterar dados pessoais (PII): pii:visualizar",
+            )
+        if "cpf" in dump:
             db_usuario.cpf = usuario.cpf
-        if "rg" in usuario.model_dump(exclude_unset=True):
+        if "rg" in dump:
             db_usuario.rg = usuario.rg
-        if "documento_path" in usuario.model_dump(exclude_unset=True):
+        if "documento_path" in dump:
             db_usuario.documento_path = usuario.documento_path
+        if pii_fields.intersection(dump.keys()):
+            audit_pii_access(
+                db,
+                acao="pii_alteracao_usuario",
+                actor=current_user,
+                recurso_tipo="usuario",
+                recurso_id=usuario_id,
+                detalhes=f"campos={','.join(sorted(pii_fields.intersection(dump.keys())))}",
+            )
         if usuario.ativo is not None:
             db_usuario.ativo = usuario.ativo
         if usuario.role_id is not None:
@@ -357,6 +504,7 @@ def atualizar_usuario(
 @usuarios_router.get("/{usuario_id}/clientes-vinculados")
 def get_clientes_vinculados(
     usuario_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_superadmin()),
 ):
@@ -364,6 +512,7 @@ def get_clientes_vinculados(
     usuario = db.query(Usuario).options(joinedload(Usuario.role)).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    assert_usuario_in_admin_brand_scope(db, usuario, request)
     if not usuario.role or usuario.role.nome != "Administrador":
         return {"cliente_ids": []}
     rows = db.query(AdministradorCliente.cliente_id).filter(
@@ -375,6 +524,7 @@ def get_clientes_vinculados(
 @usuarios_router.put("/{usuario_id}/clientes-vinculados")
 def put_clientes_vinculados(
     usuario_id: int,
+    request: Request,
     body: ClientesVinculadosBody,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_superadmin()),
@@ -383,6 +533,7 @@ def put_clientes_vinculados(
     usuario = db.query(Usuario).options(joinedload(Usuario.role)).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    assert_usuario_in_admin_brand_scope(db, usuario, request)
     if not usuario.role or usuario.role.nome != "Administrador":
         raise HTTPException(status_code=400, detail="Só é possível definir clientes para usuários com role Administrador")
     db.query(AdministradorCliente).filter(AdministradorCliente.usuario_id == usuario_id).delete()
@@ -404,6 +555,7 @@ def put_clientes_vinculados(
 @usuarios_router.delete("/{usuario_id}")
 def excluir_usuario(
     usuario_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_permission("usuarios:excluir")),
 ):
@@ -420,6 +572,8 @@ def excluir_usuario(
             allowed = _allowed_user_ids_for_cliente_admin(db, current_user.id)
             if usuario_id not in allowed:
                 raise HTTPException(status_code=403, detail="Usuário fora do seu escopo")
+        elif current_user.role and current_user.role.nome == "Superadministrador":
+            assert_usuario_in_admin_brand_scope(db, db_usuario, request)
         
         # Verificar se usuário tem relacionamentos (opcional)
         # Pode ser implementado para evitar exclusão de usuários com dados relacionados

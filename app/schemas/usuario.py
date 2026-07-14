@@ -1,6 +1,6 @@
 # PDV Ibix - Schemas para Usuários
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
@@ -94,4 +94,18 @@ class UsuarioListResponse(BaseModel):
     usuarios: List[UsuarioResponse]
     total: int
     skip: int
-    limit: int 
+    limit: int
+    brand_scope: Optional[Dict[str, Any]] = None
+
+
+class RepresentanteResumo(BaseModel):
+    """Resumo leve para o card Representantes (Administradores)."""
+    id: int
+    nome: str
+    email: str
+    ativo: bool
+
+
+class RepresentanteListResponse(BaseModel):
+    representantes: List[RepresentanteResumo]
+    total: int

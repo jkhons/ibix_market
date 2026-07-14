@@ -1,16 +1,19 @@
 # PDV Ibix - Admin Dashboard: Super Admin (clientes, logins, pagamentos) e Administrador (CAs, % participação, comissões)
 from datetime import date, datetime, timedelta, timezone
-from typing import Any
-from zoneinfo import ZoneInfo
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, or_
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.middleware import require_superadmin_or_admin
+from app.services.vitrine_access_analytics_service import (
+    build_visitantes_vitrine_analytics,
+    periodo_to_since_utc,
+    visitantes_vitrine_por_tipo,
+)
 from app.database.connection import get_db
 from app.models import (
-    AccessLog,
     AuditLog,
     Payment,
     Role,
@@ -21,12 +24,11 @@ from app.models import (
 from app.models.administrador_cliente_administrador import AdministradorClienteAdministrador
 from app.models.divulgador import Divulgador
 from app.models.divulgador_regra import DivulgadorRegra
+from app.models.brand import Brand
 from app.models.subscription_billing import ComissaoAdministrador
+from app.services.brand_scope_service import brand_scope_meta, resolve_admin_brand_scope
 
 router = APIRouter(prefix="/admin/dashboard", tags=["Admin Dashboard"])
-
-# Vitrine pública: o middleware grava path completo (/loja, /loja/produto/…); filtrar prefixo /loja.
-TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 # Status considerado pago (Mercado Pago)
 PAYMENT_STATUS_PAID = ("approved", "authorized")
@@ -37,24 +39,16 @@ ULTIMOS_LOGINS_LIMIT = 15
 PAGAMENTOS_RECENTES_LIMIT = 10
 
 
-def _filtro_path_vitrine():
-    """Acessos HTML da vitrine: home e qualquer subrota /loja/… (API /api/ não entra no access_log)."""
-    return or_(AccessLog.path == "/loja", AccessLog.path.startswith("/loja/"))
+def _filter_tenants_by_brand(query, brand_id: Optional[int]):
+    if brand_id is not None:
+        return query.filter(Tenant.brand_id == brand_id)
+    return query
 
 
-def _visitantes_vitrine_por_tipo(db: Session, since_utc: datetime) -> dict[str, int]:
-    rows = (
-        db.query(AccessLog.tipo_visitante, func.count(func.distinct(AccessLog.ip)))
-        .filter(AccessLog.created_at >= since_utc, _filtro_path_vitrine())
-        .group_by(AccessLog.tipo_visitante)
-        .all()
-    )
-    counts = {row[0]: row[1] for row in rows}
-    return {
-        "humanos": int(counts.get("HUMANO", 0)),
-        "bots": int(counts.get("BOT", 0)),
-        "cloud": int(counts.get("CLOUD", 0)),
-    }
+def _filter_usuarios_by_brand(query, brand_id: Optional[int]):
+    if brand_id is not None:
+        return query.join(Tenant, Tenant.id == Usuario.tenant_id).filter(Tenant.brand_id == brand_id)
+    return query
 
 
 def _get_sub(db: Session, tenant_id: int) -> SubscriptionBilling | None:
@@ -136,12 +130,19 @@ def _dashboard_administrador(db: Session, usuario_id: int) -> dict[str, Any]:
 
 @router.get("", response_model=dict)
 def get_admin_dashboard(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_superadmin_or_admin()),
+    incluir_analytics: bool = Query(False, description="Inclui rankings de páginas/produtos (Super Admin)"),
+    periodo: str = Query("hoje", description="hoje | ultimos_7_dias | ultimos_30_dias"),
+    tipo_visitante: str = Query("HUMANO", description="HUMANO | BOT | CLOUD | TODOS (tabelas analytics)"),
+    brand_id: Optional[int] = Query(None, description="Recorte por marca (tenants.brand_id) — Super Admin"),
 ) -> dict[str, Any]:
     """Super Admin: clientes novos, logins, pagamentos. Administrador: listagem CAs, % participação, resumo comissões."""
     if current_user.role and getattr(current_user.role, "nome", None) == "Administrador":
         return _dashboard_administrador(db, current_user.id)
+
+    effective_brand = resolve_admin_brand_scope(request, db, brand_id)
 
     # Super Admin: lógica existente
     today = date.today()
@@ -149,18 +150,19 @@ def get_admin_dashboard(
     delta_30d = today - timedelta(days=30)
 
     # Clientes novos (tenants por created_at)
-    tenants_7d = (
-        db.query(Tenant)
-        .filter(Tenant.created_at >= delta_7d)
-        .count()
-    )
-    tenants_30d = (
-        db.query(Tenant)
-        .filter(Tenant.created_at >= delta_30d)
-        .count()
-    )
+    tenants_7d = _filter_tenants_by_brand(
+        db.query(Tenant).filter(Tenant.created_at >= delta_7d),
+        effective_brand,
+    ).count()
+    tenants_30d = _filter_tenants_by_brand(
+        db.query(Tenant).filter(Tenant.created_at >= delta_30d),
+        effective_brand,
+    ).count()
     lista_clientes_novos = (
-        db.query(Tenant.id, Tenant.nome, Tenant.created_at)
+        _filter_tenants_by_brand(
+            db.query(Tenant.id, Tenant.nome, Tenant.created_at, Tenant.brand_id),
+            effective_brand,
+        )
         .order_by(Tenant.created_at.desc())
         .limit(LISTA_CLIENTES_NOVOS_LIMIT)
         .all()
@@ -173,20 +175,31 @@ def get_admin_dashboard(
                 "id": t.id,
                 "nome": t.nome or "",
                 "created_at": t.created_at.isoformat() if t.created_at else None,
+                "brand_id": t.brand_id,
             }
             for t in lista_clientes_novos
         ],
     }
 
     # Cadastros novos (usuários criados recentemente)
-    usuarios_7d = db.query(Usuario).filter(Usuario.created_at >= delta_7d).count()
-    usuarios_30d = db.query(Usuario).filter(Usuario.created_at >= delta_30d).count()
-    lista_cadastros_novos = (
+    usuarios_7d = _filter_usuarios_by_brand(
+        db.query(Usuario).filter(Usuario.created_at >= delta_7d),
+        effective_brand,
+    ).count()
+    usuarios_30d = _filter_usuarios_by_brand(
+        db.query(Usuario).filter(Usuario.created_at >= delta_30d),
+        effective_brand,
+    ).count()
+    cadastros_q = (
         db.query(Usuario.id, Usuario.nome, Usuario.email, Usuario.created_at, Role.nome.label("role_nome"))
         .outerjoin(Role, Role.id == Usuario.role_id)
-        .order_by(Usuario.created_at.desc())
-        .limit(LISTA_CADASTROS_NOVOS_LIMIT)
-        .all()
+    )
+    if effective_brand is not None:
+        cadastros_q = cadastros_q.join(Tenant, Tenant.id == Usuario.tenant_id).filter(
+            Tenant.brand_id == effective_brand
+        )
+    lista_cadastros_novos = (
+        cadastros_q.order_by(Usuario.created_at.desc()).limit(LISTA_CADASTROS_NOVOS_LIMIT).all()
     )
     cadastros_novos = {
         "total_7d": usuarios_7d,
@@ -238,36 +251,40 @@ def get_admin_dashboard(
     # Pagamentos realizados (mês atual: paid_at no mês, status approved/authorized)
     month_start = today.replace(day=1)
     try:
-        payments_mes = (
+        pay_mes_q = (
             db.query(
                 func.count(Payment.id).label("total"),
                 func.coalesce(func.sum(Payment.amount_centavos), 0).label("valor_centavos"),
             )
+            .join(SubscriptionBilling, SubscriptionBilling.id == Payment.subscription_id)
+            .join(Tenant, Tenant.id == SubscriptionBilling.tenant_id)
             .filter(
                 Payment.status.in_(PAYMENT_STATUS_PAID),
                 Payment.paid_at.isnot(None),
                 func.date(Payment.paid_at) >= month_start,
             )
-            .one()
         )
+        if effective_brand is not None:
+            pay_mes_q = pay_mes_q.filter(Tenant.brand_id == effective_brand)
+        payments_mes = pay_mes_q.one()
         total_mes = int(payments_mes.total or 0)
         valor_mes_centavos = int(payments_mes.valor_centavos or 0)
     except Exception:
         total_mes = 0
         valor_mes_centavos = 0
 
-    recentes_query = (
-        db.query(Payment.id, Payment.amount_centavos, Payment.paid_at, Tenant.nome)
+    recentes_q = (
+        db.query(Payment.id, Payment.amount_centavos, Payment.paid_at, Tenant.nome, Tenant.brand_id)
         .join(SubscriptionBilling, SubscriptionBilling.id == Payment.subscription_id)
         .join(Tenant, Tenant.id == SubscriptionBilling.tenant_id)
         .filter(
             Payment.status.in_(PAYMENT_STATUS_PAID),
             Payment.paid_at.isnot(None),
         )
-        .order_by(Payment.paid_at.desc())
-        .limit(PAGAMENTOS_RECENTES_LIMIT)
-        .all()
     )
+    if effective_brand is not None:
+        recentes_q = recentes_q.filter(Tenant.brand_id == effective_brand)
+    recentes_query = recentes_q.order_by(Payment.paid_at.desc()).limit(PAGAMENTOS_RECENTES_LIMIT).all()
     pagamentos_realizados = {
         "total_mes": total_mes,
         "valor_mes_centavos": valor_mes_centavos,
@@ -283,7 +300,7 @@ def get_admin_dashboard(
     }
 
     # Pagamentos vencidos (next_charge_at < hoje, status inadimplente ou ativa)
-    subs_vencidas = (
+    subs_vencidas_q = (
         db.query(SubscriptionBilling, Tenant)
         .join(Tenant, Tenant.id == SubscriptionBilling.tenant_id)
         .filter(
@@ -291,8 +308,10 @@ def get_admin_dashboard(
             SubscriptionBilling.next_charge_at < today,
             SubscriptionBilling.status.in_(["inadimplente", "ativa"]),
         )
-        .all()
     )
+    if effective_brand is not None:
+        subs_vencidas_q = subs_vencidas_q.filter(Tenant.brand_id == effective_brand)
+    subs_vencidas = subs_vencidas_q.all()
     pagamentos_vencidos = {
         "total": len(subs_vencidas),
         "lista": [
@@ -309,7 +328,7 @@ def get_admin_dashboard(
 
     # Próximos pagamentos (next_charge_at entre hoje e hoje+15)
     end_15d = today + timedelta(days=15)
-    subs_proximas = (
+    subs_proximas_q = (
         db.query(SubscriptionBilling, Tenant)
         .join(Tenant, Tenant.id == SubscriptionBilling.tenant_id)
         .filter(
@@ -317,9 +336,10 @@ def get_admin_dashboard(
             SubscriptionBilling.next_charge_at >= today,
             SubscriptionBilling.next_charge_at <= end_15d,
         )
-        .order_by(SubscriptionBilling.next_charge_at.asc())
-        .all()
     )
+    if effective_brand is not None:
+        subs_proximas_q = subs_proximas_q.filter(Tenant.brand_id == effective_brand)
+    subs_proximas = subs_proximas_q.order_by(SubscriptionBilling.next_charge_at.asc()).all()
     proximos_pagamentos_15d = {
         "lista": [
             {
@@ -332,21 +352,28 @@ def get_admin_dashboard(
         ],
     }
 
-    # Visitantes vitrine /loja — IPs únicos por tipo (HUMANO, BOT, CLOUD). Calendário "hoje" em America/Sao_Paulo.
+    # Visitantes vitrine pública — IPs únicos por tipo. Calendário "hoje" em America/Sao_Paulo.
     now_utc = datetime.now(timezone.utc)
-    today_br = now_utc.astimezone(TZ_BR).date()
-    inicio_hoje_br = datetime.combine(today_br, datetime.min.time()).replace(tzinfo=TZ_BR).astimezone(timezone.utc)
-    since_7d = now_utc - timedelta(days=7)
-    since_30d = now_utc - timedelta(days=30)
+    inicio_hoje_br = periodo_to_since_utc("hoje", now_utc)
+    since_7d = periodo_to_since_utc("ultimos_7_dias", now_utc)
+    since_30d = periodo_to_since_utc("ultimos_30_dias", now_utc)
 
-    visitantes_hoje_dict = _visitantes_vitrine_por_tipo(db, inicio_hoje_br)
+    visitantes_hoje_dict = visitantes_vitrine_por_tipo(db, inicio_hoje_br)
     visitantes_vitrine = {
         "hoje": visitantes_hoje_dict,
-        "ultimos_7_dias": _visitantes_vitrine_por_tipo(db, since_7d),
-        "ultimos_30_dias": _visitantes_vitrine_por_tipo(db, since_30d),
+        "ultimos_7_dias": visitantes_vitrine_por_tipo(db, since_7d),
+        "ultimos_30_dias": visitantes_vitrine_por_tipo(db, since_30d),
     }
 
-    return {
+    marcas = [
+        {"id": b.id, "slug": b.slug, "nome": b.nome_exibicao or b.slug}
+        for b in db.query(Brand).filter(Brand.ativo.is_(True)).order_by(Brand.id.asc()).all()
+    ]
+
+    payload: dict[str, Any] = {
+        "brand_id_filtro": effective_brand,
+        "brand_scope": brand_scope_meta(request, db, effective_brand),
+        "marcas": marcas,
         "clientes_novos": clientes_novos,
         "cadastros_novos": cadastros_novos,
         "usuarios_ativos_24h": {"total": usuarios_ativos_24h},
@@ -357,3 +384,11 @@ def get_admin_dashboard(
         "visitantes_hoje": visitantes_hoje_dict,
         "visitantes_vitrine": visitantes_vitrine,
     }
+    if incluir_analytics:
+        payload["visitantes_vitrine_analytics"] = build_visitantes_vitrine_analytics(
+            db,
+            periodo=periodo,
+            tipo_visitante=tipo_visitante,
+            now_utc=now_utc,
+        )
+    return payload

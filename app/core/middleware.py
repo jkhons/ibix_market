@@ -99,6 +99,22 @@ class AuthMiddleware:
                     detail="Usuário inativo",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
+
+            from app.core.rls import resolve_rls_bypass_for_role, sync_rls_from_request_context
+            from app.core.scope import resolve_tenant_pagador
+            from app.core.request_context import update_request_context
+
+            brand = getattr(getattr(request, "state", None), "brand", None)
+            brand_id_val = getattr(brand, "id", None) if brand else None
+            role_nome = user.role.nome if user.role else None
+            tenant_id = resolve_tenant_pagador(db, user.id, role_nome)
+            update_request_context(
+                user_id=user.id,
+                tenant_id=tenant_id,
+                brand_id=brand_id_val,
+                bypass_rls=resolve_rls_bypass_for_role(role_nome),
+            )
+            sync_rls_from_request_context(db)
             
             return user
 
@@ -262,13 +278,17 @@ async def get_current_user_cliente(
 
 
 def get_cliente_scope_dep(
+    request: Request,
     current_user: Usuario = Depends(AuthMiddleware.get_current_user),
     db: Session = Depends(get_db),
     cliente_id_token: Optional[int] = Depends(get_current_user_cliente),
 ) -> ClienteScope:
     """Dependency que retorna ClienteScope para o usuário atual (Saas.md Fase 3)."""
     role_nome = current_user.role.nome if current_user.role else None
-    return get_cliente_scope(db, current_user.id, role_nome, cliente_id_token)
+    scope = get_cliente_scope(db, current_user.id, role_nome, cliente_id_token)
+    from app.services.brand_scope_service import apply_host_brand_cliente_scope
+
+    return apply_host_brand_cliente_scope(request, db, scope)
 
 
 def get_subcliente_scope_or_404_dep(

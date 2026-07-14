@@ -427,6 +427,20 @@ def get_cliente_ids_for_tenant(db: Session, tenant_id: int) -> List[int]:
     return list(dict.fromkeys(ids))
 
 
+def get_cliente_ids_for_brand(db: Session, brand_id: int) -> List[int]:
+    """Cliente IDs de todos os tenants da marca (relatórios/exportações multi-brand)."""
+    from app.models.tenant import Tenant
+
+    tenant_ids = [
+        row[0]
+        for row in db.query(Tenant.id).filter(Tenant.brand_id == brand_id).all()
+    ]
+    out: List[int] = []
+    for tid in tenant_ids:
+        out.extend(get_cliente_ids_for_tenant(db, tid))
+    return list(dict.fromkeys(out))
+
+
 def get_ca_ids_for_cliente_ids(db: Session, cliente_ids: List[int]) -> List[int]:
     """
     Retorna os usuario_id (CA) que possuem pelo menos um dos cliente_id em cliente_administrador_clientes.
@@ -439,3 +453,40 @@ def get_ca_ids_for_cliente_ids(db: Session, cliente_ids: List[int]) -> List[int]
     ).bindparams(bindparam("ids", expanding=True))
     r = db.execute(stmt, {"ids": cliente_ids})
     return [row[0] for row in r.fetchall()]
+
+
+def get_cliente_ids_escopo_caixa(
+    db: Session,
+    user_id: int,
+    role_nome: Optional[str],
+    scope: ClienteScope,
+) -> Optional[List[int]]:
+    """
+    Cliente IDs cujos caixas (via empresa fiscal) o usuário pode acessar.
+    None = sem filtro automático por cliente (Superadministrador; rota deve exigir empresa_id).
+    Lista vazia = usuário sem escopo de caixa.
+    """
+    if not scope.must_filter_by_cliente():
+        return None
+    tenant_id = resolve_tenant_pagador(db, user_id, role_nome)
+    if tenant_id is not None:
+        ids = get_cliente_ids_for_tenant(db, tenant_id)
+        if ids:
+            return ids
+    return list(scope.allowed_ids or [])
+
+
+def caixa_ids_para_clientes(db: Session, cliente_ids: List[int]) -> List[int]:
+    """IDs de caixas cujo emissor (empresa.cliente_id) está no escopo."""
+    if not cliente_ids:
+        return []
+    from ..models.caixa import Caixa
+    from ..models.empresa import Empresa
+
+    rows = (
+        db.query(Caixa.id)
+        .join(Empresa, Caixa.empresa_id == Empresa.id)
+        .filter(Empresa.cliente_id.in_(cliente_ids))
+        .all()
+    )
+    return [r[0] for r in rows]

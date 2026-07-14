@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard | Ibix{% endblock %}
+{% block title %}Dashboard | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -21,6 +21,7 @@
 
 {% block content %}
 <div class="container-fluid p-0 dashboard-negocios">
+    {% include 'components/brand_scope_banner.html' %}
     <div class="mb-2">
         <h1 class="h4 d-inline align-middle fw-semibold">Dashboard</h1>
     </div>
@@ -492,12 +493,17 @@
         const body = document.getElementById('vendas-recentes-body');
         if (!body) return;
         if (!vendas.length) {
-            body.innerHTML = '<tr><td colspan="5" class="text-muted">Nenhuma venda encontrada.</td></tr>';
+            const brandNome = document.body.getAttribute('data-brand-nome') || 'esta marca';
+            const scopeLocked = document.body.getAttribute('data-brand-scope-locked') === 'true';
+            const emptyMsg = scopeLocked
+                ? `Nenhuma venda para ${brandNome}. Vendas deste domínio aparecerão aqui.`
+                : 'Nenhuma venda encontrada.';
+            body.innerHTML = `<tr><td colspan="5" class="text-muted">${emptyMsg}</td></tr>`;
             return;
         }
         body.innerHTML = vendas.map((venda) => `
             <tr>
-                <td>${venda.numero_venda || '-'}</td>
+                <td>${DocRef.docRefSpan(venda.numero_venda || '-')}</td>
                 <td>${formatarData(venda.data_venda)}</td>
                 <td>${venda.cliente_nome || '-'}</td>
                 <td>${venda.status || '-'}</td>
