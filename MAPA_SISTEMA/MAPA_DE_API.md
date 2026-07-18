@@ -2180,7 +2180,7 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 - **POST** `/payments/webhook/{provider_code}` - Webhook dos provedores (aceita `mercadopago`, `pagbank`, `pagarme`). Processa payload JSON, identifica order_id/status, mapeia para status interno e atualiza `payment_transactions` com reconciliação.
 - **GET** `/payments/connect/pagbank/start?estabelecimentoId={id}` - Inicia fluxo OAuth PagBank Connect: redireciona CA para PagBank autorizar. State assinado (HMAC-SHA256 com SECRET_KEY, TTL 15min).
 - **GET** `/payments/connect/pagbank/callback?code={code}&state={state}` - Callback OAuth PagBank: troca code por access_token/refresh_token, salva em `payment_provider_configs` como credenciais criptografadas. Redireciona para `/negocio/recebiveis?connect=pagbank_success` ou `pagbank_error`.
-- **GET** `/payments/modo-recebimento?clienteId={id}` - Retorna `modo_recebimento` da Empresa Fiscal vinculada ao cliente. Response: `{ "modo_recebimento": "direto"|"plataforma", "cliente_id": int }`.
+- **GET** `/payments/modo-recebimento?clienteId={id}` - Retorna `modo_recebimento` da Empresa Fiscal vinculada ao cliente e se o usuário pode mutar gateway. `clienteId` é **opcional** (omitir = só política de edição, p.ex. filtro «Todos» em Recebíveis). Response: `{ "modo_recebimento": "direto"|"plataforma"|null, "cliente_id": int|null, "gateway_configuracao_permitida": bool }` (`permitida` = Superadmin ou `payment_lojas_gateway_self_service`).
 
 ### API Repasses (`/negocio/financeiro/repasses/`) – SuperAdmin only
 
