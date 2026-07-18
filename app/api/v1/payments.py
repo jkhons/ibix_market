@@ -55,19 +55,29 @@ def _allowed_cliente_ids(scope: ClienteScope) -> Optional[List[int]]:
 
 @router.get("/modo-recebimento")
 async def modo_recebimento(
-    cliente_id: int = Query(..., alias="clienteId"),
+    cliente_id: Optional[int] = Query(
+        None,
+        alias="clienteId",
+        description="cliente_id do estabelecimento; omitir para só consultar se a edição de gateway é permitida",
+    ),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
     _: None = Depends(forbid_cliente_access),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
-    """Retorna o modo_recebimento da empresa fiscal vinculada ao cliente."""
+    """Retorna modo_recebimento (se clienteId) e se o usuário pode criar/editar gateway em Recebíveis."""
+    permitida = user_may_mutate_establishment_gateway(db, current_user)
+    if cliente_id is None:
+        return {
+            "modo_recebimento": None,
+            "cliente_id": None,
+            "gateway_configuracao_permitida": permitida,
+        }
     allowed = _allowed_cliente_ids(scope)
     if allowed is not None and cliente_id not in allowed:
         raise HTTPException(status_code=403, detail="Fora do escopo")
     emp = db.query(Empresa).filter(Empresa.cliente_id == cliente_id, Empresa.ativo.is_(True)).first()
     modo = (emp.modo_recebimento if emp else "plataforma") or "plataforma"
-    permitida = user_may_mutate_establishment_gateway(db, current_user)
     return {
         "modo_recebimento": modo,
         "cliente_id": cliente_id,

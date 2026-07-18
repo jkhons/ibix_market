@@ -642,15 +642,21 @@ let statsProdutos = { sem_imagem: 0, sem_tipo: 0, sem_categoria: 0, sem_preco_ve
 let categoriasList = [];
 let tiposMaterialList = [];
 
+/**
+ * Token legível no JS (sessionStorage pós-login). Cookies PDV são HttpOnly —
+ * não aparecem em document.cookie; a sessão vale via credentials: 'include'.
+ */
 function getTokenEstoque() {
-    const cookies = document.cookie.split(';');
-    for (let i = 0; i < cookies.length; i++) {
-        const parts = cookies[i].trim().split('=');
-        const name = parts[0];
-        const value = parts.slice(1).join('=').trim();
-        if (name === 'pdv_solumatica_token' || name === 'pdv_automscale_token') return value || null;
+    if (typeof window.getAuthToken === 'function') {
+        return window.getAuthToken();
     }
-    return null;
+    try {
+        return sessionStorage.getItem('pdv_solumatica_token')
+            || sessionStorage.getItem('pdv_automscale_token')
+            || null;
+    } catch (_) {
+        return null;
+    }
 }
 
 function fetchEstoque(url, opts) {
@@ -1179,7 +1185,6 @@ function fecharModalProduto() {
 
 // Visualizar produto (modal somente leitura)
 async function visualizarProduto(id) {
-    if (!getToken()) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
     if (!categoriasList.length || !tiposMaterialList.length) {
         var cat = fetchEstoque('/api/v1/material-categorias/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
         var tip = fetchEstoque('/api/v1/tipo-material/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
@@ -1379,7 +1384,7 @@ function fecharModalConfirmacaoEstoque() {
     if (modal) { modal.style.display = 'none'; document.body.style.overflow = ''; }
 }
 
-// Função para obter token do cookie (POST/PATCH/DELETE)
+// Alias legado — preferir cookie HttpOnly + credentials; token JS só em sessionStorage
 function getToken() {
     return getTokenEstoque();
 }
@@ -1400,12 +1405,12 @@ async function confirmarExclusaoProduto() {
         return;
     }
     try {
-        if (!getToken()) {
-            alert('Token não encontrado. Faça login novamente.');
+        var response = await fetchEstoque('/api/v1/produtos-cliente/' + produtoIdParaExcluir, { method: 'DELETE' });
+        if (response.status === 401) {
+            alert('Sessão expirada. Faça login novamente.');
             window.location.href = '/login';
             return;
         }
-        var response = await fetchEstoque('/api/v1/produtos-cliente/' + produtoIdParaExcluir, { method: 'DELETE' });
         if (!response.ok) {
             var error = await response.json().catch(function() { return {}; });
             throw new Error(error.detail || 'Erro ao excluir produto');
@@ -1461,13 +1466,16 @@ async function salvarNovoProduto() {
                 dadosProduto.foto_peca_base64 = await fileToDataUrl(firstImg.file);
             }
         }
-        var token = getToken();
-        if (!token) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
         var response = await fetchEstoque('/api/v1/produtos-cliente/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dadosProduto)
         });
+        if (response.status === 401) {
+            alert('Sessão expirada. Faça login novamente.');
+            window.location.href = '/login';
+            return;
+        }
         var result = await response.json().catch(function() { return {}; });
         if (response.ok) {
             var newId = result.id;
@@ -1521,7 +1529,6 @@ async function salvarNovoProduto() {
 
 // Editar produto: abrir modal com dados do produto (API produtos-cliente)
 async function editarProduto(id) {
-    if (!getToken()) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
     try {
         if (!categoriasList.length || !tiposMaterialList.length) {
             var cat = fetchEstoque('/api/v1/material-categorias/?limit=500').then(function(r) { return r.ok ? r.json() : []; });
@@ -1533,6 +1540,11 @@ async function editarProduto(id) {
             preencherSelectTiposMaterial();
         }
         var response = await fetchEstoque('/api/v1/produtos-cliente/' + id);
+        if (response.status === 401) {
+            alert('Sessão expirada. Faça login novamente.');
+            window.location.href = '/login';
+            return;
+        }
         if (!response.ok) throw new Error('Produto não encontrado');
         var produto = await response.json();
         document.getElementById('produto_id_modal').value = produto.id;
@@ -1653,7 +1665,6 @@ function moverUnifiedMidia(idx, dir) {
 }
 
 function persisteUnifiedMidiasNoBackend(produtoId) {
-    if (!getToken()) return;
     var midiasPayload = unifiedMidias.map(function(m) { return { tipo: m.tipo, url: m.url }; });
     var firstImg = unifiedMidias.find(function(m) { return (m.tipo || '').toLowerCase() === 'imagem'; });
     var fotoPeca = firstImg ? firstImg.url : null;
@@ -1672,7 +1683,6 @@ async function salvarEdicaoProduto() {
     if (!id) return;
     var form = document.getElementById('formNovoProduto');
     if (!form.checkValidity()) { form.reportValidity(); return; }
-    if (!getToken()) { alert('Token não encontrado. Faça login novamente.'); window.location.href = '/login'; return; }
     var btnSalvar = document.getElementById('btnSalvarProduto');
     if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.textContent = 'Salvando...'; }
     var payload = {
@@ -1705,6 +1715,11 @@ async function salvarEdicaoProduto() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        if (response.status === 401) {
+            alert('Sessão expirada. Faça login novamente.');
+            window.location.href = '/login';
+            return;
+        }
         var result = await response.json().catch(function() { return {}; });
         if (response.ok) {
             var filesToUpload = unifiedMidias.filter(function(m) { return m.file && m !== firstImg; });

@@ -108,33 +108,46 @@ class NotasFiscaisManager {
         }
     }
     
+    /**
+     * Token legível no JS (sessionStorage pós-login). Cookies PDV são HttpOnly —
+     * não aparecem em document.cookie; a sessão vale via credentials: 'include'.
+     */
     getToken() {
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            // Aceitar ambos os nomes de cookie (backend usa pdv_solumatica_token, frontend pode usar pdv_automscale_token)
-            if (name === 'pdv_solumatica_token' || name === 'pdv_automscale_token') {
-                return value || null;
-            }
+        if (typeof window.getAuthToken === 'function') {
+            return window.getAuthToken();
         }
-        return null;
+        try {
+            return sessionStorage.getItem('pdv_solumatica_token')
+                || sessionStorage.getItem('pdv_automscale_token')
+                || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /** Fetch autenticado: cookie HttpOnly + Bearer opcional (sessionStorage). */
+    apiFetch(url, options = {}) {
+        if (typeof window.authenticatedFetch === 'function') {
+            return window.authenticatedFetch(url, options);
+        }
+        const token = this.getToken();
+        const headers = { ...(options.headers || {}) };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        return fetch(url, {
+            credentials: 'include',
+            ...options,
+            headers,
+        });
     }
     
     async carregarEmpresas() {
         try {
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Token de autenticação não encontrado');
-            }
-            
-            const response = await fetch('/api/v1/fiscal/empresa', {
-                credentials: 'include',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await this.apiFetch('/api/v1/fiscal/empresa');
             
             if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Sessão expirada. Faça login novamente.');
+                }
                 throw new Error(`Erro ao carregar empresas (${response.status})`);
             }
             
@@ -176,19 +189,9 @@ class NotasFiscaisManager {
             if (dataFim) params.append('data_fim', dataFim);
             if (pedidoId) params.append('pedido_id', pedidoId);
             
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Token de autenticação não encontrado');
-            }
-            
             const url = `/api/v1/fiscal/notas-fiscais${params.toString() ? '?' + params.toString() : ''}`;
             
-            const response = await fetch(url, {
-                credentials: 'include',
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await this.apiFetch(url);
             
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
@@ -355,20 +358,12 @@ class NotasFiscaisManager {
     
     async visualizarNota(notaId) {
         try {
-            const token = this.getToken();
-            if (!token) {
-                throw new Error('Token de autenticação não encontrado');
-            }
-            
-            const response = await fetch(`/api/v1/fiscal/notas-fiscais/${notaId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            const response = await this.apiFetch(`/api/v1/fiscal/notas-fiscais/${notaId}`);
             
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || `Erro ao carregar nota fiscal (${response.status})`);
+                const detail = typeof error.detail === 'string' ? error.detail : null;
+                throw new Error(detail || (response.status === 401 ? 'Sessão expirada. Faça login novamente.' : `Erro ao carregar nota fiscal (${response.status})`));
             }
             
             const nota = await response.json();
@@ -516,16 +511,15 @@ class NotasFiscaisManager {
         }
         if (!confirm('Tem certeza que deseja cancelar esta nota fiscal?')) return;
         try {
-            const token = this.getToken();
-            if (!token) throw new Error('Token de autenticação não encontrado');
-            const response = await fetch(`/api/v1/fiscal/notas-fiscais/${id}/cancelar`, {
+            const response = await this.apiFetch(`/api/v1/fiscal/notas-fiscais/${id}/cancelar`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ justificativa: 'Cancelamento solicitado pelo usuário' })
             });
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                throw new Error(error.detail || `Erro ao cancelar nota fiscal (${response.status})`);
+                const detail = typeof error.detail === 'string' ? error.detail : null;
+                throw new Error(detail || (response.status === 401 ? 'Sessão expirada. Faça login novamente.' : `Erro ao cancelar nota fiscal (${response.status})`));
             }
             this.mostrarAlerta('Nota fiscal cancelada com sucesso', 'success');
             this.carregarNotasFiscais();
@@ -544,12 +538,12 @@ class NotasFiscaisManager {
 
     async validarNotaPorId(notaId) {
         try {
-            const token = this.getToken();
-            if (!token) throw new Error('Token de autenticação não encontrado');
-            const response = await fetch(`/api/v1/fiscal/notas-fiscais/${notaId}/validar`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` }
+            const response = await this.apiFetch(`/api/v1/fiscal/notas-fiscais/${notaId}/validar`, {
+                method: 'POST'
             });
+            if (response.status === 401) {
+                throw new Error('Sessão expirada. Faça login novamente.');
+            }
             const data = await response.json().catch(() => ({}));
             if (data.valido) {
                 this.mostrarAlerta('Nota válida para envio.', 'success');
@@ -565,20 +559,18 @@ class NotasFiscaisManager {
 
     async enviarNotaPorId(notaId) {
         try {
-            const token = this.getToken();
-            if (!token) throw new Error('Token de autenticação não encontrado');
             const timeoutMs = 180000; // 3 min (alinhado ao Nginx para emissão SEFAZ)
             const ctrl = new AbortController();
             const timeoutId = setTimeout(() => ctrl.abort(), timeoutMs);
-            const response = await fetch(`/api/v1/fiscal/notas-fiscais/${notaId}/enviar`, {
+            const response = await this.apiFetch(`/api/v1/fiscal/notas-fiscais/${notaId}/enviar`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
                 signal: ctrl.signal
             }).finally(() => clearTimeout(timeoutId));
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
                 const msg = typeof error.detail === 'string' ? error.detail
-                    : (Array.isArray(error.detail) ? error.detail.map(d => d.msg || d).join('; ') : error.detail?.msg) || `Erro no envio (${response.status})`;
+                    : (Array.isArray(error.detail) ? error.detail.map(d => d.msg || d).join('; ') : error.detail?.msg)
+                    || (response.status === 401 ? 'Sessão expirada. Faça login novamente.' : `Erro no envio (${response.status})`);
                 throw new Error(msg);
             }
             this.mostrarAlerta('Nota enviada com sucesso.', 'success');
@@ -595,15 +587,11 @@ class NotasFiscaisManager {
 
     async downloadXmlPorId(notaId) {
         try {
-            const token = this.getToken();
-            if (!token) throw new Error('Token de autenticação não encontrado');
-            const response = await fetch(`/api/v1/fiscal/notas-fiscais/${notaId}/download/xml`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            const response = await this.apiFetch(`/api/v1/fiscal/notas-fiscais/${notaId}/download/xml`);
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
                 const msg = typeof err.detail === 'string' ? err.detail : (Array.isArray(err.detail) ? err.detail.map(d => d.msg || d).join(' ') : null);
-                throw new Error(msg || (response.status === 404 ? 'Arquivo XML não disponível para esta nota.' : 'Download indisponível.'));
+                throw new Error(msg || (response.status === 401 ? 'Sessão expirada. Faça login novamente.' : (response.status === 404 ? 'Arquivo XML não disponível para esta nota.' : 'Download indisponível.')));
             }
             const blob = await response.blob();
             const a = document.createElement('a');
@@ -681,9 +669,7 @@ class NotasFiscaisManager {
 
     async carregarClientesParaNovaNota() {
         try {
-            const token = this.getToken();
-            if (!token) return;
-            const response = await fetch('/api/v1/clientes/todos', { headers: { 'Authorization': `Bearer ${token}` } });
+            const response = await this.apiFetch('/api/v1/clientes/todos');
             if (response.ok) {
                 const list = await response.json();
                 this.clientes = Array.isArray(list) ? list : [];
@@ -843,16 +829,15 @@ class NotasFiscaisManager {
             itens
         };
         try {
-            const token = this.getToken();
-            if (!token) throw new Error('Token de autenticação não encontrado');
-            const response = await fetch('/api/v1/fiscal/notas-fiscais', {
+            const response = await this.apiFetch('/api/v1/fiscal/notas-fiscais', {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             if (!response.ok) {
                 const err = await response.json().catch(() => ({}));
-                throw new Error(err.detail || `Erro ao criar nota (${response.status})`);
+                const detail = typeof err.detail === 'string' ? err.detail : null;
+                throw new Error(detail || (response.status === 401 ? 'Sessão expirada. Faça login novamente.' : `Erro ao criar nota (${response.status})`));
             }
             this.mostrarAlerta('Nota criada com sucesso. Você pode validar e enviar na listagem.', 'success');
             this.fecharModalNovaNota();
