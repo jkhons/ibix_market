@@ -3,17 +3,16 @@
 {% block title %}{% if categoria_nome %}{{ categoria_nome }}{% else %}Vitrine{% endif %}{% endblock %}
 
 {% block content %}
-<!-- Faixa de produtos (mesmo formato da landing): produtos em destaque, inicialmente aleatórios -->
+
 <section id="loja-faixa-destaques" class="loja-faixa-destaques">
     <div class="container">
         <h2 class="h6 loja-faixa-titulo">Destaques</h2>
         <div id="loja-faixa-inner" class="loja-faixa-inner row g-3 flex-nowrap overflow-auto pb-1" style="flex-wrap: nowrap; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;">
-            <!-- Preenchido via JS com produtos aleatórios -->
+
         </div>
     </div>
 </section>
 
-<!-- Card: listagem de produtos na página (centralizado com espaço nas bordas) -->
 <div class="loja-card-listagem-wrap">
 <div class="loja-card-listagem">
     <div class="loja-card-listagem-header">
@@ -30,7 +29,7 @@
     </div>
     <div class="loja-card-listagem-body">
         <div id="loja-anuncios" class="row g-3 loja-grid-produtos">
-            <!-- Preenchido via JS: GET /api/v1/loja/anuncios -->
+
         </div>
         <div id="loja-load-more" class="mt-3 text-center" style="display: none;">
             <button type="button" class="btn btn-outline-primary" id="loja-btn-more">Carregar mais</button>

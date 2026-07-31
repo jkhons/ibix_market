@@ -34,7 +34,7 @@
 <div class="loja-vitrine-page-shell{% if busca_ativa %} loja-vitrine-page-shell--busca{% endif %}">
 {% if not busca_ativa %}
 <div class="loja-vitrine-rail loja-vitrine-rail--top">
-<!-- 1. Barra de categorias -->
+
 <section class="loja-categorias-strip" id="inicio-vitrine">
   <div class="container">
     <div class="loja-section-head" style="display:none;"></div>
@@ -47,7 +47,7 @@
 </section>
 
 {% if marketing_vitrine.mostrar_hero_carrossel %}
-<!-- 2. Hero principal (bloco forte) — ligado em /admin/marketing-vitrine -->
+
 <section class="loja-hero vitrine-hero secao-vitrine">
   <div class="container">
     <div class="loja-hero-inner">
@@ -73,13 +73,13 @@
         <div class="loja-hero-banner" role="region" aria-label="Destaques e ofertas">
           <div class="loja-hero-carousel" id="loja-hero-carousel" tabindex="0">
             <div class="loja-hero-carousel-track">
-              <!-- Slide 1: institucional -->
+
               <div class="loja-hero-slide loja-hero-slide-active" data-layout="single" data-slide-index="0">
                 <div class="loja-hero-banner-card">
                   <img src="/static/img/loja/hero-logo.jpg" alt="Destaque institucional da vitrine" class="loja-hero-banner-logo" />
                 </div>
               </div>
-              <!-- Slide 2: promoção (estilo oferta) -->
+
               <div class="loja-hero-slide" data-layout="single" data-slide-index="1">
                 <div class="loja-hero-banner-card loja-hero-slide-promo">
                   <div class="loja-hero-slide-content">
@@ -90,7 +90,7 @@
                   </div>
                 </div>
               </div>
-              <!-- Slide 3: benefício (frete / parcela) -->
+
               <div class="loja-hero-slide" data-layout="single" data-slide-index="2">
                 <div class="loja-hero-banner-card loja-hero-slide-beneficio">
                   <div class="loja-hero-slide-content">
@@ -101,13 +101,13 @@
                   </div>
                 </div>
               </div>
-              <!-- Slide 4: Certilog (banner com link externo) -->
+
               <div class="loja-hero-slide" data-layout="single" data-slide-index="3">
                 <a href="https://www.certilog.com.br" target="_blank" rel="noopener noreferrer" class="loja-hero-banner-card loja-hero-banner-card-link">
                   <img src="/static/img/loja/certilog.png" alt="Certilog" class="loja-hero-banner-logo" />
                 </a>
               </div>
-              <!-- Slide 5: ROMA (banner com fundo preto) -->
+
               <div class="loja-hero-slide" data-layout="single" data-slide-index="4">
                 <div class="loja-hero-banner-card loja-hero-slide-roma">
                   <img src="/static/img/loja/roma.png" alt="ROMA - Peças para Trucks e Carretas" class="loja-hero-banner-logo" />
@@ -131,18 +131,10 @@
 </section>
 {% endif %}
 
-<div class="container loja-vitrine-barra-urgencia-outer">
-  <div class="barra-urgencia loja-vitrine-barra-urgencia" role="status" aria-live="polite">
-    Ofertas limitadas — estoque reduzido em alguns itens
-  </div>
-</div>
-
-<!-- 3. Destaques — faixa horizontal carrossel (scroll + setas); cards com mesmo visual compacto que Ofertas -->
 <section id="loja-produto-heroi" class="loja-section-block secao-vitrine secao-vitrine--hero-card" style="display:none;">
   <div class="container">
     <div class="loja-section-head">
       <div>
-        <span class="loja-section-kicker">Produto em evidência</span>
         <h2>Oferta em destaque agora</h2>
         <p class="loja-section-subtitle">Item selecionado para máxima visibilidade por oportunidade comercial.</p>
       </div>
@@ -167,7 +159,6 @@
   </div>
 </section>
 
-<!-- Perto de você (geolocalização) -->
 <section id="loja-perto-voce" class="loja-section-block secao-vitrine" style="display:none;">
   <div class="container">
     <div class="loja-section-head">
@@ -202,11 +193,10 @@
 </aside>
 {% endif %}
 
-<!-- 4+5. Coluna principal: listagem + faixas finais (ofertas relâmpago: aside acima, coluna no desktop) -->
 <div class="loja-vitrine-main-rest">
 <div class="loja-ofertas-todos-wrap">
 {% if busca_ativa and lojas_busca and lojas_busca|length > 0 %}
-<!-- Lojas encontradas pela busca (Tenant CA): aparece antes dos produtos quando o termo casa com nome/fantasia/slug/cidade -->
+
 <section id="loja-busca-lojas" class="loja-section-block secao-vitrine" aria-label="Lojas encontradas pela busca">
   <div class="container">
     <div class="loja-section-head">
@@ -349,7 +339,7 @@
 }
 </style>
 {% endif %}
-<!-- 5. Todos os produtos -->
+
 <section id="loja-todos-produtos" class="loja-card-listagem-wrap secao-vitrine{% if busca_ativa %} loja-busca-first{% endif %}">
   {% if busca_ativa %}
   {# Barra de categorias some na busca; #inicio-vitrine não existe no topo — reaponta o fragmento para esta listagem. #}
@@ -392,7 +382,7 @@
 </section>
 
 {% if busca_ativa and busca_q %}
-<!-- Faixa pós-busca: lojas mais próximas que vendem este produto -->
+
 <section id="loja-busca-proximas" class="loja-section-block secao-vitrine" style="display:none;">
   <div class="container">
     <div class="loja-section-head">
@@ -415,14 +405,13 @@
 {% if not busca_ativa %}
 <div class="loja-vitrine-rail">
 {% if marketing_vitrine.mostrar_secao_em_alta %}
-<!-- 6. Mais procurados (bloco branco) — ligado em /admin/marketing-vitrine -->
+
 <section id="loja-em-alta-section" class="loja-section-block secao-vitrine secao-vitrine--prova-social">
   <div class="container">
     <div class="loja-section-head">
       <div>
-        <span class="loja-section-kicker">Prova social</span>
-        <h2>{% if marketing_vitrine.titulo_em_alta %}{{ marketing_vitrine.titulo_em_alta }}{% else %}Mais procurados em movimento{% endif %}</h2>
-        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_em_alta %}{{ marketing_vitrine.subtitulo_em_alta }}{% else %}Itens em evidência por recência e atividade da vitrine.{% endif %}</p>
+        <h2>{% if marketing_vitrine.titulo_em_alta %}{{ marketing_vitrine.titulo_em_alta }}{% else %}Mais procurados{% endif %}</h2>
+        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_em_alta %}{{ marketing_vitrine.subtitulo_em_alta }}{% else %}Produtos que estão chamando atenção agora.{% endif %}</p>
       </div>
     </div>
     <div class="loja-faixa-carousel-wrap">
@@ -435,7 +424,7 @@
 {% endif %}
 
 {% if marketing_vitrine.mostrar_secao_lojas_destaque %}
-<!-- 7. Lojas em destaque (bloco branco) — ligado em /admin/marketing-vitrine -->
+
 <section class="loja-section-block loja-lojas-destaque secao-vitrine">
   <div class="container">
     <div class="loja-section-head">
@@ -452,13 +441,11 @@
 </div>
 {% endif %}
 
-<!-- 8. Informações do marketplace -->
 <div class="loja-vitrine-rail">
 <section class="loja-section-block secao-vitrine loja-marketplace-how">
   <div class="container">
     <div class="loja-section-head loja-marketplace-how-head">
       <div>
-        <span class="loja-section-kicker">Marketplace</span>
         <h2>Compre em várias lojas da sua cidade em um só lugar</h2>
         <p class="loja-section-subtitle">Compare ofertas, escolha a melhor opção e acompanhe seu pedido com praticidade e segurança.</p>
       </div>
@@ -497,40 +484,6 @@
 </section>
 </div>
 
-<!-- 8. Bloco de confiança (fundo cinza muito claro) -->
-<div class="loja-vitrine-rail">
-<section class="loja-trust-strip secao-vitrine">
-  <div class="container">
-    <div class="loja-trust-grid loja-beneficios-row">
-      <div class="loja-trust-box loja-beneficio-card">
-        <div class="loja-beneficio-icon loja-beneficio-verde"><i class="bi bi-shield-lock" aria-hidden="true"></i></div>
-        <div class="loja-beneficio-text">
-          <h3>Compra segura</h3>
-        </div>
-      </div>
-      <div class="loja-trust-box loja-beneficio-card">
-        <div class="loja-beneficio-icon loja-beneficio-azul"><i class="bi bi-geo-alt" aria-hidden="true"></i></div>
-        <div class="loja-beneficio-text">
-          <h3>Entrega ou retirada</h3>
-        </div>
-      </div>
-      <a class="loja-trust-box loja-beneficio-card loja-beneficio-card--link" href="/lojas-parceiras" aria-label="Ver lojas parceiras da Ibix">
-        <div class="loja-beneficio-icon loja-beneficio-laranja"><i class="bi bi-shop" aria-hidden="true"></i></div>
-        <div class="loja-beneficio-text">
-          <h3>Lojas parceiras</h3>
-          <span class="loja-beneficio-cta">Ver lojas →</span>
-        </div>
-      </a>
-      <div class="loja-trust-box loja-beneficio-card">
-        <div class="loja-beneficio-icon loja-beneficio-roxo"><i class="bi bi-phone" aria-hidden="true"></i></div>
-        <div class="loja-beneficio-text">
-          <h3>Acompanhe pedidos</h3>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-</div>
 </div>
 </div>
 {% endblock %}
@@ -606,20 +559,14 @@
       nomeLojaTxt = nomeLojaTxt ? nomeLojaTxt + ' · ' + cidadeUfTxt : cidadeUfTxt;
     }
     var nomeLoja = nomeLojaTxt ? ('<p class="loja-card-loja">' + nomeLojaTxt + geoInfoHtml + "</p>") : "";
-    var estoqueBaixo = Vitrine.isEstoqueBaixo(item);
     var vendasTagsHtml = "";
-    if (estoqueBaixo) vendasTagsHtml += '<span class="produto-tag--urgente">⚡ Saindo rápido</span>';
     if (item.frete_gratis) vendasTagsHtml += '<span class="produto-tag--entrega">🚚 Entrega facilitada</span>';
     if (desconto >= 30) vendasTagsHtml += '<span class="produto-tag--oferta">🔥 Oferta forte</span>';
-    if (social) vendasTagsHtml += '<span class="produto-tag--social">💎 Alta procura</span>';
     var isMobileCard =
       (typeof window.Vitrine !== "undefined" && window.Vitrine.isMobile === true) ||
       (window.matchMedia && window.matchMedia("(max-width: 767px)").matches);
     var ctaHtml = "";
-    if (featured || heroXl) {
-      var ctaText = isMobileCard ? "Comprar" : "Comprar agora";
-      ctaHtml = '<span class="produto-btn-detalhes">' + ctaText + "</span>";
-    } else if (temPromo) {
+    if (temPromo && !(featured || heroXl)) {
       var ctaOferta = isMobileCard ? "Oferta" : "Ver oferta";
       ctaHtml = '<span class="produto-btn-detalhes">' + ctaOferta + "</span>";
     }

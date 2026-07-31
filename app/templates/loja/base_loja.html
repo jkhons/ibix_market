@@ -24,7 +24,6 @@
     <title>{% if _seo_title %}{{ _seo_title }}{% else %}{% block title %}Vitrine{% endblock %} | {{ _brand_nome }}{% endif %}</title>
     <link rel="canonical" href="{{ _seo_canonical }}" />
 
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="{% if _seo_title %}{{ _seo_title }}{% else %}{% block seo_og_title %}{{ self.title() }}{% endblock %}{% endif %}" />
     <meta property="og:description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{% block seo_og_description %}Compre em várias lojas em um só lugar. Produtos, ofertas e pagamento seguro.{% endblock %}{% endif %}" />
@@ -39,7 +38,6 @@
     <meta property="fb:app_id" content="{{ seo_fb_app_id }}" />
     {% endif %}
 
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="{% if _seo_title %}{{ _seo_title }}{% else %}{{ self.seo_og_title() }}{% endif %}" />
     <meta name="twitter:description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{{ self.seo_og_description() }}{% endif %}" />
@@ -48,7 +46,6 @@
     <meta name="twitter:image:alt" content="{{ seo.og_image_alt }}" />
     {% endif %}
 
-    <!-- JSON-LD: Marketplace -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -103,7 +100,7 @@
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
     <link href="/static/css/landing/header.css" rel="stylesheet">
-    <link href="/static/css/loja.css?v=59" rel="stylesheet">
+    <link href="/static/css/loja.css?v=73" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
         body.loja-page { background: var(--loja-bg, #FEF7F1); }
@@ -148,12 +145,24 @@
         .loja-nav-item.loja-nav-icon .loja-nav-line2 { font-size: 0.8125rem; }
         .loja-nav-city { min-width: 0; max-width: 220px; }
         .loja-nav-city .loja-nav-line2 { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        /* Rodapé no mesmo formato da landing (cp-footer) */
-        .cp-footer { border-top: 1px solid rgba(0,0,0,.08); background: #fff; padding: 18px 0; color: #6b7280; font-size: .9rem; }
-        .cp-footer a { color: #6b7280; text-decoration: none; }
-        .cp-footer a:hover { color: var(--cp-primary, var(--certipeso-primary, #2c3e50)); }
+        /* Rodapé: mesmo wash do cabeçalho */
+        .cp-footer.loja-footer {
+            border-top: none;
+            background:
+                radial-gradient(900px 500px at 0% 100%, rgba(241, 196, 15, 0.18) 0%, transparent 50%),
+                radial-gradient(800px 420px at 100% 100%, rgba(230, 126, 34, 0.14) 0%, transparent 50%),
+                linear-gradient(345deg, #FFF9F2 0%, #F0E6D8 40%, var(--loja-bg, #FEF7F1) 100%);
+            padding: 22px 0;
+            color: #6b7280;
+            font-size: .9rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .cp-footer.loja-footer a { color: #6b7280; text-decoration: none; }
+        .cp-footer.loja-footer a:hover { color: var(--ibix-hover, #C47A44); }
         .cp-footer .cp-credits { font-size: .85rem; }
-        .cp-footer .cp-logo { height: 36px; width: auto; vertical-align: middle; object-fit: contain; }
+        .cp-footer .loja-footer-mascote { height: 40px; width: auto; display: block; object-fit: contain; }
+        .cp-footer .container { position: relative; z-index: 1; }
         /* Breakpoint único: mobile < 768px, desktop >= 768px */
         @media (max-width: 767px) {
             /* 1ª linha: logo | ações; 2ª linha: busca em largura total (DOM: left, fill, right) */
@@ -291,7 +300,7 @@
     {% block head_extra %}{% endblock %}
 </head>
 <body class="loja-page">
-    <!-- Antes do primeiro paint: mesma regra de vitrine.js (evita layout “desktop” e depois “mobile” quando o script do fim de página roda) -->
+
     <script>
     (function () {
         try {
@@ -377,11 +386,17 @@
     <main class="container-fluid py-4 loja-main">
         {% block content %}{% endblock %}
     </main>
-    <footer class="cp-footer">
+    <footer class="cp-footer loja-footer">
+        <div class="loja-footer-wash" aria-hidden="true">
+            <div class="glow-a"></div>
+            <div class="glow-b"></div>
+        </div>
         <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex flex-wrap align-items-center gap-2">
-                {% if _brand_logo_footer_display %}
-                <img src="{{ _brand_logo_footer_display }}" alt="{{ _brand_nome }}" width="420" height="216" loading="lazy" style="height: 28px; width: auto; display:block;">
+                {% if _brand_logo_mark %}
+                <img class="loja-footer-mascote" src="{{ _brand_logo_mark }}" alt="{{ _brand_nome }}" width="518" height="640" loading="lazy" decoding="async">
+                {% elif _brand_logo_footer_display %}
+                <img class="loja-footer-mascote" src="{{ _brand_logo_footer_display }}" alt="{{ _brand_nome }}" width="420" height="216" loading="lazy" decoding="async">
                 {% endif %}
                 <span>{{ _brand_nome }}</span>
                 <span aria-hidden="true">·</span>
@@ -416,8 +431,6 @@
                 <a href="/politica-privacidade-marketplace">Política de Privacidade</a>
                 <span aria-hidden="true">·</span>
                 <a href="/como-funciona-vitrine">Como funciona a vitrine</a>
-                <span aria-hidden="true">·</span>
-                <a href="/login">Área do lojista (painel)</a>
                 {% else %}
                 <span aria-hidden="true">·</span>
                 <a href="/termos-de-uso">Termos de Uso</a>
@@ -435,7 +448,7 @@
             </div>
         </div>
     </footer>
-    <!-- Modal seletor de cidade/geolocalização -->
+
     <div id="geo-modal" class="loja-geo-modal-backdrop" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));">
       <div class="loja-geo-modal-panel" style="background:#fff;border-radius:16px;width:100%;max-width:min(420px,100%);padding:28px 24px;box-shadow:0 8px 32px rgba(0,0,0,.18);position:relative;max-height:80vh;overflow-y:auto;box-sizing:border-box;">
         <button type="button" id="geo-modal-close" class="loja-geo-modal-close" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#888;min-width:44px;min-height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;" aria-label="Fechar">&times;</button>

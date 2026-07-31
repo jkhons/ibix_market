@@ -224,32 +224,62 @@
     var desconto = window.Vitrine.calcDescontoPercent(item);
     var badge = desconto > 0 ? '<span class="' + discountBadgeClassSem(desconto) + '">-' + desconto + "%</span>" : "";
     var badgeFrete = item.frete_gratis ? '<span class="loja-card-badge-frete">Frete grátis</span>' : "";
-    var precoOriginal = "";
-    if (item.preco_promocional != null && item.preco_promocional > 0) {
-      precoOriginal = '<span class="loja-card-price-old">' + window.Vitrine.formatPreco(item.preco_original) + "</span>";
+    var temPromo = item.preco_promocional != null && item.preco_promocional > 0;
+    var precoOriginal = temPromo
+      ? '<span class="loja-card-price-old">' + window.Vitrine.formatPreco(item.preco_original) + "</span>"
+      : "";
+    var economiaHtml = "";
+    if (temPromo && item.preco_original != null && item.preco_promocional != null) {
+      var economia = Number(item.preco_original) - Number(item.preco_promocional);
+      if (!isNaN(economia) && economia > 0) {
+        economiaHtml = '<span class="produto-economia">Economize ' + window.Vitrine.formatPreco(economia) + "</span>";
+      }
     }
+    var isMobileCard =
+      (typeof window.Vitrine !== "undefined" && window.Vitrine.isMobile === true) ||
+      (window.matchMedia && window.matchMedia("(max-width: 767px)").matches);
+    var ctaHtml = "";
+    if (temPromo) {
+      ctaHtml = '<span class="produto-btn-detalhes">' + (isMobileCard ? "Oferta" : "Ver oferta") + "</span>";
+    }
+    var vendasTagsHtml = "";
+    if (desconto >= 30) vendasTagsHtml += '<span class="produto-tag--oferta">🔥 Oferta forte</span>';
+    var nomeLojaTxt = item.nome_loja ? window.Vitrine.escapeHtml(item.nome_loja) : "";
+    if (item.cidade_loja) {
+      var cidadeUfTxt = window.Vitrine.escapeHtml(item.cidade_loja) + (item.uf_loja ? "/" + window.Vitrine.escapeHtml(item.uf_loja) : "");
+      nomeLojaTxt = nomeLojaTxt ? nomeLojaTxt + " · " + cidadeUfTxt : cidadeUfTxt;
+    }
+    var nomeLoja = nomeLojaTxt ? '<p class="loja-card-loja">' + nomeLojaTxt + "</p>" : "";
     var lojaId = item && item.loja_id != null ? Number(item.loja_id) : null;
+    var titulo = window.Vitrine.escapeHtml(item.titulo || "");
     var cartBtnHtml =
-      '<button type="button" class="loja-card-cart-btn" data-action="add-cart-semelhante" data-anuncio-id="' + Number(item.id) + '" data-loja-id="' + (lojaId || "") + '" data-titulo="' + window.Vitrine.escapeHtml(item.titulo || "") + '" data-imagem-url="' + window.Vitrine.escapeHtml(imgCarrinho) + '" data-preco="' + window.Vitrine.precoEfetivo(item) + '" data-slug-loja="' + window.Vitrine.escapeHtml(item.slug_loja || "") + '" data-nome-loja="' + window.Vitrine.escapeHtml(item.nome_loja || "") + '" aria-label="Adicionar ao carrinho">' +
+      '<button type="button" class="loja-card-cart-btn" data-action="add-cart-semelhante" data-anuncio-id="' + Number(item.id) + '" data-loja-id="' + (lojaId || "") + '" data-titulo="' + titulo + '" data-imagem-url="' + window.Vitrine.escapeHtml(imgCarrinho) + '" data-preco="' + window.Vitrine.precoEfetivo(item) + '" data-slug-loja="' + window.Vitrine.escapeHtml(item.slug_loja || "") + '" data-nome-loja="' + window.Vitrine.escapeHtml(item.nome_loja || "") + '" aria-label="Adicionar ao carrinho">' +
         '<i data-feather="shopping-cart"></i>' +
       "</button>";
     return (
       '<div class="loja-produto-semelhante-item">' +
-        '<article class="loja-card">' +
+        '<div class="loja-card produto-card">' +
           '<a class="loja-card-link" href="' + window.Vitrine.produtoUrl(item.titulo, item.id) + '">' +
             '<div class="loja-card-img-wrap">' +
               badge + badgeFrete +
-              '<img src="' + window.Vitrine.escapeHtml(img) + '" alt="' + window.Vitrine.escapeHtml(item.titulo || "Produto") + '">' +
+              '<img src="' + window.Vitrine.escapeHtml(img) + '" alt="' + titulo + '" loading="lazy" onerror="this.style.background=\'#eee\';this.src=\'\';">' +
             "</div>" +
             '<div class="loja-card-body">' +
-              '<h3 class="loja-card-title">' + window.Vitrine.escapeHtml(item.titulo || "") + "</h3>" +
+              '<h3 class="loja-card-title">' + titulo + "</h3>" +
+              nomeLoja +
+              (vendasTagsHtml ? '<div class="produto-tags-wrap">' + vendasTagsHtml + "</div>" : "") +
               '<div class="loja-card-price-row">' +
-                '<div class="loja-card-price-block">' + precoOriginal + '<span class="loja-card-price">' + precoAtual + "</span></div>" +
+                '<div class="loja-card-price-block">' +
+                  precoOriginal +
+                  '<span class="loja-card-price produto-preco-valor">' + precoAtual + "</span>" +
+                  economiaHtml +
+                  ctaHtml +
+                "</div>" +
                 cartBtnHtml +
               "</div>" +
             "</div>" +
           "</a>" +
-        "</article>" +
+        "</div>" +
       "</div>"
     );
   }
