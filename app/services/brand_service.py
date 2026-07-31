@@ -40,6 +40,8 @@ class BrandContext:
             "logo_footer_url": self.logo_footer_url,
             "logo_display_url": brand_logo_display_url(self),
             "logo_footer_display_url": brand_logo_footer_display_url(self),
+            "logo_mark_url": brand_logo_mark_url(self),
+            "logo_wordmark_url": brand_logo_wordmark_url(self),
             "favicon_url": self.favicon_url,
             "telefone": self.telefone,
             "whatsapp": self.whatsapp,
@@ -56,6 +58,10 @@ def normalize_host(raw_host: Optional[str]) -> str:
 
 
 _IBIX_LOGO_PATH_MARKERS = ("/ibix/", "/landing/logosfundo", "logosfundo.png")
+# Lockup da origem: mascote + wordmark (assets documentados; cab.png = composição única p/ OG/e-mail)
+_IBIX_LOGO_MARK_URL = "/static/img/ibix/mascote.png"
+_IBIX_LOGO_WORDMARK_URL = "/static/img/ibix/escrita.png"
+_IBIX_LOGO_CAB_URL = "/static/img/ibix/cab.png"
 
 
 def _is_ibix_shared_logo_asset(logo: str, slug: str) -> bool:
@@ -72,7 +78,7 @@ def brand_logo_display_url(ctx: BrandContext) -> str:
     """URL para <img> na UI ou vazio (somente texto da marca). Marca derivada sem logo próprio → ''."""
     logo = (ctx.logo_url or "").strip()
     if ctx.is_origem:
-        return logo or "/static/img/ibix/cab.png"
+        return logo or _IBIX_LOGO_CAB_URL
     if not logo or _is_ibix_shared_logo_asset(logo, ctx.slug):
         return ""
     return logo
@@ -87,6 +93,26 @@ def brand_logo_footer_display_url(ctx: BrandContext) -> str:
     return footer
 
 
+def brand_logo_mark_url(ctx: BrandContext) -> str:
+    """Mascote do lockup (só origem / assets Ibix). Vazio → UI usa logo_display único."""
+    if not ctx.is_origem:
+        return ""
+    logo = (ctx.logo_url or "").strip()
+    if logo and not _is_ibix_shared_logo_asset(logo, ctx.slug):
+        return ""
+    return _IBIX_LOGO_MARK_URL
+
+
+def brand_logo_wordmark_url(ctx: BrandContext) -> str:
+    """Wordmark do lockup (só origem / assets Ibix)."""
+    if not ctx.is_origem:
+        return ""
+    logo = (ctx.logo_url or "").strip()
+    if logo and not _is_ibix_shared_logo_asset(logo, ctx.slug):
+        return ""
+    return _IBIX_LOGO_WORDMARK_URL
+
+
 def _pick_visual(origin_val: Optional[str], brand_val: Optional[str]) -> str:
     """Herança visual: valor da marca derivada ou, se vazio, da origem."""
     b = (brand_val or "").strip()
@@ -97,7 +123,7 @@ def _pick_visual(origin_val: Optional[str], brand_val: Optional[str]) -> str:
 
 def _brand_row_to_context(brand: Brand, origin: Optional[Brand]) -> BrandContext:
     orig = origin if origin and origin.id != brand.id else None
-    o_logo = (orig.logo_url if orig else brand.logo_url) or "/static/img/ibix/cab.png"
+    o_logo = (orig.logo_url if orig else brand.logo_url) or _IBIX_LOGO_CAB_URL
     o_footer = (orig.logo_footer_url if orig else brand.logo_footer_url) or o_logo
     o_favicon = (orig.favicon_url if orig else brand.favicon_url) or "/static/img/arte-pdv.png"
     o_nome = (orig.nome_exibicao if orig else brand.nome_exibicao) or "Ibix"
@@ -176,6 +202,8 @@ __all__ = [
     "normalize_host",
     "brand_logo_display_url",
     "brand_logo_footer_display_url",
+    "brand_logo_mark_url",
+    "brand_logo_wordmark_url",
     "get_origin_brand",
     "resolve_brand_by_host",
     "brand_context_from_request",

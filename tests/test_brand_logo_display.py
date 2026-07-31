@@ -3,6 +3,8 @@ from app.services.brand_service import (
     BrandContext,
     brand_logo_display_url,
     brand_logo_footer_display_url,
+    brand_logo_mark_url,
+    brand_logo_wordmark_url,
 )
 
 SOLUMATICA = BrandContext(
@@ -43,11 +45,15 @@ IBIX = BrandContext(
 def test_solumatica_sem_logo_ibix_placeholder():
     assert brand_logo_display_url(SOLUMATICA) == ""
     assert brand_logo_footer_display_url(SOLUMATICA) == ""
+    assert brand_logo_mark_url(SOLUMATICA) == ""
+    assert brand_logo_wordmark_url(SOLUMATICA) == ""
 
 
 def test_ibix_mantem_logo():
     assert brand_logo_display_url(IBIX) == "/static/img/ibix/cab.png"
     assert brand_logo_footer_display_url(IBIX) == "/static/img/ibix/rodape.png"
+    assert brand_logo_mark_url(IBIX) == "/static/img/ibix/mascote.png"
+    assert brand_logo_wordmark_url(IBIX) == "/static/img/ibix/escrita.png"
 
 
 def test_marca_derivada_com_logo_proprio():
@@ -68,3 +74,5 @@ def test_marca_derivada_com_logo_proprio():
         is_origem=False,
     )
     assert brand_logo_display_url(ctx) == "/static/img/solumatica/logo-real.png"
+    assert brand_logo_mark_url(ctx) == ""
+    assert brand_logo_wordmark_url(ctx) == ""

@@ -6,6 +6,8 @@
     {% set _brand_nome = _brand.nome|default(_brand.nome_exibicao|default('Ibix', true), true) %}
     {% set _brand_logo = _brand.logo_url|default('/static/img/ibix/cab.png', true) %}
     {% set _brand_logo_display = _brand.logo_display_url|default('', true) %}
+    {% set _brand_logo_mark = _brand.logo_mark_url|default('', true) %}
+    {% set _brand_logo_wordmark = _brand.logo_wordmark_url|default('', true) %}
     {% set _brand_logo_footer = _brand.logo_footer_url|default(_brand_logo, true) %}
     {% set _brand_logo_footer_display = _brand.logo_footer_display_url|default('', true) %}
     {% set _brand_favicon = _brand.favicon_url|default('/static/img/arte-pdv.png', true) %}
@@ -101,7 +103,7 @@
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
     <link href="/static/css/landing/header.css" rel="stylesheet">
-    <link href="/static/css/loja.css?v=55" rel="stylesheet">
+    <link href="/static/css/loja.css?v=59" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
         body.loja-page { background: var(--loja-bg, #FEF7F1); }
@@ -120,7 +122,12 @@
         .loja-header .loja-brand { font-weight: 700; letter-spacing: .2px; color: var(--ibix-text-strong, #2F3A44); text-decoration: none; font-size: 1.05rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 8px 22px; margin: -8px -22px; border-radius: 14px; }
         .loja-header--compact .loja-brand { padding: 5px 22px; margin: -5px -22px; }
         .loja-header .loja-brand:hover { color: var(--ibix-hover, #C47A44); background: rgba(196, 122, 68, 0.08); }
+        .loja-brand-lockup { display: inline-flex; align-items: center; gap: 0.4rem; line-height: 0; }
         .loja-header .loja-brand img { height: 64px; width: auto; object-fit: contain; display: block; }
+        .loja-header .loja-brand .loja-brand-mascote { height: 64px; width: auto; }
+        .loja-header .loja-brand .loja-brand-escrita { height: 34px; width: auto; }
+        .loja-header--compact .loja-brand .loja-brand-mascote { height: 50px; }
+        .loja-header--compact .loja-brand .loja-brand-escrita { height: 26px; }
         .loja-header .loja-brand-label { font-weight: 700; font-size: 1.15rem; letter-spacing: .2px; color: var(--ibix-text-strong, #2F3A44); }
         .loja-brand-tag { font-weight: 600; color: #6b7280; font-size: 0.9rem; margin-left: 0.25rem; text-decoration: none; }
         .loja-brand-tag:hover { color: var(--ibix-hover, #C47A44); }
@@ -193,6 +200,8 @@
         }
         @media (max-width: 400px) {
             .loja-header .loja-brand img { height: 72px; }
+            .loja-header .loja-brand .loja-brand-mascote { height: 72px; }
+            .loja-header .loja-brand .loja-brand-escrita { height: 38px; }
             .loja-nav-icon .loja-nav-line2 { display: none; }
         }
         @media (max-width: 575px) {
@@ -298,11 +307,20 @@
     <div id="loja-toast-host" class="loja-toast-host" role="status" aria-live="polite" aria-relevant="additions text"></div>
     {% block loja_header %}
     <header class="cp-navbar loja-header">
+        <div class="loja-header-wash" aria-hidden="true">
+            <div class="glow-a"></div>
+            <div class="glow-b"></div>
+        </div>
         <div class="container py-3">
             <div class="loja-nav-belt">
                 <div class="loja-nav-left">
                     <a class="loja-brand" href="/" aria-label="{{ _brand_nome }} - início">
-                        {% if _brand_logo_display %}
+                        {% if _brand_logo_mark and _brand_logo_wordmark %}
+                        <span class="loja-brand-lockup">
+                            <img class="loja-brand-mascote" src="{{ _brand_logo_mark }}" alt="" width="518" height="640" fetchpriority="high" decoding="async">
+                            <img class="loja-brand-escrita" src="{{ _brand_logo_wordmark }}" alt="{{ _brand_nome }}" width="336" height="186" fetchpriority="high" decoding="async">
+                        </span>
+                        {% elif _brand_logo_display %}
                         <img src="{{ _brand_logo_display }}" alt="{{ _brand_nome }}" width="520" height="170" fetchpriority="high">
                         {% else %}
                         <span class="loja-brand-label">{{ _brand_nome }}</span>

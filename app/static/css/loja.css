@@ -95,16 +95,58 @@ main.loja-main .btn-outline-primary:hover {
   color: var(--ibix-hover);
 }
 
-/* ---- Header: busca dominante, área premium ---- */
+/* ---- Header: wash creme → bege → verde-acinzentado + manchas ouro/laranja ---- */
+/* NÃO usar overflow:hidden no sticky — no Chromium colapsa a altura do header (~0px). */
 .loja-header {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: var(--ibix-bg);
-  border-bottom: 1px solid var(--loja-border);
+  border-bottom: none;
+  box-shadow: none;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(241, 196, 15, 0.22) 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(230, 126, 34, 0.18) 0%, transparent 50%),
+    linear-gradient(165deg, #FFF9F2 0%, #F0E6D8 48%, #E4EBE6 100%);
 }
-.loja-header .container {
+.loja-header.cp-navbar {
+  border-bottom: none;
+  box-shadow: none;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(241, 196, 15, 0.22) 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(230, 126, 34, 0.18) 0%, transparent 50%),
+    linear-gradient(165deg, #FFF9F2 0%, #F0E6D8 48%, #E4EBE6 100%);
+}
+.loja-header-wash {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.loja-header > .container {
+  position: relative;
+  z-index: 1;
   max-width: 1280px;
+}
+.loja-header .glow-a,
+.loja-header .glow-b {
+  position: absolute;
+  width: 42vw;
+  height: 42vw;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.28;
+  pointer-events: none;
+}
+.loja-header .glow-a {
+  background: #F1C40F;
+  top: -40%;
+  left: -12%;
+}
+.loja-header .glow-b {
+  background: #E67E22;
+  right: -10%;
+  bottom: -50%;
 }
 .loja-header a:focus-visible,
 .loja-header button:focus-visible,
@@ -119,8 +161,36 @@ main.loja-main .btn-outline-primary:hover {
 .loja-header--compact .loja-brand img {
   height: 50px !important;
 }
+.loja-header--compact .loja-brand .loja-brand-mascote {
+  height: 50px !important;
+}
+.loja-header--compact .loja-brand .loja-brand-escrita {
+  height: 26px !important;
+}
 .loja-header--compact .loja-nav-line1 {
   display: none;
+}
+.loja-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  line-height: 0;
+}
+.loja-header .loja-brand .loja-brand-mascote {
+  height: 64px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+.loja-header .loja-brand .loja-brand-escrita {
+  height: 34px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+@media (min-width: 768px) {
+  .loja-header .loja-brand .loja-brand-mascote { height: 68px; }
+  .loja-header .loja-brand .loja-brand-escrita { height: 36px; }
 }
 .loja-header--compact .loja-nav-item {
   padding-top: 0.2rem;
