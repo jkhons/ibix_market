@@ -1,9 +1,11 @@
+{% set _brand = brand|default({}, true) %}
+{% set _brand_nome = _brand.nome_exibicao|default(_brand.nome_curto|default('PDV', true), true) %}
 <footer class="footer">
 	<div class="container-fluid">
 		<div class="row text-muted">
 			<div class="col-6 text-start">
 				<p class="mb-0">
-					Ibix - Gerenciamento de vendas
+					{{ _brand_nome }} — Gerenciamento de vendas
 				</p>
 			</div>
 			<div class="col-6 text-end">

@@ -3,12 +3,14 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.audit import audit_action
+from app.core.document_ref import build_doc_ref, doc_ref_like_patterns, next_seq_for_year
 from app.core.middleware import forbid_cliente_access, get_cliente_scope_dep, get_current_user
 from app.core.scope import ClienteScope
 from app.database.connection import get_db
@@ -27,6 +29,11 @@ from app.services.orcamento_conversao_service import (
 )
 from app.services.orcamento_service import expirar_orcamentos
 from app.services.pdf_orcamento_pedido import gerar_pdf_orcamento
+from app.services.documento_impressao_service import (
+    gerar_pdf_orcamento_com_template,
+    template_padrao_tenant,
+)
+from app.services.conversao_venda_service import tenant_id_do_vendedor
 
 router = APIRouter(prefix="/orcamentos", tags=["Orçamentos"])
 
@@ -63,20 +70,18 @@ def _orcamento_no_escopo(
 
 
 def _proximo_numero_orcamento(db: Session, cliente_id: int) -> str:
-    from datetime import datetime
     ano = datetime.now().year
-    r = db.query(Orcamento).filter(
-        Orcamento.cliente_id == cliente_id,
-        Orcamento.numero_orcamento.like(f"ORC-{ano}-%"),
-    ).order_by(desc(Orcamento.id)).first()
-    if not r:
-        seq = 1
-    else:
-        try:
-            seq = int(r.numero_orcamento.split("-")[-1]) + 1
-        except (IndexError, ValueError):
-            seq = 1
-    return f"ORC-{ano}-{seq:05d}"
+    patterns = doc_ref_like_patterns("ORC", ano)
+    rows = (
+        db.query(Orcamento.numero_orcamento)
+        .filter(
+            Orcamento.cliente_id == cliente_id,
+            or_(*[Orcamento.numero_orcamento.like(p) for p in patterns]),
+        )
+        .all()
+    )
+    seq = next_seq_for_year((r[0] for r in rows), ano, prefix="ORC")
+    return build_doc_ref("ORC", seq, ano)
 
 
 @router.get("", response_model=dict)
@@ -101,7 +106,12 @@ async def listar_orcamentos(
         q = q.filter(Orcamento.cliente_id == cliente_id)
     total = q.count()
     rows = (
-        q.options(joinedload(Orcamento.cliente), joinedload(Orcamento.destinatario))
+        q.options(
+            joinedload(Orcamento.cliente),
+            joinedload(Orcamento.destinatario),
+            joinedload(Orcamento.vendedor),
+            joinedload(Orcamento.itens),
+        )
         .order_by(desc(Orcamento.created_at))
         .offset(skip)
         .limit(limit)
@@ -110,11 +120,19 @@ async def listar_orcamentos(
     itens = []
     for r in rows:
         base = OrcamentoListResponse.model_validate(r)
+        vendedor_nome = r.vendedor.nome if getattr(r, "vendedor", None) else None
+        qtd = len(r.itens) if r.itens else 0
         itens.append(
             base.model_copy(
                 update={
                     "cliente_nome": (r.cliente.nome if r.cliente else None),
                     "destinatario_nome": (r.destinatario.nome if r.destinatario else None),
+                    "vendedor_nome": vendedor_nome,
+                    "qtd_itens": qtd,
+                    "observacoes": r.observacoes,
+                    "condicoes_pagamento": r.condicoes_pagamento,
+                    "subtotal": r.subtotal,
+                    "desconto": r.desconto,
                 }
             )
         )
@@ -128,14 +146,29 @@ async def obter_orcamento(
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     """Detalhe de um orçamento."""
-    o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True, load_clientes=True)
+    o = (
+        db.query(Orcamento)
+        .options(
+            joinedload(Orcamento.itens),
+            joinedload(Orcamento.cliente),
+            joinedload(Orcamento.destinatario),
+            joinedload(Orcamento.vendedor),
+        )
+        .filter(Orcamento.id == orcamento_id)
+        .first()
+    )
     if not o:
+        raise HTTPException(status_code=404, detail="Orçamento não encontrado")
+    allowed = _allowed_ids(scope)
+    if allowed is not None and o.cliente_id not in allowed:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
     base = OrcamentoResponse.model_validate(o)
     return base.model_copy(
         update={
             "cliente_nome": (o.cliente.nome if o.cliente else None),
             "destinatario_nome": (o.destinatario.nome if o.destinatario else None),
+            "vendedor_nome": (o.vendedor.nome if o.vendedor else None),
+            "qtd_itens": len(o.itens) if o.itens else 0,
         }
     )
 
@@ -331,23 +364,20 @@ async def converter_orcamento_em_pedido(
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     """Converte orçamento emitido/aprovado em pedido. Opcionalmente reserva estoque."""
-    from sqlalchemy import desc
-
     from app.models import Pedido as PedidoModel
     def _proximo_numero_pedido(db: Session, cliente_id: int) -> str:
         ano = datetime.now().year
-        r = db.query(PedidoModel).filter(
-            PedidoModel.cliente_id == cliente_id,
-            PedidoModel.numero_pedido.like(f"PED-{ano}-%"),
-        ).order_by(desc(PedidoModel.id)).first()
-        if not r:
-            seq = 1
-        else:
-            try:
-                seq = int(r.numero_pedido.split("-")[-1]) + 1
-            except (IndexError, ValueError):
-                seq = 1
-        return f"PED-{ano}-{seq:05d}"
+        patterns = doc_ref_like_patterns("PED", ano)
+        rows = (
+            db.query(PedidoModel.numero_pedido)
+            .filter(
+                PedidoModel.cliente_id == cliente_id,
+                or_(*[PedidoModel.numero_pedido.like(p) for p in patterns]),
+            )
+            .all()
+        )
+        seq = next_seq_for_year((r[0] for r in rows), ano, prefix="PED")
+        return build_doc_ref("PED", seq, ano)
     o = _orcamento_no_escopo(db, orcamento_id, scope, load_itens=True)
     if not o:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
@@ -412,6 +442,16 @@ async def converter_orcamento_em_os(
     if o.data_validade < date.today():
         raise HTTPException(status_code=400, detail="Orçamento expirado")
     os_id, codigo = converter_orcamento_em_ordem_servico(db, o, body.tipo_id, current_user.id)
+    audit_action(
+        db,
+        "orcamento_convertido_os",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="orcamento",
+        recurso_id=orcamento_id,
+        detalhes=f"ordem_servico_id={os_id} codigo={codigo}",
+    )
+    db.commit()
     return {"message": "Orçamento convertido em ordem de serviço", "ordem_servico_id": os_id, "codigo": codigo}
 
 
@@ -432,6 +472,16 @@ async def converter_orcamento_em_venda_route(
     if o.data_validade < date.today():
         raise HTTPException(status_code=400, detail="Orçamento expirado")
     vid, numero = converter_orcamento_em_venda_pendente(db, o, current_user.id)
+    audit_action(
+        db,
+        "orcamento_convertido_venda",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="orcamento",
+        recurso_id=orcamento_id,
+        detalhes=f"venda_id={vid} numero={numero}",
+    )
+    db.commit()
     return {"message": "Orçamento convertido em venda pendente", "venda_id": vid, "numero_venda": numero}
 
 
@@ -466,22 +516,34 @@ def _dados_orcamento_para_pdf(o: Orcamento) -> dict:
 @router.get("/{orcamento_id}/pdf")
 async def download_pdf_orcamento(
     orcamento_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
-    """Gera e retorna PDF do orçamento."""
+    """Gera e retorna PDF do orçamento (template tenant ou fallback legado)."""
     o_full = db.query(Orcamento).options(
         joinedload(Orcamento.itens),
         joinedload(Orcamento.cliente),
         joinedload(Orcamento.destinatario),
+        joinedload(Orcamento.vendedor),
     ).filter(Orcamento.id == orcamento_id).first()
     if not o_full:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
     allowed = _allowed_ids(scope)
     if allowed is not None and o_full.cliente_id not in allowed:
         raise HTTPException(status_code=404, detail="Orçamento não encontrado")
-    dados = _dados_orcamento_para_pdf(o_full)
-    pdf_bytes = gerar_pdf_orcamento(dados)
+
+    brand = getattr(request.state, "brand", None)
+    tenant_id = tenant_id_do_vendedor(db, o_full.vendedor_id) if o_full.vendedor_id else None
+    tpl = template_padrao_tenant(db, tenant_id, "orcamento") if tenant_id else None
+    if tpl:
+        try:
+            pdf_bytes = gerar_pdf_orcamento_com_template(o_full, tpl, brand)
+        except (ImportError, OSError) as e:
+            raise HTTPException(status_code=503, detail=f"Geração PDF indisponível: {e}") from e
+    else:
+        dados = _dados_orcamento_para_pdf(o_full)
+        pdf_bytes = gerar_pdf_orcamento(dados)
     return Response(content=pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'attachment; filename="orcamento-{o_full.numero_orcamento}.pdf"'})
 
 

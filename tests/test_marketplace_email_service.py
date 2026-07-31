@@ -28,6 +28,11 @@ def test_build_context_comprador_keys(monkeypatch):
         "_bloco_itens_pedido_html",
         lambda _db, _pid: "<!-- itens test -->",
     )
+    monkeypatch.setattr(
+        mes,
+        "resolve_vitrine_header_logo_url",
+        lambda _db, brand=None: "https://exemplo.com/static/img/ibix/cab.png",
+    )
 
     pedido = MagicMock()
     pedido.numero_pedido = "58-999"

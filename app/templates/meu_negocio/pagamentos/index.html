@@ -332,12 +332,42 @@
         }
     }
 
+    const TX_STATUS_LABELS = {
+        paid: 'Pago',
+        authorized: 'Autorizado',
+        pending: 'Pendente',
+        processing: 'Processando',
+        created: 'Criado',
+        failed: 'Falhou',
+        refused: 'Recusado',
+        cancelled: 'Cancelado',
+        canceled: 'Cancelado',
+        expired: 'Expirado',
+        refunded: 'Estornado',
+        partially_refunded: 'Estornado parcial',
+        chargeback: 'Chargeback',
+    };
+
+    function labelStatusTransacao(status) {
+        const s = String(status || '').toLowerCase();
+        if (TX_STATUS_LABELS[s]) return TX_STATUS_LABELS[s];
+        return status ? String(status) : '-';
+    }
+
     function badgeStatus(status) {
         const s = String(status || '').toLowerCase();
-        if (s === 'paid' || s === 'authorized') return '<span class="badge bg-success">' + s + '</span>';
-        if (s === 'failed' || s === 'cancelled') return '<span class="badge bg-danger">' + s + '</span>';
-        if (s === 'pending' || s === 'processing') return '<span class="badge bg-warning text-dark">' + s + '</span>';
-        return '<span class="badge bg-secondary">' + (s || '-') + '</span>';
+        const label = labelStatusTransacao(status);
+        if (s === 'paid' || s === 'authorized') return '<span class="badge bg-success">' + label + '</span>';
+        if (s === 'failed' || s === 'cancelled' || s === 'canceled' || s === 'refused' || s === 'expired' || s === 'chargeback') {
+            return '<span class="badge bg-danger">' + label + '</span>';
+        }
+        if (s === 'pending' || s === 'processing' || s === 'created') {
+            return '<span class="badge bg-warning text-dark">' + label + '</span>';
+        }
+        if (s === 'refunded' || s === 'partially_refunded') {
+            return '<span class="badge bg-info text-dark">' + label + '</span>';
+        }
+        return '<span class="badge bg-secondary">' + label + '</span>';
     }
 
     function escHtml(v) {
@@ -382,8 +412,9 @@
             var nomeEstTx = cid != null && window._recebiveisClienteNomePorId && window._recebiveisClienteNomePorId[cid]
                 ? escHtml(window._recebiveisClienteNomePorId[cid])
                 : (cid != null ? ('#' + cid) : '-');
-            var ref = tx.numero_pedido || (tx.venda_id ? 'Venda #' + tx.venda_id : '') || tx.uuid;
-            if (tx.numero_pedido) ref = escHtml(tx.numero_pedido);
+            var refRaw = tx.numero_pedido || '';
+            var ref;
+            if (tx.numero_pedido) ref = DocRef.docRefSpan(tx.numero_pedido);
             else if (tx.venda_id) ref = 'Venda #' + tx.venda_id;
             else ref = '<code>' + escHtml(tx.uuid) + '</code>';
             var paidDt = tx.paid_at ? fmtDt(tx.paid_at) : '-';
@@ -551,7 +582,7 @@
                     alert('Falha na verificação: ' + err);
                     return;
                 }
-                alert('Status atualizado: ' + (data.status || '-') + (data.provider_status ? ' (gateway: ' + data.provider_status + ')' : ''));
+                alert('Status atualizado: ' + labelStatusTransacao(data.status) + (data.provider_status ? ' (gateway: ' + data.provider_status + ')' : ''));
                 carregarPendencias();
             } catch (err) {
                 alert('Erro ao verificar status: ' + err.message);
@@ -583,7 +614,7 @@
                 alert('Falha na retentativa: ' + err);
                 return;
             }
-            alert('Retentativa enviada. Novo status: ' + (data.status || '-'));
+            alert('Retentativa enviada. Novo status: ' + labelStatusTransacao(data.status));
             carregarPendencias();
             carregarConfigs();
         } catch (err) {

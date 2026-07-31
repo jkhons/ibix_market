@@ -17,12 +17,11 @@ def chave_email_cliente_from_name(cliente_id: int) -> str:
 
 # Códigos das funções (chave em configuracoes: email_funcao_{codigo}_from, email_funcao_{codigo}_from_name)
 FUNCOES_EMAIL: List[Tuple[str, str, str]] = [
-    ("certificados", "Certificados", "Certificado pronto, renovado, vencimento"),
     ("nota_fiscal", "Nota fiscal", "Envio de NF-e/NFC-e por e-mail"),
     ("nota_servico", "Nota de serviço", "Envio de NFS-e por e-mail"),
     ("ordem_servico", "Ordem de serviço", "Envio de OS/PDF por e-mail"),
     ("orcamento", "Orçamentos", "Envio de orçamento/documento por e-mail"),
-    ("notificacoes", "Notificações", "Alertas de agendamento, certificado/contrato vencendo"),
+    ("notificacoes", "Notificações", "Alertas de agendamento e contrato vencendo"),
     ("novidades", "Novidades", "Campanhas ou comunicados"),
     ("help_center", "Help Center", "Formulário de contato"),
     ("sistema", "Sistema/Admin", "Alertas de sistema, relatório mensal, e-mail de teste"),

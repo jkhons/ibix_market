@@ -7,9 +7,31 @@
     <!-- Container para alertas -->
     <div id="alert-container" class="mb-3"></div>
     
-    <div class="mb-3">
-        <h1 class="h3 d-inline align-middle">Gestão de Clientes</h1>
+    <div class="mb-3 d-flex flex-wrap align-items-center gap-2">
+        <h1 class="h3 mb-0 d-inline align-middle">Gestão de Clientes</h1>
     </div>
+
+    {% if user_role == 'Superadministrador' %}
+    <ul class="nav nav-tabs mb-3" id="clientesMainTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="tab-clientes-negocio-btn" data-bs-toggle="tab" data-bs-target="#tab-clientes-negocio" type="button" role="tab" aria-controls="tab-clientes-negocio" aria-selected="true">
+                Clientes (negócio / fiscal)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-clientes-mp-btn" data-bs-toggle="tab" data-bs-target="#tab-clientes-marketplace" type="button" role="tab" aria-controls="tab-clientes-marketplace" aria-selected="false">
+                Compradores vitrine (Marketplace)
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="tab-convite-comercio-btn" data-bs-toggle="tab" data-bs-target="#tab-convite-comercio" type="button" role="tab" aria-controls="tab-convite-comercio" aria-selected="false">
+                Convidar comércio (cadastro)
+            </button>
+        </li>
+    </ul>
+    <div class="tab-content" id="clientesMainTabContent">
+    <div class="tab-pane fade show active" id="tab-clientes-negocio" role="tabpanel" aria-labelledby="tab-clientes-negocio-btn">
+    {% endif %}
 
     <!-- Cliente padrão do PDV (contexto CA) -->
     <div class="row mb-3" id="card-pdv-cliente-padrao">
@@ -158,6 +180,163 @@
             </div>
         </div>
     </div>
+
+    {% if user_role == 'Superadministrador' %}
+    </div>
+    <div class="tab-pane fade" id="tab-clientes-marketplace" role="tabpanel" aria-labelledby="tab-clientes-mp-btn">
+        <div class="card mb-3 border-secondary">
+            <div class="card-body">
+                <p class="text-muted small mb-3 mb-md-0">
+                    Apenas contas criadas pelo formulário de cadastro da vitrine (<code>/loja/cadastro</code> — e-mail e senha).
+                    Não inclui checkout convidado, login social nem app móvel. Requer <code>marketplace:visualizar</code>.
+                </p>
+                <div class="row g-2 align-items-end flex-wrap">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-0" for="mpFiltroNome">Nome (contém)</label>
+                        <input type="text" class="form-control form-control-sm" id="mpFiltroNome" placeholder="Nome do comprador">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-0" for="mpFiltroEmail">E-mail (contém)</label>
+                        <input type="text" class="form-control form-control-sm" id="mpFiltroEmail" placeholder="E-mail">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-0" for="mpFiltroTenant">Estab. (cliente_id)</label>
+                        <input type="number" class="form-control form-control-sm" id="mpFiltroTenant" placeholder="Opcional" min="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-0" for="mpFiltroTipo">Tipo</label>
+                        <select class="form-select form-select-sm" id="mpFiltroTipo">
+                            <option value="">Todos</option>
+                            <option value="REGISTERED">REGISTERED</option>
+                            <option value="GUEST">GUEST</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-1 flex-wrap">
+                        <button type="button" class="btn btn-sm btn-primary" id="mpBtnBuscar">Buscar</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="mpBtnLimpar">Limpar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Compradores da vitrine</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Estabelecimento</th>
+                                <th>Nome</th>
+                                <th>E-mail</th>
+                                <th>Telefone</th>
+                                <th>Tipo</th>
+                                <th>Status cadastro</th>
+                                <th>Marketing</th>
+                                <th>Cadastro</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaConsumidoresMp">
+                            <tr><td colspan="9" class="text-center text-muted">Abra a aba e clique em Buscar ou aguarde o carregamento.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="row align-items-center mt-2">
+                    <div class="col-md-6">
+                        <p class="text-muted mb-0 small" id="infoPaginaMp">—</p>
+                    </div>
+                    <div class="col-md-6">
+                        <nav aria-label="Paginação compradores vitrine">
+                            <ul class="pagination pagination-sm mb-0 justify-content-md-end" id="paginacaoMp"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="tab-pane fade" id="tab-convite-comercio" role="tabpanel" aria-labelledby="tab-convite-comercio-btn">
+        <div class="card border-primary">
+            <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <h5 class="card-title mb-0">Convidar comércio por e-mail</h5>
+                <button type="button" class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1" id="btn-convite-abrir-template" title="Visualizar ou editar o HTML do e-mail de convite">
+                    <i data-feather="edit-3" style="width:16px;height:16px" class="align-middle"></i>
+                    <span>Template do e-mail</span>
+                </button>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">E-mail de <strong>captação de lojistas</strong>: envia um convite com link direto para o cadastro público (<code>/cadastro</code>). O convidado informa o próprio código promocional no cadastro, se houver. Requer <strong>APP_URL</strong> em <a href="/admin/billing/config">Cobranças &gt; Config</a> e SMTP nas Configurações do sistema.</p>
+                <form id="form-convite-lojista" class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label small mb-0" for="convite_email">E-mail do convidado</label>
+                        <input type="email" class="form-control form-control-sm" id="convite_email" required autocomplete="email" placeholder="contato@empresa.com.br">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label small mb-0" for="convite_nome">Nome (opcional)</label>
+                        <input type="text" class="form-control form-control-sm" id="convite_nome" maxlength="120" placeholder="Prezado responsável">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label small mb-0" for="convite_mensagem">Mensagem personalizada (opcional)</label>
+                        <textarea class="form-control form-control-sm" id="convite_mensagem" rows="3" maxlength="2000" placeholder="Texto curto exibido no corpo do e-mail de convite."></textarea>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-primary btn-sm" id="btn-convite-enviar">Enviar convite</button>
+                    </div>
+                </form>
+                <span id="msg-convite" class="small d-block mt-2"></span>
+                <div class="border rounded p-3 mt-3 bg-light">
+                    <label class="form-label small mb-1" for="convite_url_preview"><strong>Link do último envio</strong> (somente leitura — não digite aqui)</label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control font-monospace" id="convite_url_preview" readonly tabindex="-1" placeholder="Aparece depois de um envio bem-sucedido" aria-describedby="convite-url-ajuda">
+                        <button type="button" class="btn btn-outline-secondary" id="btn-convite-copiar-link" disabled title="Copiar link">Copiar</button>
+                    </div>
+                    <small id="convite-url-ajuda" class="text-muted d-block mt-2 mb-0">Link público de cadastro (mesmo enviado no e-mail). O domínio vem da <strong>APP_URL</strong> em Cobranças → Config.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
+    {% endif %}
+
+<!-- Modal: template HTML do convite a lojistas (Superadmin) -->
+<div class="modal fade" id="modalConviteTemplate" tabindex="-1" aria-labelledby="modalConviteTemplateLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalConviteTemplateLabel">Template do e-mail de convite</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-2">{% raw %}O mesmo HTML é enviado nos convites. Placeholders: {{nome_destinatario}}, {{mensagem_personalizada_html}}, {{cadastro_url}} (obrigatório), {{codigo_linha}}, {{ano}}, {{logo_html}}, {{vitrine_link_html}}. Identidade visual da vitrine: ver MAPA_DO_SISTEMA.md § 12.{% endraw %}</p>
+                <p class="small mb-3"><span id="convite-template-badge" class="badge bg-secondary">—</span></p>
+                <ul class="nav nav-tabs mb-2" id="conviteTemplateTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="convite-tab-edit" data-bs-toggle="tab" data-bs-target="#convite-pane-edit" type="button" role="tab">Editar HTML</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="convite-tab-preview" data-bs-toggle="tab" data-bs-target="#convite-pane-preview" type="button" role="tab">Pré-visualizar</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="conviteTemplateTabContent">
+                    <div class="tab-pane fade show active" id="convite-pane-edit" role="tabpanel">
+                        <textarea class="form-control font-monospace" id="convite-template-html" rows="18" spellcheck="false" style="font-size:12px;"></textarea>
+                    </div>
+                    <div class="tab-pane fade" id="convite-pane-preview" role="tabpanel">
+                        <iframe id="convite-template-preview-frame" title="Pré-visualização do e-mail" sandbox="allow-same-origin allow-popups" style="width:100%;min-height:420px;border:1px solid #dee2e6;border-radius:8px;background:#fff;"></iframe>
+                    </div>
+                </div>
+                <span id="convite-template-msg" class="small d-block mt-2"></span>
+            </div>
+            <div class="modal-footer flex-wrap gap-2">
+                <button type="button" class="btn btn-outline-danger btn-sm" id="btn-convite-template-restaurar">Restaurar padrão do sistema</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" id="btn-convite-template-salvar">Salvar template</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 </div>
 
 <!-- Modal Cliente - CORRIGIDO SEM HERANÇA -->
@@ -393,10 +572,45 @@
         </div>
     </div>
 </div>
+
+{% if user_role == 'Superadministrador' %}
+<div class="modal fade" id="modalPerfilLojista" tabindex="-1" aria-labelledby="modalPerfilLojistaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalPerfilLojistaLabel">Dados do lojista (CA)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="perfil-lojista-loading" class="text-muted small">Carregando...</div>
+                <div id="perfil-lojista-erro" class="alert alert-danger d-none" role="alert"></div>
+                <div id="perfil-lojista-conteudo" class="d-none">
+                    <h6 class="text-muted text-uppercase small mb-2">Empresa</h6>
+                    <dl class="row small mb-3" id="perfil-lojista-empresa"></dl>
+                    <h6 class="text-muted text-uppercase small mb-2">Responsável (Cliente Administrador)</h6>
+                    <dl class="row small mb-3" id="perfil-lojista-responsavel"></dl>
+                    <h6 class="text-muted text-uppercase small mb-2">Dados bancários</h6>
+                    <dl class="row small mb-3" id="perfil-lojista-bancario"></dl>
+                    <h6 class="text-muted text-uppercase small mb-2">Categorias comercializadas (vitrine)</h6>
+                    <div id="perfil-lojista-categorias" class="mb-3"></div>
+                    <h6 class="text-muted text-uppercase small mb-2">Tenant / assinatura</h6>
+                    <dl class="row small mb-3" id="perfil-lojista-tenant"></dl>
+                    <h6 class="text-muted text-uppercase small mb-2">Loja na vitrine</h6>
+                    <dl class="row small mb-0" id="perfil-lojista-loja"></dl>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/clientes.js?v=1.2"></script>
+<script>window.CLIENTES_SUPERADMIN = {% if user_role == 'Superadministrador' %}true{% else %}false{% endif %};</script>
+<script src="/static/js/clientes.js?v=1.5"></script>
 <script>
 // Funções para controlar modais corrigidos
 function fecharModalCliente() {
@@ -485,5 +699,226 @@ async function abrirModalUsuarioCliente(clienteId, clienteNome) {
         // Continuar mesmo se houver erro - pelo menos o nome já está preenchido
     }
 }
+
+(function initConviteComercioSuperadmin() {
+    var formConv = document.getElementById('form-convite-lojista');
+    if (!formConv) return;
+    var btnCopiar = document.getElementById('btn-convite-copiar-link');
+
+    function getTokenConvite() {
+        if (window.clientesManager && typeof window.clientesManager.getToken === 'function') {
+            var t = window.clientesManager.getToken();
+            if (t) return t;
+        }
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/) || document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? m[1] : (sessionStorage.getItem('pdv_automscale_token') || sessionStorage.getItem('pdv_solumatica_token') || '');
+    }
+    function authHeadersConvite() {
+        return { 'Authorization': 'Bearer ' + getTokenConvite(), 'Accept': 'application/json', 'Content-Type': 'application/json' };
+    }
+
+    if (btnCopiar) {
+        btnCopiar.addEventListener('click', function() {
+            var prev = document.getElementById('convite_url_preview');
+            if (!prev || !prev.value) return;
+            var txt = prev.value;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(txt).then(function() {
+                    var obtn = btnCopiar;
+                    var orig = obtn.textContent;
+                    obtn.textContent = 'Copiado!';
+                    setTimeout(function() { obtn.textContent = orig; }, 2000);
+                }).catch(function() {
+                    prev.focus();
+                    prev.select();
+                    try { document.execCommand('copy'); } catch (e1) {}
+                });
+            } else {
+                prev.focus();
+                prev.select();
+                try { document.execCommand('copy'); } catch (e2) {}
+            }
+        });
+    }
+
+    formConv.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var msgC = document.getElementById('msg-convite');
+        var btn = document.getElementById('btn-convite-enviar');
+        var email = document.getElementById('convite_email').value.trim();
+        var nome = document.getElementById('convite_nome').value.trim() || null;
+        var mensagem = document.getElementById('convite_mensagem').value.trim() || null;
+        if (!email) {
+            if (msgC) { msgC.textContent = 'Informe o e-mail.'; msgC.className = 'small d-block mt-2 text-danger'; }
+            return;
+        }
+        if (msgC) { msgC.textContent = 'Enviando...'; msgC.className = 'small d-block mt-2 text-muted'; }
+        if (btn) btn.disabled = true;
+        fetch('/api/v1/admin/billing/onboarding/convite-lojista', {
+            method: 'POST',
+            headers: authHeadersConvite(),
+            credentials: 'same-origin',
+            body: JSON.stringify({ email: email, nome_destinatario: nome, mensagem: mensagem })
+        })
+            .then(function(r) {
+                return r.json().then(function(d) {
+                    if (!r.ok) {
+                        var err = (d.detail && (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail))) || ('Erro ' + r.status);
+                        throw new Error(err);
+                    }
+                    return d;
+                });
+            })
+            .then(function(d) {
+                if (msgC) { msgC.textContent = 'Convite enviado com sucesso.'; msgC.className = 'small d-block mt-2 text-success'; }
+                var prev = document.getElementById('convite_url_preview');
+                if (prev && d.cadastro_url) prev.value = d.cadastro_url;
+                if (btnCopiar) btnCopiar.disabled = !(prev && prev.value);
+            })
+            .catch(function(err) {
+                if (msgC) { msgC.textContent = (err && err.message) ? err.message : 'Falha ao enviar.'; msgC.className = 'small d-block mt-2 text-danger'; }
+            })
+            .finally(function() { if (btn) btn.disabled = false; });
+    });
+
+    function conviteTemplatePreviewLogoHtml() {
+        var origin = (window.location && window.location.origin) ? window.location.origin.replace(/\/+$/, '') : '';
+        if (!origin) {
+            return '<span style="font-size:26px;font-weight:700;color:#2F3A44;">Ibix</span>';
+        }
+        var href = origin;
+        var src = origin + '/static/img/ibix/cab.png';
+        return (
+            '<a href="' + href + '" style="text-decoration:none;display:inline-block;">' +
+            '<img src="' + src + '" alt="Ibix" width="280" style="display:block;margin:0 auto;max-width:280px;width:100%;height:auto;border:0;" />' +
+            '</a>'
+        );
+    }
+
+    function conviteTemplateApplyPlaceholders(html) {
+        if (!html) return '';
+        var ctx = {
+            nome_destinatario: 'Maria Exemplo',
+            mensagem_personalizada_html: '<p class="msg-personalizada" style="margin:12px 0;color:#4A627A;">Texto opcional do convite (mensagem personalizada).</p>',
+            cadastro_url: 'https://www.ibix.com.br/cadastro',
+            codigo_linha: '',
+            ano: String(new Date().getFullYear()),
+            logo_html: conviteTemplatePreviewLogoHtml(),
+            vitrine_link_html: '<p style="text-align:center;font-size:13px;color:#4A627A;margin-top:8px;">Prévia do bloco de link para a vitrine.</p>'
+        };
+        var out = html;
+        Object.keys(ctx).forEach(function(k) {
+            var re = new RegExp('\\{\\{' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\}\\}', 'g');
+            out = out.replace(re, ctx[k]);
+        });
+        return out;
+    }
+
+    function conviteTemplateUpdateBadge(isCustom) {
+        var b = document.getElementById('convite-template-badge');
+        if (!b) return;
+        if (isCustom) {
+            b.textContent = 'Template customizado (gravado em configuracoes)';
+            b.className = 'badge bg-info text-dark';
+        } else {
+            b.textContent = 'Padrão do arquivo no repositório';
+            b.className = 'badge bg-secondary';
+        }
+    }
+
+    function conviteTemplateRefreshPreview() {
+        var ta = document.getElementById('convite-template-html');
+        var fr = document.getElementById('convite-template-preview-frame');
+        if (!ta || !fr) return;
+        try {
+            fr.srcdoc = conviteTemplateApplyPlaceholders(ta.value);
+        } catch (e0) {
+            fr.srcdoc = '<p style="padding:16px;color:#b91c1c;">Pré-visualização indisponível.</p>';
+        }
+    }
+
+    function conviteTemplateLoad() {
+        var msgEl = document.getElementById('convite-template-msg');
+        var ta = document.getElementById('convite-template-html');
+        if (msgEl) { msgEl.textContent = 'Carregando...'; msgEl.className = 'small d-block mt-2 text-muted'; }
+        fetch('/api/v1/admin/billing/onboarding/convite-lojista-template', { headers: authHeadersConvite(), credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error((d.detail && (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail))) || ('Erro ' + r.status)); return d; }); })
+            .then(function(d) {
+                if (ta) ta.value = d.html || '';
+                conviteTemplateUpdateBadge(!!d.is_custom);
+                if (msgEl) { msgEl.textContent = ''; msgEl.className = 'small d-block mt-2'; }
+                conviteTemplateRefreshPreview();
+                if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+            })
+            .catch(function(err) {
+                if (msgEl) { msgEl.textContent = (err && err.message) ? err.message : 'Falha ao carregar template.'; msgEl.className = 'small d-block mt-2 text-danger'; }
+            });
+    }
+
+    var btnTpl = document.getElementById('btn-convite-abrir-template');
+    var modalEl = document.getElementById('modalConviteTemplate');
+    if (btnTpl && modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        btnTpl.addEventListener('click', function() {
+            conviteTemplateLoad();
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        });
+        modalEl.addEventListener('shown.bs.modal', function() {
+            if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+        });
+        var tabPrev = document.getElementById('convite-tab-preview');
+        if (tabPrev) tabPrev.addEventListener('shown.bs.tab', function() { conviteTemplateRefreshPreview(); });
+        var taHtml = document.getElementById('convite-template-html');
+        if (taHtml) taHtml.addEventListener('input', function() {
+            var prevPane = document.getElementById('convite-pane-preview');
+            if (prevPane && prevPane.classList.contains('active')) conviteTemplateRefreshPreview();
+        });
+        var btnSaveTpl = document.getElementById('btn-convite-template-salvar');
+        if (btnSaveTpl) {
+            btnSaveTpl.addEventListener('click', function() {
+                var ta = document.getElementById('convite-template-html');
+                var msgEl = document.getElementById('convite-template-msg');
+                if (!ta) return;
+                btnSaveTpl.disabled = true;
+                fetch('/api/v1/admin/billing/onboarding/convite-lojista-template', {
+                    method: 'PATCH',
+                    headers: authHeadersConvite(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ html: ta.value })
+                }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error((d.detail && (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail))) || ('Erro ' + r.status)); return d; }); })
+                .then(function(d) {
+                    ta.value = d.html || '';
+                    conviteTemplateUpdateBadge(!!d.is_custom);
+                    conviteTemplateRefreshPreview();
+                    if (msgEl) { msgEl.textContent = 'Template salvo.'; msgEl.className = 'small d-block mt-2 text-success'; }
+                }).catch(function(err) {
+                    if (msgEl) { msgEl.textContent = (err && err.message) ? err.message : 'Erro ao salvar.'; msgEl.className = 'small d-block mt-2 text-danger'; }
+                }).finally(function() { btnSaveTpl.disabled = false; });
+            });
+        }
+        var btnResetTpl = document.getElementById('btn-convite-template-restaurar');
+        if (btnResetTpl) {
+            btnResetTpl.addEventListener('click', function() {
+                if (!window.confirm('Restaurar o HTML padrão do sistema? O template customizado será removido.')) return;
+                var msgEl = document.getElementById('convite-template-msg');
+                btnResetTpl.disabled = true;
+                fetch('/api/v1/admin/billing/onboarding/convite-lojista-template', {
+                    method: 'PATCH',
+                    headers: authHeadersConvite(),
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ reset_to_default: true })
+                }).then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error((d.detail && (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail))) || ('Erro ' + r.status)); return d; }); })
+                .then(function(d) {
+                    var ta = document.getElementById('convite-template-html');
+                    if (ta) ta.value = d.html || '';
+                    conviteTemplateUpdateBadge(!!d.is_custom);
+                    conviteTemplateRefreshPreview();
+                    if (msgEl) { msgEl.textContent = 'Template restaurado ao padrão do arquivo.'; msgEl.className = 'small d-block mt-2 text-success'; }
+                }).catch(function(err) {
+                    if (msgEl) { msgEl.textContent = (err && err.message) ? err.message : 'Erro ao restaurar.'; msgEl.className = 'small d-block mt-2 text-danger'; }
+                }).finally(function() { btnResetTpl.disabled = false; });
+            });
+        }
+    }
+})();
 </script>
 {% endblock %} 

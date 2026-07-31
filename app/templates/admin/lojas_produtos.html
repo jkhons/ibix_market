@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+
+{% block title %}Lojas e produtos (vitrine) | PDV Ibix{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Largura da coluna já vem da grelha densa; card ocupa a célula (mesmo tamanho visual ~ que 65% em 4 colunas). */
+    #lp-root .lp-produto-scale-wrap {
+        width: 100%;
+        max-width: 100%;
+    }
+    #lp-root.lp-root--selpad {
+        padding-bottom: 4.5rem;
+    }
+    #lp-selection-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1040;
+        box-shadow: 0 -0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="lp-public-base-hold" class="d-none" data-lp-public-base="{{ montagem_public_base | default('', true) | e }}"></div>
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="h3 d-inline align-middle mb-0">Lojas e produtos</h1>
+        <a href="/admin/montagem_anuncio" class="btn btn-outline-primary btn-sm">Montagem de anúncio</a>
+    </div>
+    <p class="text-muted small mb-3">Apenas Superadministrador. Lojas ativas e anúncios publicados (mesmo critério da vitrine). Marque vários produtos e abra a <strong>fila em Montagem de anúncio</strong> para exportar imagens, vídeo e textos em sequência.</p>
+
+    <div id="lp-alert" class="alert d-none" role="alert"></div>
+    <div id="lp-loading" class="text-muted small py-4">Carregando…</div>
+    <div id="lp-root" class="d-none"></div>
+
+    <div id="lp-selection-bar" class="d-none align-items-center justify-content-between flex-wrap gap-2 bg-white border-top px-3 py-2" role="region" aria-label="Seleção para montagem">
+        <span id="lp-sel-count" class="small fw-semibold"></span>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="lp-sel-clear">Limpar seleção</button>
+            <a class="btn btn-sm btn-primary" id="lp-sel-montagem" href="/admin/montagem_anuncio">Abrir fila em Montagem de anúncio</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    /** Ordem de seleção (IDs) e metadados para a lista em Montagem de anúncio */
+    var lpSelectedIds = [];
+    var lpSelectedMetaById = {};
+
+    function lpSelectedIndex(id) {
+        var n = parseInt(String(id), 10);
+        for (var i = 0; i < lpSelectedIds.length; i++) {
+            if (lpSelectedIds[i] === n) return i;
+        }
+        return -1;
+    }
+
+    function lpRemoveId(id) {
+        var n = parseInt(String(id), 10);
+        lpSelectedIds = lpSelectedIds.filter(function (x) { return x !== n; });
+        delete lpSelectedMetaById[String(n)];
+    }
+
+    function lpQueueRowsForSession() {
+        return lpSelectedIds.map(function (id) {
+            var m = lpSelectedMetaById[String(id)];
+            return {
+                id: id,
+                lojaNome: (m && m.lojaNome) ? m.lojaNome : '—',
+                titulo: (m && m.titulo) ? m.titulo : ('Anúncio #' + id)
+            };
+        });
+    }
+
+    function lpUpdateSelectionBar() {
+        var root = document.getElementById('lp-root');
+        var bar = document.getElementById('lp-selection-bar');
+        var count = document.getElementById('lp-sel-count');
+        var link = document.getElementById('lp-sel-montagem');
+        if (!bar || !count || !link) return;
+        var n = lpSelectedIds.length;
+        if (n === 0) {
+            bar.classList.add('d-none');
+            bar.classList.remove('d-flex');
+            if (root) root.classList.remove('lp-root--selpad');
+            return;
+        }
+        bar.classList.remove('d-none');
+        bar.classList.add('d-flex');
+        if (root) root.classList.add('lp-root--selpad');
+        count.textContent = n === 1 ? '1 produto selecionado' : n + ' produtos selecionados';
+        link.href = '/admin/montagem_anuncio?anuncio_ids=' + lpSelectedIds.join(',');
+        lpBindMontagemLinkSession();
+    }
+
+    function lpBindMontagemLinkSession() {
+        var link = document.getElementById('lp-sel-montagem');
+        if (!link || link.getAttribute('data-lp-session-bound')) return;
+        link.setAttribute('data-lp-session-bound', '1');
+        link.addEventListener('click', function () {
+            try {
+                sessionStorage.setItem('pdv_ma_queue_rows', JSON.stringify(lpQueueRowsForSession()));
+            } catch (e0) {}
+        });
+    }
+
+    function lpSyncCheckboxStates(root) {
+        if (!root) return;
+        var inputs = root.querySelectorAll('input.lp-produto-cb[type="checkbox"]');
+        Array.prototype.forEach.call(inputs, function (inp) {
+            var aid = parseInt(inp.getAttribute('data-lp-aid'), 10);
+            inp.checked = lpSelectedIndex(aid) >= 0;
+        });
+        Array.prototype.forEach.call(root.querySelectorAll('input.lp-sel-all-loja[type="checkbox"]'), function (cbAll) {
+            var idsJson = cbAll.getAttribute('data-lp-ids');
+            var ids = [];
+            try {
+                ids = JSON.parse(idsJson || '[]');
+            } catch (eJ) {
+                ids = [];
+            }
+            var sel = 0;
+            for (var j = 0; j < ids.length; j++) {
+                if (lpSelectedIndex(ids[j]) >= 0) sel++;
+            }
+            cbAll.checked = ids.length > 0 && sel === ids.length;
+            cbAll.indeterminate = sel > 0 && sel < ids.length;
+        });
+    }
+
+    function publicBase() {
+        var el = document.getElementById('lp-public-base-hold');
+        var raw = el && el.getAttribute('data-lp-public-base');
+        if (raw && String(raw).trim()) return String(raw).trim().replace(/\/$/, '');
+        return window.location.origin.replace(/\/$/, '');
+    }
+
+    function lpFetch(url, options) {
+        if (typeof window.authenticatedFetch === 'function') {
+            return window.authenticatedFetch(url, options || {});
+        }
+        var opts = options || {};
+        var headers = Object.assign({ 'Accept': 'application/json' }, opts.headers || {});
+        var token = typeof window.getAuthToken === 'function' ? window.getAuthToken() : null;
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        return fetch(url, Object.assign({}, opts, { credentials: 'include', headers: headers }));
+    }
+
+    function slugifyLp(value) {
+        var text = (value || '').trim().toLowerCase();
+        text = text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+        text = text.replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        return text || 'produto';
+    }
+
+    function produtoPublicUrl(titulo, id) {
+        return publicBase() + '/loja/produto/' + slugifyLp(titulo) + '-' + id;
+    }
+
+    function showAlert(msg, ok) {
+        var a = document.getElementById('lp-alert');
+        if (!a) return;
+        a.className = 'alert ' + (ok ? 'alert-success' : 'alert-danger');
+        a.textContent = msg;
+        a.classList.remove('d-none');
+    }
+
+    function fmtPreco(s) {
+        if (s == null || s === '') return '—';
+        var n = parseFloat(String(s).replace(',', '.'));
+        if (isNaN(n)) return String(s);
+        return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function render(data) {
+        var root = document.getElementById('lp-root');
+        if (!root) return;
+        root.innerHTML = '';
+        var lojas = (data && data.lojas) ? data.lojas : [];
+        var meta = document.createElement('p');
+        meta.className = 'small text-muted mb-3';
+        var totalAtivas = data && data.total_lojas_ativas != null ? data.total_lojas_ativas : lojas.length;
+        meta.textContent = 'Lojas ativas no sistema: ' + totalAtivas + '. Exibindo nesta página: ' + lojas.length + '.';
+        root.appendChild(meta);
+
+        if (!lojas.length) {
+            var empty = document.createElement('p');
+            empty.className = 'text-muted';
+            empty.textContent = 'Nenhuma loja ativa encontrada (ou fora do intervalo de paginação).';
+            root.appendChild(empty);
+            lpSyncCheckboxStates(root);
+            lpUpdateSelectionBar();
+            return;
+        }
+
+        lojas.forEach(function (block) {
+            var loja = block.loja || {};
+            var slug = (loja.slug || '').trim();
+            var nome = (loja.nome_loja || loja.nome_fantasia || 'Loja #' + loja.id).trim();
+            var card = document.createElement('section');
+            card.className = 'card mb-4 shadow-sm';
+            var head = document.createElement('div');
+            head.className = 'card-header d-flex flex-wrap justify-content-between align-items-center gap-2 py-3';
+            var h2 = document.createElement('h2');
+            h2.className = 'h5 mb-0';
+            h2.textContent = nome;
+            head.appendChild(h2);
+            var headMeta = document.createElement('div');
+            headMeta.className = 'small text-muted';
+            var parts = [];
+            if (slug) parts.push('Slug: ' + slug);
+            parts.push('ID loja ' + loja.id);
+            if (loja.cliente_id) parts.push('Cliente #' + loja.cliente_id);
+            headMeta.textContent = parts.join(' · ');
+            head.appendChild(headMeta);
+            if (slug) {
+                var lojaLink = document.createElement('a');
+                lojaLink.className = 'btn btn-sm btn-outline-secondary';
+                lojaLink.href = publicBase() + '/' + encodeURIComponent(slug);
+                lojaLink.target = '_blank';
+                lojaLink.rel = 'noopener noreferrer';
+                lojaLink.textContent = 'Abrir vitrine da loja';
+                head.appendChild(lojaLink);
+            }
+            card.appendChild(head);
+
+            var body = document.createElement('div');
+            body.className = 'card-body p-2';
+            var totalAn = block.total_anuncios != null ? block.total_anuncios : (block.anuncios || []).length;
+            var sub = document.createElement('p');
+            sub.className = 'small text-muted mb-3';
+            sub.textContent = 'Anúncios publicados: ' + totalAn + (block.anuncios_truncados ? ' (lista limitada nesta página — ajuste limites na API se necessário).' : '.');
+            body.appendChild(sub);
+
+            var list = block.anuncios || [];
+            if (!list.length) {
+                var p0 = document.createElement('p');
+                p0.className = 'text-muted mb-0 small';
+                p0.textContent = 'Nenhum anúncio publicado nesta loja.';
+                body.appendChild(p0);
+            } else {
+                var idsForLoja = list.map(function (an) { return an.id; });
+                var rowSel = document.createElement('div');
+                rowSel.className = 'd-flex align-items-center gap-2 mb-2 flex-wrap';
+                var lblAll = document.createElement('label');
+                lblAll.className = 'form-check small d-flex align-items-center gap-2 mb-0';
+                var cbAll = document.createElement('input');
+                cbAll.type = 'checkbox';
+                cbAll.className = 'form-check-input lp-sel-all-loja';
+                cbAll.setAttribute('data-lp-ids', JSON.stringify(idsForLoja));
+                cbAll.setAttribute('title', 'Marca ou desmarca todos os anúncios desta loja nesta página');
+                var spanAll = document.createElement('span');
+                spanAll.className = 'text-muted';
+                spanAll.textContent = 'Selecionar todos desta loja';
+                lblAll.appendChild(cbAll);
+                lblAll.appendChild(spanAll);
+                rowSel.appendChild(lblAll);
+                body.appendChild(rowSel);
+                cbAll.addEventListener('change', function () {
+                    list.forEach(function (an) {
+                        var idn = parseInt(String(an.id), 10);
+                        var titx = (an.titulo || '').trim() || ('Anúncio #' + an.id);
+                        if (cbAll.checked) {
+                            if (lpSelectedIndex(idn) < 0) lpSelectedIds.push(idn);
+                            lpSelectedMetaById[String(idn)] = { lojaNome: nome, titulo: titx };
+                        } else {
+                            lpRemoveId(idn);
+                        }
+                    });
+                    lpSyncCheckboxStates(document.getElementById('lp-root'));
+                    lpUpdateSelectionBar();
+                });
+
+                var grid = document.createElement('div');
+                grid.className = 'row lp-produtos-grid row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 row-cols-xl-6 g-1';
+                list.forEach(function (an) {
+                    var tit = (an.titulo || '').trim() || ('Anúncio #' + an.id);
+                    var col = document.createElement('div');
+                    col.className = 'col';
+                    var scaleWrap = document.createElement('div');
+                    scaleWrap.className = 'lp-produto-scale-wrap';
+                    var pc = document.createElement('div');
+                    pc.className = 'lp-produto-card border rounded p-1 d-flex flex-column bg-light w-100 position-relative';
+                    var chk = document.createElement('input');
+                    chk.type = 'checkbox';
+                    chk.className = 'form-check-input position-absolute lp-produto-cb';
+                    chk.style.top = '0.2rem';
+                    chk.style.left = '0.2rem';
+                    chk.style.zIndex = '2';
+                    chk.setAttribute('data-lp-aid', String(an.id));
+                    chk.setAttribute('aria-label', 'Incluir na fila de montagem');
+                    chk.checked = lpSelectedIndex(an.id) >= 0;
+                    chk.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                    });
+                    chk.addEventListener('change', function () {
+                        var idn = parseInt(String(an.id), 10);
+                        if (chk.checked) {
+                            if (lpSelectedIndex(idn) < 0) lpSelectedIds.push(idn);
+                            lpSelectedMetaById[String(idn)] = { lojaNome: nome, titulo: tit };
+                        } else {
+                            lpRemoveId(idn);
+                        }
+                        lpSyncCheckboxStates(document.getElementById('lp-root'));
+                        lpUpdateSelectionBar();
+                    });
+                    pc.appendChild(chk);
+                    var imgWrap = document.createElement('div');
+                    imgWrap.className = 'ratio ratio-1x1 bg-white border rounded mb-2 overflow-hidden d-flex align-items-center justify-content-center';
+                    if (an.thumb_url) {
+                        var im = document.createElement('img');
+                        im.src = an.thumb_url;
+                        im.alt = '';
+                        im.className = 'w-100 h-100';
+                        im.style.objectFit = 'cover';
+                        imgWrap.appendChild(im);
+                    } else {
+                        var ph = document.createElement('span');
+                        ph.className = 'text-muted small';
+                        ph.textContent = 'Sem imagem';
+                        imgWrap.appendChild(ph);
+                    }
+                    pc.appendChild(imgWrap);
+                    var t = document.createElement('div');
+                    t.className = 'fw-semibold small flex-grow-1';
+                    t.textContent = tit;
+                    pc.appendChild(t);
+                    var pr = document.createElement('div');
+                    pr.className = 'small mt-1';
+                    var prom = an.preco_promocional && String(an.preco_promocional).trim() && parseFloat(String(an.preco_promocional).replace(',', '.')) > 0;
+                    if (prom) {
+                        pr.innerHTML = '<span class="text-decoration-line-through text-muted me-1">' + fmtPreco(an.preco_original) + '</span><span class="text-success fw-bold">' + fmtPreco(an.preco_promocional) + '</span>';
+                    } else {
+                        pr.textContent = fmtPreco(an.preco_original);
+                    }
+                    pc.appendChild(pr);
+                    var actions = document.createElement('div');
+                    actions.className = 'mt-2 d-grid gap-1';
+                    var btnM = document.createElement('a');
+                    btnM.className = 'btn btn-primary btn-sm';
+                    btnM.href = '/admin/montagem_anuncio?anuncio_id=' + encodeURIComponent(String(an.id));
+                    btnM.textContent = 'Montar anúncio';
+                    actions.appendChild(btnM);
+                    var btnV = document.createElement('a');
+                    btnV.className = 'btn btn-outline-secondary btn-sm';
+                    btnV.href = produtoPublicUrl(tit, an.id);
+                    btnV.target = '_blank';
+                    btnV.rel = 'noopener noreferrer';
+                    btnV.textContent = 'Ver na vitrine';
+                    actions.appendChild(btnV);
+                    pc.appendChild(actions);
+                    scaleWrap.appendChild(pc);
+                    col.appendChild(scaleWrap);
+                    grid.appendChild(col);
+                });
+                body.appendChild(grid);
+            }
+            card.appendChild(body);
+            root.appendChild(card);
+        });
+        lpSyncCheckboxStates(root);
+        lpUpdateSelectionBar();
+    }
+
+    var btnClr = document.getElementById('lp-sel-clear');
+    if (btnClr) {
+        btnClr.addEventListener('click', function () {
+            lpSelectedIds = [];
+            lpSelectedMetaById = {};
+            lpSyncCheckboxStates(document.getElementById('lp-root'));
+            lpUpdateSelectionBar();
+        });
+    }
+
+    lpFetch('/api/v1/marketplace/admin/lojas-anuncios-vitrine?limit_lojas=200&limit_anuncios_por_loja=200')
+        .then(function (r) {
+            if (!r.ok) throw new Error();
+            return r.json();
+        })
+        .then(function (data) {
+            document.getElementById('lp-loading').classList.add('d-none');
+            document.getElementById('lp-root').classList.remove('d-none');
+            render(data);
+        })
+        .catch(function () {
+            document.getElementById('lp-loading').classList.add('d-none');
+            showAlert('Não foi possível carregar os dados. Verifique se está autenticado como Superadmin.', false);
+        });
+})();
+</script>
+{% endblock %}

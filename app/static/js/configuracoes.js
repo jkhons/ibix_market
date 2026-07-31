@@ -387,9 +387,6 @@ async function carregarConfiguracoesAlertas() {
             if (document.getElementById('notifNovoAgendamento')) {
                 document.getElementById('notifNovoAgendamento').checked = configs.notif_novo_agendamento;
             }
-            if (document.getElementById('notifCertificadoVencendo')) {
-                document.getElementById('notifCertificadoVencendo').checked = configs.notif_certificado_vencendo;
-            }
             if (document.getElementById('notifContratoVencendo')) {
                 document.getElementById('notifContratoVencendo').checked = configs.notif_contrato_vencendo;
             }
@@ -412,7 +409,6 @@ async function salvarConfiguracoesAlertasAPI() {
         intervalo_atualizacao: parseInt(document.getElementById('intervaloAtualizacao').value),
         notif_agendamento_hoje: document.getElementById('notifAgendamentoHoje').checked,
         notif_novo_agendamento: document.getElementById('notifNovoAgendamento').checked,
-        notif_certificado_vencendo: document.getElementById('notifCertificadoVencendo').checked,
         notif_contrato_vencendo: document.getElementById('notifContratoVencendo').checked
     };
     

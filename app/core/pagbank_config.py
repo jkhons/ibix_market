@@ -11,10 +11,15 @@ def _get_from_configuracoes(db: Optional[Session], chave: str) -> Optional[str]:
     if not db:
         return None
     try:
+        from app.core.billing_secrets import decrypt_stored_secret, is_billing_secret_key
         from app.models.configuracao import Configuracao
+
         row = db.query(Configuracao).filter(Configuracao.chave == chave).first()
         if row and row.valor:
-            return row.valor.strip()
+            raw = row.valor.strip()
+            if is_billing_secret_key(chave):
+                return decrypt_stored_secret(raw)
+            return raw
     except Exception:
         pass
     return None

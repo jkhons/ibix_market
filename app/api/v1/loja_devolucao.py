@@ -25,7 +25,13 @@ from ...services.devolucao_service import (
 )
 from .loja import get_current_consumidor
 
-router = APIRouter(prefix="/loja", tags=["Loja – Cancelamento/Devolução"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja",
+    tags=["Loja – Cancelamento/Devolução"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 def _error(status_code: int, detail: str, code: str):

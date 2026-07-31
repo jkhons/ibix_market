@@ -22,6 +22,11 @@ from ...models.repasse import Repasse
 from ...models.repasse_status import RepasseStatus
 from ...models.usuario import Usuario
 from ...models.venda import Venda
+from ...services.payments.marketplace_unified_payment_scope import (
+    amount_payment_transaction_para_estabelecimento,
+    filter_transactions_query_for_estabelecimento,
+    listagem_sessao_valores_para_tenant,
+)
 
 router = APIRouter(
     prefix="/negocio/financeiro/repasses",
@@ -141,16 +146,28 @@ async def listar_transacoes_repasse(
         )
     )
     if cliente_id:
-        q = q.filter(PaymentTransaction.cliente_id == cliente_id)
+        q = filter_transactions_query_for_estabelecimento(q, cliente_id)
     rows = q.order_by(PaymentTransaction.id.desc()).limit(limit).all()
     result = []
     for tx in rows:
-        cli = db.query(Cliente).filter(Cliente.id == tx.cliente_id).first()
+        display_cliente_id = cliente_id if cliente_id is not None else tx.cliente_id
+        cli = db.query(Cliente).filter(Cliente.id == display_cliente_id).first()
         numero_pedido = None
         numero_venda = None
-        if tx.pedido_id:
+        if cliente_id is not None and tx.checkout_session_id:
+            _, numeros_concat, primeiro_pid = listagem_sessao_valores_para_tenant(
+                db,
+                checkout_session_id=tx.checkout_session_id,
+                viewer_tenant_id=cliente_id,
+            )
+            numero_pedido = numeros_concat
+            ped_ref_id = primeiro_pid
+        elif tx.pedido_id:
             ped = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == tx.pedido_id).first()
             numero_pedido = ped.numero_pedido if ped else None
+            ped_ref_id = tx.pedido_id
+        else:
+            ped_ref_id = tx.pedido_id
         if tx.venda_id:
             venda = db.query(Venda).filter(Venda.id == tx.venda_id).first()
             numero_venda = venda.numero_venda if venda else None
@@ -158,7 +175,7 @@ async def listar_transacoes_repasse(
         emp = (
             db.query(Empresa)
             .filter(
-                Empresa.cliente_id == tx.cliente_id,
+                Empresa.cliente_id == display_cliente_id,
                 Empresa.modo_recebimento == "plataforma",
                 Empresa.ativo.is_(True),
             )
@@ -166,7 +183,10 @@ async def listar_transacoes_repasse(
         )
         pct = (emp.taxa_plataforma_percentual or Decimal("0")) if emp else Decimal("0")
         fixo = (emp.taxa_plataforma_valor_fixo or Decimal("0")) if emp else Decimal("0")
-        amount = tx.amount or Decimal("0")
+        if cliente_id is not None:
+            amount = amount_payment_transaction_para_estabelecimento(db, tx, cliente_id)
+        else:
+            amount = tx.amount or Decimal("0")
         valor_taxa = (amount * pct / Decimal("100")) + fixo
         valor_liquido = amount - valor_taxa
 
@@ -174,14 +194,14 @@ async def listar_transacoes_repasse(
         result.append(TransacaoRepasseResponse(
             id=tx.id,
             uuid=tx.uuid,
-            cliente_id=tx.cliente_id,
+            cliente_id=display_cliente_id,
             cliente_nome=cli.nome if cli else None,
             amount=amount,
             status=tx.status or "",
             payment_method=tx.payment_method,
             created_at=tx.created_at,
             paid_at=tx.paid_at,
-            pedido_id=tx.pedido_id,
+            pedido_id=ped_ref_id,
             numero_pedido=numero_pedido,
             venda_id=tx.venda_id,
             numero_venda=numero_venda,
@@ -271,32 +291,26 @@ async def sugestao_repasse(
     dt_inicio = datetime.combine(periodo_inicio, datetime.min.time())
     dt_fim = datetime.combine(periodo_fim + timedelta(days=1), datetime.min.time())
 
-    q = (
-        db.query(
-            func.coalesce(func.sum(PaymentTransaction.amount), 0).label("total"),
-            func.count(PaymentTransaction.id).label("cnt"),
-        )
-        .filter(
-            PaymentTransaction.cliente_id == cliente_id,
-            PaymentTransaction.modo_recebimento == "plataforma",
-            PaymentTransaction.status.in_(["paid", "authorized"]),
-            or_(
-                and_(
-                    PaymentTransaction.paid_at.isnot(None),
-                    PaymentTransaction.paid_at >= dt_inicio,
-                    PaymentTransaction.paid_at < dt_fim,
-                ),
-                and_(
-                    PaymentTransaction.paid_at.is_(None),
-                    PaymentTransaction.created_at >= dt_inicio,
-                    PaymentTransaction.created_at < dt_fim,
-                ),
+    q = db.query(PaymentTransaction).filter(
+        PaymentTransaction.modo_recebimento == "plataforma",
+        PaymentTransaction.status.in_(["paid", "authorized"]),
+        or_(
+            and_(
+                PaymentTransaction.paid_at.isnot(None),
+                PaymentTransaction.paid_at >= dt_inicio,
+                PaymentTransaction.paid_at < dt_fim,
             ),
-        )
+            and_(
+                PaymentTransaction.paid_at.is_(None),
+                PaymentTransaction.created_at >= dt_inicio,
+                PaymentTransaction.created_at < dt_fim,
+            ),
+        ),
     )
-    row = q.first()
-    vendas_bruto = (row.total or Decimal("0")) if row else Decimal("0")
-    tx_count = (row.cnt or 0) if row else 0
+    q = filter_transactions_query_for_estabelecimento(q, cliente_id)
+    rows = q.all()
+    vendas_bruto = sum(amount_payment_transaction_para_estabelecimento(db, tx, cliente_id) for tx in rows)
+    tx_count = len(rows)
     valor_taxa = (vendas_bruto * pct / Decimal("100")) + (fixo * tx_count)
     valor_liquido = vendas_bruto - valor_taxa
 
@@ -328,16 +342,6 @@ async def resumo_por_ca(
             continue
         cli = db.query(Cliente).filter(Cliente.id == cid).first()
 
-        vendas_bruto = (
-            db.query(func.coalesce(func.sum(PaymentTransaction.amount), 0))
-            .filter(
-                PaymentTransaction.cliente_id == cid,
-                PaymentTransaction.modo_recebimento == "plataforma",
-                PaymentTransaction.status.in_(["paid", "authorized"]),
-            )
-            .scalar()
-        ) or Decimal("0")
-
         total_repassado = (
             db.query(func.coalesce(func.sum(Repasse.valor_liquido), 0))
             .filter(Repasse.cliente_id == cid, Repasse.status == "repassado")
@@ -346,15 +350,18 @@ async def resumo_por_ca(
 
         pct = emp.taxa_plataforma_percentual or Decimal("0")
         fixo = emp.taxa_plataforma_valor_fixo or Decimal("0")
-        tx_count = (
-            db.query(func.count(PaymentTransaction.id))
+
+        q_tx = (
+            db.query(PaymentTransaction)
             .filter(
-                PaymentTransaction.cliente_id == cid,
                 PaymentTransaction.modo_recebimento == "plataforma",
                 PaymentTransaction.status.in_(["paid", "authorized"]),
             )
-            .scalar()
-        ) or 0
+        )
+        q_tx = filter_transactions_query_for_estabelecimento(q_tx, cid)
+        rows_tx = q_tx.all()
+        vendas_bruto = sum(amount_payment_transaction_para_estabelecimento(db, tx, cid) for tx in rows_tx)
+        tx_count = len(rows_tx)
         total_taxa = (vendas_bruto * pct / Decimal("100")) + (fixo * tx_count)
 
         saldo = vendas_bruto - total_taxa - total_repassado

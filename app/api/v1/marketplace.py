@@ -6,10 +6,11 @@ import os
 import re
 import uuid
 from decimal import Decimal
-from typing import List, Optional
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from ...core.middleware import forbid_cliente_access, get_cliente_scope_dep, require_permission, require_superadmin
@@ -35,6 +36,7 @@ from ...models import (
     LojaSlugHistory,
     PedidoItemMarketplace,
     PedidoMarketplace,
+    PlataformaCidadeCobertura,
     ProdutoCliente,
     StatusPedidoMarketplace,
     SyncControle,
@@ -67,17 +69,62 @@ from ...schemas.marketplace import (
     StatusPedidoMarketplaceUpdate,
 )
 from ...schemas.marketplace_taxa import MarketplaceTaxasVigentesResponse
+from ...schemas.plataforma_cidade_cobertura import (
+    PlataformaCidadeCoberturaAdmin,
+    PlataformaCidadeCoberturaCreate,
+    PlataformaCidadeCoberturaUpdate,
+)
 from ...services.cupom_receipt import gerar_cupom_resumo_pedido_marketplace
 from ...services.marketplace_reparacao_comprador_service import reparar_comprador_pedidos
 from ...services.marketplace_taxa_service import montar_preview, resolver_regra_e_payload
 from ...services.pedido_status_evento_service import registrar_pedido_status_evento
+from ...services.plataforma_cobertura_service import (
+    garantir_linha_duplicada_evitada,
+    validar_areas_loja_na_cobertura,
+)
 from ...services.websocket_manager import publish_event as publish_consumidor_event
 from ...services.reserva_estoque_marketplace_service import restore_marketplace_pedido_stock
 from ...utils.cnpj_validator import formatar_cnpj
 from ...utils.cpf_validator import CPFValidator
 
-router = APIRouter(prefix="/marketplace", tags=["Marketplace"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(prefix="/marketplace", tags=["Marketplace"], dependencies=MARKETPLACE_ROUTER_DEPENDENCIES)
 FRETE_FORMATOS_VALIDOS = {"sem_frete", "gratis", "taxa_fixa", "plataforma"}
+
+# ------------------------------------------------------------------------------
+# IMPORTANTE: Toda a configuração de TRANSPORTE da loja (frete, modo de entrega,
+# taxa fixa, entrega grátis, raio, áreas) foi movida para `app/api/v1/transporte.py`.
+# Esta API NÃO aceita mais campos de frete em POST/PATCH de loja — esses campos
+# disparam HTTP 400 com instrução para usar `/api/v1/transporte/loja/{id}`.
+# Evoluções futuras (prazos de entrega, SLAs por região, custo do entregador por
+# categoria, regras de cobertura avançadas) também ficam em transporte.py.
+# Áreas de entrega: leitura/mutação continuam aqui (endpoints já existentes),
+# expostas também em `/api/v1/transporte/loja/{id}/areas` como alias somente leitura.
+# ------------------------------------------------------------------------------
+_CAMPOS_TRANSPORTE_BLOQUEADOS = {
+    "formato_frete",
+    "taxa_entrega_fixa",
+    "entrega_gratis_apos",
+    "tipo_entrega",
+    "raio_entrega_km",
+}
+
+
+def _bloquear_campos_transporte(update_data: dict) -> None:
+    """Garante que campos de transporte não trafeguem por endpoints de loja em marketplace.
+
+    Use `PATCH /api/v1/transporte/loja/{loja_id}` para alterar transporte.
+    """
+    encontrados = sorted(c for c in _CAMPOS_TRANSPORTE_BLOQUEADOS if c in update_data)
+    if encontrados:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Campos de transporte não são mais aceitos aqui: "
+                f"{', '.join(encontrados)}. Use PATCH /api/v1/transporte/loja/{{loja_id}}."
+            ),
+        )
 
 
 def _resumo_endereco_cliente_cupom(c: Optional[Cliente]) -> str:
@@ -327,6 +374,41 @@ def _galeria_produto_para_imagens(prod: ProdutoCliente) -> Optional[str]:
     return json.dumps(urls) if urls else None
 
 
+def _normalize_thumb_url(url: str) -> str:
+    """Mesma regra que a vitrine pública: paths relativos viram prefixo /static/."""
+    if not url or not isinstance(url, str):
+        return ""
+    u = url.strip()
+    if u.startswith("http://") or u.startswith("https://") or u.startswith("/"):
+        return u
+    return "/static/" + u if u else ""
+
+
+def _imagens_anuncio_para_thumbs(anuncio: AnuncioPlataforma, prod: Optional[ProdutoCliente]) -> List[str]:
+    """Lista de URLs do anúncio; se vazio, galeria do produto (sem query extra ao DB)."""
+    imgs: List[str] = []
+    raw_im = getattr(anuncio, "imagens", None)
+    if raw_im is not None:
+        try:
+            parsed = json.loads(raw_im) if isinstance(raw_im, str) else raw_im
+            if isinstance(parsed, list):
+                imgs = [_normalize_thumb_url(str(u)) for u in parsed if u]
+        except (TypeError, json.JSONDecodeError):
+            imgs = []
+    if imgs:
+        return imgs
+    if prod is not None:
+        gal = _galeria_produto_para_imagens(prod)
+        if gal:
+            try:
+                parsed = json.loads(gal)
+                if isinstance(parsed, list):
+                    return [_normalize_thumb_url(str(u)) for u in parsed if u]
+            except (TypeError, json.JSONDecodeError):
+                pass
+    return []
+
+
 # --- Categorias plataforma (Superadmin ou Admin) ---
 @router.get("/categorias", response_model=List[CategoriaPlataformaResponse])
 async def listar_categorias_plataforma(
@@ -417,6 +499,89 @@ async def listar_lojas_superadmin(
     return {"items": [i.model_dump() for i in items], "total": total}
 
 
+@router.get("/admin/lojas-anuncios-vitrine", response_model=dict, dependencies=[Depends(require_superadmin())])
+async def admin_lojas_anuncios_vitrine(
+    limit_lojas: int = Query(200, ge=1, le=500, description="Máximo de lojas ativas retornadas (paginação)."),
+    skip_lojas: int = Query(0, ge=0, description="Offset na lista de lojas ativas (ordenada por nome)."),
+    limit_anuncios_por_loja: int = Query(200, ge=1, le=500, description="Máximo de anúncios publicados por loja no payload."),
+    db: Session = Depends(get_db),
+):
+    """Agrupa lojas marketplace ativas com anúncios publicados (mesmo critério da vitrine). Superadmin only."""
+    loja_q = (
+        db.query(LojaMarketplace)
+        .filter(LojaMarketplace.status == "ativo")
+        .order_by(func.lower(func.coalesce(LojaMarketplace.nome_loja, "")), LojaMarketplace.id)
+    )
+    total_lojas_ativas = loja_q.count()
+    lojas: List[LojaMarketplace] = loja_q.offset(skip_lojas).limit(limit_lojas).all()
+    loja_ids = [lz.id for lz in lojas]
+    if not loja_ids:
+        return {
+            "lojas": [],
+            "total_lojas_ativas": total_lojas_ativas,
+            "skip_lojas": skip_lojas,
+            "limit_lojas": limit_lojas,
+            "limit_anuncios_por_loja": limit_anuncios_por_loja,
+        }
+
+    anuncios_rows: List[AnuncioPlataforma] = (
+        db.query(AnuncioPlataforma)
+        .options(joinedload(AnuncioPlataforma.produto_cliente), joinedload(AnuncioPlataforma.loja))
+        .filter(AnuncioPlataforma.status == "publicado", AnuncioPlataforma.loja_id.in_(loja_ids))
+        .order_by(AnuncioPlataforma.loja_id, func.lower(AnuncioPlataforma.titulo), AnuncioPlataforma.id)
+        .all()
+    )
+
+    by_loja: Dict[int, List[AnuncioPlataforma]] = defaultdict(list)
+    for an in anuncios_rows:
+        by_loja[an.loja_id].append(an)
+
+    out: List[Dict[str, Any]] = []
+    for loja in lojas:
+        row_list = by_loja.get(loja.id, [])
+        total_an = len(row_list)
+        sliced = row_list[:limit_anuncios_por_loja]
+        an_items: List[Dict[str, Any]] = []
+        for an in sliced:
+            prod = getattr(an, "produto_cliente", None)
+            thumbs = _imagens_anuncio_para_thumbs(an, prod)
+            slug_loja = (loja.slug or "").strip() or None
+            an_items.append(
+                {
+                    "id": an.id,
+                    "titulo": (an.titulo or "").strip() or f"Anúncio #{an.id}",
+                    "thumb_url": thumbs[0] if thumbs else None,
+                    "preco_original": str(an.preco_original) if an.preco_original is not None else None,
+                    "preco_promocional": str(an.preco_promocional) if an.preco_promocional is not None else None,
+                    "slug_loja": slug_loja,
+                }
+            )
+        loja_brief = {
+            "id": loja.id,
+            "cliente_id": loja.cliente_id,
+            "nome_loja": loja.nome_loja,
+            "nome_fantasia": loja.nome_fantasia,
+            "slug": loja.slug,
+            "status": loja.status,
+        }
+        out.append(
+            {
+                "loja": loja_brief,
+                "anuncios": an_items,
+                "total_anuncios": total_an,
+                "anuncios_truncados": total_an > len(sliced),
+            }
+        )
+
+    return {
+        "lojas": out,
+        "total_lojas_ativas": total_lojas_ativas,
+        "skip_lojas": skip_lojas,
+        "limit_lojas": limit_lojas,
+        "limit_anuncios_por_loja": limit_anuncios_por_loja,
+    }
+
+
 @router.get("/loja", response_model=Optional[LojaMarketplaceResponse])
 async def obter_minha_loja(
     cliente_id: int = Query(..., description="Estabelecimento (clientes.id)"),
@@ -454,8 +619,11 @@ async def ativar_loja(
     if slug_norm:
         slug_norm = generate_unique_slug(db, LojaMarketplace, slug_norm, field_name="slug")
     payload = _prepare_loja_seo_fields(body.model_dump())
+    _bloquear_campos_transporte(payload)
     nome_f = payload.get("nome_fantasia") or payload.get("nome_loja")
     desc_long = payload.get("descricao_longa") or payload.get("descricao")
+    # Transporte: defaults seguros (modo Retirada). Para configurar, usar
+    # PATCH /api/v1/transporte/loja/{id}.
     loja = LojaMarketplace(
         cliente_id=body.cliente_id,
         status="ativo",  # loja ativa para aparecer na vitrine
@@ -477,10 +645,6 @@ async def ativar_loja(
         vitrine_hero_titulo_uma_linha=bool(payload.get("vitrine_hero_titulo_uma_linha", False)),
         logo_url=payload.get("logo_url"),
         banner_url=payload.get("banner_url"),
-        tipo_entrega=payload.get("tipo_entrega"),
-        raio_entrega_km=payload.get("raio_entrega_km"),
-        taxa_entrega_fixa=payload.get("taxa_entrega_fixa"),
-        entrega_gratis_apos=payload.get("entrega_gratis_apos"),
     )
     db.add(loja)
     db.commit()
@@ -503,6 +667,7 @@ async def atualizar_loja(
     if allowed is not None and loja.cliente_id not in allowed:
         raise HTTPException(status_code=403, detail="Loja fora do escopo")
     update_data = body.model_dump(exclude_unset=True)
+    _bloquear_campos_transporte(update_data)
     _sync_loja_descricao_campos(update_data)
     update_data = _prepare_loja_seo_fields(update_data)
     if "categoria_principal" in update_data or "cidade_seo" in update_data:
@@ -532,10 +697,6 @@ async def atualizar_loja(
                     exclude_id=loja.id,
                 )
         update_data["slug"] = slug_norm
-    campos_frete_restritos = {"formato_frete", "taxa_entrega_fixa", "entrega_gratis_apos"}
-    if any(c in update_data for c in campos_frete_restritos):
-        if not current_user.role or current_user.role.nome != "Superadministrador":
-            raise HTTPException(status_code=403, detail="Apenas Superadministrador pode alterar formato de frete da loja")
     logo_blob = update_data.pop("logo_blob", None)
     banner_blob = update_data.pop("banner_blob", None)
     if logo_blob:
@@ -1205,6 +1366,12 @@ async def listar_consumidores_marketplace(
     tenant_id: Optional[int] = Query(None, description="clientes.id do estabelecimento"),
     tipo_consumidor: Optional[str] = Query(None),
     status_cadastro: Optional[str] = Query(None),
+    nome: Optional[str] = Query(None, description="Contém (ilike), máx. 120 caracteres"),
+    email: Optional[str] = Query(None, description="Contém (ilike), máx. 120 caracteres"),
+    somente_cadastro_loja_html: bool = Query(
+        False,
+        description="Se true, apenas contas criadas pelo formulário POST /loja/cadastro (e legado equivalente: senha, sem rede social).",
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -1216,6 +1383,18 @@ async def listar_consumidores_marketplace(
     if tenant_id is not None and allowed is not None and tenant_id not in allowed:
         raise HTTPException(status_code=403, detail="Tenant fora do escopo")
     q = db.query(ConsumidorMarketplace).filter(ConsumidorMarketplace.deleted_at.is_(None))
+    if somente_cadastro_loja_html:
+        # POST /api/v1/loja/cadastro grava origem_cadastro='loja_cadastro'. Legado: antes do campo, cadastro por e-mail/senha na vitrine.
+        q = q.filter(
+            or_(
+                ConsumidorMarketplace.origem_cadastro == "loja_cadastro",
+                and_(
+                    ConsumidorMarketplace.origem_cadastro.is_(None),
+                    ConsumidorMarketplace.senha_hash.isnot(None),
+                    ConsumidorMarketplace.origem_social_provider.is_(None),
+                ),
+            )
+        )
     if tenant_id is not None:
         q = q.filter(ConsumidorMarketplace.tenant_id == tenant_id)
     elif allowed is not None:
@@ -1224,12 +1403,24 @@ async def listar_consumidores_marketplace(
         q = q.filter(ConsumidorMarketplace.tipo_consumidor == tipo_consumidor)
     if status_cadastro:
         q = q.filter(ConsumidorMarketplace.status_cadastro == status_cadastro)
+    if nome and (n := nome.strip()[:120]):
+        q = q.filter(ConsumidorMarketplace.nome.ilike(f"%{n}%"))
+    if email and (e := email.strip()[:120]):
+        q = q.filter(ConsumidorMarketplace.email.ilike(f"%{e}%"))
     total = q.count()
     rows = q.order_by(ConsumidorMarketplace.id.desc()).offset(skip).limit(limit).all()
+    tenant_ids = [r.tenant_id for r in rows if r.tenant_id is not None]
+    tenant_nomes: dict[int, str] = {}
+    if tenant_ids:
+        for cid, cnome in (
+            db.query(Cliente.id, Cliente.nome).filter(Cliente.id.in_(list(set(tenant_ids)))).all()
+        ):
+            tenant_nomes[int(cid)] = (cnome or "").strip()
     items = [
         {
             "id": r.id,
             "tenant_id": r.tenant_id,
+            "tenant_nome": tenant_nomes.get(int(r.tenant_id)) if r.tenant_id is not None else None,
             "email": r.email,
             "nome": r.nome,
             "telefone": r.telefone,
@@ -1284,6 +1475,100 @@ async def listar_eventos_integracao(
         for r in rows
     ]
     return {"items": items, "total": total, "skip": skip, "limit": limit}
+
+
+def _normalizar_uf_brasil(raw: Optional[str]) -> str:
+    return (raw or "").strip().upper()[:2]
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Regiões atendidas pela plataforma (cobertura marketplace — Superadmin)
+# Somente o Superadmin mantém a lista. Com ao menos uma cidade ativa, checkout e
+# áreas por loja são limitados a esse conjunto.
+# ────────────────────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/regioes-cobertura",
+    response_model=List[PlataformaCidadeCoberturaAdmin],
+    dependencies=[Depends(require_superadmin())],
+)
+def listar_regioes_cobertura_plataforma(
+    apenas_ativos: bool = Query(False, description="Se true, retorna só cadastros ativos"),
+    db: Session = Depends(get_db),
+):
+    q = db.query(PlataformaCidadeCobertura).order_by(
+        PlataformaCidadeCobertura.uf,
+        func.lower(PlataformaCidadeCobertura.cidade),
+    )
+    if apenas_ativos:
+        q = q.filter(PlataformaCidadeCobertura.ativo.is_(True))
+    return q.all()
+
+
+@router.post(
+    "/regioes-cobertura",
+    response_model=PlataformaCidadeCoberturaAdmin,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_superadmin())],
+)
+def criar_regiao_cobertura_plataforma(
+    body: PlataformaCidadeCoberturaCreate,
+    db: Session = Depends(get_db),
+):
+    cidade = (body.cidade or "").strip()
+    uf = _normalizar_uf_brasil(body.uf)
+    if not cidade or len(uf) != 2:
+        raise HTTPException(status_code=400, detail="Cidade e UF (2 letras) obrigatórios")
+    garantir_linha_duplicada_evitada(db, cidade, uf)
+    row = PlataformaCidadeCobertura(cidade=cidade, uf=uf, codigo_ibge=body.codigo_ibge, ativo=True)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.patch(
+    "/regioes-cobertura/{regiao_id}",
+    response_model=PlataformaCidadeCoberturaAdmin,
+    dependencies=[Depends(require_superadmin())],
+)
+def atualizar_regiao_cobertura_plataforma(
+    regiao_id: int,
+    body: PlataformaCidadeCoberturaUpdate,
+    db: Session = Depends(get_db),
+):
+    row = db.query(PlataformaCidadeCobertura).filter(PlataformaCidadeCobertura.id == regiao_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Registro não encontrado")
+    data = body.model_dump(exclude_unset=True)
+    if "uf" in data and data["uf"] is not None:
+        data["uf"] = _normalizar_uf_brasil(data["uf"])
+    if "cidade" in data and data["cidade"] is not None:
+        data["cidade"] = (data["cidade"] or "").strip()
+    for k, v in data.items():
+        setattr(row, k, v)
+    merged_c = row.cidade
+    merged_u = row.uf
+    if merged_c and merged_u:
+        garantir_linha_duplicada_evitada(db, merged_c, merged_u, exclude_id=row.id)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@router.delete(
+    "/regioes-cobertura/{regiao_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_superadmin())],
+)
+def excluir_regiao_cobertura_plataforma(regiao_id: int, db: Session = Depends(get_db)):
+    row = db.query(PlataformaCidadeCobertura).filter(PlataformaCidadeCobertura.id == regiao_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Registro não encontrado")
+    db.delete(row)
+    db.commit()
+    return None
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -1365,6 +1650,7 @@ def criar_area_entrega(
     ).first()
     if existing:
         raise HTTPException(409, f"Cidade {body.cidade}-{body.uf} já cadastrada para esta loja")
+    validar_areas_loja_na_cobertura(db, body.cidade, body.uf)
     area = LojaAreaEntrega(
         loja_id=loja_id,
         cidade=body.cidade.strip(),
@@ -1398,6 +1684,7 @@ def atualizar_area_entrega(
         if field == "cidade" and val is not None:
             val = val.strip()
         setattr(area, field, val)
+    validar_areas_loja_na_cobertura(db, area.cidade, area.uf)
     db.commit()
     db.refresh(area)
     return area

@@ -1,0 +1,34 @@
+/* Referências de documentos — compactas, monoespaçadas (padrão SaaS) */
+.doc-ref {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    color: var(--bs-body-color, #212529);
+    white-space: nowrap;
+}
+
+.doc-ref-sub {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+.doc-ref-origin {
+    display: inline-block;
+    line-height: 1.3;
+    color: var(--bs-secondary-color, #6c757d);
+}
+
+td .doc-ref,
+th .doc-ref {
+    vertical-align: baseline;
+}
+
+.table td:first-child .doc-ref {
+    max-width: 7.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

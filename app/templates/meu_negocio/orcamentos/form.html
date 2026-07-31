@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{% if orcamento_id %}Editar orçamento{% else %}Novo orçamento{% endif %} | PDV Ibix{% endblock %}
+{% block title %}{% if orcamento_id %}Editar orçamento{% else %}Novo orçamento{% endif %} | {{ brand.nome_exibicao | default('PDV') }}{% endblock %}
 {% block extra_css %}
 <style>
   .item-row { border-bottom: 1px solid #eee; }

@@ -1,0 +1,35 @@
+---
+description: Segurança por domínio — brand_domains, CORS/CSP/cookies por host, sem segredos no código
+globs: "**/*.{py,html,js,sh,conf}"
+alwaysApply: true
+---
+
+# Segurança por domínio (multi-brand)
+
+## Host allowlist
+
+- Resolver marca só via `brand_domains` + middleware `brand_resolution_middleware`
+- Host desconhecido → marca origem (Ibix), nunca aceitar Host arbitrário para escopo de tenant
+- Domínios Solumática **não** entram em `SEO_REDIRECT_LEGACY_HOSTS`
+
+## CORS / CSP / cookies
+
+- CORS: [hardening.py](../../app/core/hardening.py) — env `CORS_ORIGINS` + `brand_domains`; sem `*` em produção
+- CSP: por marca via `build_csp_header(brand)`; evitar wildcards amplos (`*.com.br`)
+- Cookies: host-only via [brand_cookie.py](../../app/core/brand_cookie.py) — **sem** atributo `Domain` compartilhado
+- Auth PDV: `HttpOnly` + `Secure` + `SameSite=Lax`; JS usa `sessionStorage` + `credentials: 'include'`
+
+## OAuth / redirect
+
+- `public_origin_from_request()` / `brand.seo_base_url` para redirect_uri (PagBank, vitrine social)
+- Nunca hardcodar `APP_URL` quando a marca corrente tiver `seo_base_url`
+
+## Segredos
+
+- Tokens, webhook secrets, certificados: env ou cofre — prefixo `enc:v1:` no DB quando aplicável
+- Fail-fast se segredo obrigatório ausente em produção
+
+## Referências
+
+- [MAPA_DEPLOY_SERVICOS.md](../../MAPA_SISTEMA/MAPA_DEPLOY_SERVICOS.md) § 4
+- [MAPA_MULTIBRAND.md](../../MAPA_SISTEMA/MAPA_MULTIBRAND.md) § Deploy

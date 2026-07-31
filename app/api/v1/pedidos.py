@@ -4,9 +4,10 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from sqlalchemy import desc
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.document_ref import build_doc_ref, doc_ref_like_patterns, next_seq_for_year
 from app.core.middleware import forbid_cliente_access, get_cliente_scope_dep, get_current_user
 from app.core.scope import ClienteScope
 from app.database.connection import get_db
@@ -41,18 +42,17 @@ def _pedido_no_escopo(db: Session, pedido_id: int, scope: ClienteScope, load_ite
 
 def _proximo_numero_pedido(db: Session, cliente_id: int) -> str:
     ano = datetime.now().year
-    r = db.query(Pedido).filter(
-        Pedido.cliente_id == cliente_id,
-        Pedido.numero_pedido.like(f"PED-{ano}-%"),
-    ).order_by(desc(Pedido.id)).first()
-    if not r:
-        seq = 1
-    else:
-        try:
-            seq = int(r.numero_pedido.split("-")[-1]) + 1
-        except (IndexError, ValueError):
-            seq = 1
-    return f"PED-{ano}-{seq:05d}"
+    patterns = doc_ref_like_patterns("PED", ano)
+    rows = (
+        db.query(Pedido.numero_pedido)
+        .filter(
+            Pedido.cliente_id == cliente_id,
+            or_(*[Pedido.numero_pedido.like(p) for p in patterns]),
+        )
+        .all()
+    )
+    seq = next_seq_for_year((r[0] for r in rows), ano, prefix="PED")
+    return build_doc_ref("PED", seq, ano)
 
 
 @router.get("", response_model=dict)

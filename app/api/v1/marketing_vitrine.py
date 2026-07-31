@@ -23,7 +23,13 @@ from ...services.marketing_vitrine_service import (
     validar_anuncio_vinculo,
 )
 
-router = APIRouter(prefix="/marketing-vitrine", tags=["Marketing Vitrine"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/marketing-vitrine",
+    tags=["Marketing Vitrine"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 def _merge_card_create_from_row(row: MarketingVitrineCard, body: MarketingVitrineCardUpdate) -> MarketingVitrineCardCreate:

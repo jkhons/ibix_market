@@ -2,7 +2,6 @@
 import re
 from datetime import date, timedelta
 from typing import Optional
-from urllib.parse import unquote
 
 from fastapi import HTTPException, status
 from sqlalchemy import func
@@ -11,10 +10,9 @@ from sqlalchemy.orm import Session, joinedload
 from ..core.audit import audit_action
 from ..core.auth import AuthConfig, create_user_token, verify_user_credentials
 from ..core.billing_config import get_valor_mensal_centavos
-from ..core.logging import log_security
+from ..core.logging import log_error, log_security
 from ..models import AreaCliente, Cliente, ClienteAdministradorCliente, Empresa, Role, Usuario
 from ..models.administrador_cliente_administrador import AdministradorClienteAdministrador
-from ..models.codigo_desconto import CodigoDesconto
 from ..models.divulgador import Divulgador
 from ..models.empresa import AmbienteEnum
 from ..models.subscription_billing import SubscriptionBilling
@@ -27,6 +25,7 @@ from ..schemas.auth import (
     UserLogin,
     UserRegister,
 )
+from ..services.codigo_desconto_lookup import buscar_codigo_desconto_ativo_por_entrada
 from ..utils.cnpj_validator import CNPJValidator
 
 
@@ -95,7 +94,12 @@ class AuthService:
         return db_user
     
     @staticmethod
-    def login_user(db: Session, login_data: UserLogin, ip: Optional[str] = None) -> Token:
+    def login_user(
+        db: Session,
+        login_data: UserLogin,
+        ip: Optional[str] = None,
+        request=None,
+    ) -> Token:
         """Realiza login do usuário. ip opcional para log de segurança."""
         # Autenticar usuário
         user = AuthService.authenticate_user(db, login_data.email, login_data.password)
@@ -111,6 +115,11 @@ class AuthService:
                 detail="Email ou senha incorretos",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+        if request is not None:
+            from app.services.brand_scope_service import assert_user_tenant_matches_request_brand
+
+            assert_user_tenant_matches_request_brand(db, user, request)
         
         audit_action(
             db,
@@ -148,25 +157,25 @@ class AuthService:
         return token_response
 
     @staticmethod
-    def register_public(db: Session, data: RegisterPublicRequest) -> Usuario:
+    def register_public(db: Session, data: RegisterPublicRequest, brand_id: int) -> Usuario:
         """Cadastro público: cria Cliente (empresa) + Usuario com role Cliente Administrador + vínculo (Saas.md Fase 6).
         Se codigo_promocional informado: valida código, cria Tenant + Subscription (valor com desconto) e vínculo AdministradorClienteAdministrador."""
+        if not brand_id:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Marca não resolvida para cadastro.",
+            )
         codigo_obj = None
         divulgador = None
         codigo_promocional = (data.codigo_promocional or "").strip() if getattr(data, "codigo_promocional", None) else None
         if codigo_promocional:
-            codigo_norm = unquote(codigo_promocional).strip().upper()
-            codigo_obj = db.query(CodigoDesconto).filter(
-                CodigoDesconto.codigo == codigo_norm,
-                CodigoDesconto.ativo == True,
-            ).first()
+            codigo_obj = buscar_codigo_desconto_ativo_por_entrada(db, codigo_promocional)
             if not codigo_obj:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Código promocional inválido ou expirado.",
                 )
-            if codigo_obj.divulgador_id:
-                divulgador = db.query(Divulgador).filter(Divulgador.id == codigo_obj.divulgador_id).first()
+            divulgador = codigo_obj.divulgador if codigo_obj.divulgador_id else None
             if not divulgador or not divulgador.usuario_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -237,6 +246,9 @@ class AuthService:
         )
         db.add(cliente)
         db.flush()
+        from app.services.cliente_categorias_vitrine_service import salvar_categorias_cliente
+
+        salvar_categorias_cliente(db, cliente.id, data.categorias_vitrine_ids)
         hashed = AuthConfig.get_password_hash(data.password)
         user = Usuario(
             nome=data.nome,
@@ -271,12 +283,14 @@ class AuthService:
 
         # Sempre criar Tenant e Subscription (código promocional opcional: com código = desconto + vínculo admin)
         from app.services.billing_service import DEFAULT_GRACE_DAYS, TRIAL_DAYS
+        from app.services.brand_scope_service import generate_unique_tenant_slug
+
         slug_base = f"ca-{user.id}"
-        if db.query(Tenant).filter(Tenant.slug == slug_base).first():
-            slug_base = f"ca-{user.id}-{(data.email or '1')[:20].replace('@', '_').replace('.', '_')}"
+        slug = generate_unique_tenant_slug(db, slug_base, brand_id)
         tenant = Tenant(
             nome=data.nome_empresa or data.nome or "Assinante",
-            slug=slug_base[:100],
+            slug=slug,
+            brand_id=brand_id,
             ativo=True,
         )
         db.add(tenant)
@@ -315,6 +329,19 @@ class AuthService:
 
         db.commit()
         db.refresh(user)
+        try:
+            from app.services.platform_novo_ca_notify_service import after_register_public_success
+
+            after_register_public_success(
+                db,
+                ca_user_id=user.id,
+                tenant_id=tenant.id,
+                nome_empresa=(data.nome_empresa or data.nome or "").strip(),
+                cnpj=cnpj_fmt,
+                email_responsavel=(user.email or data.email or "").strip(),
+            )
+        except Exception as e:
+            log_error("after_register_public_success (notificação plataforma)", exc_info=e)
         audit_action(
             db,
             "cadastro_publico",

@@ -70,14 +70,11 @@ window.addEventListener('load', function() {
 
             if (response.ok && data.success && data.token && data.token.access_token) {
                 const tok = data.token.access_token;
-                var secure = location.protocol === 'https:' ? '; Secure' : '';
-                var cookieOpts = '; path=/; max-age=28800; SameSite=Lax' + secure;
                 try {
                     sessionStorage.setItem('pdv_solumatica_token', tok);
                     sessionStorage.setItem('pdv_automscale_token', tok);
                 } catch (_) {}
-                document.cookie = 'pdv_solumatica_token=' + encodeURIComponent(tok) + cookieOpts;
-                document.cookie = 'pdv_automscale_token=' + encodeURIComponent(tok) + cookieOpts;
+                // Cookie HttpOnly definido pelo servidor (Fase 5); sessionStorage para fetch JS.
                 window.location.href = '/dashboard';
                 return;
             }

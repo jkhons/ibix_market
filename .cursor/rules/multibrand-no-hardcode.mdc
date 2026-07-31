@@ -1,0 +1,27 @@
+---
+description: Multi-brand — proibir hardcode de marca; usar request.state.brand e {{ brand.* }}
+globs: "**/*.{py,html,js,jinja2}"
+alwaysApply: true
+---
+
+# Multi-brand — sem hardcode de marca
+
+Ibix é a **marca origem** (`brands.is_origem=true`), não um literal no código.
+
+## Proibido
+
+- Strings fixas `"Ibix"`, `"PDV Ibix"`, `"Solumática"` em templates ou UI quando o valor é visual/comercial
+- URLs fixas de logo/favicon (`/static/img/ibix/cab.png`) fora de seed/migração ou fallback documentado da **origem** em `brand_service`
+- Lógica `if host == "www.ibix.com.br"` para branding (usar resolução por Host)
+
+## Obrigatório
+
+- Backend: `request.state.brand` (`BrandContext`) via `brand_resolution_middleware`
+- Templates PDV: `get_template_context` → `{{ brand.nome_exibicao }}`, `{{ brand.logo_url }}`, etc.
+- Templates vitrine: `_loja_context` / `base_loja.html` com `brand.*`
+- Novos domínios: cadastrar em `brand_domains`, não em código
+
+## Referências
+
+- [MAPA_MULTIBRAND.md](../../MAPA_SISTEMA/MAPA_MULTIBRAND.md)
+- [brand_service.py](../../app/services/brand_service.py)

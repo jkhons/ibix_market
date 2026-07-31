@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    {% set _brand = brand|default({}, true) %}
+    {% set _brand_nome = _brand.nome_curto|default(_brand.nome_exibicao|default('PDV', true), true) %}
+    {% set _brand_logo = _brand.logo_url|default('/static/img/ibix/cab.png', true) %}
+    {% set _brand_favicon = _brand.favicon_url|default('/static/img/arte-pdv.png', true) %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Área do entregador - Ibix">
+    <meta name="description" content="Área do entregador - {{ _brand_nome }}">
     <meta name="theme-color" content="#2c3e50">
-    <title>{% block title %}Entregador{% endblock %} | Ibix</title>
-    <link rel="shortcut icon" href="/static/img/arte-pdv.png">
+    <title>{% block title %}Entregador{% endblock %} | {{ _brand_nome }}</title>
+    <link rel="shortcut icon" href="{{ _brand_favicon }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
@@ -57,8 +61,8 @@
             <div class="entregador-nav-belt">
                 <div class="entregador-nav-left">
                     <a class="entregador-brand" href="/entregas/painel">
-                        <img src="/static/img/landing/logoSfundo.png" alt="Ibix" onerror="this.style.display='none'">
-                        <span>Ibix</span>
+                        <img src="{{ _brand_logo }}" alt="{{ _brand_nome }}" onerror="this.style.display='none'">
+                        <span>{{ _brand_nome }}</span>
                         <span class="entregador-brand-tag">Entregador</span>
                     </a>
                 </div>
@@ -77,8 +81,8 @@
     <footer class="cp-footer">
         <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <img src="/static/img/landing/logoSfundo.png" alt="Ibix" class="cp-logo" style="height: 36px; width: auto;">
-                <span>Ibix</span>
+                <img src="{{ _brand_logo }}" alt="{{ _brand_nome }}" class="cp-logo" style="height: 36px; width: auto;">
+                <span>{{ _brand_nome }}</span>
                 <span aria-hidden="true">·</span>
                 <span class="cp-credits">Desenvolvido por <a href="https://automscale.com.br" target="_blank" rel="noopener noreferrer"><strong>Automscale</strong></a></span>
             </div>

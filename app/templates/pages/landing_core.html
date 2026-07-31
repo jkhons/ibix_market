@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="pt-br">
+{% set _base = (base_url or '') %}
+{% set _nome = brand.nome_exibicao or brand.nome_curto or 'PDV' %}
+{% set _logo = brand.logo_display_url|default('', true) %}
+{% set _logo_footer = brand.logo_footer_display_url|default('', true) %}
+{% set _favicon = brand.favicon_url or '/static/img/arte-pdv.png' %}
+{% set _cor_pri = brand.cor_primaria or '#2c3e50' %}
+{% set _cor_sec = brand.cor_secundaria or '#34495e' %}
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ _nome }} - Sistema de vendas e gestão</title>
+  <meta name="description" content="Sistema de vendas e gestão. PDV, vendas, estoque, caixa, ordens de serviço e fiscal em um único lugar. Teste gratuito por 30 dias." />
+  <meta name="keywords" content="{{ brand.nome_curto or _nome }}, PDV, sistema de vendas, gestão comercial, NF-e, NFC-e, estoque, caixa, ordem de serviço, emissão fiscal, ponto de venda" />
+  <link rel="canonical" href="{{ _base }}/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{ _nome }} - Sistema de vendas e gestão" />
+  <meta property="og:description" content="Sistema de vendas e gestão. Teste gratuito por 30 dias." />
+  <meta property="og:url" content="{{ _base }}/" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:image" content="{% if _logo %}{{ _base }}{{ _logo }}{% endif %}" />
+  <meta property="og:site_name" content="{{ _nome }}" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="{{ _nome }} - Sistema de vendas e gestão" />
+  <meta name="twitter:description" content="Sistema de vendas e gestão. PDV, vendas, estoque, caixa e fiscal em um único lugar. Teste gratuito por 30 dias." />
+  <meta name="twitter:image" content="{% if _logo %}{{ _base }}{{ _logo }}{% endif %}" />
+
+  <link rel="shortcut icon" href="{{ _base }}{{ _favicon }}" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": {{ _nome|tojson }},
+        "url": "{{ _base }}/",
+        {% if _logo %}"logo": "{{ _base }}{{ _logo }}",{% endif %}
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": {{ _nome|tojson }},
+        "description": "Sistema de vendas e gestão. PDV, vendas, estoque, caixa, ordens de serviço e emissão fiscal em um único lugar.",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web",
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "BRL",
+          "description": "Teste gratuito por 30 dias."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ _base }}/static/css/landing/dashboard.css" />
+  <link rel="stylesheet" href="{{ _base }}/static/css/landing/certipeso.css" />
+
+  <style>
+    :root {
+      --cp-primary: {{ _cor_pri }};
+      --cp-secondary: {{ _cor_sec }};
+      --certipeso-primary: {{ _cor_pri }};
+      --certipeso-secondary: {{ _cor_sec }};
+    }
+
+    body {
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #ffffff;
+      color: #1f2937;
+    }
+
+    .cp-navbar {
+      border-bottom: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+    }
+
+    .cp-brand {
+      font-weight: 700;
+      letter-spacing: .2px;
+      color: var(--cp-primary);
+      text-decoration: none;
+      font-size: 1.05rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .cp-brand img {
+      height: 64px;
+      width: auto;
+      max-width: none;
+      vertical-align: middle;
+      object-fit: contain;
+    }
+
+    .cp-nav-link {
+      color: #374151;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .cp-nav-link:hover { color: var(--cp-primary); }
+
+    .cp-hero {
+      padding: 64px 0 40px;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--cp-primary) 6%, transparent), transparent);
+      border-bottom: 1px solid rgba(0,0,0,.06);
+    }
+
+    .cp-section { padding: 56px 0; }
+
+    .cp-kicker {
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-size: .78rem;
+      color: #6b7280;
+      font-weight: 600;
+    }
+
+    .cp-title {
+      font-weight: 800;
+      color: var(--cp-primary);
+      margin: 10px 0 12px;
+      line-height: 1.08;
+    }
+
+    .cp-lead {
+      font-size: 1.05rem;
+      color: #4b5563;
+      max-width: 56rem;
+    }
+
+    .cp-card {
+      border: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+      padding: 18px 18px;
+      height: 100%;
+    }
+
+    .cp-footer {
+      border-top: 1px solid rgba(0,0,0,.08);
+      background: #fff;
+      padding: 18px 0;
+      color: #6b7280;
+      font-size: .9rem;
+    }
+    .cp-footer a { color: #6b7280; text-decoration: none; }
+    .cp-footer a:hover { color: var(--cp-primary); }
+    .cp-footer .cp-credits { font-size: .85rem; }
+    .cp-footer .cp-logo { height: 36px; width: auto; vertical-align: middle; object-fit: contain; }
+
+    .btn, .form-control, .cp-card { border-radius: 2px !important; }
+
+    .cp-btn-login {
+      background: linear-gradient(180deg, {{ _cor_pri }}, {{ _cor_sec }});
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      border-radius: 8px !important;
+      color: #fff !important;
+      font-weight: 600;
+      padding: 0.6rem 1.5rem;
+      font-size: 1rem;
+      box-shadow: 0 1px 3px color-mix(in srgb, {{ _cor_pri }} 25%, transparent);
+      transition: box-shadow 0.2s ease, transform 0.15s ease;
+    }
+    .cp-btn-login:hover {
+      background: linear-gradient(180deg, {{ _cor_sec }}, {{ _cor_pri }});
+      color: #fff !important;
+      box-shadow: 0 2px 8px color-mix(in srgb, {{ _cor_pri }} 35%, transparent);
+      transform: translateY(-1px);
+    }
+    .cp-btn-login:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 2px color-mix(in srgb, {{ _cor_pri }} 20%, transparent);
+    }
+  </style>
+</head>
+
+<body>
+  <header class="cp-navbar">
+    <div class="container py-3 d-flex align-items-center justify-content-between gap-3">
+      <a class="cp-brand" href="/">
+        {% if _logo %}
+        <img src="{{ _base }}{{ _logo }}" alt="{{ _nome }}" style="height: 64px; width: auto;" fetchpriority="high" />
+        {% endif %}
+        <span>{{ _nome }}</span>
+      </a>
+
+      <nav class="d-none d-md-flex align-items-center gap-4">
+        <a class="cp-nav-link" href="/help-center">Ajuda</a>
+        <a class="cp-nav-link" href="#contato">Fale conosco</a>
+        <a class="cp-nav-link" href="#sobre">Sobre nós</a>
+      </nav>
+
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn cp-btn-login" href="/login">Login</a>
+        <a class="btn btn-primary" href="/cadastro">Cadastrar</a>
+      </div>
+    </div>
+  </header>
+
+  <section class="cp-hero">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <div class="cp-kicker">Sistema de gestão para seu negócio</div>
+          <h1 class="cp-title display-5">Sistema de Vendas e Gestão</h1>
+          <p class="cp-lead mb-3">
+            PDV, vendas, estoque, caixa, ordens de serviço e fiscal em um único ambiente.
+            Tudo integrado para você operar com controle e organização.
+          </p>
+          <p class="cp-lead mb-4" style="font-size: 0.95rem;">
+            Desenvolvido para simplificar o dia a dia do seu negócio.
+          </p>
+          <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-primary" href="/cadastro">Teste gratuito por 30 dias</a>
+            <a class="btn btn-outline-secondary" href="#sobre">Conhecer o sistema</a>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="cp-card">
+            <div class="cp-kicker">Visão rápida</div>
+            <ul class="mt-3 mb-0" style="padding-left: 18px; color:#4b5563;">
+              <li>PDV e vendas integrados</li>
+              <li>Controle de estoque</li>
+              <li>Ordens de serviço</li>
+              <li>Emissão fiscal (NF-e, NFC-e)</li>
+              <li>Gestão centralizada</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="border-top:1px solid rgba(0,0,0,.06); border-bottom:1px solid rgba(0,0,0,.06); background: color-mix(in srgb, var(--cp-primary) 4%, #fff);">
+    <div class="container py-4">
+      <div class="row text-center g-3">
+        <div class="col-md-4">
+          <div style="font-weight:600; color: var(--cp-primary);">Teste gratuito por 30 dias</div>
+          <div style="font-size:0.9rem; color:#6b7280;">Conheça o sistema sem compromisso.</div>
+        </div>
+        <div class="col-md-4">
+          <div style="font-weight:600; color: var(--cp-primary);">Mensalidade acessível · Sem fidelidade</div>
+          <div style="font-size:0.9rem; color:#6b7280;">1 PDV incluso</div>
+          <div style="font-size:0.72rem; color:#6b7280;">* PDVs adicionais conforme plano contratado.</div>
+        </div>
+        <div class="col-md-4">
+          <div style="font-weight:600; color: var(--cp-primary);">Gestão integrada</div>
+          <div style="font-size:0.9rem; color:#6b7280;">Vendas, estoque, caixa e fiscal em um só lugar.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cp-section">
+    <div class="container">
+      <div class="cp-kicker">O que é</div>
+      <h2 class="cp-title h3">O que é o {{ _nome }}</h2>
+      <p class="cp-lead mb-0">
+        O {{ _nome }} é um sistema de vendas e gestão desenvolvido para empresas que precisam de controle completo da operação.
+        Inclui PDV, vendas, estoque, caixa, ordens de serviço e emissão fiscal em um único ambiente, facilitando o dia a dia do negócio.
+      </p>
+    </div>
+  </section>
+
+  <section id="contato" class="cp-section">
+    <div class="container">
+      <div class="cp-kicker">Fale conosco</div>
+      <h2 class="cp-title h3">Contato</h2>
+      <p class="cp-lead mb-4">
+        Envie sua mensagem pelo formulário abaixo ou entre em contato por telefone e WhatsApp.
+      </p>
+
+      {% if contact_telefone or (contact_whatsapp and contact_whatsapp_link) %}
+      <div class="cp-card mb-4">
+        <div class="cp-kicker">Meu contato</div>
+        <div class="d-flex flex-wrap gap-3 mt-2">
+          {% if contact_telefone %}
+          <div>
+            <span class="text-muted small">Telefone / WhatsApp:</span>
+            <a href="https://wa.me/{{ contact_whatsapp_link }}" target="_blank" rel="noopener noreferrer" class="d-block fw-medium">{{ contact_telefone }}</a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="cp-card">
+        <div class="cp-kicker">Enviar mensagem</div>
+        <p class="text-muted small mb-3">Preencha os campos e envie. Você receberá retorno por e-mail.</p>
+        <div id="fale-conosco-alert" class="alert d-none mb-3" role="alert"></div>
+        <form id="fale-conosco-form">
+          <div class="mb-3">
+            <label for="fc-nome" class="form-label">Nome</label>
+            <input type="text" class="form-control" id="fc-nome" name="nome" required maxlength="200" placeholder="Seu nome" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-email" class="form-label">E-mail</label>
+            <input type="email" class="form-control" id="fc-email" name="email" required placeholder="seu@email.com" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-whatsapp" class="form-label">WhatsApp <span class="text-muted small">(opcional)</span></label>
+            <input type="text" class="form-control" id="fc-whatsapp" name="whatsapp" maxlength="20" placeholder="(11) 99999-9999" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-empresa" class="form-label">Empresa <span class="text-muted small">(opcional)</span></label>
+            <input type="text" class="form-control" id="fc-empresa" name="empresa" maxlength="200" placeholder="Nome da empresa" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-area" class="form-label">Área de atuação <span class="text-muted small">(opcional)</span></label>
+            <input type="text" class="form-control" id="fc-area" name="area_atuacao" maxlength="200" placeholder="Ex.: varejo, serviços, indústria" />
+          </div>
+          <div class="mb-3">
+            <label for="fc-mensagem" class="form-label">Mensagem</label>
+            <textarea class="form-control" id="fc-mensagem" name="mensagem" required rows="4" maxlength="2000" placeholder="Sua mensagem"></textarea>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="fc-consentimento-lgpd" name="consentimento_lgpd" value="1" />
+              <label class="form-check-label small" for="fc-consentimento-lgpd">Li e aceito a <a href="/politica-privacidade" target="_blank" rel="noopener">Política de Privacidade</a> (opcional)</label>
+            </div>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="fc-consentimento-finalidade" name="consentimento_finalidade" value="1" />
+              <label class="form-check-label small" for="fc-consentimento-finalidade">Autorizo o contato para fins comerciais e informativos (opcional)</label>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" id="fc-submit">
+            <span class="btn-text">Enviar</span>
+            <span class="btn-loading d-none"><span class="spinner-border spinner-border-sm me-1"></span>Enviando...</span>
+          </button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section id="sobre" class="cp-section" style="background: color-mix(in srgb, var(--cp-primary) 2%, #fff); border-top:1px solid rgba(0,0,0,.06);">
+    <div class="container">
+      <div class="cp-kicker">Sobre nós</div>
+      <h2 class="cp-title h3">Sobre o {{ _nome }}</h2>
+      <p class="cp-lead mb-0">
+        O {{ _nome }} foi desenvolvido para apoiar negócios em todos os aspectos da operação — PDV, vendas, estoque, caixa e fiscal.
+        Organiza processos e informações em um ambiente estruturado, promovendo controle e melhor gestão. Desenvolvido por Automscale.
+      </p>
+    </div>
+  </section>
+
+  <footer class="cp-footer">
+    <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        {% if _logo_footer %}
+        <img src="{{ _base }}{{ _logo_footer }}" alt="{{ _nome }}" class="cp-logo" style="height: 36px; width: auto;" />
+        {% endif %}
+        <span>{{ _nome }}</span>
+        <span aria-hidden="true">·</span>
+        <span class="cp-credits">Desenvolvido por <strong>Automscale</strong></span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a href="/termos-de-uso">Termos de Uso</a>
+        <span aria-hidden="true">·</span>
+        <a href="/politica-privacidade">Política de Privacidade</a>
+        <span aria-hidden="true">·</span>
+        <span>&copy; <span id="cpYear">2025</span></span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("cpYear").textContent = new Date().getFullYear().toString();
+
+    (function() {
+      var form = document.getElementById("fale-conosco-form");
+      if (!form) return;
+      var alertEl = document.getElementById("fale-conosco-alert");
+      var submitBtn = form.querySelector("#fc-submit");
+      var btnText = submitBtn ? submitBtn.querySelector(".btn-text") : null;
+      var btnLoading = submitBtn ? submitBtn.querySelector(".btn-loading") : null;
+
+      function showAlert(msg, type) {
+        if (!alertEl) return;
+        alertEl.textContent = msg;
+        alertEl.className = "alert alert-" + (type || "info") + " mb-3";
+        alertEl.classList.remove("d-none");
+        alertEl.setAttribute("aria-live", "polite");
+        alertEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      function hideAlert() { if (alertEl) alertEl.classList.add("d-none"); }
+
+      function formatErrorDetail(d) {
+        if (!d) return "";
+        if (typeof d === "string") return d;
+        if (Array.isArray(d) && d.length > 0) {
+          var campos = { "nome": "Nome", "email": "E-mail", "mensagem": "Mensagem", "whatsapp": "WhatsApp", "empresa": "Empresa", "area_atuacao": "Área de atuação" };
+          return d.map(function(e) {
+            var loc = (e.loc || []).filter(function(x) { return x !== "body"; });
+            var campo = loc.length ? (campos[loc[loc.length - 1]] || loc[loc.length - 1]) : "";
+            var m = (e.msg || "").toLowerCase();
+            if (m.indexOf("email") !== -1 || e.type === "value_error.email") return (campo ? campo + ": " : "") + "Informe um e-mail válido.";
+            if (m.indexOf("required") !== -1 || e.type === "value_error.missing") return (campo ? campo + ": " : "") + "Campo obrigatório.";
+            return (campo ? campo + ": " : "") + (e.msg || "Dados inválidos.");
+          }).join(" ");
+        }
+        if (d.message) return d.message;
+        return "";
+      }
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        hideAlert();
+        var nome = (document.getElementById("fc-nome") && document.getElementById("fc-nome").value) || "";
+        var email = (document.getElementById("fc-email") && document.getElementById("fc-email").value) || "";
+        var mensagem = (document.getElementById("fc-mensagem") && document.getElementById("fc-mensagem").value) || "";
+        if (!nome.trim() || !email.trim() || !mensagem.trim()) {
+          showAlert("Preencha todos os campos obrigatórios (Nome, E-mail e Mensagem).", "warning");
+          return;
+        }
+        if (btnText) btnText.classList.add("d-none");
+        if (btnLoading) btnLoading.classList.remove("d-none");
+        if (submitBtn) submitBtn.disabled = true;
+
+        var payload = { nome: nome.trim(), email: email.trim(), mensagem: mensagem.trim() };
+        var whatsapp = (document.getElementById("fc-whatsapp") && document.getElementById("fc-whatsapp").value) || "";
+        if (whatsapp.trim()) payload.whatsapp = whatsapp.trim();
+        var empresa = (document.getElementById("fc-empresa") && document.getElementById("fc-empresa").value) || "";
+        if (empresa.trim()) payload.empresa = empresa.trim();
+        var area = (document.getElementById("fc-area") && document.getElementById("fc-area").value) || "";
+        if (area.trim()) payload.area_atuacao = area.trim();
+        if (document.getElementById("fc-consentimento-lgpd") && document.getElementById("fc-consentimento-lgpd").checked) payload.consentimento_lgpd = true;
+        if (document.getElementById("fc-consentimento-finalidade") && document.getElementById("fc-consentimento-finalidade").checked) payload.consentimento_finalidade = true;
+
+        fetch("{{ _base }}/api/v1/landing/fale-conosco", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        })
+          .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }).catch(function() { return { ok: r.ok, data: {} }; }); })
+          .then(function(result) {
+            if (result.ok && result.data && result.data.success) {
+              showAlert(result.data.message || "Envio realizado com sucesso! Entraremos em contato em breve.", "success");
+              form.reset();
+            } else {
+              var d = result.data && result.data.detail;
+              var msg = formatErrorDetail(d) || (result.data && result.data.message) || "Falha no envio. Tente novamente ou entre em contato por e-mail/WhatsApp.";
+              showAlert(msg, "danger");
+            }
+          })
+          .catch(function() {
+            showAlert("Falha no envio. Verifique sua conexão e tente novamente.", "danger");
+          })
+          .finally(function() {
+            if (btnText) btnText.classList.remove("d-none");
+            if (btnLoading) btnLoading.classList.add("d-none");
+            if (submitBtn) submitBtn.disabled = false;
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

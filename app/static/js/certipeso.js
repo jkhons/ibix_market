@@ -82,11 +82,7 @@ window.formatarDataApenas = function(dataStr) {
  * Função para verificar se o usuário está autenticado
  */
 window.checkAuth = function() {
-    const token = getAuthToken();
-    if (!token) {
-        window.location.href = '/login';
-        return false;
-    }
+    if (getAuthToken()) return true;
     return true;
 };
 
@@ -612,14 +608,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const response = await originalFetch(url, opts);
 
-            // Tratamento centralizado para token inválido/expirado
+            // Tratamento centralizado para token inválido/expirado (não redirecionar em 401 de recurso específico se /auth/me ainda OK)
             if (response && response.status === 401) {
-                try {
-                    sessionStorage.removeItem('pdv_automscale_token');
-                    localStorage.removeItem('pdv_automscale_token');
-                    localStorage.removeItem('certilog_user');
-                } finally {
-                    window.location.href = '/login';
+                var reqUrl = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+                if (reqUrl.indexOf('/api/v1/auth/me') !== -1 || reqUrl.indexOf('/api/v1/auth/logout') !== -1) {
+                    try {
+                        sessionStorage.removeItem('pdv_solumatica_token');
+                        sessionStorage.removeItem('pdv_automscale_token');
+                        localStorage.removeItem('pdv_automscale_token');
+                        localStorage.removeItem('pdv_solumatica_token');
+                        localStorage.removeItem('certilog_user');
+                    } finally {
+                        if (window.location.pathname !== '/login') {
+                            window.location.href = '/login';
+                        }
+                    }
                 }
             }
 
@@ -632,9 +635,19 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Função para fazer logout
     window.certilogLogout = function() {
-        try { sessionStorage.removeItem('pdv_automscale_token'); } catch (_) {}
-        localStorage.removeItem('pdv_automscale_token');
-        localStorage.removeItem('certilog_user');
-        window.location.href = '/login';
+        fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        }).finally(function() {
+            try {
+                sessionStorage.removeItem('pdv_solumatica_token');
+                sessionStorage.removeItem('pdv_automscale_token');
+            } catch (_) {}
+            localStorage.removeItem('pdv_solumatica_token');
+            localStorage.removeItem('pdv_automscale_token');
+            localStorage.removeItem('certilog_user');
+            window.location.href = '/login';
+        });
     };
 })(); 

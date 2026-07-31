@@ -6,23 +6,27 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <!-- frame-ancestors só tem efeito via header HTTP (ex.: Nginx); em meta é ignorado e gera aviso no console -->
-    <meta name="description" content="IBIX PDV">
-    <meta name="author" content="Ibix">
-    <meta name="keywords" content="ibix, vendas, gestão, sistema, dashboard, responsive, css, html, theme, front-end, web">
+    {% set _brand = brand|default({}, true) %}
+    {% set _brand_nome = _brand.nome|default(_brand.nome_exibicao|default('Ibix', true), true) %}
+    <meta name="description" content="{{ _brand.nome_exibicao|default('IBIX PDV', true) }}">
+    <meta name="author" content="{{ _brand_nome }}">
+    <meta name="keywords" content="{{ _brand.slug|default('ibix', true) }}, vendas, gestão, sistema, dashboard, responsive, css, html, theme, front-end, web">
     
-    <meta name="theme-color" content="#2c3e50">
+    <meta name="theme-color" content="{{ _brand.cor_secundaria|default('#2c3e50', true) }}">
 
     <link rel="preconnect" href="https://fonts.gstatic.com">
-    <link rel="shortcut icon" href="/static/img/arte-pdv.png" />
+    <link rel="shortcut icon" href="{{ _brand.favicon_url|default('/static/img/arte-pdv.png', true) }}" />
 
     <link rel="canonical" href="{{ request.url.scheme }}://{{ request.url.netloc }}{{ request.url.path }}" />
 
     {% set APP_VERSION = "1.0.0.6" %}
-    <title>{% block title %}Ibix{% endblock %}</title>
+    <title>{% block title %}{{ _brand_nome }}{% endblock %}</title>
+    {% block head_extra %}{% endblock %}
 
     <!-- CSS Obrigatório - Template Ibix -->
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
+    <link href="/static/css/doc-ref.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     
     <style>
@@ -152,7 +156,18 @@
         .role-badge-cf { background-color: #fd7e14 !important; color: #fff; }
         .role-badge-tc { background-color: #0dcaf0 !important; color: #000; }
         .role-badge-sc { background-color: #6c757d !important; color: #fff; }
-        .chat-panel {
+        .brand-scope-badge {
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 0.25em 0.45em;
+            letter-spacing: 0.02em;
+            max-width: 12rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+        .brand-scope-banner .brand-scope-badge { max-width: none; }
             position: fixed;
             top: 0;
             right: 0;
@@ -184,18 +199,18 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body data-user-role="{{ user_role | default('') }}">
+<body data-user-role="{{ user_role | default('') }}" data-brand-scope-locked="{{ 'true' if brand_scope and brand_scope.scope_locked else 'false' }}" data-brand-nome="{{ brand_scope.nome|default('', true) if brand_scope else '' }}">
     <div class="wrapper">
         <!-- Sidebar Obrigatória -->
         {% include 'components/sidebar.html' %}
         <!-- Overlay para fechar sidebar no mobile (clique fora) -->
-        <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true" onclick="closeSidebarMobile();"></div>
+        <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true" onclick="window.closeSidebarMobile && window.closeSidebarMobile();"></div>
 
         <!-- Conteúdo Principal -->
         <div class="main">
             <!-- Navbar Superior Obrigatória -->
             <nav class="navbar navbar-expand navbar-light navbar-bg">
-                <a class="sidebar-toggle js-sidebar-toggle" href="#" onclick="toggleSidebar(); return false;">
+                <a class="sidebar-toggle js-sidebar-toggle" href="#" onclick="window.toggleSidebar && window.toggleSidebar(); return false;">
                     <i class="hamburger align-self-center"></i>
                 </a>
 
@@ -300,6 +315,7 @@
         window.USER_CAN_EDIT_EQUIPAMENTOS = false;
     </script>
     <script src="/static/js/app.js"></script>
+    <script src="/static/js/doc-ref.js?v=1.0"></script>
     <script>
     // Wrapper seguro para feather.replace - evita TypeError ao encontrar ícone inexistente ou elemento inválido
     (function() {
@@ -317,32 +333,31 @@
     
     <!-- Scripts principais -->
     <script src="/static/js/dashboard.js?v=2.3"></script>
-    <script src="/static/js/certipeso.js?v=2.2"></script>
+    <script src="/static/js/certipeso.js?v=2.4"></script>
     <script src="/static/js/alert-system.js?v=1.1"></script>
     <script src="/static/js/breadcrumbs.js?v=2.1"></script>
-    <script src="/static/js/user-dropdown.js?v=1.1"></script>
+    <script src="/static/js/user-dropdown.js?v=1.3"></script>
     <script src="/static/js/notificacoes.js?v=2.8"></script>
     <script src="/static/js/chat.js?v=1.0"></script>
 
-    {% block extra_js %}{% endblock %}
-    
+    {# Sidebar toggle ANTES de extra_js: páginas com JS grande (ex.: estoque) não devem atrasar a definição #}
     <script>
     // Toggle do sidebar: em mobile usa .show + overlay; em desktop usa .collapsed
-    function isSidebarMobile() {
+    window.isSidebarMobile = function isSidebarMobile() {
         return window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
-    }
-    function closeSidebarMobile() {
+    };
+    window.closeSidebarMobile = function closeSidebarMobile() {
         var sidebar = document.querySelector('.js-sidebar');
         var overlay = document.getElementById('sidebar-overlay');
         if (sidebar) sidebar.classList.remove('show');
         if (overlay) overlay.classList.remove('show');
-    }
-    function toggleSidebar() {
+    };
+    window.toggleSidebar = function toggleSidebar() {
         var sidebar = document.querySelector('.js-sidebar');
         var overlay = document.getElementById('sidebar-overlay');
         var main = document.querySelector('.main');
         if (!sidebar) return;
-        if (isSidebarMobile()) {
+        if (window.isSidebarMobile()) {
             sidebar.classList.toggle('show');
             if (overlay) overlay.classList.toggle('show', sidebar.classList.contains('show'));
         } else {
@@ -350,10 +365,10 @@
             if (main) main.classList.toggle('sidebar-collapsed', sidebar.classList.contains('collapsed'));
             localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
         }
-    }
+    };
     window.addEventListener('resize', function() {
-        if (!isSidebarMobile()) {
-            closeSidebarMobile();
+        if (!window.isSidebarMobile()) {
+            window.closeSidebarMobile();
         }
     });
     // Fechar sidebar ao clicar em um link no mobile (navegação)
@@ -361,13 +376,40 @@
         var sidebar = document.querySelector('.js-sidebar');
         if (sidebar) {
             sidebar.addEventListener('click', function(e) {
-                if (e.target.closest('a') && isSidebarMobile()) {
-                    closeSidebarMobile();
+                if (e.target.closest('a') && window.isSidebarMobile()) {
+                    window.closeSidebarMobile();
                 }
             });
         }
     });
     </script>
+
+    {# Modais: padrão MAPA_DE_REGRAS — CSS inline + id modal{Nome}Custom. Proibido Bootstrap Modal (modal fade / bootstrap.Modal). #}
+    <script>
+    window.abrirModalCustom = function abrirModalCustom(modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    };
+    window.fecharModalCustom = function fecharModalCustom(modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    };
+    window.bindModalCustomOutsideClick = function bindModalCustomOutsideClick(modalId) {
+        var modal = document.getElementById(modalId);
+        if (!modal || modal.getAttribute('data-pdv-modal-bound') === '1') return;
+        modal.setAttribute('data-pdv-modal-bound', '1');
+        modal.addEventListener('click', function (e) {
+            if (e.target === modal) window.fecharModalCustom(modalId);
+        });
+    };
+    </script>
+
+    {% block extra_js %}{% endblock %}
+
     <script>
     // Guard PWA PDV: quando aberto em modo app (standalone), manter navegação apenas no PDV.
     (function () {

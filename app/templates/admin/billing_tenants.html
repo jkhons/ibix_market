@@ -1,9 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Billing - Tenants | PDV Ibix{% endblock %}
+{% block title %}Cobranças - Tenants | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
+    {% include 'components/brand_scope_banner.html' %}
     <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
         <h1 class="h3 d-inline align-middle mb-0">Cobranças - Tenants</h1>
         <div class="d-flex align-items-center gap-2">
@@ -60,11 +61,20 @@
                 document.getElementById('error').classList.add('d-none');
                 document.getElementById('content').classList.remove('d-none');
                 var tbody = document.getElementById('tbody');
+                var brandNome = document.body.getAttribute('data-brand-nome') || 'esta marca';
+                var scopeLocked = document.body.getAttribute('data-brand-scope-locked') === 'true';
+                if (!data.length) {
+                    var emptyMsg = scopeLocked
+                        ? 'Nenhum tenant para ' + brandNome + '. Cadastros neste domínio aparecerão aqui.'
+                        : 'Nenhum tenant encontrado.';
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">' + emptyMsg + '</td></tr>';
+                } else {
                 tbody.innerHTML = data.map(function(row) {
                     var period = row.period_end ? new Date(row.period_end).toLocaleDateString('pt-BR') : '-';
                     var overdue = row.days_overdue != null ? row.days_overdue : '-';
                     return '<tr><td>' + row.tenant_id + '</td><td><a href="/admin/billing/tenant/' + row.tenant_id + '">' + (row.tenant_nome || '') + '</a></td><td>' + (row.subscription_status || 'none') + '</td><td>' + period + '</td><td>' + overdue + '</td><td>' + (row.ativo ? 'Sim' : 'Não') + '</td><td><a href="/admin/billing/tenant/' + row.tenant_id + '" class="btn btn-sm btn-outline-primary">Ver</a></td></tr>';
                 }).join('');
+                }
             })
             .catch(function(e) {
                 document.getElementById('loading').classList.add('d-none');

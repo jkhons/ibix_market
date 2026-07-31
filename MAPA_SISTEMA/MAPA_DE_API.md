@@ -30,29 +30,35 @@ A documentação interativa da API está **desabilitada por padrão** no FastAPI
 ## 1. AUTENTICAÇÃO E USUÁRIOS (`/api/v1/auth`)
 
 ### Login e Tokens
-- **POST** `/auth/login` - Autenticação de usuário com JWT
-  - Body: `LoginRequest` (email, senha)
-  - Response: `TokenResponse` (access_token, refresh_token, token_type, expires_in)
-  - Autenticação: Não requerida
-  - **Cookie:** `pdv_solumatica_token` é setado no response (JWT)
-    - `httponly=false` (front lê o cookie para header Authorization)
-    - `secure` via env `HTTPS=true|false`
-    - `samesite=lax`
-  - **Rate limit:** restritivo por IP (envs `LOGIN_RATE_LIMIT_MAX`, `LOGIN_RATE_LIMIT_WINDOW`, `LOGIN_RATE_LIMIT_BLOCK`)
+- **POST** `/auth/login` - Autenticação de usuário PDV (CA, Admin, técnico, etc.)
+  - Body: `UserLogin` (`email`, `password`)
+  - Response: `LoginResponse` + cookies HttpOnly
+  - Dependency DB: **`get_db_pre_auth()`** — com `RLS_ENABLED=true`, bypass temporário para localizar `usuarios` antes do `tenant_id` ser conhecido (ver MAPA_MULTIBRAND § 6)
+  - **Cookies setados:** `pdv_solumatica_token` e `pdv_automscale_token` (mesmo JWT)
+    - `httponly=true` (JS **não** lê via `document.cookie`; front usa `credentials: 'include'` + `sessionStorage` opcional pós-login)
+    - `secure` quando HTTPS / `X-Forwarded-Proto: https`
+    - `samesite=lax`, host-only ([brand_cookie.py](../app/core/brand_cookie.py))
+  - Pós-login: `assert_user_tenant_matches_request_brand` — CA só entra no domínio da marca do tenant
+  - **Rate limit:** restritivo por IP (`check_login_rate_limit`)
 
 - **POST** `/auth/refresh` - Renovar token de acesso
   - Body: `TokenRefreshRequest` (refresh_token)
   - Response: `TokenResponse`
   - Autenticação: Não requerida
 
-- **POST** `/auth/logout` - Encerrar sessão
-  - Body: `LogoutRequest` (access_token)
-  - Response: `{"message": "Logout realizado com sucesso"}`
-  - Autenticação: Requerida
+- **POST** `/auth/logout` - Encerrar sessão PDV
+  - Autenticação: cookie ou Bearer (`AuthMiddleware.get_current_user`)
+  - Invalida JWT na blacklist Redis (`jti`)
+  - **Sempre** remove cookies `pdv_solumatica_token` e `pdv_automscale_token` via `clear_pdv_auth_cookies()`
+  - Front: `user-dropdown.js` → `POST` com `credentials: 'include'` (não depende de token legível no JS)
 
-- **POST** `/auth/forgot-password` — Esqueci minha senha (PDV). Body: `{ "email": "..." }`. Resposta sempre genérica (não revelar se e-mail existe). Rate limit: check_forgot_password_rate_limit. Envia e-mail com link `/auth/redefinir-senha?token=...` (token uso único, 1h). Tabela `password_reset_tokens`.
-- **GET** `/auth/redefinir-senha/valida?token=...` — Valida token de redefinição. Response: `{ "valid": true|false }`. Público.
-- **POST** `/auth/redefinir-senha` — Redefine senha com token. Body: `{ "token", "new_password", "confirm_password" }`. Rate limit: check_reset_password_rate_limit. Público.
+- **GET** `/logout` (HTML) - Logout via link/navegação
+  - Invalida token + `clear_pdv_auth_cookies()` + redirect 302 → `/login`
+  - Fallback quando JS do dropdown não intercepta o clique
+
+- **POST** `/auth/forgot-password` — Esqueci minha senha (PDV). Body: `{ "email": "..." }`. Dependency: `get_db_pre_auth`. Resposta sempre genérica. Rate limit: `check_forgot_password_rate_limit`. Link `/auth/redefinir-senha?token=...`.
+- **GET** `/auth/redefinir-senha/valida?token=...` — Valida token. Dependency: `get_db_pre_auth`.
+- **POST** `/auth/redefinir-senha` — Redefine senha. Dependency: `get_db_pre_auth`. Rate limit: `check_reset_password_rate_limit`.
 
 ### Informações do Usuário
 - **GET** `/auth/me` - Obter informações do usuário atual
@@ -69,6 +75,8 @@ A documentação interativa da API está **desabilitada por padrão** no FastAPI
 ## 2. CLIENTES (`/api/v1/clientes`)
 
 **Escopo:** Listagens e operações respeitam `ClienteScope` (Superadministrador = todos; Administrador = `administrador_clientes`; Cliente Administrador = `cliente_administrador_clientes`; Subcliente/AreaCliente = um). Ver `app/core/scope.py` e `MAPA_RBAC.md`. **Nota:** Cliente = Empresa Fiscal; Subcliente = Cliente da Empresa Fiscal. API de clientes opera sobre ambos conforme escopo.
+
+**PII (LGPD — br34/br36):** Respostas passam por `apply_cliente_pii_mask` ([pii.py](../app/core/pii.py)). Campos mascarados sem permissão: `cpf`, `cnpj`, `telefone`, `email` (ex.: CNPJ → `**.***.***/****-XX`). Quem vê dados completos: **Superadministrador**, **Administrador**, **Cliente Administrador** (`pii:visualizar` ou role nativa — ver MAPA_RBAC § 0.14). Alteração de PII exige `pii:visualizar` + audit `pii_alteracao_cliente`.
 
 - **GET** `/clientes/` - Listar clientes
   - Query params: `nome`, `cnpj`, `cidade`, `uf`, `pagina`, `por_pagina`
@@ -1244,7 +1252,7 @@ Sistema completo de agendamento de serviços (calibração, aferição, manuten�
 
 ## 13b. RELATÓRIOS (`/api/v1/relatorios`)
 
-**Acesso:** Permissão `certificacao:relatorios:visualizar` (router com `require_permission`). Atribuída a **Superadministrador**, **Administrador** e **Cliente Administrador** (migração b67dd569q5a2, d88gg168r7p5). Página HTML `/relatorios` usa `check_html_permission(..., "certificacao:relatorios:visualizar", ...)`. Autenticação obrigatória; role Subcliente bloqueada via `forbid_cliente_access`. ISO 17025 Fase 3.2 — tendências de ensaios.
+**Acesso:** Permissão `negocios.relatorios:visualizar` (router com `require_permission`). Atribuída a **Superadministrador**, **Administrador** e **Cliente Administrador** (migração `rb01_cleanup_permissoes_certipeso`; substitui legado `certificacao:relatorios:visualizar`). Página HTML `/negocio/relatorios` usa módulo `negocios` (não esta permissão). Autenticação obrigatória.
 
 **Endpoints implementados:** GET catálogo, POST jobs (gerar relatório), GET jobs/{id}, GET jobs/{id}/download. Worker Celery processa a tarefa `generate_report` (Redis como broker).
 
@@ -1765,8 +1773,12 @@ APIs otimizadas para aplicativo mobile nativo, com suporte offline e recursos na
 
 ### 17.0 Admin Dashboard (Super Admin) — prefix `/api/v1/admin/dashboard`
 
-- **GET** `/admin/dashboard` — Dados do dashboard Super Admin (clientes novos, cadastros, usuários ativos 24h, últimos logins, pagamentos, **visitantes_hoje**). Dependency: require_superadmin().
-  - Response inclui `visitantes_hoje`: `{ humanos, bots, cloud }` — contagem por `tipo_visitante` (HUMANO/BOT/CLOUD) na tabela `access_log` do dia atual. Classificação em `app/utils/visitante.py`; registro via middleware + Celery. Ver MAPA_DO_SISTEMA (Logs — Access log).
+- **GET** `/admin/dashboard` — Dados do dashboard Super Admin (clientes novos, cadastros, usuários ativos 24h, últimos logins, pagamentos, **visitantes_vitrine**). Dependency: `require_superadmin_or_admin()` (payload Super Admin vs Administrador).
+  - Query opcional Super Admin: `brand_id` — em marca origem (Ibix) filtra tenants; ausência = visão global. Em marca derivada (Solumática) o Host fixa o escopo (`resolve_admin_brand_scope`).
+  - Resposta inclui `brand_scope` (`brand_id`, `brand_nome`, `scope_locked`, `scope_label`) e `brand_id_filtro`.
+  - `visitantes_vitrine`: `{ hoje, ultimos_7_dias, ultimos_30_dias }` — cada um `{ humanos, bots, cloud }` (IPs únicos por `tipo_visitante` em paths da vitrine pública: `/loja`, `/loja/*`, `/categoria/*`, `/lojas-parceiras`, `/{slug}` não reservado). Serviço: `app/services/vitrine_access_analytics_service.py`.
+  - Query opcional: `incluir_analytics=true`, `periodo=hoje|ultimos_7_dias|ultimos_30_dias`, `tipo_visitante=HUMANO|BOT|CLOUD|TODOS` (default analytics: `HUMANO`). Período inválido → HTTP 400.
+  - Com `incluir_analytics=true`: bloco `visitantes_vitrine_analytics` com `paginas_top` (paths de produto mesclados por `anuncio_id`), `produtos_top` (IPs únicos corretos por produto), `lojas_top` (/{slug}), `funil`, `nota_metrica`. UI: `/admin/dashboard` (Superadministrador); filtro tipo visitante no front.
 
 ### 17.2 Super Admin — prefix `/api/v1/admin/billing`
 
@@ -1778,6 +1790,9 @@ APIs otimizadas para aplicativo mobile nativo, com suporte offline e recursos na
 - **GET** `/admin/billing/config` — mp_configured, app_url (sem expor segredos).
 - **POST** `/admin/billing/config` — Salva Access Token, Webhook Secret, APP_URL (configuracoes).
 - **GET** `/admin/billing/config/validate` — Validação real do token MP (GET api.mercadolibre.com/users/me). Response: mp_valid, mp_message.
+- **POST** `/admin/billing/onboarding/convite-lojista` — Envia e-mail de captação de lojista (body: `email`, `nome_destinatario`, `mensagem`); resposta inclui `cadastro_url`.
+- **GET** `/admin/billing/onboarding/convite-lojista-template` — HTML efetivo do e-mail de convite a lojistas (`html`, `is_custom`). Override em `configuracoes` (`email_template_platform_convite_cadastro_lojista`) ou arquivo `emails/platform_convite_cadastro_lojista.html`.
+- **PATCH** `/admin/billing/onboarding/convite-lojista-template` — Body `{ "html": "<!DOCTYPE ..." }` salva override; `{ "reset_to_default": true }` remove override. Exige `{{cadastro_url}}` no HTML salvo.
 - **GET** `/admin/billing/preco` — Valor mensal (centavos), valor_aplicar_a, desconto_percent, desconto_escopo, desconto_tenant_ids.
 - **POST** `/admin/billing/preco` — Salva valor mensal e regras de desconto (configuracoes).
 - **POST** `/admin/billing/preco/aplicar-valor-todos` — Body: `respeitar_codigos_promocionais` (boolean, default true). Atualiza valor_mensal_centavos de todas as assinaturas: true = mantém desconto de código onde houver codigo_desconto_id; false = aplica o mesmo valor a todas (ignora códigos). Contrato comercial ativo sempre prevalece.
@@ -1948,31 +1963,45 @@ Importação de XML de NF-e de entrada (compras), conciliação de itens e lanç
   - Autenticação: Requerida
 
 - **POST** `/ordens-servico/{ordem_id}/enviar-para-vendas` - Enviar OS concluída para vendas (cobrança)
-  - Cria **uma** Venda a partir da OS (relação 1:1). Requer: status da OS = `concluida`; OS ainda sem venda vinculada; todos os itens da OS com `estoque_id` (produto vinculado).
-  - Response: `201 Created`, body `VendaResponse` (venda criada com itens; timestamps dos itens preenchidos via ORM).
-  - Erros: `400` se itens sem estoque_id ou OS não concluída; `404` se OS não encontrada ou fora do escopo; `409 Conflict` se a OS já foi enviada para vendas.
-  - Implementação: `app/services/ordem_servico_venda_service.criar_venda_a_partir_da_os`; resposta montada com `db.refresh(venda)`, `db.refresh(it)` por item e `VendaResponse.model_validate(venda, from_attributes=True)` (sem dict manual).
+  - Cria **uma** Venda a partir da OS (relação 1:1). Requer: status da OS = `concluida`; OS ainda sem venda vinculada.
+  - Response: `201 Created`, body `VendaResponse` com rastreio (`venda_origens`: OS imediata; orçamento raiz se `orcamento_origem_id`).
+  - Erros: `400` se OS não concluída; `404` se OS não encontrada ou fora do escopo; `409 Conflict` se a OS já foi enviada para vendas.
+  - Implementação: `ordem_servico_venda_service.criar_venda_a_partir_da_os` + `_venda_response_orm`.
+  - Autenticação: Requerida
+
+- **GET** `/ordens-servico/{ordem_id}/pdf` - PDF da ordem (template tenant ou fallback).
   - Autenticação: Requerida
 
 - **DELETE** `/ordens-servico/{ordem_id}` - Excluir ordem (status permitidos conforme regra de negócio)
   - Response: `204 No Content`
   - Autenticação: Requerida
 
+### Documentos de impressão (`/documentos-impressao`)
+
+- **GET** `/documentos-impressao/templates` — Lista templates do tenant (query `tipo=orcamento|ordem_servico`).
+- **POST** `/documentos-impressao/templates` — Criar template (HTML Jinja + CSS opcional).
+- **PUT** `/documentos-impressao/templates/{id}` — Editar.
+- **POST** `/documentos-impressao/templates/{id}/definir-padrao` — Marcar padrão por tipo.
+- **POST** `/documentos-impressao/preview?formato=html|pdf` — Preview com dados mock + `brand.*`.
+- Escopo: `tenant_id` + RLS; `forbid_cliente_access`. UI HTML: `/negocio/formatos-impressao`.
+
 ### Vendas (`/vendas`)
 
 - **GET** `/vendas/` - Listar vendas com paginação
   - Query: `skip` (default 0), `limit` (default 100, max 1000), `data_inicio`, `data_fim` (YYYY-MM-DD)
-  - Response: `{ vendas, total, skip, limit }` — inclui `ordem_servico_id` e `ordem_servico_codigo` quando aplicável.
+  - Response: `{ vendas, total, skip, limit }` — inclui rastreio comercial: `orcamento_id`, `numero_orcamento`, `ordem_servico_id`, `ordem_servico_codigo`, `origem_imediata_*`, `origem_raiz_*`.
   - Autenticação: Requerida
 
 - **GET** `/vendas/{venda_id}` - Obter venda por ID
-  - Response: detalhes da venda (dict); inclui `ordem_servico_id` e `ordem_servico_codigo` quando aplicável.
+  - Response: detalhes da venda (dict); inclui campos de origem acima + `origem_cadeia` (breadcrumb com timestamps de `venda_origens`).
   - Autenticação: Requerida
 
 - **POST** `/vendas/` - Criar venda (manual; número gerado por `app/services/venda_numero.gerar_numero_venda`).
   - Body: `VendaCreate`
-  - Response: `VendaResponse`
+  - Response: `VendaResponse` (com campos de origem; origem manual registrada em `venda_origens`)
   - Autenticação: Requerida
+
+- **POST** `/vendas/pedido-pendente` - Cria venda PENDENTE; registra origem `manual` em `venda_origens`.
 
 **Schemas de resposta (Pydantic v2):** `VendaResponse` e `VendaItemResponse` possuem `model_config = ConfigDict(from_attributes=True)` para permitir construção a partir do ORM (ex.: no endpoint enviar-para-vendas). Os itens incluem `created_at` e `updated_at` (herdados de `BaseModel` nos modelos SQLAlchemy).
 
@@ -2172,11 +2201,11 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 - **GET** `/payments/configs/{estabelecimento_id}` - Listar configs por path (equivalente ao query acima)
 - **POST** `/payments/configs` - Criar config. Body: `PaymentProviderConfigCreate` (cliente_id, provider_code, **credentials?** dict em plain para criptografar, ou credentials_encrypted?; fee_configs?, routing_rules?, is_active, is_default, test_mode). **Providers permitidos:** `mercadopago`, `pagbank`, `pagarme`. Credenciais são criptografadas em repouso (PAYMENT_CREDENTIALS_SECRET ou PAYMENT_CREDENTIALS_PASSWORD no env).
 - **POST** `/payments/process` - Processar pagamento via **PaymentOrchestrator**: carrega configs ativas do estabelecimento, seleciona provedor permitido, charge real, **SplitEngine** aplica split_rules e persiste transaction_splits. Body: `PaymentProcessRequest`. Response: `PaymentProcessResponse` (transaction_uuid, status, provider_transaction_id, payment_details, message, retry_allowed).
-- **POST** `/payments/retry/{transaction_uuid}` - Retentar pagamento para transação pendente/falha (gera nova tentativa com nova idempotency_key).
-- **GET** `/payments/status/{transaction_uuid}` - Obter status da transação. Response: `PaymentStatusResponse` (uuid, status, payment_method, amount, venda_id?, provider_transaction_id?, paid_at?, refunded_at?, reconciliation_status?, reconciliation_date?)
-- **GET** `/payments/transactions?estabelecimentoId={cliente_id}&status={pending|failed|paid,authorized|all}&data_inicio={YYYY-MM-DD}&data_fim={YYYY-MM-DD}&skip={n}&limit={n}` - Listar transações do estabelecimento. Status opcional: `all` (todas), `paid,authorized` (pagas), `pending,failed` (pendentes/falhas). Response inclui `pedido_id`, `numero_pedido`, `paid_at`.
-- **GET** `/payments/transactions/{transaction_uuid}/comprovante` - Retorna HTML do comprovante de pagamento (imprimível). Usado pelo front com fetch (evita problema de cookie em navegação). Autenticação: Bearer ou cookie.
-- **POST** `/payments/reconcile/{transaction_uuid}` - Reconcilia transação marketplace: busca status no Mercado Pago e atualiza PaymentTransaction + PedidoMarketplace.
+- **POST** `/payments/retry/{transaction_uuid}` - Retentar pagamento para transação pendente/falha (gera nova tentativa com nova idempotency_key). Escopo igual ao comprovante quando `checkout_session_id` (participante da sessão). **2026-05-15**
+- **GET** `/payments/status/{transaction_uuid}` - Obter status da transação. Response: `PaymentStatusResponse` (uuid, status, payment_method, amount, venda_id?, provider_transaction_id?, paid_at?, refunded_at?, reconciliation_status?, reconciliation_date?). Escopo ampliado para participante da sessão unificada. **2026-05-15**
+- **GET** `/payments/transactions?estabelecimentoId={cliente_id}&status={pending|failed|paid,authorized|all}&data_inicio={YYYY-MM-DD}&data_fim={YYYY-MM-DD}&skip={n}&limit={n}` - Listar transações **no escopo do estabelecimento**. Inclui linhas cuja `PaymentTransaction.cliente_id` é o CA **e** linhas de **checkout unificado marketplace** em que existe pedido na sessão (`checkout_session_id` + `marketplace_checkout_session_pedidos`) com `pedidos_marketplace.tenant_id` = esse `cliente_id`. Com **`estabelecimentoId`**, `amount`, `cliente_id`, `numero_pedido` e `pedido_id` na response refletem a **parcela daquele tenant** (vários `numero_pedido` concatenados se o mesmo CA tiver mais de um pedido na sessão); sem `estabelecimentoId` (lista “todos” no escopo permitido ao usuário), mantém-se o comportamento agregador por linha física (`amount` total da transação, `cliente_id` âncora). Implementação: `app/services/payments/marketplace_unified_payment_scope.py` + `listar_transacoes` em `app/api/v1/payments.py`. **2026-05-15**
+- **GET** `/payments/transactions/{transaction_uuid}/comprovante` - Retorna HTML do comprovante de pagamento (imprimível). Usado pelo front com fetch (evita problema de cookie em navegação). Autenticação: Bearer ou cookie. Escopo ampliado: CA que **participa** da mesma sessão unificada pode acessar (não apenas o `cliente_id` da linha). **2026-05-15**
+- **POST** `/payments/reconcile/{transaction_uuid}` - Reconcilia transação marketplace: busca status no Mercado Pago e atualiza PaymentTransaction + PedidoMarketplace. Escopo igual ao comprovante para sessão unificada. **2026-05-15**
 - **POST** `/payments/webhook/{provider_code}` - Webhook dos provedores (aceita `mercadopago`, `pagbank`, `pagarme`). Processa payload JSON, identifica order_id/status, mapeia para status interno e atualiza `payment_transactions` com reconciliação.
 - **GET** `/payments/connect/pagbank/start?estabelecimentoId={id}` - Inicia fluxo OAuth PagBank Connect: redireciona CA para PagBank autorizar. State assinado (HMAC-SHA256 com SECRET_KEY, TTL 15min).
 - **GET** `/payments/connect/pagbank/callback?code={code}&state={state}` - Callback OAuth PagBank: troca code por access_token/refresh_token, salva em `payment_provider_configs` como credenciais criptografadas. Redireciona para `/negocio/recebiveis?connect=pagbank_success` ou `pagbank_error`.
@@ -2184,11 +2213,14 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 
 ### API Repasses (`/negocio/financeiro/repasses/`) – SuperAdmin only
 
-- **GET** `/negocio/financeiro/repasses/resumo` - Saldos pendentes de repasse agrupados por CA (modo=plataforma). Response: lista de `ResumoCA` (cliente_id, cliente_nome, total_vendas_bruto, total_taxa, total_repassado, saldo_pendente).
+- **Marketplace sessão unificada (2026-05-15):** transações `PaymentTransaction` com `checkout_session_id` entram no **saldo/bruto por CA** quando o CA é **participante** (pedido na sessão com `tenant_id` = `cliente_id`), não apenas quando é o `cliente_id` gravado na transação (âncora). Valores por linha (`amount`, taxas) usam o **rateio** do pedido pertencente àquele tenant (`filter_transactions_query_for_estabelecimento`, `amount_payment_transaction_para_estabelecimento` em `marketplace_unified_payment_scope.py`).
+- **GET** `/negocio/financeiro/repasses/resumo` - Saldos pendentes de repasse agrupados por CA (modo=plataforma). Response: lista de `ResumoCA` (cliente_id, cliente_nome, total_vendas_bruto, total_taxa, total_repassado, saldo_pendente). **Bruto e contagem** consideram o rateio acima quando aplicável.
 - **GET** `/negocio/financeiro/repasses/extrato?cliente_id={id}&status={pendente|repassado|cancelado}&page={n}&per_page={n}` - Extrato de repasses com filtros e paginação.
 - **POST** `/negocio/financeiro/repasses/` - Criar repasse manual. Body: `RepasseCreate` (cliente_id, valor_bruto, valor_taxa, valor_liquido, periodo_inicio, periodo_fim, comprovante?, observacao?).
 - **PUT** `/negocio/financeiro/repasses/{id}` - Atualizar status/comprovante/observação. Body: `RepasseUpdate` (status?, comprovante?, observacao?). Ao marcar `repassado`, `data_repasse` é preenchido automaticamente.
 - **GET** `/negocio/financeiro/repasses/taxas` - Lista taxas configuradas por empresa fiscal (modo=plataforma).
+- **GET** `/negocio/financeiro/repasses/transacoes?cliente_id={id}&limit={n}` - Transações modo plataforma pagas/autorizadas; com **`cliente_id`**, inclui sessão unificada e valores rateados (**2026-05-15**).
+- **GET** `/negocio/financeiro/repasses/sugestao?cliente_id=…&periodo_inicio&periodo_fim` - Bruto/contagem/taxa sugeridos no período; com mesmo critério de participação na sessão (**2026-05-15**).
 
 ### Webhook Mercado Pago (`/api/webhooks/mercadopago`) – Fase 2
 
@@ -2226,8 +2258,11 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 - **POST** `/orcamentos` — Criar orçamento em rascunho. Body: `OrcamentoCreate` (cliente_id, destinatario_id opcional, data_validade, observacoes, condicoes_pagamento, itens).
 - **POST** `/orcamentos/{id}/emitir` — Alterar status de rascunho para emitido.
 - **POST** `/orcamentos/{id}/converter` — Converter orçamento em pedido. Body: `OrcamentoConverterRequest` (reservar_estoque opcional). Response: `{ message, pedido_id, numero_pedido }`.
+- **POST** `/orcamentos/{id}/converter-os` — Converter em ordem de serviço (body: `tipo_id`). Grava `ordem_servico.orcamento_origem_id`. Audit `orcamento_convertido_os`.
+- **POST** `/orcamentos/{id}/converter-venda` — Cria venda PENDENTE + `venda_origens` + `vendas.orcamento_id`. Redirect UI: `/negocio/venda?finalizar={venda_id}`.
+- **GET** `/orcamentos/{id}/pdf` — PDF via template tenant ou fallback legado (`documento_impressao_service`).
 
-**Pendentes:** PUT `/orcamentos/{id}`, DELETE `/orcamentos/{id}` (apenas rascunho), GET `/orcamentos/{id}/pdf`, POST `/orcamentos/{id}/enviar-email`, POST `/orcamentos/{id}/enviar-whatsapp`.
+**Pendentes menores:** DELETE `/orcamentos/{id}` (apenas rascunho), POST enviar-email/whatsapp.
 
 ### Pedidos (`/api/v1/pedidos`)
 
@@ -2249,7 +2284,7 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 
 ---
 
-## 19. MARKETPLACE E LOJA (VITRINE) (`/api/v1/marketplace`, `/api/v1/loja`, `/api/v1/marketing-vitrine`)
+## 19. MARKETPLACE E LOJA (VITRINE) (`/api/v1/marketplace`, `/api/v1/loja`, `/api/v1/marketing-vitrine`, `/api/v1/marketing/ibix-lancamento`)
 
 **Escopo gestão:** ClienteScope (Superadmin sem filtro; Admin/CA por allowed_ids). Autenticação: JWT PDV (cookie `pdv_solumatica_token` ou Bearer). **Vitrine:** rotas públicas sem auth PDV; rotas “minha-conta / meus-pedidos / avaliar” exigem consumidor (cookie `loja_consumidor_token` ou Bearer com tipo=consumidor).
 
@@ -2264,7 +2299,14 @@ Configs por estabelecimento; processamento real pós-venda; status por UUID; ret
 - **GET** `/marketplace/loja?cliente_id=` — Obter loja do estabelecimento. Escopo: cliente_id no escopo. Permissão: `marketplace:visualizar`.
 - **GET** `/marketplace/lojas` — Lista todas as lojas marketplace (query opcional `status`, `skip`, `limit`; resposta `{ items, total }`). **Apenas Superadministrador** (`require_superadmin()` em `app/api/v1/marketplace.py`). Usado pela tela admin de SEO da vitrine.
 - **POST** `/marketplace/loja` — Ativar/criar loja (body: LojaMarketplaceCreate). Escopo: cliente_id no escopo. Permissão: `marketplace:configurar_loja`.
-- **PATCH** `/marketplace/loja/{loja_id}` — Atualizar loja. Escopo: loja do escopo. Permissão: `marketplace:configurar_loja`. **Regras RBAC adicionais (403 se violadas):** (1) campos `formato_frete`, `taxa_entrega_fixa`, `entrega_gratis_apos` — somente Superadministrador; (2) campos de SEO avançado `seo_title`, `seo_description`, `og_image_url`, `seo_enabled` — somente Superadministrador. Administrador e Cliente Administrador podem editar demais campos permitidos pelo schema (nome, slug, local SEO, `nome_fantasia`, descrições, imagens, etc.) dentro do escopo.
+- **PATCH** `/marketplace/loja/{loja_id}` — Atualizar loja. Escopo: loja do escopo. Permissão: `marketplace:configurar_loja`. **Regras (400 se violadas):** campos de transporte (`formato_frete`, `taxa_entrega_fixa`, `entrega_gratis_apos`, `tipo_entrega`, `raio_entrega_km`) **não** são mais aceitos — usar `PATCH /api/v1/transporte/loja/{loja_id}` (ver § Transporte). **Regras RBAC (403):** campos de SEO avançado `seo_title`, `seo_description`, `og_image_url`, `seo_enabled` — somente Superadministrador. Administrador e Cliente Administrador podem editar demais campos permitidos pelo schema (nome, slug, local SEO, `nome_fantasia`, descrições, imagens, etc.) dentro do escopo.
+
+#### Transporte (módulo dedicado — `app/api/v1/transporte.py`)
+
+- **GET** `/transporte/loja/{loja_id}` — Configuração de transporte da loja. Permissão: `marketplace:visualizar` + escopo. Response: `modo` (`retirada` \| `ambos`), `submodo` (`propria_gratis` \| `propria_valor` \| `plataforma`, quando `modo=ambos`), `taxa_entrega_fixa`, `entrega_gratis_apos`, `raio_entrega_km`, `formato_frete` (reflexo do banco), `tipo_entrega`.
+- **PATCH** `/transporte/loja/{loja_id}` — Atualiza modo/submodo/valores. Permissão: `marketplace:configurar_loja` + escopo. CA salva a própria loja; Superadministrador / Administrador com escopo amplo salvam qualquer loja. Validações: `modo=retirada` zera taxas; `modo=ambos` exige `submodo`; `submodo=propria_valor` exige `taxa_entrega_fixa ≥ 0` (`entrega_gratis_apos` opcional).
+- **GET** `/transporte/loja/{loja_id}/regras?cidade&uf` — Público (sem auth). Mesmo contrato do legado `GET /loja/{loja_id}/frete` (que vira alias **deprecado**). Aplica `LojaAreaEntrega` quando a localidade está coberta; senão devolve `taxa_entrega_fixa` da loja.
+- **GET** `/transporte/loja/{loja_id}/areas?ativo` — Alias somente leitura para áreas de entrega da loja (CRUD em `/marketplace/loja/{id}/areas-entrega` continua com `require_superadmin()`, **sem mudança de permissão**).
 - **GET** `/marketplace/status-pedido` — Lista status de pedido da loja (query `incluir_inativos`: bool, default false). Sem incluir_inativos: apenas ativos (CA usa para filtro/modal). Com `incluir_inativos=true`: todos; acesso apenas Super Admin. Permissão leitura: `marketplace:visualizar`.
 - **POST** `/marketplace/status-pedido` — Criar status (body: codigo, label, ordem, ativo). Apenas Super Admin.
 - **PATCH** `/marketplace/status-pedido/{id}` — Atualizar status (label, ordem, ativo). Apenas Super Admin.
@@ -2303,6 +2345,20 @@ Configuração **global** (singleton) e **cards** da home da vitrine (`/loja`): 
 
 **Rota HTML (admin):** `GET /admin/marketing-vitrine` — apenas Superadministrador; template `app/templates/admin/marketing_vitrine.html`; consome as APIs acima com `window.authenticatedFetch`. Item de menu no sidebar: **Marketing Vitrine**.
 
+### Marketing Ibix Lançamento — campanha operacional (`/api/v1/marketing/ibix-lancamento`)
+
+Painel operacional da campanha de pré-lançamento (40 dias). Fonte editorial: pasta `MARKETING_ESTRUTURADO/` no repositório. Persistência: `marketing_campanhas`, `marketing_posts` (migrações `me01`, `me02` — guia + copies Bloco A). Router: `app/api/v1/marketing/marketing_ibix_lancamento.py`.
+
+**Governança:** somente **Superadministrador** (`require_superadmin()`). Brand gate marketplace (403 em marcas sem módulo). Sem publicação automática em redes sociais; PATCH altera apenas status operacional (não altera tema/data/legenda/cortes). Bloco A traz `legenda_reels`, `cortes`, `duracao`, `telas_necessarias`; B–D sem roteiro até seed futuro (UI mostra ausência explícita).
+
+- **GET** `/marketing/ibix-lancamento/campanha` — Campanha ativa (`slug=ibix_market_40d`) + resumo (totais, progresso por bloco, post de hoje / próximo pendente; timezone `America/Sao_Paulo`). **404** se campanha ausente.
+- **PATCH** `/marketing/ibix-lancamento/campanha` — Body: `proximo_passo` e/ou `status` (`ativa`|`encerrada`).
+- **GET** `/marketing/ibix-lancamento/posts` — Query opcional `bloco` (A–D), `status_copy`, `status_publicacao`.
+- **GET** `/marketing/ibix-lancamento/posts/{numero}` — Detalhe do post.
+- **PATCH** `/marketing/ibix-lancamento/posts/{numero}` — Status copy/produção/publicação, checklist, telas_ok, notas, reuso_origem_numero.
+
+**Rota HTML (admin):** `GET /admin/marketing-ibix-lancamento` — Superadministrador; template `admin/marketing_ibix_lancamento.html`; menu **Marketing Ibix — Lançamento** (com `brand_has_marketplace`).
+
 ### Vitrine e consumidor (`/api/v1/loja`)
 
 - **GET** `/loja/auth/social/config` — Retorna apenas client IDs públicos (`google_client_id`, `facebook_app_id`, `apple_client_id`). Sem secrets.
@@ -2328,6 +2384,7 @@ Configuração **global** (singleton) e **cards** da home da vitrine (`/loja`): 
 - **POST** `/loja/pedidos/{pedido_id}/avaliar` — Criar avaliação (nota 1–5, comentário). Apenas comprador do pedido. Auth: consumidor.
 - **GET** `/loja/anuncios/{anuncio_id}/avaliacoes` — Lista avaliações do anúncio (público).
 - **POST** `/loja/checkout` — Criar pedido: body PedidoCheckoutCreate (loja_id, itens com anuncio_id e quantidade, comprador_nome/email/telefone/documento, endereco_entrega, tipo_entrega, desconto, taxa_entrega, payment_method opcional). Itens agrupados por anuncio_id; valida estoque; **calcula frete por item com precedência `produto > loja` e soma no pedido**; baixa anuncio e produtos_cliente; atualiza loja total_vendas e faturamento_total; insere extrato_loja. Consumidor opcional (get_current_consumidor_optional). **Quando há gateway ativo** para o estabelecimento da loja: reserva estoque, cria checkout no provedor (Mercado Pago) e retorna `redirect_url` na response; a escolha da credencial (plataforma vs CA) segue `empresa.modo_recebimento` da empresa fiscal do dono da loja (ver MAPA_PAGAMENTO § 2.5.1). Response: PedidoCheckoutResponse.
+- **POST** `/loja/checkout-unificado` — Carrinho **multi-loja** (modo recebimento **plataforma** obrigatório em todas as lojas participantes): cria **N** pedidos + **uma** `marketplace_checkout_sessions` e **um** pagamento agregado (`external_reference` `mcs:{uuid}`). Recebíveis, billing usage e repasse por CA seguem **rateio por `pedidos_marketplace.tenant_id`** (ver MAPA_DO_SISTEMA § 12 «Checkout unificado… 2026-05-15» e `marketplace_unified_payment_scope.py`). Response: contrato `PedidoCheckoutUnificadoResponse` em `loja.py`.
 
 #### Geolocalização (vitrine pública)
 - **GET** `/loja/geo/cidades?q=` — Lista cidades únicas com lojas ativas (autocomplete). Público.
@@ -2390,10 +2447,77 @@ As permissões seguem o padrão: `modulo:recurso:acao`
 
 ---
 
-**Última Atualização:** 2026-04-27  
-**Versão:** 2.2  
+## 20. MULTI-BRAND — resolução por Host, guards e escopo brand_id
+
+**Mapa:** [MAPA_MULTIBRAND.md](MAPA_MULTIBRAND.md)
+
+### 20.1 Contexto de request (não é endpoint)
+
+- Middleware `brand_resolution_middleware` popula `request.state.brand` (`BrandContext`) e `request.state.brand_module_slugs`
+- Host validado via `brand_domains`; host desconhecido → marca origem (Ibix)
+
+### 20.2 Guards de módulo (marketplace)
+
+Rotas com prefixo vitrine/marketplace exigem módulo `marketplace` no catálogo da marca:
+
+| Prefixo / rota | Guard |
+|----------------|-------|
+| `/loja`, `/api/v1/loja/*` | `MARKETPLACE_ROUTER_DEPENDENCIES` |
+| `/api/v1/marketing-vitrine/*` | idem |
+| `/api/v1/marketing/ibix-lancamento/*` | idem |
+| `/admin/marketing-ibix-lancamento` | `marketplace_brand_gate_middleware` |
+| `/api/v1/marketplace/*` | idem |
+| `/negocio/marketplace/*` (HTML) | `marketplace_brand_gate_middleware` |
+
+Marca sem marketplace (ex. Solumática) → **403** JSON/HTML explícito.
+
+### 20.3 Endpoints com `brand_id` implícito ou explícito
+
+| Endpoint | Escopo de marca |
+|----------|-----------------|
+| `POST /api/v1/auth/login`, cadastro público | Tenant criado com `brand_id_from_request(request, db)` |
+| `POST /api/v1/billing/*` (criação tenant CA) | Slug único por `(brand_id, slug)` |
+| `GET/POST /api/v1/admin/lgpd/*` | Query/body `brand_id` opcional; default = marca do Host |
+| `GET /api/v1/admin/dashboard` | `brand_id` query opcional (origem); derivada força Host; resposta `brand_scope` |
+| `GET /api/v1/admin/billing/tenants` | Idem — lista tenants da marca |
+| `GET /api/v1/admin/hierarquia` | Árvore filtrada por marca derivada |
+| `GET /api/v1/usuarios/` | Superadmin: tenants da marca em host derivado |
+| `GET /api/v1/vendas` e demais com `ClienteScope` | Superadmin derivado: `get_cliente_ids_for_brand` via `get_cliente_scope_dep` |
+| `GET /api/v1/loja/auth/social/config` | `origin` + `apple_redirect_uri` da origem pública da marca |
+| `GET/POST /api/v1/payments/connect/pagbank/*` | `redirect_uri` por `public_origin_from_request()` |
+
+### 20.4 Cookies e CORS
+
+- Cookies de sessão: host-only (`brand_cookie.apply_host_scoped_cookie`) — sem `Domain` compartilhado entre marcas
+- CORS: origens de `CORS_ORIGINS` + `brand_domains` ativos ([hardening.py](../app/core/hardening.py))
+
+---
+
+## 21. ENTERPRISE — ciclo de vida do tenant (Fase 9)
+
+**Mapa:** [MAPA_MULTIBRAND.md](MAPA_MULTIBRAND.md) § 13
+
+Prefixo: `/api/v1/admin/tenant-lifecycle` — **Superadministrador** only.
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/tenant/{tenant_id}/status` | Estado (`ativo`, `suspenso`, `bloqueado_billing`); query `brand_id` opcional |
+| POST | `/tenant/{tenant_id}/suspend` | Suspende tenant (`ativo=false`); body `motivo`, `brand_id` |
+| POST | `/tenant/{tenant_id}/resume` | Reativa tenant |
+| POST | `/tenant/{tenant_id}/offboarding` | Offboarding LGPD (`confirmar=true`); retenção fiscal documentada |
+
+LGPD export/offboarding legado: `/api/v1/admin/lgpd/tenant/{id}/*` (mantido).
+
+---
+
+**Última Atualização:** 2026-07-31  
+**Versão:** 2.4  
 **Status:** Documentação Ativa - Referência Padrão  
 **Adições:**
+- **Seção 19 – Marketing Ibix Lançamento (2026-07-31):** prefixo `/api/v1/marketing/ibix-lancamento` (Superadmin + brand gate); HTML `/admin/marketing-ibix-lancamento`; tabelas `marketing_campanhas` / `marketing_posts` (me01).
+- **Auth + RLS + logout (2026-06-18):** `get_db_pre_auth` no login/cadastro/recuperação de senha; cookies HttpOnly; `POST/GET /logout` com `clear_pdv_auth_cookies`; front `user-dropdown.js` / `certipeso.js` — sessão via cookie, não redirect cego por ausência de token no JS. Ver MAPA_MULTIBRAND § 6.
+- **Clientes PII (2026-06-18):** máscara LGPD em listagem; CA com `pii:visualizar` (br36). MAPA_RBAC § 0.14.
+- **Seção 20 – Multi-brand (2026-06-18):** resolução por Host, guards marketplace, escopo `brand_id` em auth/billing/LGPD/OAuth/pagamentos; referência MAPA_MULTIBRAND.
 - **Seção 19 – Marketplace: timeline consumidor, inbox consumidor e API do sino CA (2026-04-30):** `GET /loja/pedidos/{pedido_id}/timeline`; `GET /loja/notificacoes` e `PATCH /loja/notificacoes/lidas`; nova subseção **Notificações (painel CA)** com `GET`/`POST` `/api/v1/notificacoes`. Detalhe de fluxos Celery e e-mails em MAPA_DO_SISTEMA § 12.
 - **Seção 19 – Vitrine: Proximidade real (rota) (2026-04-27):** Novos endpoints públicos `GET /loja/geo/geocodificar` (CEP+número+complemento, precisão `rooftop|range_interpolated|geometric_center`, 404 quando só `locality`), `GET /loja/anuncios/perto-de-voce` (home: aleatórios ordenados por **duração de rota**, pool diverso por loja, queda para Haversine com `rota_estimada=true`) e `GET /loja/anuncios/proximos` (pós-busca: filtra por `q`, agrupa por loja com melhor oferta, ordena por rota real). `AnuncioVitrineResponse` ganha `bairro_loja`, `distancia_rota_km`, `duracao_rota_min`, `rota_estimada`. Backend usa `routing_service.distance_matrix` (Google Distance Matrix → OSRM público → Haversine) com cache Redis 24h por geohash do origem; `geo_service.geocode_address` cobre Google → BrasilAPI+Nominatim com cache 30 dias. Detalhes técnicos em MAPA_DO_SISTEMA § 14.
 - **Seção 19 – Marketing Vitrine — regra de governança (2026-03-26):** Texto explícito em MAPA_DE_API: todos os cards da home são cadastrados **somente** pelo Superadmin em `/admin/marketing-vitrine` (sem tela paralela); alinhado a `require_superadmin` nas APIs.

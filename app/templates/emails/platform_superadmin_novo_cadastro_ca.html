@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Novo cadastro de lojista</title>
+    <!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+    <style type="text/css">
+        body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #f0f2f5; }
+        table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        a { color: #0d6efd; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .preheader { display: none !important; visibility: hidden; opacity: 0; color: transparent; height: 0; width: 0; overflow: hidden; mso-hide: all; }
+    </style>
+</head>
+<body style="margin:0;padding:0;background-color:#f0f2f5;font-family:'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:16px;line-height:1.5;color:#1a1a1a;">
+    <span class="preheader">Novo lojista cadastrado na plataforma Ibix.</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f0f2f5;padding:24px 12px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#0d6efd 0%,#0a58ca 100%);padding:28px 32px;text-align:left;">
+                            <p style="margin:0;font-size:13px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:rgba(255,255,255,0.9);">Ibix · Plataforma</p>
+                            <h1 style="margin:8px 0 0;font-size:22px;font-weight:600;color:#ffffff;line-height:1.3;">Novo cadastro de lojista</h1>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px;">Um novo <strong>Cliente Administrador</strong> concluiu o cadastro público. Resumo abaixo para sua equipe de operações.</p>
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8f9fa;border-radius:6px;border:1px solid #e9ecef;">
+                                <tr>
+                                    <td style="padding:16px 20px;">
+                                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6c757d;width:140px;">Empresa</td>
+                                                <td style="padding:6px 0;font-weight:600;">{{nome_empresa}}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6c757d;">CNPJ</td>
+                                                <td style="padding:6px 0;">{{cnpj}}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6c757d;">Responsável</td>
+                                                <td style="padding:6px 0;"><a href="mailto:{{email_responsavel}}" style="color:#0d6efd;">{{email_responsavel}}</a></td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6c757d;">Tenant</td>
+                                                <td style="padding:6px 0;">#{{tenant_id}}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:6px 0;font-size:13px;color:#6c757d;">Usuário CA</td>
+                                                <td style="padding:6px 0;">#{{usuario_ca_id}}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+                                <tr>
+                                    <td style="border-radius:6px;background-color:#0d6efd;">
+                                        <a href="{{admin_link}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 28px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;">Abrir no painel administrativo</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin:24px 0 0;font-size:13px;color:#6c757d;">Se o botão não funcionar, copie e cole este endereço no navegador:<br/><span style="word-break:break-all;color:#495057;">{{admin_link}}</span></p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:20px 32px;background-color:#f8f9fa;border-top:1px solid #e9ecef;font-size:12px;color:#6c757d;text-align:center;">
+                            <p style="margin:0;">Mensagem automática do sistema · {{ano}} Ibix · PDV e gestão em nuvem</p>
+                            <p style="margin:8px 0 0;">Este e-mail foi enviado porque há um novo cadastro de estabelecimento na plataforma.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

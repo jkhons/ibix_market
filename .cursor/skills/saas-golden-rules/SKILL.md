@@ -82,7 +82,8 @@ if not empresa:
 
 ## 5. Contexto SaaS — Referências
 
-- **Fonte única de verdade:** `MAPA_SISTEMA/` (MAPA_DO_SISTEMA, MAPA_DE_REGRAS, MAPA_RBAC, MAPA_DE_API)
+- **Fonte única de verdade:** `MAPA_SISTEMA/INDICE.md` → um mapa por tarefa (núcleo: DO_SISTEMA, DE_API, DE_REGRAS, RBAC, PAGAMENTO, FATURAMENTO)
+- **Entrada IA:** `AGENTS.md` na raiz do repositório
 - **Regras detalhadas:** `MAPA_DE_REGRAS.md` — seção 0 (Regras obrigatórias para Cursor/IA)
 - **RBAC e roles:** `MAPA_RBAC.md` — hierarquia, escopo, rotas por role
 
@@ -92,11 +93,27 @@ if not empresa:
 - **O que entra:** `marketing_vitrine_config` + `marketing_vitrine_cards` (destaques, ofertas da semana, cabeçalho de ofertas). Não criar outra tela de cadastro de cards nem lista fixa no código como fonte editorial.
 - **Documentação:** `MAPA_DE_API.md` § 19 (regra de governança), `MAPA_DO_SISTEMA.md` § 12.
 
+## 6. Multi-brand (Ibix origem + marcas derivadas)
+
+**Mapa:** `MAPA_SISTEMA/MAPA_MULTIBRAND.md`  
+**Regras Cursor:** `.cursor/rules/multibrand-no-hardcode.mdc`, `modulo-gating.mdc`, `tenant-rls.mdc`, `conflito-dados-migracao.mdc`, `seguranca-dominio.mdc`
+
+**Obrigatório:**
+
+- Branding e URLs visuais via `request.state.brand` / `{{ brand.* }}` — **nunca** literais `"Ibix"` / `"Solumática"` ou assets fixos no template
+- Rotas/API de marketplace (e módulos futuros) passam por gating da marca → **403** se indisponível, sem fallback
+- Tabelas novas: `tenant_id NOT NULL`, `brand_id` quando aplicável, índice composto, política RLS na migração
+- Unicidade de tenant: `UNIQUE(brand_id, slug)` — não global
+- Domínios novos em `brand_domains`; CORS/CSP/cookies por host ([hardening.py](../../app/core/hardening.py), [brand_cookie.py](../../app/core/brand_cookie.py))
+
+**Herança visual da origem (Ibix)** não autoriza fallback de dado de negócio.
+
 ## Checklist rápido (antes de implementar)
 
 - [ ] Dado obrigatório ausente → lanço erro explícito (não uso fallback)?
 - [ ] Dados dinâmicos vêm de API/banco (não hardcoded no front)?
-- [ ] Verifiquei permissões e escopo tenant para a rota/API?
+- [ ] Branding usa `brand.*` / `request.state.brand` (sem hardcode de marca)?
+- [ ] Verifiquei permissões, escopo tenant **e** catálogo de módulos da marca?
 - [ ] Catálogo `produtos_cliente`: todo produto com `cliente_id` (CA/empresa fiscal), sem “produto global” sem estabelecimento?
 - [ ] Consultei o mapa relevante para consistência?
 - [ ] Confirmações de venda/pagamento refletem o fluxo real (não publico sucesso sem prova)?

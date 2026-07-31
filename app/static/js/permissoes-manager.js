@@ -15,10 +15,8 @@ class PermissoesManager {
             'usuarios': '👥',
             'clientes': '👤',
             'equipamentos': '⚙️',
-            'certificados': '📜',
             'afericoes': '🔬',
             'relatorios': '📊',
-            'auditoria': '🔍',
             'configuracoes': '⚙️',
             'negocios': '💼',
             'negocios.estoque': '📦',
@@ -31,12 +29,11 @@ class PermissoesManager {
             'estoque': '📦',
             'financeiro': '💰',
             'venda': '🛒',
-            'calibracao': '🎯',
-            'termobarohigrometro': '🌡️',
-            'peso': '⚖️',
-            'inspetores': '👨‍🔧',
             'agendamentos': '📅',
-            'contratos': '📋'
+            'contratos': '📋',
+            'marketplace': '🏪',
+            'pdv': '🖥️',
+            'fiscal': '📄'
         };
     }
 
@@ -156,17 +153,14 @@ class PermissoesManager {
                 'usuarios': 'Usuários',
                 'clientes': 'Clientes',
                 'equipamentos': 'Equipamentos',
-                'certificados': 'Certificados',
                 'afericoes': 'Aferições',
-                'calibracao': 'Calibração',
-                'termobarohigrometro': 'Termobarohigrômetro',
-                'peso': 'Peso',
-                'inspetores': 'Inspetores/Aprovadores',
                 'agendamentos': 'Agendamentos',
                 'contratos': 'Contratos',
                 'relatorios': 'Relatórios',
-                'auditoria': 'Auditoria',
                 'configuracoes': 'Configurações',
+                'marketplace': 'Marketplace',
+                'pdv': 'PDV',
+                'fiscal': 'Fiscal',
                 'estoque': 'Estoque',
                 'financeiro': 'Financeiro',
                 'venda': 'Venda'

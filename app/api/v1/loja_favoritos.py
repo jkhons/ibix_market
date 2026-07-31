@@ -13,7 +13,13 @@ from ...services.favorito_service import (
 )
 from .loja import get_current_consumidor
 
-router = APIRouter(prefix="/loja/favoritos", tags=["Loja – Favoritos"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja/favoritos",
+    tags=["Loja – Favoritos"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 @router.get("", response_model=FavoritosListResponse)

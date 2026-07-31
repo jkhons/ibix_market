@@ -3,13 +3,15 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session, joinedload
 
 from ...core.constants.entregador_logistica import STATUS_PAGAMENTO_ENTREGADOR_VALUES
 from ...core.middleware import require_superadmin
+from ...core.pii import apply_entregador_pii_mask
+from ...core.pii_access import audit_pii_access, user_can_view_pii
 from ...database.connection import get_db
 from ...models import EntregaEvento, EntregaMarketplace, Entregador, EntregadorVeiculo, PedidoMarketplace, Usuario
 
@@ -64,8 +66,9 @@ def listar_entregadores(
 @router.get("/{entregador_id:int}", response_model=dict)
 def detalhe_entregador(
     entregador_id: int,
+    request: Request,
     db: Session = Depends(get_db),
-    _: Usuario = Depends(require_superadmin()),
+    user: Usuario = Depends(require_superadmin()),
 ):
     e = (
         db.query(Entregador)
@@ -97,7 +100,7 @@ def detalhe_entregador(
                 "custo_frete_pedido": float(custo) if custo is not None else None,
             }
         )
-    return {
+    payload = {
         "id": e.id,
         "nome": e.nome,
         "email": e.email,
@@ -111,6 +114,20 @@ def detalhe_entregador(
         "veiculos": veics,
         "entregas": ent_out,
     }
+    reveal = user_can_view_pii(db, user)
+    if reveal:
+        from app.core.rate_limiter import get_client_ip
+
+        audit_pii_access(
+            db,
+            acao="pii_acesso_entregador",
+            actor=user,
+            recurso_tipo="entregador",
+            recurso_id=e.id,
+            ip=get_client_ip(request),
+            request_id=getattr(request.state, "request_id", None),
+        )
+    return apply_entregador_pii_mask(payload, reveal=reveal)
 
 
 @router.patch("/{entregador_id:int}/aprovar")

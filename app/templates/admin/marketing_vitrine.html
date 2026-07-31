@@ -51,113 +51,6 @@
                 </div>
             </div>
 
-            <div class="card mt-3" id="mv-card-editor" style="display: none;">
-                <div class="card-header"><h6 class="card-title mb-0" id="mv-editor-title">Novo card</h6></div>
-                <div class="card-body">
-                    <form id="form-mv-card">
-                        <input type="hidden" id="mv-card-id" value="">
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <label class="form-label">Bloco</label>
-                                <select class="form-select" id="mv-card-tipo-bloco" required>
-                                    <option value="destaque">Destaque (faixa horizontal «Destaques»)</option>
-                                    <option value="oferta_semana">Oferta da semana (seção «Ofertas da semana»)</option>
-                                </select>
-                                <div class="form-text">Só aparece na home se o bloco corresponder: destaques ≠ ofertas.</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Tipo de card</label>
-                                <select class="form-select" id="mv-card-tipo-card" required>
-                                    <option value="livre">Livre (imagem + link)</option>
-                                    <option value="anuncio">Anúncio (vínculo)</option>
-                                    <option value="cabecalho_ofertas">Cabeçalho da seção Ofertas (título, subtítulo, limite)</option>
-                                </select>
-                                <div class="form-text" id="mv-cabecalho-only-hint" style="display:none;">Tipo «Cabeçalho» só no bloco «Oferta da semana».</div>
-                            </div>
-                            <div class="col-12 mv-cabecalho-ofertas-fields" style="display: none;">
-                                <label class="form-label" for="mv-card-desc-cab">Subtítulo da seção</label>
-                                <textarea class="form-control" id="mv-card-desc-cab" rows="2" placeholder="Texto abaixo do título" autocomplete="off"></textarea>
-                                <label class="form-label mt-2" for="mv-card-limite-exibicao">Quantidade de produtos exibidos (1 a 8)</label>
-                                <input type="number" class="form-control" id="mv-card-limite-exibicao" min="1" max="8" step="1" value="8" autocomplete="off">
-                                <div class="form-text mb-2">Ordem recomendada: <strong>0</strong> para o cabeçalho vir antes dos cards de produto.</div>
-                                <hr class="my-2">
-                                <label class="form-label" for="mv-card-clientes-ca">Clientes (tenant / CA)</label>
-                                <select class="form-select" id="mv-card-clientes-ca" multiple size="8" aria-describedby="mv-card-clientes-ca-help"></select>
-                                <div class="form-text" id="mv-card-clientes-ca-help">Segure <kbd>Ctrl</kbd> (ou <kbd>Cmd</kbd>) para selecionar vários <strong>clientes</strong> (cadastro do CA). Vazio = <strong>todas</strong> as lojas na vitrine. Se existir mais de um card «Cabeçalho» neste bloco, os tenants são <strong>unidos</strong> e limite/flags vêm do cabeçalho de <strong>maior ordem</strong> que tenha clientes selecionados. Lista: <code>GET /api/v1/clientes/todos</code>.</div>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" id="mv-card-embaralhar">
-                                    <label class="form-check-label" for="mv-card-embaralhar">Embaralhar a cada atualização da página</label>
-                                </div>
-                                <div class="form-check mb-0">
-                                    <input class="form-check-input" type="checkbox" id="mv-card-somente-desconto" checked>
-                                    <label class="form-check-label" for="mv-card-somente-desconto">Somente produtos com desconto (preço promocional) no sistema</label>
-                                </div>
-                                <p class="small text-muted mt-2 mb-0">Estes parâmetros valem quando a seção usa o <strong>preenchimento automático</strong> (sem cards de anúncio na grade). Com cards manuais, o limite acima ainda limita quantos itens entram.</p>
-                            </div>
-                            <div class="col-12 mv-livre-titulo">
-                                <label class="form-label" for="mv-card-titulo">Título</label>
-                                <input type="text" class="form-control" id="mv-card-titulo" maxlength="200" autocomplete="off">
-                            </div>
-                            <div class="col-12 mv-livre-media">
-                                <label class="form-label" for="mv-card-imagem">URL da imagem</label>
-                                <input type="text" class="form-control" id="mv-card-imagem" placeholder="https://…" autocomplete="off">
-                            </div>
-                            <div class="col-12 mv-livre-media">
-                                <label class="form-label" for="mv-card-link">URL do link</label>
-                                <input type="text" class="form-control" id="mv-card-link" placeholder="https://… ou /loja/produto/123" autocomplete="off">
-                            </div>
-                            <div class="col-12 mv-livre-desc" style="display: none;">
-                                <label class="form-label" for="mv-card-desc-livre">Subtítulo / texto curto (opcional)</label>
-                                <textarea class="form-control" id="mv-card-desc-livre" rows="2" maxlength="500" placeholder="Aparece abaixo do título na faixa Destaques (card livre)" autocomplete="off"></textarea>
-                                <div class="form-text">Somente para tipo <strong>Livre</strong>. Gravado em <code>marketing_vitrine_cards.descricao</code> e exposto em <code>GET …/vitrine-home</code>.</div>
-                            </div>
-                            <div class="col-12 mv-anuncio-fields" style="display: none;">
-                                <label class="form-label" for="mv-card-anuncio-select">Anúncio (publicado, loja ativa, com imagem)</label>
-                                <label class="form-label" for="mv-card-anuncio-ca">Clientes (CA) para filtrar produtos</label>
-                                <select class="form-select mb-2" id="mv-card-anuncio-ca" multiple size="6">
-                                    <option value="">— Selecione o CA primeiro —</option>
-                                </select>
-                                <div class="input-group mb-2">
-                                    <input type="search" class="form-control" id="mv-card-anuncio-q" placeholder="Buscar no título…" autocomplete="off">
-                                    <button type="button" class="btn btn-outline-secondary" id="mv-card-anuncio-search-btn" title="Atualizar lista">Buscar</button>
-                                </div>
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="mv-card-anuncio-embaralhar">
-                                    <label class="form-check-label" for="mv-card-anuncio-embaralhar">Embaralhar produtos da vitrine a cada atualização da página</label>
-                                </div>
-                                <select class="form-select" id="mv-card-anuncio-select" multiple size="8" style="max-height: 14rem;">
-                                    <option value="">— Carregando anúncios… —</option>
-                                </select>
-                                <label class="form-label mt-2" for="mv-card-anuncio-id-manual">ID do anúncio (manual)</label>
-                                <input type="number" class="form-control" id="mv-card-anuncio-id-manual" min="1" step="1" placeholder="Use se o anúncio não aparecer na lista">
-                                <div class="form-text mb-0">Fluxo padrão: selecione um ou mais <strong>CAs</strong>, carregue os produtos (anúncios), e então selecione um ou vários itens na lista. Use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> para multi-seleção.</div>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="mv-card-ordem">Ordem</label>
-                                <input type="number" class="form-control" id="mv-card-ordem" min="0" value="100">
-                            </div>
-                            <div class="col-md-4 d-flex align-items-end">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="mv-card-ativo" checked>
-                                    <label class="form-check-label" for="mv-card-ativo">Ativo</label>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="mv-card-inicio">Início (opcional, UTC)</label>
-                                <input type="datetime-local" class="form-control" id="mv-card-inicio">
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="mv-card-fim">Fim (opcional, UTC)</label>
-                                <input type="datetime-local" class="form-control" id="mv-card-fim">
-                            </div>
-                        </div>
-                        <div class="mt-3 d-flex gap-2 flex-wrap">
-                            <button type="submit" class="btn btn-primary btn-sm" id="btn-salvar-card">Salvar card</button>
-                            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-cancelar-card">Cancelar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
         </div>
         <div class="col-lg-5 mb-3" id="secao-mv-config">
             <div class="card">
@@ -222,6 +115,120 @@
             </div>
         </div>
     </div>
+</div>
+
+<!-- Modal Card Marketing Vitrine — padrão MAPA_DE_REGRAS (CSS inline, sem Bootstrap Modal) -->
+<div id="modalMvCardCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+    <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+      <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700;" id="mv-editor-title">Novo card</h3>
+      <button type="button" onclick="fecharModalCustom('modalMvCardCustom')" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+    </div>
+    <div style="padding: 24px 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+      <form id="form-mv-card">
+        <input type="hidden" id="mv-card-id" value="">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label">Bloco</label>
+            <select class="form-select" id="mv-card-tipo-bloco" required>
+              <option value="destaque">Destaque (faixa horizontal «Destaques»)</option>
+              <option value="oferta_semana">Oferta da semana (seção «Ofertas da semana»)</option>
+            </select>
+            <div class="form-text">Só aparece na home se o bloco corresponder: destaques ≠ ofertas.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Tipo de card</label>
+            <select class="form-select" id="mv-card-tipo-card" required>
+              <option value="livre">Livre (imagem + link)</option>
+              <option value="anuncio">Anúncio (vínculo)</option>
+              <option value="cabecalho_ofertas">Cabeçalho da seção Ofertas (título, subtítulo, limite)</option>
+            </select>
+            <div class="form-text" id="mv-cabecalho-only-hint" style="display:none;">Tipo «Cabeçalho» só no bloco «Oferta da semana».</div>
+          </div>
+          <div class="col-12 mv-cabecalho-ofertas-fields" style="display: none;">
+            <label class="form-label" for="mv-card-desc-cab">Subtítulo da seção</label>
+            <textarea class="form-control" id="mv-card-desc-cab" rows="2" placeholder="Texto abaixo do título" autocomplete="off"></textarea>
+            <label class="form-label mt-2" for="mv-card-limite-exibicao">Quantidade de produtos exibidos (1 a 8)</label>
+            <input type="number" class="form-control" id="mv-card-limite-exibicao" min="1" max="8" step="1" value="8" autocomplete="off">
+            <div class="form-text mb-2">Ordem recomendada: <strong>0</strong> para o cabeçalho vir antes dos cards de produto.</div>
+            <hr class="my-2">
+            <label class="form-label" for="mv-card-clientes-ca">Clientes (tenant / CA)</label>
+            <select class="form-select" id="mv-card-clientes-ca" multiple size="8" aria-describedby="mv-card-clientes-ca-help"></select>
+            <div class="form-text" id="mv-card-clientes-ca-help">Segure <kbd>Ctrl</kbd> (ou <kbd>Cmd</kbd>) para selecionar vários <strong>clientes</strong> (cadastro do CA). Vazio = <strong>todas</strong> as lojas na vitrine. Se existir mais de um card «Cabeçalho» neste bloco, os tenants são <strong>unidos</strong> e limite/flags vêm do cabeçalho de <strong>maior ordem</strong> que tenha clientes selecionados. Lista: <code>GET /api/v1/clientes/todos</code>.</div>
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="mv-card-embaralhar">
+              <label class="form-check-label" for="mv-card-embaralhar">Embaralhar a cada atualização da página</label>
+            </div>
+            <div class="form-check mb-0">
+              <input class="form-check-input" type="checkbox" id="mv-card-somente-desconto" checked>
+              <label class="form-check-label" for="mv-card-somente-desconto">Somente produtos com desconto (preço promocional) no sistema</label>
+            </div>
+            <p class="small text-muted mt-2 mb-0">Estes parâmetros valem quando a seção usa o <strong>preenchimento automático</strong> (sem cards de anúncio na grade). Com cards manuais, o limite acima ainda limita quantos itens entram.</p>
+          </div>
+          <div class="col-12 mv-livre-titulo">
+            <label class="form-label" for="mv-card-titulo">Título</label>
+            <input type="text" class="form-control" id="mv-card-titulo" maxlength="200" autocomplete="off">
+          </div>
+          <div class="col-12 mv-livre-media">
+            <label class="form-label" for="mv-card-imagem">URL da imagem</label>
+            <input type="text" class="form-control" id="mv-card-imagem" placeholder="https://…" autocomplete="off">
+          </div>
+          <div class="col-12 mv-livre-media">
+            <label class="form-label" for="mv-card-link">URL do link</label>
+            <input type="text" class="form-control" id="mv-card-link" placeholder="https://… ou /loja/produto/123" autocomplete="off">
+          </div>
+          <div class="col-12 mv-livre-desc" style="display: none;">
+            <label class="form-label" for="mv-card-desc-livre">Subtítulo / texto curto (opcional)</label>
+            <textarea class="form-control" id="mv-card-desc-livre" rows="2" maxlength="500" placeholder="Aparece abaixo do título na faixa Destaques (card livre)" autocomplete="off"></textarea>
+            <div class="form-text">Somente para tipo <strong>Livre</strong>. Gravado em <code>marketing_vitrine_cards.descricao</code> e exposto em <code>GET …/vitrine-home</code>.</div>
+          </div>
+          <div class="col-12 mv-anuncio-fields" style="display: none;">
+            <label class="form-label" for="mv-card-anuncio-select">Anúncio (publicado, loja ativa, com imagem)</label>
+            <label class="form-label" for="mv-card-anuncio-ca">Clientes (CA) para filtrar produtos</label>
+            <select class="form-select mb-2" id="mv-card-anuncio-ca" multiple size="6">
+              <option value="">— Selecione o CA primeiro —</option>
+            </select>
+            <div class="input-group mb-2">
+              <input type="search" class="form-control" id="mv-card-anuncio-q" placeholder="Buscar no título…" autocomplete="off">
+              <button type="button" class="btn btn-outline-secondary" id="mv-card-anuncio-search-btn" title="Atualizar lista">Buscar</button>
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="mv-card-anuncio-embaralhar">
+              <label class="form-check-label" for="mv-card-anuncio-embaralhar">Embaralhar produtos da vitrine a cada atualização da página</label>
+            </div>
+            <select class="form-select" id="mv-card-anuncio-select" multiple size="8" style="max-height: 14rem;">
+              <option value="">— Carregando anúncios… —</option>
+            </select>
+            <label class="form-label mt-2" for="mv-card-anuncio-id-manual">ID do anúncio (manual)</label>
+            <input type="number" class="form-control" id="mv-card-anuncio-id-manual" min="1" step="1" placeholder="Use se o anúncio não aparecer na lista">
+            <div class="form-text mb-0">Fluxo padrão: selecione um ou mais <strong>CAs</strong>, carregue os produtos (anúncios), e então selecione um ou vários itens na lista. Use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> para multi-seleção.</div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="mv-card-ordem">Ordem</label>
+            <input type="number" class="form-control" id="mv-card-ordem" min="0" value="100">
+          </div>
+          <div class="col-md-4 d-flex align-items-end">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="mv-card-ativo" checked>
+              <label class="form-check-label" for="mv-card-ativo">Ativo</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="mv-card-inicio">Início (opcional, UTC)</label>
+            <input type="datetime-local" class="form-control" id="mv-card-inicio">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="mv-card-fim">Fim (opcional, UTC)</label>
+            <input type="datetime-local" class="form-control" id="mv-card-fim">
+          </div>
+        </div>
+      </form>
+    </div>
+    <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
+      <button type="button" onclick="fecharModalCustom('modalMvCardCustom')" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+      <button type="submit" form="form-mv-card" id="btn-salvar-card" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #3498db; color: white;">Salvar card</button>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -670,9 +677,17 @@
       });
   }
 
+  function abrirModalMvCard() {
+    window.abrirModalCustom('modalMvCardCustom');
+  }
+
+  function fecharModalMvCard() {
+    window.fecharModalCustom('modalMvCardCustom');
+  }
+  window.abrirModalMvCard = abrirModalMvCard;
+  window.fecharModalMvCard = fecharModalMvCard;
+
   function openEditor(row) {
-    var ed = document.getElementById('mv-card-editor');
-    ed.style.display = '';
     document.getElementById('mv-editor-title').textContent = row ? 'Editar card #' + row.id : 'Novo card';
     document.getElementById('mv-card-id').value = row ? String(row.id) : '';
     document.getElementById('mv-card-tipo-bloco').value = row ? row.tipo_bloco : 'destaque';
@@ -714,7 +729,7 @@
       ensureClientesCaSelect(function () {
         applyClientesCaSelectionFromRow(row);
       });
-      ed.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      abrirModalMvCard();
     }
     if (document.getElementById('mv-card-tipo-card').value === 'anuncio') {
       loadPicklistForEditor(row, finishOpen);
@@ -724,11 +739,12 @@
   }
 
   function closeEditor() {
-    document.getElementById('mv-card-editor').style.display = 'none';
+    fecharModalMvCard();
   }
 
   document.getElementById('btn-novo-card').addEventListener('click', function () { openEditor(null); });
-  document.getElementById('btn-cancelar-card').addEventListener('click', closeEditor);
+
+  window.bindModalCustomOutsideClick('modalMvCardCustom');
 
   document.getElementById('mv-cards-tbody').addEventListener('click', function (e) {
     var t = e.target;

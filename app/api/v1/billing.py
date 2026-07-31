@@ -60,20 +60,25 @@ def _get_tenant_subscription(db: Session, tenant_id: int) -> Optional[Subscripti
     )
 
 
-def _ensure_ca_tenant_and_subscription(db: Session, current_user: Usuario) -> Optional[int]:
+def _ensure_ca_tenant_and_subscription(
+    db: Session,
+    current_user: Usuario,
+    brand_id: int,
+) -> Optional[int]:
     """Se o usuário é CA sem tenant_id, cria Tenant e associa; se tenant não tem subscription, cria trial. Retorna tenant_id ou None."""
+    from app.services.brand_scope_service import generate_unique_tenant_slug
+
     role_nome = current_user.role.nome if current_user.role else None
     tenant_id = resolve_tenant_pagador(db, current_user.id, role_nome)
     if role_nome == "Cliente Administrador" and tenant_id is None:
         user = db.query(Usuario).filter(Usuario.id == current_user.id).first()
         if not user:
             return None
-        slug = "ca-{}".format(user.id)
-        if db.query(Tenant).filter(Tenant.slug == slug).first():
-            slug = "ca-{}-{}".format(user.id, (getattr(user, "email", None) or "1")[:20].replace("@", "_").replace(".", "_"))
+        slug = generate_unique_tenant_slug(db, f"ca-{user.id}", brand_id)
         tenant = Tenant(
             nome=user.nome or "Assinante",
-            slug=slug[:100],
+            slug=slug,
+            brand_id=brand_id,
             ativo=True,
         )
         db.add(tenant)
@@ -92,11 +97,16 @@ def _ensure_ca_tenant_and_subscription(db: Session, current_user: Usuario) -> Op
 
 @router.get("/my-subscription", response_model=MySubscriptionResponse)
 def get_my_subscription(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
     """Status da assinatura do tenant do usuário (CA ou tenant do CA para Subcliente/Técnico/Contador)."""
-    tenant_id = _ensure_ca_tenant_and_subscription(db, current_user)
+    from app.services.brand_scope_service import brand_id_from_request
+
+    tenant_id = _ensure_ca_tenant_and_subscription(
+        db, current_user, brand_id_from_request(request, db)
+    )
     if not tenant_id:
         return MySubscriptionResponse(
             server_today=_today(),
@@ -168,11 +178,16 @@ def get_my_subscription(
 
 @router.get("/meus-limites", response_model=MeusLimitesResponse)
 def get_meus_limites(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
     """Retorna limites de PDVs contratados vs usados para o tenant do usuário."""
-    tenant_id = _ensure_ca_tenant_and_subscription(db, current_user)
+    from app.services.brand_scope_service import brand_id_from_request
+
+    tenant_id = _ensure_ca_tenant_and_subscription(
+        db, current_user, brand_id_from_request(request, db)
+    )
     if not tenant_id:
         return MeusLimitesResponse(
             max_pdvs=0, pdvs_usados=0, pdvs_disponiveis=0,
@@ -222,11 +237,16 @@ def get_preco_vigente(
 
 @router.post("/pay-now", response_model=PayNowResponse)
 def post_pay_now(
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user),
 ):
     """Gera preferência Checkout Pro e retorna init_point e preference_id. Mensalidade zero renova sem Mercado Pago."""
-    tenant_id = _ensure_ca_tenant_and_subscription(db, current_user)
+    from app.services.brand_scope_service import brand_id_from_request
+
+    tenant_id = _ensure_ca_tenant_and_subscription(
+        db, current_user, brand_id_from_request(request, db)
+    )
     if not tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Tenant de cobrança não identificado.")
     try:
@@ -406,10 +426,15 @@ def _process_billing_payload(db: Session, body: bytes, webhook_id: str, request:
     if tenant is None and external_id:
         tenant = db.query(Tenant).filter(Tenant.external_id == external_id).first()
         if tenant is None:
-            slug = (external_id or "").replace(".", "_")[:100]
+            from app.services.brand_scope_service import generate_unique_tenant_slug, get_ibix_brand_id
+
+            ibix_brand_id = get_ibix_brand_id(db)
+            slug_base = (external_id or "").replace(".", "_")[:100] or "tenant"
+            slug = generate_unique_tenant_slug(db, slug_base, ibix_brand_id)
             tenant = Tenant(
                 nome=tenant_name[:255],
-                slug=slug or None,
+                slug=slug,
+                brand_id=ibix_brand_id,
                 external_id=external_id[:128] if isinstance(external_id, str) else str(external_id),
                 ativo=True,
                 plan_id=plan_id,

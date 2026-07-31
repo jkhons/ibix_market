@@ -10,7 +10,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from ...core.audit import audit_action
 from ...core.middleware import get_cliente_scope_dep, get_current_user
-from ...core.scope import ClienteScope
+from ...core.scope import (
+    ClienteScope,
+    caixa_ids_para_clientes,
+    get_cliente_ids_escopo_caixa,
+)
 from ...database.connection import get_db
 from ...models import AberturaCaixa, Caixa, Empresa, MovimentoCaixa, Usuario, Venda
 from ...models.abertura_caixa import StatusAberturaCaixa
@@ -30,21 +34,76 @@ def _empresa_do_caixa(db: Session, caixa: Caixa) -> Optional[Empresa]:
     return db.query(Empresa).filter(Empresa.id == caixa.empresa_id).first()
 
 
-def _can_access_caixa(scope: ClienteScope, caixa: Caixa, role_nome: Optional[str], db: Session) -> bool:
-    if role_nome == "Operador PDV":
-        return True
+def _can_access_caixa(scope: ClienteScope, caixa: Caixa, role_nome: Optional[str], db: Session, user_id: int) -> bool:
     if not scope.must_filter_by_cliente():
         return True
     emp = _empresa_do_caixa(db, caixa)
     if not emp or emp.cliente_id is None:
         return False
-    return (scope.allowed_ids or []) and emp.cliente_id in scope.allowed_ids
+    cliente_ids = get_cliente_ids_escopo_caixa(db, user_id, role_nome, scope)
+    if cliente_ids is None:
+        return True
+    return emp.cliente_id in cliente_ids
+
+
+def _abertura_response(ab: AberturaCaixa) -> AberturaCaixaResponse:
+    cx = ab.caixa
+    ident = cx.identificador if cx else None
+    return AberturaCaixaResponse(
+        id=ab.id,
+        caixa_id=ab.caixa_id,
+        caixa_identificador=ident,
+        usuario_id=ab.usuario_id,
+        data_abertura=ab.data_abertura,
+        data_fechamento=ab.data_fechamento,
+        valor_inicial=ab.valor_inicial,
+        valor_final=ab.valor_final,
+        status=ab.status,
+        created_at=ab.created_at,
+        updated_at=ab.updated_at,
+    )
+
+
+def _filtrar_aberturas_por_escopo(
+    db: Session,
+    q,
+    current_user: Usuario,
+    scope: ClienteScope,
+    role_nome: Optional[str],
+    empresa_id: Optional[int],
+):
+    """
+    Aplica isolamento multi-tenant.
+    Superadministrador: exige empresa_id (sem vazar turnos de outros CAs).
+    Demais roles: filtra pelos clientes do tenant / escopo RBAC.
+    """
+    if role_nome == "Superadministrador":
+        if empresa_id is None:
+            return q, "Selecione a empresa fiscal para listar aberturas de caixa."
+        emp = db.query(Empresa).filter(Empresa.id == empresa_id).first()
+        if not emp:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa fiscal não encontrada")
+        ids = [r[0] for r in db.query(Caixa.id).filter(Caixa.empresa_id == empresa_id).all()]
+        if not ids:
+            return q.filter(AberturaCaixa.id == -1), None
+        return q.filter(AberturaCaixa.caixa_id.in_(ids)), None
+
+    cliente_ids = get_cliente_ids_escopo_caixa(db, current_user.id, role_nome, scope)
+    if cliente_ids is None:
+        return q, None
+    if not cliente_ids:
+        return q, "Nenhum estabelecimento vinculado ao seu usuário. Solicite vínculo ao administrador."
+    caixa_ids = caixa_ids_para_clientes(db, cliente_ids)
+    if not caixa_ids:
+        return q.filter(AberturaCaixa.id == -1), None
+    return q.filter(AberturaCaixa.caixa_id.in_(caixa_ids)), None
 
 
 @router.get("/", response_model=dict)
 async def listar_aberturas(
     caixa_id: Optional[int] = Query(None, description="Filtrar por caixa"),
     status_filter: Optional[str] = Query(None, alias="status", description="aberta | fechada"),
+    empresa_id: Optional[int] = Query(None, description="Empresa fiscal (obrigatório para Superadministrador)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     db: Session = Depends(get_db),
@@ -57,29 +116,31 @@ async def listar_aberturas(
     role_nome = current_user.role.nome if current_user.role else None
 
     q = db.query(AberturaCaixa).options(joinedload(AberturaCaixa.caixa))
+    aviso = None
     if caixa_id is not None:
         cx = db.query(Caixa).filter(Caixa.id == caixa_id).first()
         if not cx:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caixa não encontrado")
-        if not _can_access_caixa(scope, cx, role_nome, db):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Caixa fora do escopo")
+        if not _can_access_caixa(scope, cx, role_nome, db, current_user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Caixa fora do escopo do tenant")
         q = q.filter(AberturaCaixa.caixa_id == caixa_id)
     else:
-        if scope.must_filter_by_cliente() and role_nome != "Operador PDV":
-            allowed = scope.allowed_ids or []
-            if not allowed:
-                return {"items": [], "total": 0, "skip": skip, "limit": limit}
-            q = q.join(Caixa).join(Empresa).filter(Empresa.cliente_id.in_(allowed))
+        q, aviso = _filtrar_aberturas_por_escopo(db, q, current_user, scope, role_nome, empresa_id)
+        if aviso:
+            return {"items": [], "total": 0, "skip": skip, "limit": limit, "aviso": aviso}
     if status_filter:
         q = q.filter(AberturaCaixa.status == status_filter)
     total = q.count()
     rows = q.order_by(AberturaCaixa.data_abertura.desc()).offset(skip).limit(limit).all()
-    return {
-        "items": [AberturaCaixaResponse.model_validate(r) for r in rows],
+    payload = {
+        "items": [_abertura_response(r) for r in rows],
         "total": total,
         "skip": skip,
         "limit": limit,
     }
+    if aviso:
+        payload["aviso"] = aviso
+    return payload
 
 
 @router.get("/caixa-aberta", response_model=Optional[AberturaCaixaResponse])
@@ -96,14 +157,15 @@ async def obter_caixa_aberta(
     if not cx:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_caixa(scope, cx, role_nome, db):
+    if not _can_access_caixa(scope, cx, role_nome, db, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Caixa fora do escopo")
     ab = (
         db.query(AberturaCaixa)
+        .options(joinedload(AberturaCaixa.caixa))
         .filter(AberturaCaixa.caixa_id == caixa_id, AberturaCaixa.status == StatusAberturaCaixa.ABERTA.value)
         .first()
     )
-    return AberturaCaixaResponse.model_validate(ab) if ab else None
+    return _abertura_response(ab) if ab else None
 
 
 @router.get("/{abertura_id}/resumo", response_model=dict)
@@ -123,7 +185,7 @@ async def resumo_turno(
     if not cx:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_caixa(scope, cx, role_nome, db):
+    if not _can_access_caixa(scope, cx, role_nome, db, current_user.id):
         raise HTTPException(status_code=403, detail="Abertura fora do escopo")
 
     n_vendas = db.query(func.count(Venda.id)).filter(Venda.abertura_caixa_id == abertura_id).scalar() or 0
@@ -154,16 +216,21 @@ async def obter_abertura(
     """Obtém uma abertura de caixa por ID."""
     if not _role_ok(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Sem permissão para acessar caixa")
-    ab = db.query(AberturaCaixa).filter(AberturaCaixa.id == abertura_id).first()
+    ab = (
+        db.query(AberturaCaixa)
+        .options(joinedload(AberturaCaixa.caixa))
+        .filter(AberturaCaixa.id == abertura_id)
+        .first()
+    )
     if not ab:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Abertura de caixa não encontrada")
-    cx = db.query(Caixa).filter(Caixa.id == ab.caixa_id).first()
+    cx = ab.caixa or db.query(Caixa).filter(Caixa.id == ab.caixa_id).first()
     if not cx:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_caixa(scope, cx, role_nome, db):
+    if not _can_access_caixa(scope, cx, role_nome, db, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Abertura fora do escopo")
-    return AberturaCaixaResponse.model_validate(ab)
+    return _abertura_response(ab)
 
 
 @router.post("/abrir", response_model=AberturaCaixaResponse, status_code=status.HTTP_201_CREATED)
@@ -182,7 +249,7 @@ async def abrir_caixa(
     if not cx.ativo:
         raise HTTPException(status_code=400, detail="Caixa inativo não pode abrir turno")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_caixa(scope, cx, role_nome, db):
+    if not _can_access_caixa(scope, cx, role_nome, db, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Caixa fora do escopo")
     aberta = (
         db.query(AberturaCaixa)
@@ -208,6 +275,7 @@ async def abrir_caixa(
     db.add(ab)
     db.commit()
     db.refresh(ab)
+    ab = db.query(AberturaCaixa).options(joinedload(AberturaCaixa.caixa)).filter(AberturaCaixa.id == ab.id).first()
     audit_action(
         db,
         "caixa_aberta",
@@ -217,7 +285,7 @@ async def abrir_caixa(
         recurso_id=ab.id,
         detalhes=f"caixa_id={body.caixa_id} valor_inicial={valor}",
     )
-    return AberturaCaixaResponse.model_validate(ab)
+    return _abertura_response(ab)
 
 
 @router.patch("/{abertura_id}/fechar", response_model=AberturaCaixaResponse)
@@ -240,13 +308,14 @@ async def fechar_caixa(
     if not cx:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_caixa(scope, cx, role_nome, db):
+    if not _can_access_caixa(scope, cx, role_nome, db, current_user.id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Abertura fora do escopo")
     ab.data_fechamento = datetime.now(timezone.utc)
     ab.valor_final = body.valor_final
     ab.status = StatusAberturaCaixa.FECHADA.value
     db.commit()
     db.refresh(ab)
+    ab = db.query(AberturaCaixa).options(joinedload(AberturaCaixa.caixa)).filter(AberturaCaixa.id == abertura_id).first()
     audit_action(
         db,
         "caixa_fechada",
@@ -256,4 +325,4 @@ async def fechar_caixa(
         recurso_id=abertura_id,
         detalhes=f"valor_final={body.valor_final}",
     )
-    return AberturaCaixaResponse.model_validate(ab)
+    return _abertura_response(ab)

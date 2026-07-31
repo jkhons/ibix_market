@@ -110,6 +110,23 @@ No servidor, com DNS apontando para o servidor:
 - **Upstream:** `pdv_solumatica` → `127.0.0.1:8000`
 - **Static:** `alias /central_solumatica/pdv_solumatica/app/static/` (ou valor de `APP_ROOT`)
 
+### 2.1 Multi-brand — domínios adicionais (Solumática, futuro Certipeso)
+
+**Mapa:** [MAPA_MULTIBRAND.md](MAPA_MULTIBRAND.md)
+
+| Item | Detalhe |
+|------|---------|
+| **Upstream** | Mesmo Gunicorn (`127.0.0.1:8000`) para todos os `server_name` |
+| **Nginx** | `scripts/deploy/nginx/solumatica-brand.conf` — bloco HTTPS por domínio de marca |
+| **Certbot** | `scripts/deploy/obter-certificado-multibrand.sh` — certificado por host de marca |
+| **DNS** | Cada domínio de marca aponta para o mesmo servidor antes do Certbot |
+| **CORS (.env)** | `CORS_ORIGINS` deve incluir **todas** as origens HTTPS de produção (Ibix + marcas derivadas) |
+| **CSP** | Gerada por marca em runtime (`build_csp_header(brand)`) |
+| **Cookies** | Host-only — **não** definir `Domain=.ibix.com.br` compartilhado |
+| **/metrics** | Restrito a localhost no Nginx **e** middleware FastAPI |
+
+Rollout operacional: `scripts/rollout_multibrand_fase6.sh` (checklist pós-RLS/hardening).
+
 ---
 
 ## 3. Estrutura em /central_solumatica
@@ -150,8 +167,8 @@ Para CSP customizado, defina `CSP_EXTRA_SOURCES` no `.env` (concatenado ao final
 
 ### 4.2 CORS
 
-- **Produção (`ENV=production`):** aceita apenas `https://www.ibix.com.br` e `https://ibix.com.br` (ou valor de `CORS_ORIGINS`). Wildcard `*` nunca é usado em produção.
-- **Desenvolvimento:** wildcard `*` (quando `CORS_ORIGINS` não definido e `ENV != production`).
+- **Produção (`ENV=production`):** allowlist = `CORS_ORIGINS` (env) **mesclada** com origens HTTPS de `brands.seo_base_url` e `brand_domains` ativos ([app/core/hardening.py](app/core/hardening.py)). Wildcard `*` nunca é usado em produção.
+- **Desenvolvimento:** wildcard `*` quando `CORS_ORIGINS` não definido e `ENV != production`.
 - `allow_methods` e `allow_headers` são explícitos (não wildcard).
 
 ### 4.3 Endpoints internos

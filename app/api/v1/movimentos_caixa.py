@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...core.audit import audit_action
 from ...core.middleware import get_cliente_scope_dep, get_current_user
-from ...core.scope import ClienteScope
+from ...core.scope import ClienteScope, get_cliente_ids_escopo_caixa
 from ...database.connection import get_db
 from ...models import AberturaCaixa, Caixa, Configuracao, Empresa, MovimentoCaixa, Usuario
 from ...schemas.movimento_caixa import MovimentoCaixaCreate, MovimentoCaixaResponse
@@ -37,15 +37,22 @@ def _cliente_id_caixa(db: Session, caixa: Caixa) -> Optional[int]:
     return int(emp.cliente_id) if emp and emp.cliente_id is not None else None
 
 
-def _can_access_abertura(scope: ClienteScope, ab: AberturaCaixa, caixa: Caixa, role_nome: Optional[str], db: Session) -> bool:
-    if role_nome == "Operador PDV":
-        return True
+def _can_access_abertura(
+    scope: ClienteScope,
+    caixa: Caixa,
+    role_nome: Optional[str],
+    db: Session,
+    user_id: int,
+) -> bool:
     if not scope.must_filter_by_cliente():
         return True
     cid = _cliente_id_caixa(db, caixa)
     if cid is None:
         return False
-    return (scope.allowed_ids or []) and cid in scope.allowed_ids
+    cliente_ids = get_cliente_ids_escopo_caixa(db, user_id, role_nome, scope)
+    if cliente_ids is None:
+        return True
+    return cid in cliente_ids
 
 
 @router.post("/senha-mestra", status_code=status.HTTP_204_NO_CONTENT)
@@ -92,7 +99,7 @@ async def listar_movimentos(
     if not caixa:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_abertura(scope, ab, caixa, role_nome, db):
+    if not _can_access_abertura(scope, caixa, role_nome, db, current_user.id):
         raise HTTPException(status_code=403, detail="Abertura fora do escopo")
     q = db.query(MovimentoCaixa).filter(MovimentoCaixa.abertura_caixa_id == abertura_caixa_id)
     if tipo:
@@ -129,7 +136,7 @@ async def exige_senha_mestra(
     if not caixa:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_abertura(scope, ab, caixa, role_nome, db):
+    if not _can_access_abertura(scope, caixa, role_nome, db, current_user.id):
         raise HTTPException(status_code=403, detail="Abertura fora do escopo")
     cid = _cliente_id_caixa(db, caixa)
     if cid is None:
@@ -156,7 +163,7 @@ async def registrar_movimento(
     if not caixa:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_abertura(scope, ab, caixa, role_nome, db):
+    if not _can_access_abertura(scope, caixa, role_nome, db, current_user.id):
         raise HTTPException(status_code=403, detail="Abertura fora do escopo")
     cliente_est = _cliente_id_caixa(db, caixa)
     if cliente_est is None:
@@ -214,6 +221,6 @@ async def obter_movimento(
     if not caixa:
         raise HTTPException(status_code=404, detail="Caixa não encontrado")
     role_nome = current_user.role.nome if current_user.role else None
-    if not _can_access_abertura(scope, ab, caixa, role_nome, db):
+    if not _can_access_abertura(scope, caixa, role_nome, db, current_user.id):
         raise HTTPException(status_code=403, detail="Movimento fora do escopo")
     return MovimentoCaixaResponse.model_validate(m)

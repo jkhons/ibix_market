@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 SUB_BLOCKED_TTL = 90  # segundos
 PERMS_TTL = 300  # segundos
 LOJA_CATEGORIAS_TTL = 60  # segundos (alinhado ao Cache-Control da resposta)
+BRAND_HOST_TTL = 300  # segundos — resolução marca por Host
 
 _REGRA_FISCAL_ICMS_TTL = int(os.getenv("REGRA_FISCAL_ICMS_TTL", "300"))
 
@@ -270,3 +271,104 @@ def invalidate_regras_fiscais_all() -> None:
             client.delete(key)
     except Exception:
         pass
+
+
+# --- Marca por Host (multi-brand Fase 1) ---
+
+
+def _brand_context_to_dict(ctx) -> dict:
+    return {
+        "id": ctx.id,
+        "slug": ctx.slug,
+        "nome_exibicao": ctx.nome_exibicao,
+        "nome_curto": ctx.nome_curto,
+        "logo_url": ctx.logo_url,
+        "logo_footer_url": ctx.logo_footer_url,
+        "favicon_url": ctx.favicon_url,
+        "telefone": ctx.telefone,
+        "whatsapp": ctx.whatsapp,
+        "email_remetente": ctx.email_remetente,
+        "cor_primaria": ctx.cor_primaria,
+        "cor_secundaria": ctx.cor_secundaria,
+        "seo_base_url": ctx.seo_base_url,
+        "is_origem": ctx.is_origem,
+    }
+
+
+def _brand_context_from_dict(d: dict):
+    from app.services.brand_service import BrandContext
+
+    return BrandContext(
+        id=int(d["id"]),
+        slug=str(d["slug"]),
+        nome_exibicao=str(d.get("nome_exibicao") or ""),
+        nome_curto=str(d.get("nome_curto") or ""),
+        logo_url=str(d.get("logo_url") or ""),
+        logo_footer_url=str(d.get("logo_footer_url") or ""),
+        favicon_url=str(d.get("favicon_url") or ""),
+        telefone=str(d.get("telefone") or ""),
+        whatsapp=str(d.get("whatsapp") or ""),
+        email_remetente=str(d.get("email_remetente") or ""),
+        cor_primaria=str(d.get("cor_primaria") or ""),
+        cor_secundaria=str(d.get("cor_secundaria") or ""),
+        seo_base_url=str(d.get("seo_base_url") or ""),
+        is_origem=bool(d.get("is_origem")),
+    )
+
+
+def get_brand_by_host_cached(host_normalized: str, fetch_from_db: Callable[[], object]) -> object:
+    """Cache Redis da marca resolvida por Host. fetch_from_db retorna BrandContext."""
+    key = f"brand:host:{host_normalized}"
+    cached = _cache_get(key)
+    if cached is not None:
+        try:
+            return _brand_context_from_dict(json.loads(cached))
+        except Exception:
+            pass
+    ctx = fetch_from_db()
+    try:
+        _cache_set(key, json.dumps(_brand_context_to_dict(ctx)), BRAND_HOST_TTL)
+    except Exception:
+        pass
+    return ctx
+
+
+def invalidate_brand_host_cache(host_normalized: str) -> None:
+    _cache_delete(f"brand:host:{host_normalized}")
+
+
+def invalidate_brand_cache_all() -> None:
+    client = get_redis_client()
+    if client is None:
+        return
+    try:
+        for pattern in (prefix_key("brand:host:*"), prefix_key("brand:modules:*")):
+            for key in client.scan_iter(match=pattern):
+                client.delete(key)
+    except Exception:
+        pass
+
+
+# --- Módulos por marca (multi-brand Fase 2) ---
+
+BRAND_MODULES_TTL = 300
+
+
+def get_brand_module_slugs_cached(brand_id: int, fetch_from_db: Callable[[], object]) -> object:
+    key = f"brand:modules:{brand_id}"
+    cached = _cache_get(key)
+    if cached is not None:
+        try:
+            return frozenset(json.loads(cached))
+        except Exception:
+            pass
+    slugs = fetch_from_db()
+    try:
+        _cache_set(key, json.dumps(sorted(slugs)), BRAND_MODULES_TTL)
+    except Exception:
+        pass
+    return slugs
+
+
+def invalidate_brand_modules_cache(brand_id: int) -> None:
+    _cache_delete(f"brand:modules:{brand_id}")

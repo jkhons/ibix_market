@@ -2,22 +2,29 @@
 <html lang="pt-BR">
 <head>
     {% set _base = base_url|default('', true) %}
+    {% set _brand = brand|default({}, true) %}
+    {% set _brand_nome = _brand.nome|default(_brand.nome_exibicao|default('Ibix', true), true) %}
+    {% set _brand_logo = _brand.logo_url|default('/static/img/ibix/cab.png', true) %}
+    {% set _brand_logo_display = _brand.logo_display_url|default('', true) %}
+    {% set _brand_logo_footer = _brand.logo_footer_url|default(_brand_logo, true) %}
+    {% set _brand_logo_footer_display = _brand.logo_footer_display_url|default('', true) %}
+    {% set _brand_favicon = _brand.favicon_url|default('/static/img/arte-pdv.png', true) %}
     {% set _seo_title = seo.title if seo and seo.title else none %}
     {% set _seo_description = seo.description if seo and seo.description else none %}
     {% set _seo_canonical = seo.canonical if seo and seo.canonical else (_base ~ request.url.path) %}
-    {% set _seo_og_image = seo.og_image if seo and seo.og_image else (_base ~ '/static/img/landing/logoSfundo.png') %}
+    {% set _seo_og_image = seo.og_image if seo and seo.og_image else (_base ~ (_brand_logo_display or _brand_logo) if _base else (_brand_logo_display or _brand_logo)) %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
     <meta name="description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{% block seo_description %}Comércio que você conhece, entregue como você precisa. Compre em várias lojas em um só lugar.{% endblock %}{% endif %}">
-    <meta name="keywords" content="{% block seo_keywords %}Ibix, marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endblock %}">
+    <meta name="keywords" content="{% block seo_keywords %}{{ _brand_nome }}, marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endblock %}">
     <meta name="theme-color" content="#FEF7F1">
-    <title>{% if _seo_title %}{{ _seo_title }}{% else %}{% block title %}Vitrine{% endblock %} | Ibix{% endif %}</title>
+    <title>{% if _seo_title %}{{ _seo_title }}{% else %}{% block title %}Vitrine{% endblock %} | {{ _brand_nome }}{% endif %}</title>
     <link rel="canonical" href="{{ _seo_canonical }}" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="{% if _seo_title %}{{ _seo_title }}{% else %}{% block seo_og_title %}{{ self.title() }} | Ibix{% endblock %}{% endif %}" />
+    <meta property="og:title" content="{% if _seo_title %}{{ _seo_title }}{% else %}{% block seo_og_title %}{{ self.title() }}{% endblock %}{% endif %}" />
     <meta property="og:description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{% block seo_og_description %}Compre em várias lojas em um só lugar. Produtos, ofertas e pagamento seguro.{% endblock %}{% endif %}" />
     <meta property="og:url" content="{{ _seo_canonical }}" />
     <meta property="og:image" content="{{ _seo_og_image }}" />
@@ -25,7 +32,7 @@
     <meta property="og:image:alt" content="{{ seo.og_image_alt }}" />
     {% endif %}
     <meta property="og:locale" content="pt_BR" />
-    <meta property="og:site_name" content="Ibix" />
+    <meta property="og:site_name" content="{{ _brand_nome }}" />
     {% if seo_fb_app_id %}
     <meta property="fb:app_id" content="{{ seo_fb_app_id }}" />
     {% endif %}
@@ -46,7 +53,7 @@
       "@graph": [
         {
           "@type": "WebSite",
-          "name": "Ibix",
+          "name": "{{ _brand_nome|e }}",
           "url": "{{ _base }}/",
           "description": "Comércio local online - compre em várias lojas em um só lugar",
           "potentialAction": {
@@ -57,9 +64,9 @@
         },
         {
           "@type": "Organization",
-          "name": "Ibix",
+          "name": "{{ _brand_nome|e }}",
           "url": "{{ _base }}/",
-          "logo": "{{ _base }}/static/img/landing/logoSfundo.png"
+          "logo": {% if _brand_logo_display %}"{{ _base }}{{ _brand_logo_display if _brand_logo_display.startswith('/') else '/' ~ _brand_logo_display }}"{% else %}null{% endif %}
         }
       ]
     }
@@ -71,7 +78,7 @@
       "@type": "LocalBusiness",
       "name": "{{ nap.nome|e }}",
       "url": "{{ _base }}/",
-      "logo": "{{ _base }}/static/img/landing/logoSfundo.png",
+      "logo": {% if _brand_logo_display %}"{{ _base }}{{ _brand_logo_display }}"{% else %}null{% endif %},
       "address": {
         "@type": "PostalAddress",
         "streetAddress": "{{ nap.endereco|e }}",
@@ -86,7 +93,7 @@
     {% endif %}
     {% block seo_extra %}{% endblock %}
 
-    <link rel="shortcut icon" href="/static/img/arte-pdv.png">
+    <link rel="shortcut icon" href="{{ _brand_favicon }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -114,6 +121,7 @@
         .loja-header--compact .loja-brand { padding: 5px 22px; margin: -5px -22px; }
         .loja-header .loja-brand:hover { color: var(--ibix-hover, #C47A44); background: rgba(196, 122, 68, 0.08); }
         .loja-header .loja-brand img { height: 64px; width: auto; object-fit: contain; display: block; }
+        .loja-header .loja-brand-label { font-weight: 700; font-size: 1.15rem; letter-spacing: .2px; color: var(--ibix-text-strong, #2F3A44); }
         .loja-brand-tag { font-weight: 600; color: #6b7280; font-size: 0.9rem; margin-left: 0.25rem; text-decoration: none; }
         .loja-brand-tag:hover { color: var(--ibix-hover, #C47A44); }
         /* Busca original: apenas campo + botão (sem dropdown departamentos) */
@@ -288,12 +296,17 @@
     })();
     </script>
     <div id="loja-toast-host" class="loja-toast-host" role="status" aria-live="polite" aria-relevant="additions text"></div>
+    {% block loja_header %}
     <header class="cp-navbar loja-header">
         <div class="container py-3">
             <div class="loja-nav-belt">
                 <div class="loja-nav-left">
-                    <a class="loja-brand" href="/" aria-label="Ibix - voltar para a vitrine">
-                        <img src="/static/img/ibix/cab.png" alt="Ibix" width="520" height="170" fetchpriority="high">
+                    <a class="loja-brand" href="/" aria-label="{{ _brand_nome }} - início">
+                        {% if _brand_logo_display %}
+                        <img src="{{ _brand_logo_display }}" alt="{{ _brand_nome }}" width="520" height="170" fetchpriority="high">
+                        {% else %}
+                        <span class="loja-brand-label">{{ _brand_nome }}</span>
+                        {% endif %}
                     </a>
                 </div>
                 <div class="loja-nav-fill">
@@ -342,25 +355,30 @@
             </div>
         </div>
     </header>
+    {% endblock %}
     <main class="container-fluid py-4 loja-main">
         {% block content %}{% endblock %}
     </main>
     <footer class="cp-footer">
         <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex flex-wrap align-items-center gap-2">
-                <img src="/static/img/ibix/rodape.png" alt="Ibix" width="420" height="216" loading="lazy" style="height: 28px; width: auto; display:block;">
-                <span>Ibix</span>
+                {% if _brand_logo_footer_display %}
+                <img src="{{ _brand_logo_footer_display }}" alt="{{ _brand_nome }}" width="420" height="216" loading="lazy" style="height: 28px; width: auto; display:block;">
+                {% endif %}
+                <span>{{ _brand_nome }}</span>
                 <span aria-hidden="true">·</span>
                 <span class="cp-credits">Desenvolvido por <a href="https://automscale.com.br" target="_blank" rel="noopener noreferrer"><strong>Automscale</strong></a></span>
             </div>
+            {% if brand_has_marketplace %}
             <div class="ibix-seguro ibix-seguro--inline d-none d-md-block" style="max-width: 420px;">
-                <p class="ibix-seguro__title mb-1"><i data-feather="shield"></i>Ibix Seguro</p>
+                <p class="ibix-seguro__title mb-1"><i data-feather="shield"></i>{{ _brand_nome }} Seguro</p>
                 <ul class="ibix-seguro__list mb-0">
                   <li>Compra protegida</li>
                   <li>Pagamento liberado só após confirmação</li>
                   <li>Entregue com rastreamento em tempo real</li>
                 </ul>
             </div>
+            {% endif %}
             {% if nap and nap.endereco %}
             <div class="d-flex flex-wrap align-items-center gap-1 cp-nap" style="font-size:.85rem;color:#6b7280;">
                 {% if nap.endereco %}<span>{{ nap.endereco }}</span>{% endif %}
@@ -369,8 +387,9 @@
                 {% if nap.telefone %}<span aria-hidden="true">·</span><span>{{ nap.telefone }}</span>{% endif %}
             </div>
             {% endif %}
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
                 <a href="/">Início</a>
+                {% if brand_has_marketplace %}
                 <span aria-hidden="true">·</span>
                 <a href="/loja/acompanhar-pedido">Acompanhar pedido</a>
                 <span aria-hidden="true">·</span>
@@ -381,8 +400,20 @@
                 <a href="/como-funciona-vitrine">Como funciona a vitrine</a>
                 <span aria-hidden="true">·</span>
                 <a href="/login">Área do lojista (painel)</a>
+                {% else %}
                 <span aria-hidden="true">·</span>
-                <span>&copy; 2022</span>
+                <a href="/termos-de-uso">Termos de Uso</a>
+                <span aria-hidden="true">·</span>
+                <a href="/politica-privacidade">Política de Privacidade</a>
+                <span aria-hidden="true">·</span>
+                <a href="/help-center">Ajuda</a>
+                <span aria-hidden="true">·</span>
+                <a href="/login">Login</a>
+                <span aria-hidden="true">·</span>
+                <a href="/cadastro">Cadastrar</a>
+                {% endif %}
+                <span aria-hidden="true">·</span>
+                <span>&copy; <span id="cp-footer-year"></span></span>
             </div>
         </div>
     </footer>
@@ -416,6 +447,8 @@
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+        var footerYear = document.getElementById('cp-footer-year');
+        if (footerYear) footerYear.textContent = new Date().getFullYear().toString();
 
         /* --- Geolocalização: modal + header label --- */
         var geoBtn = document.getElementById('btn-geo-seletor');

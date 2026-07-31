@@ -50,9 +50,9 @@ const state = {
     tipoPagamento: null,
     valorRecebido: null,
     submitting: false,
+    vendaConcluidaImprimirId: null,
     caixaId: null,
     aberturaCaixaId: null,
-    cupomConfig: { cupom_impressao_modo: "manual", cupom_tipo: "nao_fiscal" },
 };
 
 const modals = {
@@ -90,11 +90,6 @@ document.addEventListener("DOMContentLoaded", () => {
     void (async () => {
         await caixaReady;
         await carregarClientesIniciais();
-        apiFetch("/api/v1/tenant-config/cupom")
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-                if (data) state.cupomConfig = data;
-            });
         buscarProdutosPDV("");
     })();
 });
@@ -245,6 +240,7 @@ function initModalControllers() {
     modals.carrinho = window.createModalTemplate({ overlayId: "pdv-modal-carrinho" });
     modals.clientes = window.createModalTemplate({ overlayId: "pdv-modal-clientes" });
     modals.finalizar = window.createModalTemplate({ overlayId: "pdv-modal-finalizar" });
+    modals.vendaConcluida = window.createModalTemplate({ overlayId: "pdv-modal-venda-concluida" });
 }
 
 function bindStaticEvents() {
@@ -258,6 +254,8 @@ function bindStaticEvents() {
         ["pdv-btn-fechar-finalizar", fecharModalFinalizar],
         ["pdv-btn-cancelar-finalizar", fecharModalFinalizar],
         ["pdv-btn-confirmar-venda", finalizarVenda],
+        ["pdv-btn-venda-concluida-fechar", fecharModalVendaConcluidaPDV],
+        ["pdv-btn-venda-concluida-imprimir", imprimirComprovanteModalVendaConcluidaPDV],
     ];
     map.forEach(([id, handler]) => {
         const el = document.getElementById(id);
@@ -675,6 +673,44 @@ function renderCarrinhoModal() {
     total.textContent = formatarMoeda(getTotalVenda());
 }
 
+function mostrarModalVendaConcluidaPDV(vendaId, mensagem, mensagemExtra) {
+    state.vendaConcluidaImprimirId = vendaId || null;
+    const msgEl = document.getElementById("pdv-venda-concluida-mensagem");
+    const extraEl = document.getElementById("pdv-venda-concluida-extra");
+    if (msgEl) msgEl.textContent = mensagem || "Venda finalizada com sucesso!";
+    if (extraEl) {
+        if (mensagemExtra) {
+            extraEl.textContent = mensagemExtra;
+            extraEl.style.display = "block";
+        } else {
+            extraEl.textContent = "";
+            extraEl.style.display = "none";
+        }
+    }
+    if (modals.vendaConcluida) {
+        modals.vendaConcluida.open("flex");
+    } else {
+        const modal = document.getElementById("pdv-modal-venda-concluida");
+        if (modal) modal.style.display = "flex";
+    }
+}
+
+function fecharModalVendaConcluidaPDV() {
+    state.vendaConcluidaImprimirId = null;
+    if (modals.vendaConcluida) {
+        modals.vendaConcluida.close();
+    } else {
+        const modal = document.getElementById("pdv-modal-venda-concluida");
+        if (modal) modal.style.display = "none";
+    }
+}
+
+function imprimirComprovanteModalVendaConcluidaPDV() {
+    const vendaId = state.vendaConcluidaImprimirId;
+    fecharModalVendaConcluidaPDV();
+    if (vendaId) imprimirCupomVenda(vendaId);
+}
+
 function abrirModalFinalizar() {
     if (!state.carrinho.length) {
         toastErro("Carrinho vazio");
@@ -831,20 +867,12 @@ async function finalizarVenda() {
         if (buscaInput) buscaInput.value = "";
         // Recarrega todos os produtos ordenados A-Z após finalizar venda
         buscarProdutosPDV("");
+        let mensagem = `Venda ${(window.DocRef ? DocRef.compactDocRef(venda.numero_venda) : (venda.numero_venda || ""))} finalizada com sucesso!`;
+        let mensagemExtra = null;
         if (gatewayResult.gatewayAplicado && gatewayResult.status !== "approved") {
-            toastErro(
-                `Venda ${venda.numero_venda || ""} concluída, porém pagamento ficou ${gatewayResult.status}.`
-            );
-        } else {
-            toastSucesso(`Venda ${venda.numero_venda || ""} finalizada com sucesso`);
+            mensagemExtra = `Pagamento ficou ${gatewayResult.status}.`;
         }
-        if (state.cupomConfig.cupom_tipo === "nao_fiscal") {
-            if (state.cupomConfig.cupom_impressao_modo === "automatico") {
-                imprimirCupomVenda(venda.id);
-            } else {
-                mostrarBotaoImprimirCupomPDV(venda.numero_venda, venda.id);
-            }
-        }
+        mostrarModalVendaConcluidaPDV(venda.id, mensagem, mensagemExtra);
     } catch (error) {
         toastErro(error.message || "Erro ao finalizar venda");
     } finally {
@@ -857,38 +885,16 @@ async function finalizarVenda() {
 }
 
 function imprimirCupomVenda(vendaId) {
+    if (window.PdvCupomCaixa && window.PdvCupomCaixa.imprimirVenda) {
+        window.PdvCupomCaixa.imprimirVenda(vendaId, apiFetch).catch((error) => {
+            toastErro(error.message || "Erro ao imprimir cupom.");
+        });
+        return;
+    }
     apiFetch("/api/v1/vendas/" + vendaId + "/cupom")
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-            if (!data || data.tipo === "fiscal") return;
-            const hasContent = (data.html && data.html.trim()) || (Array.isArray(data.linhas) && data.linhas.length > 0);
-            if (!hasContent) return;
-            let el = document.getElementById("pdv-cupom-print-area");
-            if (!el) {
-                el = document.createElement("div");
-                el.id = "pdv-cupom-print-area";
-                el.setAttribute("aria-hidden", "true");
-                el.style.cssText = "position:absolute;left:-9999px;top:0;width:280px;";
-                document.body.appendChild(el);
-            }
-            el.innerHTML =
-                data.html ||
-                (Array.isArray(data.linhas)
-                    ? data.linhas.map((l) => {
-                          const t = String(l || "\u00a0")
-                              .replace(/</g, "&lt;")
-                              .replace(/>/g, "&gt;");
-                          return "<div>" + t + "</div>";
-                      })
-                    : []
-                ).join("");
-            if (!document.getElementById("pdv-cupom-print-style")) {
-                const style = document.createElement("style");
-                style.id = "pdv-cupom-print-style";
-                style.textContent = "@media print{body *{visibility:hidden}#pdv-cupom-print-area,#pdv-cupom-print-area *{visibility:visible}#pdv-cupom-print-area{position:absolute;left:0;top:0;width:100%}}";
-                document.head.appendChild(style);
-            }
-            window.print();
+            if (data) window.print();
         });
 }
 

@@ -11,7 +11,13 @@ from ...schemas.mobile import (
 from ...services.notificacao_service import listar_notificacoes, marcar_lidas
 from .loja import get_current_consumidor
 
-router = APIRouter(prefix="/loja/notificacoes", tags=["Loja – Notificações"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja/notificacoes",
+    tags=["Loja – Notificações"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 @router.get("", response_model=NotificacoesListResponse)

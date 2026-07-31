@@ -1,5 +1,5 @@
 # PDV Ibix - Schemas de Autenticação
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, ValidationInfo, field_validator
 
@@ -41,6 +41,14 @@ class RegisterPublicRequest(BaseModel):
     conta: str
     tipo_conta: str
     pix_chave: str
+    categorias_vitrine_ids: List[int]
+
+    @field_validator("categorias_vitrine_ids")
+    @classmethod
+    def categorias_vitrine_minimo(cls, v: List[int]) -> List[int]:
+        if not v:
+            raise ValueError("Selecione ao menos uma categoria de produtos que sua loja comercializa.")
+        return v
 
     @field_validator("confirm_password")
     @classmethod

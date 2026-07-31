@@ -1,0 +1,31 @@
+---
+description: Migrações multi-brand idempotentes — unicidade por brand_id, sem DELETE destrutivo
+globs: "**/migrations/**/*.py"
+alwaysApply: false
+---
+
+# Conflito de dados e migrações multi-brand
+
+## Unicidade
+
+- `Tenant.slug`: **`UNIQUE(brand_id, slug)`** — nunca global
+- Consumidor marketplace: escopo Ibix; `UNIQUE(tenant_id, LOWER(email))`
+- Slugs de loja marketplace: global (só Ibix hoje — documentar se mudar)
+
+## Migrações (expand-contract)
+
+1. Adicionar coluna nullable (`brand_id`)
+2. Backfill idempotente (ex.: todos → Ibix)
+3. NOT NULL + constraints + RLS
+4. Preferir `CREATE INDEX CONCURRENTLY`, FK `NOT VALID` + `VALIDATE CONSTRAINT`
+5. Reconciliação de módulos: `INSERT ... ON CONFLICT DO NOTHING`
+6. **Nunca** `DELETE` de módulo/dado com entitlement ou FK ativa
+
+## Pré-migração
+
+Rodar [scripts/audit_multibrand_pre_migration.py](../../scripts/audit_multibrand_pre_migration.py) antes de constraints estruturais.
+
+## Referências
+
+- [MAPA_MULTIBRAND.md](../../MAPA_SISTEMA/MAPA_MULTIBRAND.md) § Migrações
+- Plano: [.cursor/plans/multi-brand_modulos_seguranca_7478796e.plan.md](../plans/multi-brand_modulos_seguranca_7478796e.plan.md)

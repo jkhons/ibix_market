@@ -23,3 +23,4 @@ class CupomConteudoResponse(BaseModel):
     tipo: str = Field(..., description="nao_fiscal | fiscal")
     linhas: List[str] = Field(default_factory=list, description="Linhas de texto para impressora térmica")
     html: Optional[str] = Field(None, description="Fragmento HTML para window.print() no browser")
+    largura_mm: Optional[int] = Field(None, description="Largura da bobina em mm (ex.: 80 para caixa)")

@@ -41,4 +41,8 @@ celery_app.conf.beat_schedule = {
         "task": "app.worker.tasks.reconcile_pending_marketplace_payments",
         "schedule": 600.0,
     },
+    "lgpd-purge-consumidores": {
+        "task": "app.worker.tasks.lgpd_purge_consumidores",
+        "schedule": crontab(hour=5, minute=0),
+    },
 }

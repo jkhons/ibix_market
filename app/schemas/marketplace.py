@@ -3,7 +3,33 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+# Campos de transporte saíram dos schemas Create/Update da loja em marketplace —
+# usar `PATCH /api/v1/transporte/loja/{loja_id}` (schemas em `app/schemas/transporte.py`).
+# Validator dedicado abaixo rejeita explicitamente clientes que ainda enviem esses campos
+# (Pydantic v2 ignora extras por padrão; sem validator, valores seriam silenciosamente
+# dropados, escondendo bugs em integrações desatualizadas).
+_LOJA_TRANSPORTE_CAMPOS_REJEITADOS = frozenset(
+    {
+        "formato_frete",
+        "taxa_entrega_fixa",
+        "entrega_gratis_apos",
+        "tipo_entrega",
+        "raio_entrega_km",
+    }
+)
+
+
+def _rejeitar_campos_transporte(data):
+    if isinstance(data, dict):
+        encontrados = sorted(_LOJA_TRANSPORTE_CAMPOS_REJEITADOS & set(data.keys()))
+        if encontrados:
+            raise ValueError(
+                "Campos de transporte não são mais aceitos aqui: "
+                f"{', '.join(encontrados)}. Use PATCH /api/v1/transporte/loja/{{loja_id}}."
+            )
+    return data
 
 # Vitrine — página pública /{slug}: hero (H1 + parágrafo) usa nome_fantasia + descrição longa
 VITRINE_HERO_NOME_FANTASIA_MAX = 80
@@ -50,7 +76,15 @@ class CategoriaPlataformaResponse(BaseModel):
 
 
 # --- Loja marketplace ---
+# Atenção: campos de transporte (`tipo_entrega`, `raio_entrega_km`, `taxa_entrega_fixa`,
+# `entrega_gratis_apos`, `formato_frete`) foram migrados para o módulo Transporte —
+# usar `PATCH /api/v1/transporte/loja/{id}` (schemas em `app/schemas/transporte.py`).
 class LojaMarketplaceBase(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_transporte_fields(cls, data):
+        return _rejeitar_campos_transporte(data)
+
     status: str = "pendente"
     slug: Optional[str] = Field(
         None,
@@ -74,10 +108,6 @@ class LojaMarketplaceBase(BaseModel):
     vitrine_hero_titulo_uma_linha: bool = False
     logo_url: Optional[str] = None
     banner_url: Optional[str] = None
-    tipo_entrega: str = "retirada"
-    raio_entrega_km: Optional[int] = None
-    taxa_entrega_fixa: Optional[Decimal] = None
-    entrega_gratis_apos: Optional[Decimal] = None
 
 
 class LojaMarketplaceCreate(LojaMarketplaceBase):
@@ -85,6 +115,11 @@ class LojaMarketplaceCreate(LojaMarketplaceBase):
 
 
 class LojaMarketplaceUpdate(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_transporte_fields(cls, data):
+        return _rejeitar_campos_transporte(data)
+
     status: Optional[str] = None
     slug: Optional[str] = Field(
         None,
@@ -110,11 +145,6 @@ class LojaMarketplaceUpdate(BaseModel):
     banner_url: Optional[str] = None
     logo_blob: Optional[str] = Field(None, description="Imagem logo em base64 (data URL); ao enviar, salva arquivo e preenche logo_url")
     banner_blob: Optional[str] = Field(None, description="Imagem banner em base64 (data URL); ao enviar, salva arquivo e preenche banner_url")
-    tipo_entrega: Optional[str] = None
-    raio_entrega_km: Optional[int] = None
-    taxa_entrega_fixa: Optional[Decimal] = None
-    entrega_gratis_apos: Optional[Decimal] = None
-    formato_frete: Optional[str] = None
 
 
 class LojaMarketplaceResponse(BaseModel):

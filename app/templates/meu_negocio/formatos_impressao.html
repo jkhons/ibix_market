@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Formatos de impressão | {{ brand.nome_exibicao | default('PDV') }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h1 class="h3 mb-0">Formatos de impressão</h1>
+        <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" id="filtro-tipo-doc" style="width:auto;">
+                <option value="">Todos os tipos</option>
+                <option value="orcamento">Orçamento</option>
+                <option value="ordem_servico">Ordem de serviço</option>
+            </select>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-novo-template">Novo template</button>
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="text-muted small mb-0">
+                Configure o layout PDF/HTML de <strong>Orçamento</strong> e <strong>Ordem de serviço</strong>.
+                Use placeholders Jinja: <code>{{ '{{ numero_orcamento }}' }}</code>, <code>{{ '{{ codigo }}' }}</code>,
+                <code>{{ '{{ brand_nome }}' }}</code>, <code>{{ '{{ brand_logo_url }}' }}</code>, <code>{{ '{% for i in itens %}' }}</code>, etc.
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div id="lista-templates" class="p-3 text-muted">Carregando…</div>
+        </div>
+    </div>
+</div>
+
+<div id="modalTemplateImpressao" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.55); align-items:center; justify-content:center; padding:16px;">
+    <div style="background:#fff; border-radius:12px; width:100%; max-width:960px; max-height:92vh; display:flex; flex-direction:column;">
+        <div style="padding:12px 18px; background:#2c3e50; color:#fff; display:flex; justify-content:space-between; align-items:center; border-radius:12px 12px 0 0;">
+            <h3 class="h5 mb-0" id="tituloModalTemplate">Template</h3>
+            <button type="button" class="btn-close btn-close-white" id="btn-fechar-modal-template"></button>
+        </div>
+        <div style="padding:16px; overflow-y:auto; flex:1;">
+            <input type="hidden" id="template-id">
+            <div class="row g-2 mb-2">
+                <div class="col-md-4">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select form-select-sm" id="template-tipo">
+                        <option value="orcamento">Orçamento</option>
+                        <option value="ordem_servico">Ordem de serviço</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Nome</label>
+                    <input type="text" class="form-control form-control-sm" id="template-nome" maxlength="120">
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">HTML (Jinja)</label>
+                <textarea class="form-control font-monospace" id="template-html" rows="12"></textarea>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">CSS extra (opcional)</label>
+                <textarea class="form-control font-monospace" id="template-css" rows="3"></textarea>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="template-padrao">
+                <label class="form-check-label" for="template-padrao">Padrão do tipo</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="template-ativo" checked>
+                <label class="form-check-label" for="template-ativo">Ativo</label>
+            </div>
+        </div>
+        <div style="padding:12px 18px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-preview-template">Preview PDF</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-cancelar-template">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-salvar-template">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const modal = document.getElementById('modalTemplateImpressao');
+
+    function fecharModal() {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    function abrirModal(tpl) {
+        document.getElementById('template-id').value = tpl ? tpl.id : '';
+        document.getElementById('template-tipo').value = tpl ? tpl.tipo_documento : 'orcamento';
+        document.getElementById('template-nome').value = tpl ? tpl.nome : '';
+        document.getElementById('template-html').value = tpl ? tpl.conteudo_html : '';
+        document.getElementById('template-css').value = tpl ? (tpl.css_extra || '') : '';
+        document.getElementById('template-padrao').checked = tpl ? !!tpl.is_padrao : true;
+        document.getElementById('template-ativo').checked = tpl ? !!tpl.ativo : true;
+        document.getElementById('tituloModalTemplate').textContent = tpl ? 'Editar template' : 'Novo template';
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    async function carregar() {
+        const tipo = document.getElementById('filtro-tipo-doc').value;
+        const qs = tipo ? '?tipo=' + encodeURIComponent(tipo) : '';
+        const r = await authenticatedFetch('/api/v1/documentos-impressao/templates' + qs);
+        const box = document.getElementById('lista-templates');
+        if (!r.ok) {
+            box.innerHTML = '<p class="text-danger mb-0">Não foi possível carregar templates.</p>';
+            return;
+        }
+        const data = await r.json();
+        const list = data.templates || [];
+        if (!list.length) {
+            box.innerHTML = '<p class="mb-0">Nenhum template cadastrado.</p>';
+            return;
+        }
+        let html = '<table class="table table-sm table-hover mb-0"><thead><tr><th>Nome</th><th>Tipo</th><th>Padrão</th><th>Ativo</th><th></th></tr></thead><tbody>';
+        list.forEach(function(t) {
+            html += '<tr><td>' + (t.nome || '') + '</td><td>' + (t.tipo_documento || '') + '</td><td>' +
+                (t.is_padrao ? 'Sim' : '—') + '</td><td>' + (t.ativo ? 'Sim' : 'Não') + '</td><td class="text-end">' +
+                '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-editar-tpl" data-id="' + t.id + '">Editar</button>' +
+                (t.is_padrao ? '' : '<button type="button" class="btn btn-sm btn-outline-success me-1 btn-padrao-tpl" data-id="' + t.id + '">Definir padrão</button>') +
+                '</td></tr>';
+        });
+        html += '</tbody></table>';
+        box.innerHTML = html;
+
+        box.querySelectorAll('.btn-editar-tpl').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                const id = parseInt(btn.getAttribute('data-id'), 10);
+                const rr = await authenticatedFetch('/api/v1/documentos-impressao/templates/' + id);
+                if (rr.ok) abrirModal(await rr.json());
+            });
+        });
+        box.querySelectorAll('.btn-padrao-tpl').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                const id = parseInt(btn.getAttribute('data-id'), 10);
+                const rr = await authenticatedFetch('/api/v1/documentos-impressao/templates/' + id + '/definir-padrao', { method: 'POST' });
+                if (rr.ok) carregar();
+                else alert('Falha ao definir padrão.');
+            });
+        });
+    }
+
+    document.getElementById('btn-novo-template').addEventListener('click', function() { abrirModal(null); });
+    document.getElementById('btn-fechar-modal-template').addEventListener('click', fecharModal);
+    document.getElementById('btn-cancelar-template').addEventListener('click', fecharModal);
+    document.getElementById('filtro-tipo-doc').addEventListener('change', carregar);
+
+    document.getElementById('btn-salvar-template').addEventListener('click', async function() {
+        const id = document.getElementById('template-id').value;
+        const body = {
+            tipo_documento: document.getElementById('template-tipo').value,
+            nome: document.getElementById('template-nome').value.trim(),
+            conteudo_html: document.getElementById('template-html').value,
+            css_extra: document.getElementById('template-css').value || null,
+            is_padrao: document.getElementById('template-padrao').checked,
+            ativo: document.getElementById('template-ativo').checked,
+        };
+        if (!body.nome || !body.conteudo_html) {
+            alert('Nome e HTML são obrigatórios.');
+            return;
+        }
+        const url = id ? '/api/v1/documentos-impressao/templates/' + id : '/api/v1/documentos-impressao/templates';
+        const method = id ? 'PUT' : 'POST';
+        const payload = id ? {
+            nome: body.nome,
+            conteudo_html: body.conteudo_html,
+            css_extra: body.css_extra,
+            is_padrao: body.is_padrao,
+            ativo: body.ativo,
+        } : body;
+        const r = await authenticatedFetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        if (!r.ok) {
+            const err = await r.json().catch(function() { return {}; });
+            alert(err.detail || 'Erro ao salvar.');
+            return;
+        }
+        fecharModal();
+        carregar();
+    });
+
+    document.getElementById('btn-preview-template').addEventListener('click', async function() {
+        const body = {
+            tipo_documento: document.getElementById('template-tipo').value,
+            conteudo_html: document.getElementById('template-html').value,
+            css_extra: document.getElementById('template-css').value || null,
+        };
+        const r = await authenticatedFetch('/api/v1/documentos-impressao/preview?formato=pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!r.ok) {
+            alert('Preview indisponível.');
+            return;
+        }
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    });
+
+    document.addEventListener('DOMContentLoaded', carregar);
+})();
+</script>
+{% endblock %}

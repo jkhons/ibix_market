@@ -1,12 +1,35 @@
-# MAPA DE PAGAMENTO - SISTEMA CERTIPESO
+# MAPA DE PAGAMENTO — PDV Ibix
 
 ## Visão Geral
 
-Este documento é a **fonte única de verdade** sobre o módulo de pagamento e assinatura do PDV Ibix: trial 30 dias, pagamento manual (Pix/Cartão/Boleto) via **Mercado Pago Checkout Pro**, bloqueio por inadimplência, guard de assinatura e integração com RBAC.
+Este documento é a **fonte única de verdade** sobre pagamentos no PDV Ibix: **assinatura SaaS** (trial, billing, bloqueio) e **vendas PDV/loja** (gateway por estabelecimento, Recebíveis, transações). O modelo financeiro marketplace (intermediação/repasse) está em `MAPA_MODELO_PAGAMENTO_MARKETPLACE.md`.
 
-**Modelo:** Sem cartão salvo; sem cobrança automática. Cadastro inicia **trial 30 dias**; avisos por e-mail (D-7 a D+15); após **grace_days (15)** sem pagamento o tenant é bloqueado. Confirmação de pagamento sempre via **GET /v1/payments/{id}** (não confiar apenas no redirect).
+**Modelo (assinatura):** Sem cartão salvo; sem cobrança automática. Cadastro inicia **trial 30 dias**; avisos por e-mail (D-7 a D+15); após **grace_days (15)** sem pagamento o tenant é bloqueado. Confirmação de pagamento sempre via **GET /v1/payments/{id}** (não confiar apenas no redirect).
 
-**Referências cruzadas:** RBAC e roles em `MAPA_RBAC.md`; endpoints em `MAPA_DE_API.md` (§ 17 e billing); arquitetura e banco em `MAPA_DO_SISTEMA.md`.
+**Referências cruzadas:** RBAC em `MAPA_RBAC.md`; endpoints em `MAPA_DE_API.md` (§ 17 e billing); arquitetura em `MAPA_DO_SISTEMA.md`; marketplace em `MAPA_MODELO_PAGAMENTO_MARKETPLACE.md`.
+
+---
+
+## 0. Panorama dos 2 fluxos (assinatura + vendas)
+
+| Fluxo | Quem paga | Quem recebe | Gateway / meio | Finalidade |
+|-------|-----------|------------|----------------|------------|
+| **Assinatura SaaS** | Cliente Administrador (tenant) | Central (SuperAdministrador) | Mercado Pago Checkout Pro (token global billing) | Mensalidade do sistema (trial, ativa, inadimplente, bloqueada) |
+| **Vendas (PDV / loja)** | Cliente final na loja | Estabelecimento (CA) ou plataforma (`modo_recebimento`) | Mercado Pago / PagBank / Pagar.me por estabelecimento | Pagamento da venda (cartão, PIX, boleto, etc.) |
+
+- **SuperAdministrador** gerencia cobranças da assinatura (Cobranças Admin).
+- **Cliente Administrador (CA)** paga a assinatura do tenant e configura gateway em **Negócios → Recebíveis** por estabelecimento (opcional).
+
+**Distribuição resumida:**
+
+| Camada | Assinatura | Vendas PDV/loja |
+|--------|------------|-----------------|
+| Tabelas | `subscriptions`, `payments`, `precos_pdv`, `codigos_desconto`, … | `venda_pagamentos`, `payment_provider_configs`, `payment_transactions`, … |
+| APIs | `/api/v1/billing/*`, `/api/v1/admin/billing/*` | `/api/v1/payments/*`, `/api/v1/venda-pagamentos` |
+| Telas | `/financeiro/assinatura`, `/admin/billing/*` | `/negocio/recebiveis`, PDV |
+| Webhook | `POST /api/webhooks/mercadopago` (billing após reconciliar venda) | Mesmo webhook (reconcilia transação + `venda_pagamentos` primeiro) |
+
+Detalhes de CA, gateway e marketplace unificado: § 2.5–2.6 abaixo. *(Conteúdo unificado em 2026-05-21; arquivo legado `mapa_pagamento.md` removido.)*
 
 ---
 
@@ -110,6 +133,8 @@ O valor vai para a **conta do gateway** (Mercado Pago, PagBank ou Pagar.me) cuja
 - **Vendas:** cada venda tem seus pagamentos fracionados em **venda_pagamentos** (forma, valor, status, id_externo), acessíveis pela tela de vendas e por **GET/POST** `/api/v1/venda-pagamentos/?venda_id=...`.
 
 **Resumo:** o CA recebe o pagamento na conta do gateway (MP, PagBank ou Pagar.me) cujas credenciais/OAuth estão na config do estabelecimento; no sistema, isso aparece como transações em **Recebíveis** e como **venda_pagamentos** nas vendas.
+
+**Marketplace — checkout unificado (várias lojas, um pagamento) e Recebíveis — atualização 2026-05-15:** Quando o consumidor paga um único PIX/cobrança que cobre **vários pedidos marketplace** (`PaymentTransaction.checkout_session_id` preenchido), a linha persistida pode ter `cliente_id`/`pedido_id` do pedido âncora. **Listagem Recebíveis** (`GET /api/v1/payments/transactions?estabelecimentoId=`) e checagens de escopo relacionadas usam `app/services/payments/marketplace_unified_payment_scope.py`: todo CA que tenha **`pedidos_marketplace.tenant_id`** igual ao seu aparece como participante e vê **`amount`** e referência de pedido **proporcionais à sua parte** na sessão. No webhook de confirmação, **`BillingUsageEvent` / `record_payment_billing`** grava **`cliente_id`** por **`pedido.tenant_id`** (evento por pedido). SuperAdmin — **repasses**: `GET /negocio/financeiro/repasses/transacoes` (e derivados resumo/sugestão por `cliente_id`) aplicam o mesmo rateio ao filtrar transações modo plataforma. Ver `MAPA_DO_SISTEMA.md` § 12 (subseção «Checkout unificado…») e `MAPA_DE_API.md` § Pagamentos / Repasses.
 
 #### Onde o CA configura o gateway
 
@@ -368,6 +393,7 @@ O front **não calcula datas** (evitar fuso/relógio). Exibe apenas o que a API 
 | billing_desconto_percent | Desconto em % (0–100) | — (default 0) |
 | billing_desconto_escopo | Escopo desconto: todos \| ca \| admin_cliente \| especifico | — (default todos) |
 | billing_desconto_tenant_ids | IDs de tenants (escopo=especifico), separados por vírgula | — |
+| payment_lojas_gateway_self_service | Se lojas (CA/Admin) podem criar/editar gateways em Recebíveis | — (default true se chave ausente) |
 
 **Config (MP) alinhada à doc Mercado Pago:** Access Token no header (nunca query param); validação do token com GET **api.mercadolibre.com/users/me** (doc oficial). Credenciais: Suas integrações → Credenciais (Access token de teste ou produção). Webhook Secret: Suas integrações → Webhooks → Configurar notificações → revelar Secret.
 

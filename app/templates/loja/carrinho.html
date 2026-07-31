@@ -7,10 +7,6 @@
   <h1 class="loja-page-title">Carrinho</h1>
   <p class="loja-page-subtitle">Revise seus itens antes de finalizar o pedido</p>
 
-  <div id="loja-carrinho-multi-loja" class="alert alert-warning" style="display: none;" role="alert">
-    Há itens de mais de uma loja no carrinho. O checkout é feito por loja. Remova itens ou finalize um pedido por vez.
-  </div>
-
   <div id="loja-carrinho-empty" class="loja-carrinho-empty-card" style="display: none;">
     <i data-feather="shopping-cart" class="loja-carrinho-empty-icon" aria-hidden="true"></i>
     <h2 class="loja-carrinho-empty-title">Seu carrinho está vazio</h2>
@@ -38,6 +34,11 @@
           <button class="btn btn-outline-secondary" type="button" id="carrinho-cep-btn">Calcular</button>
         </div>
         <span id="carrinho-cep-status" class="small text-muted"></span>
+      </div>
+      <div id="carrinho-cobertura-plataforma-wrap" class="mb-2" style="display:none;">
+        <details class="small text-muted"><summary style="cursor:pointer;">Cidades atendidas pelo marketplace (plataforma)</summary>
+          <ul id="carrinho-cidades-plataforma-ul" class="mb-0 mt-1 ps-3"></ul>
+        </details>
       </div>
       <div id="loja-carrinho-frete-wrap"></div>
       <div class="loja-resumo-total">
@@ -77,7 +78,6 @@
   var layoutEl = document.getElementById("loja-carrinho-layout");
   var totalEl = document.getElementById("loja-carrinho-total");
   var subtotalEl = document.getElementById("loja-carrinho-subtotal");
-  var multiLojaEl = document.getElementById("loja-carrinho-multi-loja");
 
   if (!listEl || !emptyEl || !layoutEl) return;
   if (typeof window.Vitrine === "undefined") {
@@ -85,6 +85,30 @@
     layoutEl.style.display = "none";
     if (typeof feather !== "undefined" && feather.replace) feather.replace();
     return;
+  }
+
+  var _carrinhoCidade = null;
+  var _carrinhoUf = null;
+  var _carrinhoCepPreenchidoDoCadastro = false;
+  var _carrinhoRegioesBannerCarregado = false;
+  /** últimos 8 dígitos do CEP cuja cidade/UF foram usados no frete (ViaCEP ou cadastro confiável) */
+  var _carrinhoCepResolvido = null;
+
+  function cepDigitoRawCarrinho() {
+    var inp = document.getElementById("carrinho-cep");
+    return inp ? inp.value.replace(/\D/g, "") : "";
+  }
+
+  function cepCarrinhoValidoNaoPlaceholder(raw) {
+    return raw.length === 8 && !/^0{8}$/.test(raw);
+  }
+
+  /** Só aceita cidade/UF no cálculo se o campo de CEP bate com o CEP que originou esse endereço. */
+  function podeUsarLocalidadeNoFreteCarrinho() {
+    if (!_carrinhoCidade || !_carrinhoUf || !_carrinhoCepResolvido) return false;
+    var raw = cepDigitoRawCarrinho();
+    if (!cepCarrinhoValidoNaoPlaceholder(raw)) return false;
+    return raw === _carrinhoCepResolvido;
   }
 
   function thumbSrc(item) {
@@ -100,19 +124,13 @@
       listEl.innerHTML = "";
       emptyEl.style.display = "block";
       layoutEl.style.display = "none";
-      multiLojaEl.style.display = "none";
       if (typeof feather !== "undefined" && feather.replace) feather.replace();
       return;
     }
     emptyEl.style.display = "none";
     layoutEl.style.display = "";
 
-    var lojaIds = {};
-    items.forEach(function (i) {
-      lojaIds[i.loja_id] = true;
-    });
-    var numLojas = Object.keys(lojaIds).length;
-    multiLojaEl.style.display = numLojas > 1 ? "block" : "none";
+    ensureCarrinhoBannerRegioesPlataforma();
 
     var total = 0;
     var html = "";
@@ -184,6 +202,13 @@
               var statusEl = document.getElementById("carrinho-cep-status");
               if (cepRaw.length === 8) {
                 if (cepInput) cepInput.value = cepRaw.slice(0, 5) + "-" + cepRaw.slice(5);
+                if (cepCarrinhoValidoNaoPlaceholder(cepRaw)) {
+                  _carrinhoCepResolvido = cepRaw;
+                } else {
+                  _carrinhoCepResolvido = null;
+                }
+              } else {
+                _carrinhoCepResolvido = null;
               }
               if (cidade && uf) {
                 _carrinhoCidade = cidade;
@@ -194,13 +219,25 @@
                 fetch("https://viacep.com.br/ws/" + cepRaw + "/json/", { credentials: "omit" })
                   .then(function (r) { return r.json(); })
                   .then(function (data) {
-                    if (!data || data.erro) { if (statusEl) statusEl.textContent = ""; return; }
+                    if (!data || data.erro) {
+                      if (statusEl) statusEl.textContent = "";
+                      _carrinhoCidade = null;
+                      _carrinhoUf = null;
+                      _carrinhoCepResolvido = null;
+                      return;
+                    }
                     _carrinhoCidade = data.localidade || null;
                     _carrinhoUf = data.uf || null;
+                    _carrinhoCepResolvido = cepRaw;
                     if (statusEl) statusEl.textContent = (_carrinhoCidade || "") + (_carrinhoCidade && _carrinhoUf ? " - " : "") + (_carrinhoUf || "");
                     render();
                   })
-                  .catch(function () { if (statusEl) statusEl.textContent = ""; });
+                  .catch(function () {
+                    if (statusEl) statusEl.textContent = "";
+                    _carrinhoCidade = null;
+                    _carrinhoUf = null;
+                    _carrinhoCepResolvido = null;
+                  });
               }
               if (cidade && uf) render();
             }
@@ -209,13 +246,31 @@
     }
   }
 
-  var _carrinhoCidade = null;
-  var _carrinhoUf = null;
-  var _carrinhoCepPreenchidoDoCadastro = false;
+  function ensureCarrinhoBannerRegioesPlataforma() {
+    if (_carrinhoRegioesBannerCarregado) return;
+    _carrinhoRegioesBannerCarregado = true;
+    var wrap = document.getElementById("carrinho-cobertura-plataforma-wrap");
+    var ul = document.getElementById("carrinho-cidades-plataforma-ul");
+    if (!wrap || !ul || !window.Vitrine || typeof window.Vitrine.loadRegioesCoberturaPlataformaVitrine !== "function") return;
+    window.Vitrine.loadRegioesCoberturaPlataformaVitrine(ul).then(function (rows) {
+      wrap.style.display = rows.length ? "block" : "none";
+    });
+  }
 
   function fetchCartFrete(items, subtotalProdutos) {
     var lojaIds = {};
-    items.forEach(function(i) { lojaIds[i.loja_id] = (lojaIds[i.loja_id] || 0) + (i.preco || 0) * (i.quantidade || 1); });
+    var lojaNomePorId = {};
+    items.forEach(function (i) {
+      var lid = i.loja_id;
+      lojaIds[lid] = (lojaIds[lid] || 0) + (i.preco || 0) * (i.quantidade || 1);
+      var nn = i.nome_loja && String(i.nome_loja).trim();
+      if (nn) lojaNomePorId[lid] = nn;
+    });
+    function tituloFretePorLoja(lid) {
+      var nome = lojaNomePorId[lid];
+      if (nome) return "Frete · " + nome;
+      return "Frete · Loja #" + lid;
+    }
     var freteWrap = document.getElementById("loja-carrinho-frete-wrap");
     if (!freteWrap) return;
     var keys = Object.keys(lojaIds);
@@ -224,22 +279,35 @@
     var htmlParts = [];
     var done = 0;
     var temNaoEntregamos = false;
+    var primeiraMensagemIndisponivel = null;
     keys.forEach(function(lid) {
-      var url = "/api/v1/loja/" + lid + "/frete";
-      if (_carrinhoCidade && _carrinhoUf) {
+      var podeUsarLocal = podeUsarLocalidadeNoFreteCarrinho();
+      var url = "/api/v1/transporte/loja/" + lid + "/regras";
+      if (podeUsarLocal) {
         url += "?cidade=" + encodeURIComponent(_carrinhoCidade) + "&uf=" + encodeURIComponent(_carrinhoUf);
       }
       fetch(url)
         .then(function(r) { return r.ok ? r.json() : null; })
         .then(function(data) {
+          podeUsarLocal = podeUsarLocalidadeNoFreteCarrinho();
+          var semLocParaFrete = !podeUsarLocal;
           var frete = 0;
           var label = "Sem frete";
           if (data) {
             var fmt = data.formato_frete || "sem_frete";
-            if (fmt === "gratis") { label = "Grátis"; }
+            if (fmt === "gratis") {
+              label = semLocParaFrete ? "Inserir CEP" : "Grátis";
+            }
             else             if (fmt === "taxa_fixa" || fmt === "plataforma") {
               if (data.entrega_disponivel === false) {
                 label = "_NAO_ENTREGAMOS_";
+                if (!primeiraMensagemIndisponivel) {
+                  var mm = data.mensagem && String(data.mensagem).trim();
+                  if (mm) primeiraMensagemIndisponivel = mm;
+                  else if (data.cobertura_plataforma_ativa && data.cidade_autorizada_plataforma === false) {
+                    primeiraMensagemIndisponivel = "Este endereço está fora das cidades atendidas pela plataforma neste marketplace.";
+                  }
+                }
               } else if (typeof data.taxa_entrega_cidade !== "undefined") {
                 var taxaCidade = parseFloat(data.taxa_entrega_cidade) || 0;
                 var gratisApos = parseFloat(data.entrega_gratis_apos) || 0;
@@ -250,25 +318,52 @@
                 var taxa = parseFloat(data.taxa_entrega_fixa) || 0;
                 var gratisApos2 = parseFloat(data.entrega_gratis_apos) || 0;
                 if (gratisApos2 > 0 && lojaIds[lid] >= gratisApos2) { label = "Grátis"; }
-                else if (_carrinhoCidade) { frete = taxa; label = taxa > 0 ? window.Vitrine.formatPreco(taxa) : "Grátis"; }
-                else { label = "Informe o CEP"; }
+                else if (podeUsarLocal) { frete = taxa; label = taxa > 0 ? window.Vitrine.formatPreco(taxa) : "Grátis"; }
+                else { label = "Inserir CEP"; }
               }
             } else { label = "Apenas retirada"; }
+          }
+          semLocParaFrete = !podeUsarLocalidadeNoFreteCarrinho();
+          if (semLocParaFrete && data) {
+            var fx = data.formato_frete || "sem_frete";
+            if ((fx === "gratis" || fx === "taxa_fixa" || fx === "plataforma") && label !== "_NAO_ENTREGAMOS_") {
+              frete = 0;
+              label = "Inserir CEP";
+            }
           }
           totalFrete += frete;
           if (label === "_NAO_ENTREGAMOS_") {
             temNaoEntregamos = true;
-            if (keys.length > 1) { htmlParts.push('<div class="loja-resumo-linha small"><span>Frete loja #' + lid + '</span><strong>Não disponível</strong></div>'); }
-            else { htmlParts.push('<div class="loja-resumo-linha"><span>Frete</span><strong>Não disponível</strong></div>'); }
+            if (keys.length > 1) {
+              htmlParts.push(
+                '<div class="loja-resumo-linha small"><span>' +
+                  window.Vitrine.escapeHtml(tituloFretePorLoja(lid)) +
+                  '</span><strong>Não disponível</strong></div>'
+              );
+            } else {
+              htmlParts.push('<div class="loja-resumo-linha"><span>Frete</span><strong>Não disponível</strong></div>');
+            }
           } else {
-            if (keys.length > 1) { htmlParts.push('<div class="loja-resumo-linha small"><span>Frete loja #' + lid + '</span><strong>' + label + '</strong></div>'); }
-            else { htmlParts.push('<div class="loja-resumo-linha"><span>Frete</span><strong>' + label + '</strong></div>'); }
+            if (keys.length > 1) {
+              htmlParts.push(
+                '<div class="loja-resumo-linha small"><span>' +
+                  window.Vitrine.escapeHtml(tituloFretePorLoja(lid)) +
+                  '</span><strong>' +
+                  label +
+                  "</strong></div>"
+              );
+            } else {
+              htmlParts.push('<div class="loja-resumo-linha"><span>Frete</span><strong>' + label + "</strong></div>");
+            }
           }
           done++;
           if (done === keys.length) {
             var html = htmlParts.join("");
             if (temNaoEntregamos) {
-              html += '<div class="mt-2 mb-2"><span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 0.5em 0.9em;">Ops :(, ainda não entregamos para sua cidade.</span></div>';
+              html += '<div class="mt-2 mb-2"><span class="badge bg-warning text-dark" style="font-size: 0.9rem; padding: 0.5em 0.9em;">Entrega indisponível para o CEP informado.</span></div>';
+              if (primeiraMensagemIndisponivel) {
+                html += '<p class="small text-muted mb-0">' + window.Vitrine.escapeHtml(primeiraMensagemIndisponivel) + "</p>";
+              }
             }
             freteWrap.innerHTML = html;
             totalEl.textContent = window.Vitrine.formatPreco(subtotalProdutos + totalFrete);
@@ -283,18 +378,39 @@
     var statusEl = document.getElementById("carrinho-cep-status");
     if (!cepInput) return;
     var cep = cepInput.value.replace(/\D/g, "");
-    if (cep.length !== 8) { statusEl.textContent = "CEP inválido"; return; }
-    statusEl.textContent = "Buscando...";
+    if (!cepCarrinhoValidoNaoPlaceholder(cep)) {
+      if (statusEl) statusEl.textContent = cep.length === 0 ? "" : "CEP inválido";
+      _carrinhoCidade = null;
+      _carrinhoUf = null;
+      _carrinhoCepResolvido = null;
+      render();
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Buscando...";
     fetch("https://viacep.com.br/ws/" + cep + "/json/", {credentials: "omit"})
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (data.erro) { statusEl.textContent = "CEP não encontrado"; return; }
+        if (data.erro) {
+          if (statusEl) statusEl.textContent = "CEP não encontrado";
+          _carrinhoCidade = null;
+          _carrinhoUf = null;
+          _carrinhoCepResolvido = null;
+          render();
+          return;
+        }
         _carrinhoCidade = data.localidade || null;
         _carrinhoUf = data.uf || null;
-        statusEl.textContent = data.localidade + " - " + data.uf;
+        _carrinhoCepResolvido = cep;
+        if (statusEl) statusEl.textContent = data.localidade + " - " + data.uf;
         render();
       })
-      .catch(function() { statusEl.textContent = "Erro ao buscar CEP"; });
+      .catch(function() {
+        if (statusEl) statusEl.textContent = "Erro ao buscar CEP";
+        _carrinhoCidade = null;
+        _carrinhoUf = null;
+        _carrinhoCepResolvido = null;
+        render();
+      });
   }
 
   var btnLimpar = document.getElementById("loja-carrinho-limpar");
@@ -310,7 +426,21 @@
   var cepBtn = document.getElementById("carrinho-cep-btn");
   if (cepBtn) cepBtn.addEventListener("click", buscarCepCarrinho);
   var cepInput = document.getElementById("carrinho-cep");
-  if (cepInput) cepInput.addEventListener("keypress", function(e) { if (e.key === "Enter") { e.preventDefault(); buscarCepCarrinho(); } });
+  if (cepInput) {
+    cepInput.addEventListener("keypress", function(e) { if (e.key === "Enter") { e.preventDefault(); buscarCepCarrinho(); } });
+    cepInput.addEventListener("input", function () {
+      var raw = this.value.replace(/\D/g, "");
+      if (!_carrinhoCepResolvido) return;
+      if (raw !== _carrinhoCepResolvido) {
+        _carrinhoCidade = null;
+        _carrinhoUf = null;
+        _carrinhoCepResolvido = null;
+        var st = document.getElementById("carrinho-cep-status");
+        if (st) st.textContent = "";
+        render();
+      }
+    });
+  }
 
   var modalCarrinhoEndereco = document.getElementById("modalCarrinhoEndereco");
   function closeModalCarrinhoEndereco() {

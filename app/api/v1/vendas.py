@@ -11,9 +11,10 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import ValidationError
-from sqlalchemy import case, func, or_, text
+from sqlalchemy import and_, case, exists, func, or_, text
 from sqlalchemy.orm import Session, joinedload
 
+from app.services.conversao_venda_service import registrar_origem_manual
 from app.core.audit import audit_action
 from app.core.logging import log_error
 from app.core.middleware import forbid_cliente_access, get_cliente_scope_dep, get_current_user
@@ -29,6 +30,9 @@ from app.models.produto_cliente import ProdutoCliente
 from app.models.tenant import Tenant
 from app.models.usuario import Usuario
 from app.models.venda import StatusVenda, TipoPagamento, Venda, VendaItem
+from app.models.venda_origem import VendaOrigem
+from app.models.orcamento import Orcamento
+from app.models.ordem_servico import OrdemServico
 from app.models.venda_pagamento import VendaPagamento
 from app.schemas.cupom import CupomConteudoResponse
 from app.schemas.venda import (
@@ -40,7 +44,7 @@ from app.schemas.venda import (
     VendaPedidoPendenteCreate,
     VendaResponse,
 )
-from app.services.cupom_receipt import gerar_cupom_nao_fiscal
+from app.services.cupom_venda_caixa_service import montar_cupom_venda_caixa
 from app.services.fiscal.emissao_service import FiscalEmissaoService
 from app.services.integration_webhooks import queue_venda_fechada_webhook
 
@@ -71,6 +75,79 @@ def _estabelecimento_cliente_id_da_venda(db: Session, venda: Venda) -> Optional[
             if pc and getattr(pc, "cliente_id", None) is not None:
                 return int(pc.cliente_id)
     return None
+
+
+def _venda_scope_sql_condition(scope: ClienteScope) -> tuple[str, dict]:
+    """
+    Condição SQL para vendas visíveis no escopo do tenant.
+    Inclui vendas pendentes sem caixa/cliente, identificadas pelos produtos do estabelecimento.
+    """
+    if not scope.must_filter_by_cliente() or not scope.allowed_ids:
+        return "", {}
+    condition = (
+        "((v.cliente_id IS NOT NULL AND v.cliente_id = ANY(:cliente_ids)) OR "
+        "(e_caixa.cliente_id IS NOT NULL AND e_caixa.cliente_id = ANY(:cliente_ids)) OR "
+        "EXISTS ("
+        "SELECT 1 FROM venda_itens vi_scope "
+        "INNER JOIN produtos_cliente pc_scope ON pc_scope.id = vi_scope.produto_cliente_id "
+        "WHERE vi_scope.venda_id = v.id AND pc_scope.cliente_id = ANY(:cliente_ids)"
+        "))"
+    )
+    return condition, {"cliente_ids": scope.allowed_ids}
+
+
+def _venda_scope_orm_filter(scope: ClienteScope):
+    """Filtro ORM equivalente a _venda_scope_sql_condition."""
+    if not scope.must_filter_by_cliente() or not scope.allowed_ids:
+        return None
+    ids = scope.allowed_ids
+    produto_scope = exists().where(
+        and_(
+            VendaItem.venda_id == Venda.id,
+            ProdutoCliente.id == VendaItem.produto_cliente_id,
+            ProdutoCliente.cliente_id.in_(ids),
+        )
+    )
+    caixa_scope = exists().where(
+        and_(
+            Venda.abertura_caixa_id == AberturaCaixa.id,
+            AberturaCaixa.caixa_id == Caixa.id,
+            Caixa.empresa_id == Empresa.id,
+            Empresa.cliente_id.in_(ids),
+        )
+    )
+    return or_(
+        Venda.cliente_id.in_(ids),
+        caixa_scope,
+        produto_scope,
+    )
+
+
+def _venda_visivel_no_escopo(db: Session, venda: Venda, scope: ClienteScope) -> bool:
+    """Verifica se a venda pertence ao escopo (mesma regra da listagem)."""
+    if not scope.must_filter_by_cliente():
+        return True
+    if not scope.allowed_ids:
+        return False
+    ids = set(scope.allowed_ids)
+    if venda.cliente_id is not None and venda.cliente_id in ids:
+        return True
+    ab_id = getattr(venda, "abertura_caixa_id", None)
+    if ab_id:
+        ab = getattr(venda, "abertura_caixa", None) or db.query(AberturaCaixa).filter(AberturaCaixa.id == ab_id).first()
+        if ab:
+            cx = getattr(ab, "caixa", None) or db.query(Caixa).filter(Caixa.id == ab.caixa_id).first()
+            if cx:
+                emp = db.query(Empresa).filter(Empresa.id == cx.empresa_id).first()
+                if emp and getattr(emp, "cliente_id", None) in ids:
+                    return True
+    for vi in (venda.itens or []):
+        pc = getattr(vi, "produto_cliente", None)
+        if pc is None and getattr(vi, "produto_cliente_id", None):
+            pc = db.query(ProdutoCliente).filter(ProdutoCliente.id == vi.produto_cliente_id).first()
+        if pc and getattr(pc, "cliente_id", None) in ids:
+            return True
+    return False
 
 
 def _criar_rascunho_nfe_ao_finalizar_venda(
@@ -189,7 +266,9 @@ async def obter_estatisticas_vendas(
         if scope.must_filter_by_cliente():
             if not scope.allowed_ids:
                 return {"total_vendas": 0, "valor_total_vendas": 0.0, "vendas_pendentes": 0, "valor_medio_venda": 0.0}
-            query = query.filter(Venda.cliente_id.in_(scope.allowed_ids))
+            scope_filter = _venda_scope_orm_filter(scope)
+            if scope_filter is not None:
+                query = query.filter(scope_filter)
 
         resultado = query.one()
         total_vendas = int(resultado.total_vendas or 0)
@@ -392,6 +471,8 @@ async def criar_venda(
         
         db.commit()
         db.refresh(nova_venda)
+        registrar_origem_manual(db, nova_venda, current_user.id)
+        db.commit()
         audit_action(
             db,
             "venda_criada",
@@ -506,6 +587,21 @@ def _venda_badge_status_pendente(status_bruto) -> bool:
     return normalizar_status_venda(status_bruto) == "pendente"
 
 
+def _validar_itens_pedido_pendente(db: Session, itens) -> None:
+    """Valida produtos dos itens de pedido pendente (criação ou edição)."""
+    for i, item in enumerate(itens):
+        if item.produto_cliente_id is None:
+            raise HTTPException(status_code=400, detail=f"Item {i+1}: produto_cliente_id é obrigatório")
+        produto_pc = db.query(ProdutoCliente).filter(ProdutoCliente.id == item.produto_cliente_id).first()
+        if not produto_pc:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Produto estabelecimento ID {item.produto_cliente_id} não encontrado",
+            )
+        if not produto_pc.ativo:
+            raise HTTPException(status_code=400, detail=f"Produto {produto_pc.nome} está inativo")
+
+
 def _validar_turno_caixa_venda(
     db: Session, abertura_caixa_id: int, current_user: Usuario
 ) -> AberturaCaixa:
@@ -537,6 +633,51 @@ def _validar_turno_caixa_venda(
     return ab
 
 
+def _origem_cadeia_venda(db: Session, venda_id: int, venda_row: dict) -> list:
+    """Monta breadcrumb ordenado (raiz → imediata → venda) com timestamps de conversão."""
+    from app.services.conversao_venda_service import montar_origem_cadeia_resposta
+
+    rows = (
+        db.query(VendaOrigem)
+        .filter(VendaOrigem.venda_id == venda_id)
+        .order_by(VendaOrigem.papel.asc(), VendaOrigem.created_at.asc())
+        .all()
+    )
+    return montar_origem_cadeia_resposta(venda_id, venda_row, rows)
+
+
+def _campos_origem_venda(db: Session, venda: Venda) -> dict:
+    """Enriquece resposta ORM com rastreio comercial (FKs + venda_origens)."""
+    numero_orcamento = None
+    ordem_servico_codigo = None
+    if venda.orcamento_id:
+        orc = db.query(Orcamento).filter(Orcamento.id == venda.orcamento_id).first()
+        numero_orcamento = orc.numero_orcamento if orc else None
+    if venda.ordem_servico_id:
+        os_row = db.query(OrdemServico).filter(OrdemServico.id == venda.ordem_servico_id).first()
+        ordem_servico_codigo = os_row.codigo if os_row else None
+
+    origem_imediata_tipo = origem_imediata_ref = origem_raiz_tipo = origem_raiz_ref = None
+    for vo in db.query(VendaOrigem).filter(VendaOrigem.venda_id == venda.id).all():
+        if vo.papel == "imediata":
+            origem_imediata_tipo = vo.tipo_origem
+            origem_imediata_ref = vo.documento_ref
+        elif vo.papel == "raiz":
+            origem_raiz_tipo = vo.tipo_origem
+            origem_raiz_ref = vo.documento_ref
+
+    return {
+        "orcamento_id": getattr(venda, "orcamento_id", None),
+        "numero_orcamento": numero_orcamento,
+        "ordem_servico_id": getattr(venda, "ordem_servico_id", None),
+        "ordem_servico_codigo": ordem_servico_codigo,
+        "origem_imediata_tipo": origem_imediata_tipo,
+        "origem_imediata_ref": origem_imediata_ref,
+        "origem_raiz_tipo": origem_raiz_tipo,
+        "origem_raiz_ref": origem_raiz_ref,
+    }
+
+
 def _venda_response_orm(db: Session, venda_id: int) -> VendaResponse:
     venda_completa = (
         db.query(Venda)
@@ -554,6 +695,16 @@ def _venda_response_orm(db: Session, venda_id: int) -> VendaResponse:
         itens_resp.append(VendaItemResponse.model_validate(item, from_attributes=True))
     _ab = venda_completa.abertura_caixa
     _cx = _ab.caixa if _ab and getattr(_ab, "caixa", None) else None
+    origem = _campos_origem_venda(db, venda_completa)
+    origem["origem_cadeia"] = _origem_cadeia_venda(
+        db,
+        venda_completa.id,
+        {
+            **origem,
+            "numero_venda": venda_completa.numero_venda,
+            "created_at": venda_completa.created_at,
+        },
+    )
     return VendaResponse(
         id=venda_completa.id,
         numero_venda=venda_completa.numero_venda,
@@ -574,6 +725,7 @@ def _venda_response_orm(db: Session, venda_id: int) -> VendaResponse:
         observacoes=venda_completa.observacoes,
         itens=itens_resp,
         nota_fiscal_id=getattr(venda_completa, "nota_fiscal_id", None),
+        **origem,
         created_at=venda_completa.created_at,
         updated_at=venda_completa.updated_at,
     )
@@ -598,17 +750,7 @@ async def criar_pedido_venda_pendente(
         if not cliente:
             raise HTTPException(status_code=404, detail="Cliente não encontrado")
 
-    for i, item in enumerate(body.itens):
-        try:
-            if item.produto_cliente_id is None:
-                raise HTTPException(status_code=400, detail=f"Item {i+1}: produto_cliente_id é obrigatório")
-            produto_pc = db.query(ProdutoCliente).filter(ProdutoCliente.id == item.produto_cliente_id).first()
-            if not produto_pc:
-                raise HTTPException(status_code=404, detail=f"Produto estabelecimento ID {item.produto_cliente_id} não encontrado")
-            if not produto_pc.ativo:
-                raise HTTPException(status_code=400, detail=f"Produto {produto_pc.nome} está inativo")
-        except HTTPException:
-            raise
+    _validar_itens_pedido_pendente(db, body.itens)
 
     data_atual = datetime.now()
     numero_venda = _gerar_numero_venda(db)
@@ -647,6 +789,8 @@ async def criar_pedido_venda_pendente(
 
     db.commit()
     db.refresh(nova_venda)
+    registrar_origem_manual(db, nova_venda, current_user.id)
+    db.commit()
     audit_action(
         db,
         "venda_pendente_criada",
@@ -657,6 +801,84 @@ async def criar_pedido_venda_pendente(
         detalhes=f"numero={nova_venda.numero_venda} pendente=True",
     )
     return _venda_response_orm(db, nova_venda.id)
+
+
+@router.put("/{venda_id}/pedido-pendente", response_model=VendaResponse)
+async def atualizar_pedido_venda_pendente(
+    venda_id: int,
+    body: VendaPedidoPendenteCreate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+    _: None = Depends(forbid_cliente_access),
+):
+    """
+    Atualiza venda PENDENTE: cliente, totais e itens (substituição completa).
+    Não altera estoque nem pagamentos — somente pedidos ainda não finalizados.
+    """
+    venda = (
+        db.query(Venda)
+        .options(joinedload(Venda.itens))
+        .filter(Venda.id == venda_id)
+        .first()
+    )
+    if not venda:
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
+    if scope.must_filter_by_cliente() and not _venda_visivel_no_escopo(db, venda, scope):
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
+
+    if not _venda_badge_status_pendente(venda.status):
+        raise HTTPException(
+            status_code=400,
+            detail="Somente vendas com status pendente podem ser editadas por esta rota.",
+        )
+
+    if scope.must_filter_by_cliente() and body.cliente_id is not None and body.cliente_id not in scope.allowed_ids:
+        raise HTTPException(status_code=403, detail="Cliente fora do seu escopo de acesso")
+    if body.cliente_id:
+        cliente = db.query(Cliente).filter(Cliente.id == body.cliente_id).first()
+        if not cliente:
+            raise HTTPException(status_code=404, detail="Cliente não encontrado")
+
+    _validar_itens_pedido_pendente(db, body.itens)
+
+    for item_antigo in list(venda.itens or []):
+        db.delete(item_antigo)
+    db.flush()
+
+    venda.cliente_id = body.cliente_id
+    venda.subtotal = body.subtotal
+    venda.desconto = body.desconto
+    venda.acrescimo = body.acrescimo
+    venda.total = body.total
+    if body.observacoes is not None:
+        venda.observacoes = body.observacoes
+
+    for item_data in body.itens:
+        db.add(
+            VendaItem(
+                venda_id=venda.id,
+                produto_cliente_id=item_data.produto_cliente_id,
+                quantidade=item_data.quantidade,
+                valor_unitario=item_data.valor_unitario,
+                valor_total=item_data.valor_total,
+                desconto_item=item_data.desconto_item,
+                observacoes=item_data.observacoes,
+            )
+        )
+
+    db.commit()
+    db.refresh(venda)
+    audit_action(
+        db,
+        "venda_pendente_atualizada",
+        user_id=current_user.id,
+        tenant_id=getattr(current_user, "tenant_id", None),
+        recurso_tipo="venda",
+        recurso_id=venda.id,
+        detalhes=f"numero={venda.numero_venda} itens={len(body.itens)}",
+    )
+    return _venda_response_orm(db, venda.id)
 
 
 @router.post("/{venda_id}/finalizar", response_model=VendaResponse)
@@ -677,14 +899,8 @@ async def finalizar_venda_pendente(
     )
     if not venda:
         raise HTTPException(status_code=404, detail="Venda não encontrada")
-    if scope.must_filter_by_cliente():
-        cid = venda.cliente_id
-        if cid is None:
-            estab = _estabelecimento_cliente_id_da_venda(db, venda)
-            if estab is None or estab not in scope.allowed_ids:
-                raise HTTPException(status_code=404, detail="Venda não encontrada")
-        elif cid not in scope.allowed_ids:
-            raise HTTPException(status_code=404, detail="Venda não encontrada")
+    if scope.must_filter_by_cliente() and not _venda_visivel_no_escopo(db, venda, scope):
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
 
     if not _venda_badge_status_pendente(venda.status):
         raise HTTPException(
@@ -692,7 +908,16 @@ async def finalizar_venda_pendente(
             detail="Somente vendas com status pendente podem ser finalizadas por esta rota.",
         )
 
-    total_dec = Decimal(str(venda.total or 0))
+    subtotal_dec = Decimal(str(venda.subtotal or 0))
+    desconto_dec = Decimal(str(body.desconto if body.desconto is not None else (venda.desconto or 0)))
+    acrescimo_dec = Decimal(str(body.acrescimo if body.acrescimo is not None else (venda.acrescimo or 0)))
+    total_dec = subtotal_dec - desconto_dec + acrescimo_dec
+    if total_dec < Decimal("0"):
+        raise HTTPException(status_code=400, detail="Total da venda não pode ser negativo.")
+    venda.desconto = desconto_dec
+    venda.acrescimo = acrescimo_dec
+    venda.total = total_dec
+
     valor_pago_dec = Decimal(str(body.valor_pago))
     troco_dec = Decimal(str(body.troco))
     if valor_pago_dec + Decimal("0.001") < total_dec:
@@ -848,17 +1073,16 @@ async def cancelar_venda_pendente(
     _: None = Depends(forbid_cliente_access),
 ):
     """Cancela venda PENDENTE (pedido não concluído)."""
-    venda = db.query(Venda).filter(Venda.id == venda_id).first()
+    venda = (
+        db.query(Venda)
+        .options(joinedload(Venda.itens).joinedload(VendaItem.produto_cliente))
+        .filter(Venda.id == venda_id)
+        .first()
+    )
     if not venda:
         raise HTTPException(status_code=404, detail="Venda não encontrada")
-    if scope.must_filter_by_cliente():
-        cid = venda.cliente_id
-        if cid is None:
-            estab = _estabelecimento_cliente_id_da_venda(db, venda)
-            if estab is None or estab not in scope.allowed_ids:
-                raise HTTPException(status_code=404, detail="Venda não encontrada")
-        elif cid not in scope.allowed_ids:
-            raise HTTPException(status_code=404, detail="Venda não encontrada")
+    if scope.must_filter_by_cliente() and not _venda_visivel_no_escopo(db, venda, scope):
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
 
     if not _venda_badge_status_pendente(venda.status):
         raise HTTPException(status_code=400, detail="Somente vendas pendentes podem ser canceladas por esta rota.")
@@ -898,18 +1122,24 @@ async def listar_vendas(
                 v.cliente_id, v.vendedor_id, v.subtotal, v.desconto,
                 v.acrescimo, v.total, v.tipo_pagamento, v.valor_pago,
                 v.troco, v.observacoes, v.created_at, v.updated_at,
-                v.ordem_servico_id, v.nota_fiscal_id,
+                v.ordem_servico_id, v.orcamento_id, v.nota_fiscal_id,
                 v.abertura_caixa_id,
                 cx.id AS caixa_id,
                 cx.identificador AS caixa_identificador,
                 os.codigo AS ordem_servico_codigo,
+                orc.numero_orcamento AS numero_orcamento,
                 c.nome AS cliente_nome,
                 u.nome AS vendedor_nome,
-                (SELECT COUNT(*) FROM venda_itens vi WHERE vi.venda_id = v.id) AS total_itens
+                (SELECT COUNT(*) FROM venda_itens vi WHERE vi.venda_id = v.id) AS total_itens,
+                (SELECT vo.tipo_origem FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'imediata' LIMIT 1) AS origem_imediata_tipo,
+                (SELECT vo.documento_ref FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'imediata' LIMIT 1) AS origem_imediata_ref,
+                (SELECT vo.tipo_origem FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'raiz' LIMIT 1) AS origem_raiz_tipo,
+                (SELECT vo.documento_ref FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'raiz' LIMIT 1) AS origem_raiz_ref
             FROM vendas v
             LEFT JOIN clientes c ON c.id = v.cliente_id
             LEFT JOIN usuarios u ON u.id = v.vendedor_id
             LEFT JOIN ordem_servico os ON os.id = v.ordem_servico_id
+            LEFT JOIN orcamentos orc ON orc.id = v.orcamento_id
             LEFT JOIN aberturas_caixa ab ON ab.id = v.abertura_caixa_id
             LEFT JOIN caixas cx ON cx.id = ab.caixa_id
             LEFT JOIN empresa e_caixa ON e_caixa.id = cx.empresa_id
@@ -926,11 +1156,10 @@ async def listar_vendas(
         if scope.must_filter_by_cliente():
             if not scope.allowed_ids:
                 return {"vendas": [], "total": 0, "skip": skip, "limit": limit}
-            where_parts.append(
-                "(v.cliente_id IS NOT NULL AND v.cliente_id = ANY(:cliente_ids)) OR "
-                "(e_caixa.cliente_id IS NOT NULL AND e_caixa.cliente_id = ANY(:cliente_ids))"
-            )
-            params["cliente_ids"] = scope.allowed_ids
+            scope_sql, scope_params = _venda_scope_sql_condition(scope)
+            if scope_sql:
+                where_parts.append(scope_sql)
+                params.update(scope_params)
 
         if data_inicio:
             where_parts.append("v.data_venda >= :data_inicio")
@@ -969,6 +1198,12 @@ async def listar_vendas(
                 "total_itens": int(row["total_itens"]) if row["total_itens"] is not None else 0,
                 "ordem_servico_id": row.get("ordem_servico_id"),
                 "ordem_servico_codigo": row.get("ordem_servico_codigo"),
+                "orcamento_id": row.get("orcamento_id"),
+                "numero_orcamento": row.get("numero_orcamento"),
+                "origem_imediata_tipo": row.get("origem_imediata_tipo"),
+                "origem_imediata_ref": row.get("origem_imediata_ref"),
+                "origem_raiz_tipo": row.get("origem_raiz_tipo"),
+                "origem_raiz_ref": row.get("origem_raiz_ref"),
                 "nota_fiscal_id": row.get("nota_fiscal_id"),
                 "abertura_caixa_id": row.get("abertura_caixa_id"),
                 "caixa_id": row.get("caixa_id"),
@@ -1016,17 +1251,24 @@ async def obter_venda(
                 v.created_at,
                 v.updated_at,
                 v.ordem_servico_id,
+                v.orcamento_id,
                 v.abertura_caixa_id,
                 cx.id AS caixa_id,
                 cx.identificador AS caixa_identificador,
                 os.codigo AS ordem_servico_codigo,
+                orc.numero_orcamento AS numero_orcamento,
                 c.nome AS cliente_nome,
                 u.nome AS vendedor_nome,
-                e_caixa.cliente_id AS empresa_cliente_id
+                e_caixa.cliente_id AS empresa_cliente_id,
+                (SELECT vo.tipo_origem FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'imediata' LIMIT 1) AS origem_imediata_tipo,
+                (SELECT vo.documento_ref FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'imediata' LIMIT 1) AS origem_imediata_ref,
+                (SELECT vo.tipo_origem FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'raiz' LIMIT 1) AS origem_raiz_tipo,
+                (SELECT vo.documento_ref FROM venda_origens vo WHERE vo.venda_id = v.id AND vo.papel = 'raiz' LIMIT 1) AS origem_raiz_ref
             FROM vendas v
             LEFT JOIN clientes c ON c.id = v.cliente_id
             LEFT JOIN usuarios u ON u.id = v.vendedor_id
             LEFT JOIN ordem_servico os ON os.id = v.ordem_servico_id
+            LEFT JOIN orcamentos orc ON orc.id = v.orcamento_id
             LEFT JOIN aberturas_caixa ab ON ab.id = v.abertura_caixa_id
             LEFT JOIN caixas cx ON cx.id = ab.caixa_id
             LEFT JOIN empresa e_caixa ON e_caixa.id = cx.empresa_id
@@ -1038,15 +1280,13 @@ async def obter_venda(
         if not venda_row:
             raise HTTPException(status_code=404, detail="Venda não encontrada")
         if scope.must_filter_by_cliente():
-            cid = venda_row.get("cliente_id")
-            ecid = venda_row.get("empresa_cliente_id")
-            if cid is not None:
-                if cid not in scope.allowed_ids:
-                    raise HTTPException(status_code=404, detail="Venda não encontrada")
-            elif ecid is not None:
-                if ecid not in scope.allowed_ids:
-                    raise HTTPException(status_code=404, detail="Venda não encontrada")
-            else:
+            venda_escopo = (
+                db.query(Venda)
+                .options(joinedload(Venda.itens).joinedload(VendaItem.produto_cliente))
+                .filter(Venda.id == venda_id)
+                .first()
+            )
+            if not venda_escopo or not _venda_visivel_no_escopo(db, venda_escopo, scope):
                 raise HTTPException(status_code=404, detail="Venda não encontrada")
 
         stmt_itens = text("""
@@ -1103,6 +1343,13 @@ async def obter_venda(
             "status": normalizar_status_venda(venda_row["status"]),
             "ordem_servico_id": venda_row.get("ordem_servico_id"),
             "ordem_servico_codigo": venda_row.get("ordem_servico_codigo"),
+            "orcamento_id": venda_row.get("orcamento_id"),
+            "numero_orcamento": venda_row.get("numero_orcamento"),
+            "origem_imediata_tipo": venda_row.get("origem_imediata_tipo"),
+            "origem_imediata_ref": venda_row.get("origem_imediata_ref"),
+            "origem_raiz_tipo": venda_row.get("origem_raiz_tipo"),
+            "origem_raiz_ref": venda_row.get("origem_raiz_ref"),
+            "origem_cadeia": _origem_cadeia_venda(db, venda_id, dict(venda_row)),
             "abertura_caixa_id": venda_row.get("abertura_caixa_id"),
             "caixa_id": venda_row.get("caixa_id"),
             "caixa_identificador": venda_row.get("caixa_identificador"),
@@ -1142,79 +1389,8 @@ async def obter_cupom_venda(
     current_user: Usuario = Depends(get_current_user),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
-    """Retorna conteúdo do cupom da venda para impressão (linhas térmica + html para browser)."""
-    venda = (
-        db.query(Venda)
-        .options(
-            joinedload(Venda.itens).joinedload(VendaItem.produto_cliente),
-            joinedload(Venda.cliente),
-            joinedload(Venda.abertura_caixa).joinedload(AberturaCaixa.caixa),
-        )
-        .filter(Venda.id == venda_id)
-        .first()
-    )
-    if not venda:
-        raise HTTPException(status_code=404, detail="Venda não encontrada")
-    if scope.must_filter_by_cliente():
-        cid = venda.cliente_id
-        if cid is None:
-            estab_id = _estabelecimento_cliente_id_da_venda(db, venda)
-            if estab_id is None or estab_id not in scope.allowed_ids:
-                raise HTTPException(status_code=404, detail="Venda não encontrada")
-        elif cid not in scope.allowed_ids:
-            raise HTTPException(status_code=404, detail="Venda não encontrada")
-
-    tenant_id = getattr(current_user, "tenant_id", None)
-    cupom_tipo = "nao_fiscal"
-    largura = 48
-    if tenant_id:
-        tenant = db.get(Tenant, tenant_id)
-        if tenant and getattr(tenant, "cupom_tipo", None) == "fiscal":
-            cupom_tipo = "fiscal"
-
-    if cupom_tipo == "fiscal":
-        return CupomConteudoResponse(tipo="fiscal", linhas=[], html=None)
-
-    estabelecimento_nome = "Estabelecimento"
-    if venda.cliente:
-        estabelecimento_nome = (venda.cliente.nome or "").strip() or estabelecimento_nome
-    if not estabelecimento_nome and venda.abertura_caixa_id:
-        ab_c = venda.abertura_caixa if getattr(venda, "abertura_caixa", None) else db.query(AberturaCaixa).filter(AberturaCaixa.id == venda.abertura_caixa_id).first()
-        cx_c = ab_c.caixa if ab_c and getattr(ab_c, "caixa", None) else None
-        emp_c = db.query(Empresa).filter(Empresa.id == cx_c.empresa_id).first() if cx_c else None
-        if emp_c and getattr(emp_c, "cliente_id", None):
-            cli = db.query(Cliente).filter(Cliente.id == emp_c.cliente_id).first()
-            if cli and cli.nome:
-                estabelecimento_nome = cli.nome.strip()
-
-    itens_data = []
-    for item in venda.itens or []:
-        nome = "Item"
-        if getattr(item, "produto_cliente", None) and item.produto_cliente.nome:
-            nome = item.produto_cliente.nome.strip()
-        itens_data.append({
-            "nome": nome,
-            "produto_nome": nome,
-            "quantidade": float(item.quantidade),
-            "valor_unitario": float(item.valor_unitario),
-            "valor_total": float(item.valor_total),
-        })
-
-    linhas, html = gerar_cupom_nao_fiscal(
-        estabelecimento_nome=estabelecimento_nome,
-        numero_venda=venda.numero_venda,
-        data_venda=venda.data_venda,
-        tipo_pagamento=venda.tipo_pagamento,
-        valor_pago=venda.valor_pago,
-        troco=venda.troco,
-        subtotal=venda.subtotal,
-        desconto=venda.desconto,
-        acrescimo=venda.acrescimo,
-        total=venda.total,
-        itens=itens_data,
-        largura=largura,
-    )
-    return CupomConteudoResponse(tipo="nao_fiscal", linhas=linhas, html=html)
+    """Cupom não fiscal do caixa (PDV). Padrão visual alinhado ao cupom de pedidos."""
+    return montar_cupom_venda_caixa(db, venda_id, current_user, scope)
 
 
 @router.post("/{venda_id}/emitir-nota", response_model=dict, status_code=status.HTTP_200_OK)

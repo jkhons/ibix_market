@@ -11,6 +11,7 @@ from urllib.parse import quote
 from sqlalchemy.orm import Session
 
 from app.core.billing_config import get_app_url
+from app.core.vitrine_brand import absolute_public_url as _absolute_url, resolve_vitrine_header_logo_url
 from app.core.constants import (
     ACEITA,
     AGUARDANDO_PUBLICACAO,
@@ -33,13 +34,9 @@ from app.services.email_service import EmailService
 
 _DIR_MARKETPLACE_EMAIL = Path(__file__).resolve().parent.parent / "templates" / "emails" / "marketplace"
 
-CHAVE_LOGO_PLATAFORMA = "marketplace_email_logo_plataforma_url"
 CHAVE_NOME_PLATAFORMA = "marketplace_email_nome_plataforma"
 CHAVE_COR_VITRINE = "marketplace_email_cor_vitrine"
 CHAVE_COR_VITRINE_ESCURA = "marketplace_email_cor_vitrine_escura"
-
-# Logo largo do cabeçalho da vitrine (/loja) — mesmo asset de base_loja.html
-VITRINE_HEADER_LOGO_PATH = "/static/img/ibix/cab.png"
 
 # Paleta Ibix + fallback do CTA (botões / destaques do miolo)
 COR_IBIX = "#C47A44"
@@ -57,18 +54,6 @@ def _cfg_tenant(db: Session, tenant_id: Optional[int], chave: str) -> str:
         return ""
     row = db.query(Configuracao).filter(Configuracao.chave == f"{chave}:{int(tenant_id)}").first()
     return (row.valor or "").strip() if row else ""
-
-
-def _absolute_url(db: Session, url_or_path: Optional[str]) -> str:
-    raw = (url_or_path or "").strip()
-    if not raw:
-        return ""
-    if raw.startswith(("http://", "https://")):
-        return raw
-    base = get_app_url(db).rstrip("/")
-    if raw.startswith("/"):
-        return f"{base}{raw}"
-    return f"{base}/{raw}"
 
 
 def _primeiro_nome(nome_completo: Optional[str]) -> str:
@@ -185,9 +170,8 @@ def build_context_comprador(db: Session, pedido: PedidoMarketplace, loja: LojaMa
     cor_vitrine = _cfg_tenant(db, loja.cliente_id, CHAVE_COR_VITRINE) or "#5C6E4A"
     cor_vitrine_escura = _cfg_tenant(db, loja.cliente_id, CHAVE_COR_VITRINE_ESCURA) or "#4E5F40"
 
-    # Cabeçalho/roda-pé: mesmo strip da vitrine (cab.png). Opcional: marketplace_email_logo_plataforma_url substitui o asset (logo largo da marca).
-    logo_cfg = (_cfg(db, CHAVE_LOGO_PLATAFORMA) or "").strip()
-    logo_vitrine_cab_abs = _absolute_url(db, logo_cfg) if logo_cfg else _absolute_url(db, VITRINE_HEADER_LOGO_PATH)
+    # Cabeçalho/roda-pé: logo do header da vitrine (cab.png) — ver app/core/vitrine_brand.py
+    logo_vitrine_cab_abs = resolve_vitrine_header_logo_url(db)
     bloco_logo_vitrine_header = _bloco_logo_vitrine_email(logo_vitrine_cab_abs, nome_plataforma, 280)
     bloco_logo_vitrine_rodape = _bloco_logo_vitrine_email(logo_vitrine_cab_abs, nome_plataforma, 168)
 

@@ -5,14 +5,29 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthConfig
+from app.core.pii import mask_cpf
 from app.models.consumidor_consentimento import ConsumidorConsentimento
 from app.models.consumidor_favorito import ConsumidorFavorito
 from app.models.consumidor_marketplace import ConsumidorMarketplace
 from app.models.consumidor_push_token import ConsumidorPushToken
 from app.models.consumidor_refresh_token import ConsumidorRefreshToken
 from app.models.endereco_consumidor import EnderecoConsumidor
+from app.models.tenant import Tenant
+from app.services.brand_scope_service import get_ibix_brand_id
 
 TIPOS_CONSENTIMENTO = ["marketing", "analytics", "terceiros"]
+LGPD_EXCLUSAO_DIAS = 30
+
+
+def assert_consumidor_ibix_scope(db: Session, consumidor: ConsumidorMarketplace) -> None:
+    """Consumidor marketplace pertence à marca Ibix (tenant.brand_id ou platform-wide)."""
+    ibix_brand_id = get_ibix_brand_id(db)
+    tenant_id = consumidor.tenant_id
+    if tenant_id is None:
+        return
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if tenant and tenant.brand_id != ibix_brand_id:
+        raise ValueError("CONSUMIDOR_BRAND_SCOPE")
 
 
 def get_consentimentos(db: Session, consumidor_id: int) -> List[dict]:
@@ -60,10 +75,15 @@ def update_consentimentos(
     return get_consentimentos(db, consumidor_id)
 
 
-def exportar_dados(db: Session, consumidor_id: int) -> dict:
+def exportar_dados(db: Session, consumidor_id: int, *, brand_id: Optional[int] = None) -> dict:
     consumidor = db.query(ConsumidorMarketplace).filter(ConsumidorMarketplace.id == consumidor_id).first()
     if not consumidor:
         raise ValueError("CONSUMIDOR_NOT_FOUND")
+    assert_consumidor_ibix_scope(db, consumidor)
+    if brand_id is not None and consumidor.tenant_id:
+        tenant = db.query(Tenant).filter(Tenant.id == consumidor.tenant_id).first()
+        if not tenant or tenant.brand_id != brand_id:
+            raise ValueError("CONSUMIDOR_BRAND_SCOPE")
 
     enderecos = db.query(EnderecoConsumidor).filter(EnderecoConsumidor.consumidor_id == consumidor_id).all()
     favoritos = db.query(ConsumidorFavorito).filter(ConsumidorFavorito.consumidor_id == consumidor_id).all()
@@ -86,6 +106,8 @@ def exportar_dados(db: Session, consumidor_id: int) -> dict:
     )
 
     return {
+        "brand_scope": "ibix",
+        "tenant_id": consumidor.tenant_id,
         "consumidor": {
             "id": consumidor.id,
             "nome": consumidor.nome,
@@ -149,7 +171,9 @@ def solicitar_exclusao(
     if consumidor.senha_hash and not AuthConfig.verify_password(senha, consumidor.senha_hash):
         raise PermissionError("WRONG_PASSWORD")
 
-    consumidor.deleted_at = datetime.now(timezone.utc) + timedelta(days=30)
+    assert_consumidor_ibix_scope(db, consumidor)
+
+    consumidor.deleted_at = datetime.now(timezone.utc) + timedelta(days=LGPD_EXCLUSAO_DIAS)
     consumidor.ativo = False
 
     db.query(ConsumidorPushToken).filter(ConsumidorPushToken.consumidor_id == consumidor_id).update(
@@ -161,3 +185,87 @@ def solicitar_exclusao(
     ).update({"revoked": True}, synchronize_session=False)
 
     db.commit()
+
+
+def purge_consumidores_exclusao_vencida(db: Session) -> int:
+    """Anonimiza consumidores com deleted_at <= now (direito ao esquecimento). Retorna quantidade."""
+    now = datetime.now(timezone.utc)
+    rows = (
+        db.query(ConsumidorMarketplace)
+        .filter(
+            ConsumidorMarketplace.deleted_at.isnot(None),
+            ConsumidorMarketplace.deleted_at <= now,
+        )
+        .all()
+    )
+    count = 0
+    for c in rows:
+        cid = c.id
+        c.nome = "Consumidor excluído"
+        c.email = f"excluido_{cid}@anonymized.local"
+        c.telefone = None
+        c.documento = None
+        c.senha_hash = None
+        c.avatar_url = None
+        c.ativo = False
+        db.query(EnderecoConsumidor).filter(EnderecoConsumidor.consumidor_id == cid).delete(
+            synchronize_session=False
+        )
+        db.query(ConsumidorFavorito).filter(ConsumidorFavorito.consumidor_id == cid).delete(
+            synchronize_session=False
+        )
+        db.query(ConsumidorPushToken).filter(ConsumidorPushToken.consumidor_id == cid).delete(
+            synchronize_session=False
+        )
+        db.query(ConsumidorRefreshToken).filter(ConsumidorRefreshToken.consumidor_id == cid).delete(
+            synchronize_session=False
+        )
+        count += 1
+    if count:
+        db.commit()
+    return count
+
+
+def exportar_tenant_dados(db: Session, tenant_id: int, *, brand_id: Optional[int] = None) -> dict:
+    """Exportação LGPD de tenant (Superadmin) — escopada por brand_id."""
+    from app.models.usuario import Usuario
+
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise ValueError("TENANT_NOT_FOUND")
+    if brand_id is not None and tenant.brand_id != brand_id:
+        raise ValueError("TENANT_BRAND_SCOPE")
+
+    usuarios = db.query(Usuario).filter(Usuario.tenant_id == tenant_id).all()
+    return {
+        "tenant": {
+            "id": tenant.id,
+            "nome": tenant.nome,
+            "slug": tenant.slug,
+            "brand_id": tenant.brand_id,
+            "ativo": tenant.ativo,
+        },
+        "usuarios": [
+            {
+                "id": u.id,
+                "nome": u.nome,
+                "email": u.email,
+                "cpf": mask_cpf(getattr(u, "cpf", None)),
+                "ativo": u.ativo,
+            }
+            for u in usuarios
+        ],
+        "usuarios_total": len(usuarios),
+    }
+
+
+def solicitar_offboarding_tenant(db: Session, tenant_id: int, *, brand_id: Optional[int] = None) -> dict:
+    """Desativa tenant para offboarding LGPD (não apaga dados fiscais/vendas)."""
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise ValueError("TENANT_NOT_FOUND")
+    if brand_id is not None and tenant.brand_id != brand_id:
+        raise ValueError("TENANT_BRAND_SCOPE")
+    tenant.ativo = False
+    db.commit()
+    return {"tenant_id": tenant_id, "ativo": False, "mensagem": "Tenant desativado para offboarding LGPD."}

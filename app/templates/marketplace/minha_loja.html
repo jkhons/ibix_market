@@ -149,46 +149,15 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label small">Tipo de entrega</label>
-                    <select class="form-select form-select-sm" id="loja-tipo-entrega">
-                        <option value="retirada">Retirada</option>
-                        <option value="entrega">Entrega</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                  <label for="loja-formato-frete" class="form-label small d-flex align-items-center gap-1">
-                    Formato de frete
-                    <button type="button" class="btn btn-link btn-sm p-0 text-secondary" data-bs-toggle="collapse" data-bs-target="#entrega-frete-helper" aria-expanded="false" aria-controls="entrega-frete-helper" title="Ajuda: tipo de entrega e formato de frete">
-                      <span class="rounded-circle bg-secondary text-white d-inline-flex align-items-center justify-content-center" style="width:18px;height:18px;font-size:11px;line-height:1;">?</span>
-                    </button>
-                  </label>
-                  <div class="small text-muted collapse mb-1" id="entrega-frete-helper">
-                    <p class="mb-1">O que o cliente vê no checkout (Retirada, Entrega ou ambos) é definido pelo <strong>Formato de frete</strong>, não pelo campo &quot;Tipo de entrega&quot;:</p>
-                    <ul class="mb-0 ps-3">
-                      <li><strong>Sem frete</strong> = apenas retirada disponível.</li>
-                      <li><strong>Grátis / Taxa fixa / Plataforma define</strong> = cliente escolhe entre retirada ou entrega.</li>
-                    </ul>
-                    <p class="mb-0 mt-1">O campo &quot;Tipo de entrega&quot; é preferência informativa da loja.</p>
-                  </div>
-                  <select class="form-select form-select-sm" id="loja-formato-frete" onchange="toggleFreteFields()">
-                    <option value="sem_frete">Sem frete (apenas retirada)</option>
-                    <option value="gratis">Grátis (lojista paga)</option>
-                    <option value="taxa_fixa">Taxa fixa</option>
-                    <option value="plataforma">Plataforma define</option>
-                  </select>
-                </div>
-                <div class="mb-3" id="wrap-taxa-entrega-fixa" style="display:none;">
-                  <label for="loja-taxa-entrega-fixa" class="form-label small">Taxa de entrega fixa (R$)</label>
-                  <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="loja-taxa-entrega-fixa">
-                </div>
-                <div class="mb-3" id="wrap-entrega-gratis-apos" style="display:none;">
-                  <label for="loja-entrega-gratis-apos" class="form-label small">Entrega grátis acima de (R$)</label>
-                  <input type="number" step="0.01" min="0" class="form-control form-control-sm" id="loja-entrega-gratis-apos">
-                </div>
-                <div class="mb-3" id="wrap-raio-entrega-km">
-                  <label for="loja-raio-entrega-km" class="form-label small">Raio de entrega (km) <small class="text-muted">(opcional)</small></label>
-                  <input type="number" min="0" class="form-control form-control-sm" id="loja-raio-entrega-km">
+                <div class="col-12">
+                    <div class="alert alert-light border d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" id="cta-transporte-minha-loja">
+                        <div class="small">
+                            <strong>Transporte da loja</strong> (modo de entrega, taxa, frete grátis e áreas por cidade) agora é configurado em
+                            <a href="/negocio/marketplace/areas-entrega"><strong>Configuração de entregas</strong></a>.
+                            <span class="d-block text-muted">A loja exibe na vitrine o que estiver configurado lá; esta tela não altera mais campos de transporte.</span>
+                        </div>
+                        <a href="/negocio/marketplace/areas-entrega" class="btn btn-sm btn-outline-primary">Abrir Configuração de entregas</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -657,17 +626,6 @@
     if (cardExtrato) cardExtrato.style.display = hide ? 'none' : 'block';
   }
 
-  function toggleFreteFields() {
-    var fmt = document.getElementById('loja-formato-frete').value;
-    var showTaxa = (fmt === 'taxa_fixa' || fmt === 'plataforma');
-    document.getElementById('wrap-taxa-entrega-fixa').style.display = showTaxa ? '' : 'none';
-    document.getElementById('wrap-entrega-gratis-apos').style.display = showTaxa ? '' : 'none';
-    if (fmt === 'sem_frete') {
-      document.getElementById('loja-tipo-entrega').value = 'retirada';
-    }
-  }
-  window.toggleFreteFields = toggleFreteFields;
-
   var logoBlob = null;
   var bannerBlob = null;
   var logoRemover = false;
@@ -741,11 +699,6 @@
     updateCategoriaCidadePreview(loja.slug_categoria_cidade || '');
     aplicarSugestoesEmCamposVazios(loja);
     atualizarHintsSugestoes(loja);
-    document.getElementById('loja-tipo-entrega').value = loja.tipo_entrega || 'retirada';
-    document.getElementById('loja-formato-frete').value = loja.formato_frete || 'sem_frete';
-    document.getElementById('loja-taxa-entrega-fixa').value = loja.taxa_entrega_fixa || '';
-    document.getElementById('loja-entrega-gratis-apos').value = loja.entrega_gratis_apos || '';
-    document.getElementById('loja-raio-entrega-km').value = loja.raio_entrega_km || '';
     document.getElementById('loja-logo-file').value = '';
     document.getElementById('loja-banner-file').value = '';
     var logoUrl = loja.logo_url || '';
@@ -754,14 +707,7 @@
     var bannerSrc = bannerUrl ? (bannerUrl.startsWith('http') ? bannerUrl : (bannerUrl.startsWith('/') ? bannerUrl : '/' + bannerUrl)) : null;
     _previewLogo(logoSrc);
     _previewBanner(bannerSrc);
-    toggleFreteFields();
     atualizarContadoresHeroVitrine();
-    if (!isSuperAdmin) {
-      ['loja-formato-frete', 'loja-taxa-entrega-fixa', 'loja-entrega-gratis-apos'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.disabled = true;
-      });
-    }
   }
 
   function updateSlugPreview() {
@@ -1092,15 +1038,8 @@
       categoria_principal: document.getElementById('loja-categoria-principal').value.trim() || null,
       cidade_seo: document.getElementById('loja-cidade-seo').value.trim() || null,
       estado_seo: document.getElementById('loja-estado-seo').value.trim() || null,
-      tipo_entrega: document.getElementById('loja-tipo-entrega').value || 'retirada',
-      raio_entrega_km: parseInt(document.getElementById('loja-raio-entrega-km').value) || null,
       status: document.getElementById('loja-status').value || 'ativo',
     };
-    if (isSuperAdmin) {
-      body.formato_frete = document.getElementById('loja-formato-frete').value || 'sem_frete';
-      body.taxa_entrega_fixa = parseFloat(document.getElementById('loja-taxa-entrega-fixa').value) || null;
-      body.entrega_gratis_apos = parseFloat(document.getElementById('loja-entrega-gratis-apos').value) || null;
-    }
     if (logoBlob) body.logo_blob = logoBlob;
     if (bannerBlob) body.banner_blob = bannerBlob;
     if (logoRemover) body.logo_url = null;

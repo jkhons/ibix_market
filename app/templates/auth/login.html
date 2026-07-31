@@ -1,22 +1,23 @@
 {% extends "loja/base_loja.html" %}
 
+{% block loja_header %}
+{% if brand_has_marketplace %}
+{{ super() }}
+{% endif %}
+{% endblock %}
+
 {% block title %}Login{% endblock %}
 
-{% block seo_description %}Faça login no Ibix para acessar o sistema de vendas e gestão.{% endblock %}
+{% block seo_description %}Faça login no {{ _brand_nome }} para acessar o sistema de vendas e gestão.{% endblock %}
 
-{% block seo_og_title %}Login | Ibix{% endblock %}
+{% block seo_og_title %}Login | {{ _brand_nome }}{% endblock %}
 
-{% block seo_og_description %}Acesse o painel Ibix — vendas, estoque e gestão do seu negócio.{% endblock %}
+{% block seo_og_description %}Acesse o painel {{ _brand_nome }} — vendas, estoque e gestão do seu negócio.{% endblock %}
 
 {% block content %}
 <div class="loja-auth-page">
-  <div class="alert alert-light border shadow-sm mb-3" role="note" style="max-width: 520px; margin-left: auto; margin-right: auto;">
-    <strong class="d-block mb-1">Login do painel</strong>
-    <span class="text-muted small">Acesso para lojista e equipe (gestão). Para comprar no marketplace, use a </span>
-    <a href="/" class="small">vitrine Ibix Market</a><span class="text-muted small">.</span>
-  </div>
   <div class="loja-auth-card">
-    <h1 class="loja-auth-title">Bem-vindo ao Ibix</h1>
+    <h1 class="loja-auth-title">Bem-vindo ao {{ _brand_nome }}</h1>
     <p class="loja-auth-subtitle">Faça login para acessar o sistema de vendas e gestão</p>
 
     <div id="alert-area"></div>

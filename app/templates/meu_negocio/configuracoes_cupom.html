@@ -1,88 +1,32 @@
 {% extends "base.html" %}
 
-{% block title %}Configuração Cupom - PDV Ibix{% endblock %}
+{% block title %}Comprovantes e cupom - PDV Ibix{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
-    <div id="alert-container" class="mb-3"></div>
     <div class="mb-3">
-        <h1 class="h3 d-inline align-middle">Configuração de impressão de cupom</h1>
+        <h1 class="h3 d-inline align-middle">Comprovantes de venda</h1>
     </div>
-    <p class="text-muted">Defina como o cupom de venda deve ser impresso: sempre automaticamente ao finalizar a venda ou manualmente (botão Imprimir ao final). Escolha também o tipo de cupom: não fiscal (térmico) ou fiscal (em implementação futura).</p>
 
     <div class="card mb-4">
         <div class="card-header">
-            <h5 class="card-title mb-0">Impressão de cupom</h5>
+            <h5 class="card-title mb-0">Como funciona</h5>
         </div>
         <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">Modo de impressão</label>
-                    <select class="form-select" id="cupom_impressao_modo">
-                        <option value="manual">Manual (botão Imprimir ao final da venda)</option>
-                        <option value="automatico">Sempre automático</option>
-                    </select>
-                    <small class="text-muted d-block">Manual: o operador clica em &quot;Imprimir cupom&quot; após finalizar. Automático: o cupom é enviado para impressão ao concluir a venda.</small>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Tipo de cupom</label>
-                    <select class="form-select" id="cupom_tipo">
-                        <option value="nao_fiscal">Cupom não fiscal</option>
-                        <option value="fiscal">Cupom fiscal</option>
-                    </select>
-                    <small class="text-muted d-block">Cupom fiscal e emissor externo serão implementados em versão futura.</small>
-                </div>
-            </div>
-            <button type="button" class="btn btn-primary" id="btn-salvar-cupom">Salvar</button>
+            <p class="mb-3">
+                Ao <strong>finalizar qualquer venda</strong> (Negócio &gt; Venda ou PDV), o sistema sempre pergunta:
+                <em>«Deseja imprimir o comprovante de venda?»</em>
+            </p>
+            <p class="mb-3">
+                Esse comprovante é o <strong>cupom não fiscal</strong> do caixa (bobina térmica), independente de nota fiscal.
+            </p>
+            <p class="mb-0">
+                A <strong>nota fiscal (NF-e)</strong> é opcional e escolhida no momento da venda, no modal
+                <strong>Finalizar Venda</strong>, marcando
+                <em>«Emitir nota fiscal após finalizar (enviar à SEFAZ)»</em>.
+                Requer empresa fiscal e certificado configurados.
+            </p>
         </div>
     </div>
 </div>
-
-<script>
-(function() {
-    function getToken() {
-        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/);
-        return m ? m[1] : '';
-    }
-    function api(path, opts) {
-        opts = opts || {};
-        var h = { 'Accept': 'application/json', 'Content-Type': 'application/json' };
-        if (getToken()) h['Authorization'] = 'Bearer ' + getToken();
-        return fetch('/api/v1/tenant-config' + path, Object.assign({ credentials: 'same-origin', headers: h }, opts));
-    }
-    function alertMsg(msg, isError) {
-        var el = document.getElementById('alert-container');
-        el.innerHTML = '<div class="alert alert-' + (isError ? 'danger' : 'success') + '">' + msg + '</div>';
-        setTimeout(function() { el.innerHTML = ''; }, 5000);
-    }
-
-    function loadConfig() {
-        api('/cupom').then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { alertMsg(d.detail || 'Erro ao carregar', true); return null; });
-            return r.json();
-        }).then(function(data) {
-            if (!data) return;
-            var modo = document.getElementById('cupom_impressao_modo');
-            var tipo = document.getElementById('cupom_tipo');
-            if (data.cupom_impressao_modo === 'automatico') modo.value = 'automatico';
-            else modo.value = 'manual';
-            if (data.cupom_tipo === 'fiscal') tipo.value = 'fiscal';
-            else tipo.value = 'nao_fiscal';
-        });
-    }
-
-    document.getElementById('btn-salvar-cupom').addEventListener('click', function() {
-        var payload = {
-            cupom_impressao_modo: document.getElementById('cupom_impressao_modo').value,
-            cupom_tipo: document.getElementById('cupom_tipo').value
-        };
-        api('/cupom', { method: 'PATCH', body: JSON.stringify(payload) }).then(function(r) {
-            if (!r.ok) return r.json().then(function(d) { alertMsg(d.detail || 'Erro ao salvar', true); });
-            alertMsg('Configuração salva.');
-        });
-    });
-
-    loadConfig();
-})();
-</script>
 {% endblock %}

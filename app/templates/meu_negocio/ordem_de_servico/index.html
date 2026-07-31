@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Ordem de Serviço | PDV Ibix{% endblock %}
+{% block title %}Ordem de Serviço | {{ brand.nome_exibicao | default('PDV') }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -163,16 +163,50 @@
         background: #ffffff;
         border-radius: 14px;
         width: 100%;
-        max-width: 960px;
-        max-height: 92vh;
+        max-width: 1280px;
+        max-height: 96vh;
         display: flex;
         flex-direction: column;
         box-shadow: 0 25px 65px rgba(15, 23, 42, 0.25);
         animation: modal-slide-down 0.25s ease;
     }
 
+    .modal-os-scroll-produtos,
+    .modal-os-scroll-itens {
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+
+    .modal-os-scroll-produtos {
+        max-height: 360px;
+    }
+
+    .modal-os-scroll-itens {
+        max-height: 400px;
+    }
+
+    .modal-os-scroll-produtos .table,
+    .modal-os-scroll-itens .table,
+    #painelDetalhesOS {
+        font-size: 0.8125rem;
+    }
+
+    .modal-os-scroll-produtos .table th,
+    .modal-os-scroll-produtos .table td,
+    .modal-os-scroll-itens .table th,
+    .modal-os-scroll-itens .table td {
+        padding: 0.35rem 0.5rem;
+        vertical-align: middle;
+    }
+
+    .modal-os-scroll-produtos .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.45rem;
+    }
+
     .modal-os-header {
-        padding: 20px 28px;
+        padding: 12px 18px;
         background: linear-gradient(135deg, #2c3e50 0%, #2980b9 100%);
         color: #ffffff;
         display: flex;
@@ -183,21 +217,21 @@
 
     .modal-os-header h3 {
         margin: 0;
-        font-size: 1.45rem;
+        font-size: 1.05rem;
         font-weight: 700;
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 8px;
     }
 
     .modal-os-close {
         background: rgba(255, 255, 255, 0.22);
         border: none;
-        width: 44px;
-        height: 44px;
+        width: 34px;
+        height: 34px;
         border-radius: 50%;
         color: #ffffff;
-        font-size: 28px;
+        font-size: 22px;
         line-height: 1;
         cursor: pointer;
         transition: transform 0.2s ease, background 0.2s ease;
@@ -212,31 +246,45 @@
     }
 
     .modal-os-body {
-        padding: 26px 28px;
+        padding: 14px 18px;
         overflow-y: auto;
         flex: 1;
+        font-size: 0.8125rem;
+    }
+
+    .modal-os-body .form-label {
+        font-size: 0.75rem;
+        margin-bottom: 0.2rem;
+        font-weight: 600;
+    }
+
+    .modal-os-body .form-control,
+    .modal-os-body .form-select {
+        font-size: 0.8125rem;
+        padding: 0.35rem 0.55rem;
     }
 
     .modal-os-footer {
-        padding: 18px 28px 24px 28px;
+        padding: 10px 18px 14px;
         border-top: 1px solid #e5e7eb;
         background: #f8fafc;
         border-radius: 0 0 14px 14px;
         display: flex;
         justify-content: flex-end;
-        gap: 12px;
+        gap: 8px;
     }
 
     .modal-os-btn {
         border: none;
-        border-radius: 10px;
-        padding: 12px 22px;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 0.8125rem;
         font-weight: 600;
         cursor: pointer;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
     }
 
     .modal-os-btn-secundario {
@@ -273,16 +321,62 @@
 
     .modal-os-section {
         border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 18px;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
         background: #ffffff;
     }
 
     .modal-os-section h6 {
         font-weight: 700;
-        margin-bottom: 12px;
+        font-size: 0.8125rem;
+        margin-bottom: 8px;
         color: var(--os-primary);
+    }
+
+    .modal-os-section .small,
+    .modal-os-section p.text-muted {
+        font-size: 0.75rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    #painelDetalhesOS h4 {
+        font-size: 1.05rem;
+        margin-bottom: 0.25rem;
+    }
+
+    #painelDetalhesOS .resumo-os-card {
+        padding: 10px 12px;
+        min-height: auto;
+    }
+
+    #painelDetalhesOS .resumo-os-card h6 {
+        font-size: 0.75rem;
+        margin-bottom: 4px;
+    }
+
+    #painelDetalhesOS .row.g-3 {
+        --bs-gutter-y: 0.5rem;
+        --bs-gutter-x: 0.5rem;
+    }
+
+    #painelDetalhesOS .border.rounded.p-3 {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.8125rem;
+    }
+
+    #painelDetalhesOS .fs-5 {
+        font-size: 0.95rem !important;
+    }
+
+    #painelDetalhesOS .pill-status {
+        font-size: 0.65rem;
+        padding: 2px 8px;
+    }
+
+    #modalDetalhesOrdemOSCustom .btn-sm {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.45rem;
     }
 
     .equipamento-chip {
@@ -532,7 +626,7 @@
                             <th style="width: 12%;">Tipo</th>
                             <th style="width: 15%;">Etapa</th>
                             <th style="width: 12%;">Início</th>
-                            <th style="width: 9%;" class="text-end">Ações</th>
+                            <th style="width: 11%;" class="text-end">Ações</th>
                         </tr>
                     </thead>
                     <tbody id="corpoTabelaOS">
@@ -548,48 +642,7 @@
     </div>
 
     <div class="row g-3">
-        <div class="col-lg-7">
-            <div class="card h-100">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i data-feather="info" class="me-2"></i>
-                        Detalhes da ordem selecionada
-                    </h5>
-                </div>
-                <div class="card-body" id="painelDetalhesOS">
-                    <div class="text-center text-muted">
-                        <i data-feather="mouse-pointer" class="mb-2" style="width: 32px; height: 32px;"></i>
-                        <p class="mb-0">Selecione uma ordem para visualizar os detalhes.</p>
-                    </div>
-                </div>
-                <div class="card-footer d-flex justify-content-between align-items-center">
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-primary btn-sm" id="btnGerenciarEquipamentosOS" disabled onclick="abrirModalEquipamentosOS()">
-                            <i data-feather="tool" class="me-1"></i>
-                            Gerenciar Ativos
-                        </button>
-                        <button class="btn btn-outline-success btn-sm" id="btnAtualizarEtapaOS" disabled onclick="abrirMenuAtualizarEtapaOS()">
-                            <i data-feather="flag" class="me-1"></i>
-                            Atualizar Etapa
-                        </button>
-                        <button class="btn btn-outline-warning btn-sm" id="btnEditarOS" disabled onclick="abrirModalEditarOS()">
-                            <i data-feather="edit-3" class="me-1"></i>
-                            Editar Ordem
-                        </button>
-                        <button class="btn btn-outline-success btn-sm" id="btnFinalizarOS" disabled onclick="abrirModalCaixaOS()">
-                            <i data-feather="check-circle" class="me-1"></i>
-                            Finalizar
-                        </button>
-                        <button class="btn btn-outline-info btn-sm d-none" id="btnEnviarParaVendasOS" disabled onclick="enviarOrdemParaVendas()">
-                            <i data-feather="shopping-cart" class="me-1"></i>
-                            Enviar para vendas
-                        </button>
-                    </div>
-                    <small class="text-muted" id="legendaAtualizacaoDetalhesOS"></small>
-                </div>
-            </div>
-        </div>
-        <div class="col-lg-5">
+        <div class="col-12">
             <div class="card h-100">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
@@ -613,6 +666,55 @@
     </div>
 </div>
 
+<!-- MODAL DETALHES ORDEM DE SERVIÇO - padrão MAPA_DE_REGRAS (CSS inline, sem Bootstrap Modal) -->
+<div id="modalDetalhesOrdemOSCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 98%; max-width: 1280px; max-height: 96vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; padding: 10px 16px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+            <h3 id="tituloModalDetalhesOrdemOS" style="margin: 0; font-size: 1.05rem; font-weight: 700;">Detalhes da ordem de serviço</h3>
+            <button type="button" onclick="fecharModalDetalhesOrdemOS()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 22px; line-height: 1; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="padding: 12px 16px; overflow-y: auto; flex: 1; min-height: 0; background: #f8f9fa;" id="painelDetalhesOS">
+            <div class="text-center text-muted py-4">
+                <p class="mb-0">Carregando detalhes...</p>
+            </div>
+        </div>
+        <div style="background: #f8f9fa; padding: 10px 16px; border-radius: 0 0 8px 8px; border-top: 1px solid #e9ecef; flex-shrink: 0; font-size: 0.8125rem;">
+            <div style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px;">
+                <button type="button" class="btn btn-outline-primary btn-sm" id="btnGerenciarEquipamentosOS" disabled onclick="fecharModalDetalhesOrdemOS(); abrirModalEquipamentosOS();">
+                    <i data-feather="tool" class="me-1"></i>
+                    Gerenciar Ativos
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" id="btnAtualizarEtapaOS" disabled onclick="abrirMenuAtualizarEtapaOS();">
+                    <i data-feather="flag" class="me-1"></i>
+                    Atualizar Etapa
+                </button>
+                <button type="button" class="btn btn-outline-warning btn-sm" id="btnEditarOS" disabled onclick="fecharModalDetalhesOrdemOS(); abrirModalEditarOS();">
+                    <i data-feather="edit-3" class="me-1"></i>
+                    Editar Ordem
+                </button>
+                <a class="btn btn-outline-secondary btn-sm" id="btnPdfOrdemOS" href="#" target="_blank" style="display:none;">
+                    <i data-feather="printer" class="me-1"></i>
+                    PDF
+                </a>
+                <button type="button" class="btn btn-outline-success btn-sm" id="btnFinalizarOS" disabled onclick="fecharModalDetalhesOrdemOS(); abrirModalCaixaOS();">
+                    <i data-feather="check-circle" class="me-1"></i>
+                    Finalizar
+                </button>
+                <button type="button" class="btn btn-outline-info btn-sm d-none" id="btnEnviarParaVendasOS" disabled onclick="enviarOrdemParaVendas();">
+                    <i data-feather="shopping-cart" class="me-1"></i>
+                    Enviar para vendas
+                </button>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                <small class="text-muted" id="legendaAtualizacaoDetalhesOS"></small>
+                <button type="button" onclick="fecharModalDetalhesOrdemOS()" style="padding: 6px 14px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.8125rem; cursor: pointer; background: #6c757d; color: white;">
+                    Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="modalNovaOSCustom" class="modal-os-overlay">
     <div class="modal-os-container">
         <div class="modal-os-header">
@@ -623,20 +725,26 @@
             <form id="formNovaOS">
                 <div class="modal-os-section">
                     <h6>Informações gerais</h6>
-                    <div class="row g-3">
+                    <div class="row g-2">
                         <div class="col-md-6">
                             <label class="form-label">Cliente *</label>
                             <div class="position-relative">
-                                <input type="text" class="form-control" id="novoOSClienteInput" placeholder="Digite o nome do cliente..." autocomplete="off" required>
+                                <input type="text" class="form-control form-control-sm" id="novoOSClienteInput" placeholder="Digite o nome do cliente..." autocomplete="off" required>
                                 <input type="hidden" id="novoOSCliente" name="cliente_id">
                                 <div id="novoOSClienteAutocompleteDropdown" class="cliente-autocomplete-dropdown" style="display: none;"></div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">Tipo *</label>
-                            <select class="form-select" id="novoOSTipo" required>
+                            <select class="form-select form-select-sm" id="novoOSTipo" required>
                                 <option value="">Selecione...</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-1">
+                        <div class="col-12">
+                            <label class="form-label" for="novoOSObservacoes">Observações</label>
+                            <textarea class="form-control form-control-sm" id="novoOSObservacoes" rows="2" placeholder="Observações gerais da ordem de serviço"></textarea>
                         </div>
                     </div>
                 </div>
@@ -644,26 +752,45 @@
                 <div class="modal-os-section">
                     <h6>Peças ou serviços</h6>
                     <p class="text-muted small mb-3">
-                        Adicione itens reais do estoque que serão utilizados nesta ordem. Você pode incluir múltiplos itens com suas quantidades.
+                        Busque produtos do estoque por código, nome ou descrição — mesmo fluxo da Nova Venda.
                     </p>
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-7">
-                            <label class="form-label" for="novoOSItemEstoque">Item do estoque</label>
-                            <select class="form-select" id="novoOSItemEstoque">
-                                <option value="">Selecione...</option>
-                            </select>
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="buscaProdutoOS">Buscar produto</label>
+                            <input type="text" class="form-control form-control-sm" id="buscaProdutoOS" placeholder="Código, nome ou descrição" autocomplete="off">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label" for="novoOSItemQuantidade">Quantidade</label>
-                            <input type="number" class="form-control" id="novoOSItemQuantidade" min="1" value="1">
+                            <input type="number" class="form-control form-control-sm" id="novoOSItemQuantidade" min="0.01" step="0.01" value="1">
                         </div>
-                        <div class="col-md-2">
-                            <button class="btn btn-primary w-100" type="button" onclick="adicionarItemEstoqueOS()">
-                                <i data-feather="plus"></i>
+                        <div class="col-md-3">
+                            <button type="button" class="btn btn-primary btn-sm w-100" id="btnBuscarProdutosOS">
+                                <i data-feather="search" class="me-1"></i>
+                                Buscar
                             </button>
                         </div>
                     </div>
-                    <div class="table-responsive mt-3">
+                    <h6 class="small fw-bold mb-1">Produtos disponíveis</h6>
+                    <div class="table-responsive mb-3 modal-os-scroll-produtos">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Estoque</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-center" style="width: 90px;">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaProdutosOS">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Digite para buscar produtos</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <h6 class="small fw-bold mb-1">Itens selecionados</h6>
+                    <div class="table-responsive modal-os-scroll-itens">
                         <table class="table table-sm table-striped align-middle mb-0">
                             <thead>
                                 <tr>
@@ -681,15 +808,15 @@
                             </tbody>
                         </table>
                     </div>
-                    <div class="row g-3 mt-3">
+                    <div class="row g-2 mt-2">
                         <div class="col-md-4 ms-auto">
-                            <div class="border rounded p-3 bg-light">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="border rounded p-2 bg-light" style="font-size: 0.8125rem;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
                                     <span>Subtotal:</span>
                                     <strong id="resumoSubtotalOS">R$ 0,00</strong>
                                 </div>
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <label class="form-label mb-0 me-2" for="resumoDescontoOS">Desconto:</label>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label mb-0 me-2" for="resumoDescontoOS" style="font-size: 0.75rem;">Desconto:</label>
                                     <div class="input-group input-group-sm" style="width: 140px;">
                                         <span class="input-group-text">R$</span>
                                         <input type="number" min="0" step="0.01" class="form-control text-end" id="resumoDescontoOS" value="0" oninput="atualizarDescontoOS(this.value)">
@@ -936,7 +1063,7 @@ const estadoOrdemServico = {
         dataInicio: '',
         dataFim: ''
     },
-    estoqueItens: [],
+    produtosBusca: [],
     itensSelecionados: [],
     descontoOS: 0,
     financeiroPorOrdem: {}
@@ -945,6 +1072,27 @@ const estadoOrdemServico = {
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
     inicializarModuloOrdemServico();
+
+    const paramsOs = new URLSearchParams(window.location.search);
+    const osIdParam = paramsOs.get('os');
+    if (osIdParam) {
+        const osId = parseInt(osIdParam, 10);
+        if (Number.isFinite(osId)) {
+            selecionarOrdemOS(osId, true);
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        }
+    }
+
+    const modalDetalhes = document.getElementById('modalDetalhesOrdemOSCustom');
+    if (modalDetalhes) {
+        modalDetalhes.addEventListener('click', function(e) {
+            if (e.target === modalDetalhes) {
+                fecharModalDetalhesOrdemOS();
+            }
+        });
+    }
 });
 
 function obterTokenOS() {
@@ -977,11 +1125,42 @@ function logInfoOS(mensagem, contexto = {}) {
 async function inicializarModuloOrdemServico() {
     await Promise.all([
         carregarClientesOS(),
-        carregarItensEstoqueOS(),
         carregarTiposOS()
     ]);
+    inicializarBuscaProdutosOS();
     carregarEstatisticasOS();
     carregarOrdensOS();
+}
+
+function inicializarBuscaProdutosOS() {
+    const btnBuscar = document.getElementById('btnBuscarProdutosOS');
+    if (btnBuscar) {
+        btnBuscar.addEventListener('click', buscarProdutosOS);
+    }
+
+    const campoBusca = document.getElementById('buscaProdutoOS');
+    if (campoBusca) {
+        campoBusca.addEventListener('keypress', (evento) => {
+            if (evento.key === 'Enter') {
+                evento.preventDefault();
+                buscarProdutosOS();
+            }
+        });
+    }
+
+    const listaProdutos = document.getElementById('listaProdutosOS');
+    if (listaProdutos) {
+        listaProdutos.addEventListener('click', (evento) => {
+            const botao = evento.target.closest('[data-action="add-produto-os"]');
+            if (!botao) {
+                return;
+            }
+            const produtoId = Number(botao.dataset.produtoId);
+            if (Number.isFinite(produtoId)) {
+                adicionarProdutoOrdemOS(produtoId);
+            }
+        });
+    }
 }
 
 async function carregarTiposOS(incluirInativos = false) {
@@ -1470,12 +1649,17 @@ function atualizarTabelaOrdens() {
         const codigo = ordem.codigo || `OS-${ordem.id}`;
         const status = ordem.status || 'aberta';
         const tipoNome = ordem.tipo_nome || ordem.tipo || '--';
+        const podeEditar = status !== 'concluida';
 
         return `
             <tr>
-                <td><strong>${codigo}</strong></td>
+                <td>${DocRef.docRefSpan(codigo)}</td>
                 <td>${clienteNome}</td>
-                <td><span class="text-muted">Ver detalhes</span></td>
+                <td>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-muted text-decoration-none" onclick="selecionarOrdemOS(${ordem.id}, true)">
+                        Ver detalhes
+                    </button>
+                </td>
                 <td class="text-capitalize">${tipoNome}</td>
                 <td>
                     <span class="pill-status pill-status-${status}">
@@ -1483,10 +1667,18 @@ function atualizarTabelaOrdens() {
                     </span>
                 </td>
                 <td>${dataAbertura}</td>
-                <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary" onclick="selecionarOrdemOS(${ordem.id})">
+                <td class="text-end text-nowrap">
+                    <button class="btn btn-sm btn-outline-primary" onclick="selecionarOrdemOS(${ordem.id}, true)" title="Visualizar">
                         <i data-feather="eye"></i>
                     </button>
+                    ${podeEditar ? `
+                    <button class="btn btn-sm btn-outline-warning" onclick="editarOrdemOS(${ordem.id})" title="Editar ordem">
+                        <i data-feather="edit-2"></i>
+                    </button>
+                    ` : ''}
+                    <a class="btn btn-sm btn-outline-secondary" href="/api/v1/ordens-servico/${ordem.id}/pdf" target="_blank" title="PDF">
+                        <i data-feather="printer"></i>
+                    </a>
                 </td>
             </tr>
         `;
@@ -1496,7 +1688,38 @@ function atualizarTabelaOrdens() {
     feather.replace();
 }
 
-async function selecionarOrdemOS(id) {
+function abrirModalDetalhesOrdemOS() {
+    const modal = document.getElementById('modalDetalhesOrdemOSCustom');
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        feather.replace();
+    }
+}
+
+function fecharModalDetalhesOrdemOS() {
+    const modal = document.getElementById('modalDetalhesOrdemOSCustom');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
+async function editarOrdemOS(id) {
+    await selecionarOrdemOS(id, false);
+    const ordem = estadoOrdemServico.ordemSelecionada;
+    if (!ordem || ordem.id !== id) {
+        return;
+    }
+    if ((ordem.status || '') === 'concluida') {
+        mostrarToastOS('Ordens concluídas não podem ser editadas.', 'info');
+        return;
+    }
+    fecharModalDetalhesOrdemOS();
+    abrirModalEditarOS();
+}
+
+async function selecionarOrdemOS(id, abrirModal = false) {
     try {
         const resposta = await fetch(`/api/v1/ordens-servico/${id}`, { headers: montarHeadersAutenticados() });
         if (!resposta.ok) {
@@ -1508,6 +1731,9 @@ async function selecionarOrdemOS(id) {
         prepararEquipamentosModal();
         prepararEquipamentosDisponiveis();
         habilitarAcoesDetalhes(true);
+        if (abrirModal) {
+            abrirModalDetalhesOrdemOS();
+        }
     } catch (erro) {
         logInfoOS('Erro ao selecionar ordem', { erro, id });
         mostrarToastOS('Erro ao carregar detalhes da ordem.', 'error');
@@ -1550,6 +1776,13 @@ function atualizarBotoesDetalhesOrdem() {
             botaoEnviarVendas.classList.add('d-none');
         }
     }
+    const btnPdf = document.getElementById('btnPdfOrdemOS');
+    if (btnPdf && ordem && ordem.id) {
+        btnPdf.href = '/api/v1/ordens-servico/' + ordem.id + '/pdf';
+        btnPdf.style.display = 'inline-flex';
+    } else if (btnPdf) {
+        btnPdf.style.display = 'none';
+    }
 }
 
 function atualizarTituloModalOS(texto, icone) {
@@ -1572,6 +1805,52 @@ function configurarBotaoSalvarOS(callback, texto, icone) {
     textoEl.textContent = texto;
     iconeEl.setAttribute('data-feather', icone);
     feather.replace();
+}
+
+function linhaObservacaoAutoGeradaOS(linha) {
+    if (!linha) {
+        return false;
+    }
+    const linhaNormalizada = linha.toLowerCase();
+    if (linhaNormalizada.startsWith('itens:')) {
+        return true;
+    }
+    if (linhaNormalizada.startsWith('subtotal:') || linhaNormalizada.startsWith('desconto:') || linhaNormalizada.startsWith('total:')) {
+        return true;
+    }
+    return linhaNormalizada.includes('subtotal:')
+        && linhaNormalizada.includes('desconto:')
+        && linhaNormalizada.includes('total:');
+}
+
+function extrairObservacoesUsuarioOS(observacoes) {
+    if (!observacoes || typeof observacoes !== 'string') {
+        return '';
+    }
+    return observacoes
+        .split(/\n+/)
+        .map((linha) => linha.trim())
+        .filter((linha) => linha && !linhaObservacaoAutoGeradaOS(linha))
+        .join('\n');
+}
+
+function montarObservacoesOS(textoUsuario, resumoItens, resumoFinanceiro) {
+    const blocosAuto = [];
+    if (resumoItens) {
+        blocosAuto.push(`Itens: ${resumoItens}`);
+    }
+    if (resumoFinanceiro) {
+        blocosAuto.push(resumoFinanceiro);
+    }
+    const partes = [];
+    const usuario = (textoUsuario || '').trim();
+    if (usuario) {
+        partes.push(usuario);
+    }
+    if (blocosAuto.length) {
+        partes.push(blocosAuto.join('\n'));
+    }
+    return partes.length ? partes.join('\n') : null;
 }
 
 function extrairResumoObservacoesOS(observacoes) {
@@ -1623,6 +1902,7 @@ function extrairResumoObservacoesOS(observacoes) {
 function preencherDetalhesOrdem(ordem) {
     const painel = document.getElementById('painelDetalhesOS');
     const legenda = document.getElementById('legendaAtualizacaoDetalhesOS');
+    const tituloModal = document.getElementById('tituloModalDetalhesOrdemOS');
     if (!painel) {
         return;
     }
@@ -1644,6 +1924,10 @@ function preencherDetalhesOrdem(ordem) {
     const quantidadeEquipamentos = Array.isArray(ordem.equipamentos) ? ordem.equipamentos.length : 0;
     const itensOrdem = Array.isArray(ordem.itens) ? ordem.itens : [];
     const resumoObservacoes = extrairResumoObservacoesOS(ordem.observacoes);
+    const textoObservacoesUsuario = extrairObservacoesUsuarioOS(ordem.observacoes);
+    const observacoesHtml = textoObservacoesUsuario
+        ? `<p class="mb-0 small text-muted" style="white-space: pre-wrap;">${escapeHtmlOS(textoObservacoesUsuario)}</p>`
+        : '<p class="text-muted mb-0">Nenhuma observação registrada.</p>';
 
     let itensResumoHtml = '<p class="text-muted mb-0">Nenhuma peça ou serviço registrado.</p>';
     let financeiroResumoHtml = '<p class="text-muted mb-0">Sem valores financeiros registrados.</p>';
@@ -1696,7 +1980,7 @@ function preencherDetalhesOrdem(ordem) {
         blocosFinanceiros.push(`
         <div class="d-flex justify-content-between align-items-center">
             <span>Total</span>
-            <strong class="text-success fs-5">${totalFormatado}</strong>
+            <strong class="text-success">${totalFormatado}</strong>
         </div>
         `);
 
@@ -1737,7 +2021,7 @@ function preencherDetalhesOrdem(ordem) {
             financeiroBlocos.push(`
                 <div class="d-flex justify-content-between align-items-center">
                     <span>Total</span>
-                    <strong class="text-success fs-5">${resumoObservacoes.total}</strong>
+                    <strong class="text-success">${resumoObservacoes.total}</strong>
                 </div>
             `);
         }
@@ -1747,12 +2031,12 @@ function preencherDetalhesOrdem(ordem) {
     }
 
     painel.innerHTML = `
-        <div class="mb-3">
-            <span class="pill-status pill-status-${etapaClasse} mb-2">${etapaLabel}</span>
-            <h4 class="fw-bold mb-1">${numero}</h4>
-            <p class="text-muted mb-0">Cliente: <strong>${cliente}</strong></p>
+        <div class="mb-2">
+            <span class="pill-status pill-status-${etapaClasse} mb-1">${etapaLabel}</span>
+            <h4 class="fw-bold mb-1">${DocRef.docRefSpan(numero)}</h4>
+            <p class="text-muted mb-0 small">Cliente: <strong>${cliente}</strong></p>
         </div>
-        <div class="row g-3">
+        <div class="row g-2">
             <div class="col-md-6">
                 <div class="resumo-os-card">
                     <h6>Tipo de processo</h6>
@@ -1768,21 +2052,21 @@ function preencherDetalhesOrdem(ordem) {
                 </div>
             </div>
         </div>
-        <div class="row g-3 mt-1">
+        <div class="row g-2 mt-1">
             <div class="col-md-6">
-                <div class="border rounded p-3">
-                    <strong>Início</strong>
-                    <p class="mb-0">${inicio}</p>
+                <div class="border rounded p-2">
+                    <strong class="small">Início</strong>
+                    <p class="mb-0 small">${inicio}</p>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="border rounded p-3">
-                    <strong>Conclusão</strong>
-                    <p class="mb-0">${conclusao}</p>
+                <div class="border rounded p-2">
+                    <strong class="small">Conclusão</strong>
+                    <p class="mb-0 small">${conclusao}</p>
                 </div>
             </div>
         </div>
-        <div class="row g-3 mt-1">
+        <div class="row g-2 mt-1">
             <div class="col-md-6">
                 <div class="resumo-os-card">
                     <h6>Peças e serviços</h6>
@@ -1796,11 +2080,23 @@ function preencherDetalhesOrdem(ordem) {
                 </div>
             </div>
         </div>
+        <div class="row g-2 mt-1">
+            <div class="col-12">
+                <div class="resumo-os-card">
+                    <h6>Observações</h6>
+                    ${observacoesHtml}
+                </div>
+            </div>
+        </div>
     `;
 
     if (legenda) {
         const agora = new Date();
         legenda.textContent = `Detalhes atualizados em ${agora.toLocaleTimeString('pt-BR')}`;
+    }
+
+    if (tituloModal) {
+        tituloModal.textContent = `Detalhes — ${DocRef.compactDocRef(numero)}`;
     }
 
     atualizarBotoesDetalhesOrdem();
@@ -1819,11 +2115,8 @@ async function abrirModalNovaOS() {
     document.getElementById('formNovaOS').reset();
     estadoOrdemServico.itensSelecionados = [];
     estadoOrdemServico.descontoOS = 0;
-    const seletorItem = document.getElementById('novoOSItemEstoque');
+    limparBuscaProdutosOS();
     const campoQuantidade = document.getElementById('novoOSItemQuantidade');
-    if (seletorItem) {
-        seletorItem.value = '';
-    }
     if (campoQuantidade) {
         campoQuantidade.value = 1;
     }
@@ -1863,9 +2156,10 @@ async function abrirModalEditarOS() {
     estadoOrdemServico.ordemEditandoId = ordem.id;
 
     document.getElementById('formNovaOS').reset();
+    limparBuscaProdutosOS();
     preencherFormularioOSEdicao(ordem);
     configurarBotaoSalvarOS(salvarEdicaoOS, 'Atualizar Ordem', 'save');
-    atualizarTituloModalOS(`Editar ${ordem.codigo || 'Ordem de Serviço'}`, 'edit-3');
+    atualizarTituloModalOS(`Editar ${DocRef.compactDocRef(ordem.codigo) || 'Ordem de Serviço'}`, 'edit-3');
 
     modal.classList.add('active');
     document.body.style.overflow = 'hidden';
@@ -1888,6 +2182,10 @@ function preencherFormularioOSEdicao(ordem) {
     if (campoTipo) {
         campoTipo.value = ordem.tipo_id != null ? String(ordem.tipo_id) : '';
     }
+    const campoObservacoes = document.getElementById('novoOSObservacoes');
+    if (campoObservacoes) {
+        campoObservacoes.value = extrairObservacoesUsuarioOS(ordem.observacoes || '');
+    }
 
     const itensOrdem = Array.isArray(ordem.itens) ? ordem.itens : [];
     estadoOrdemServico.itensSelecionados = itensOrdem.map((item) => ({
@@ -1908,6 +2206,7 @@ function preencherFormularioOSEdicao(ordem) {
 
     renderizarItensEstoqueSelecionados();
     atualizarResumoFinanceiroOS();
+    limparBuscaProdutosOS();
 }
 
 function fecharModalNovaOS() {
@@ -1925,6 +2224,7 @@ function fecharModalNovaOS() {
         }
         estadoOrdemServico.modoFormulario = 'create';
         estadoOrdemServico.ordemEditandoId = null;
+        limparBuscaProdutosOS();
     }
 }
 
@@ -1936,98 +2236,154 @@ function formatarDataApenasOS(dataStr) {
     return s;
 }
 
-async function carregarItensEstoqueOS(clienteId) {
+function escapeHtmlOS(valor) {
+    if (valor == null) {
+        return '';
+    }
+    return String(valor)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function obterValorProdutoOS(produto) {
+    if (!produto || typeof produto !== 'object') {
+        return 0;
+    }
+    const camposValor = ['valor_sugerido', 'valor_venda', 'valor'];
+    for (const campo of camposValor) {
+        const valor = produto[campo];
+        if (valor !== undefined && valor !== null && !Number.isNaN(Number(valor))) {
+            return Number(valor);
+        }
+    }
+    return 0;
+}
+
+function limparBuscaProdutosOS() {
+    const campoBusca = document.getElementById('buscaProdutoOS');
+    if (campoBusca) {
+        campoBusca.value = '';
+    }
+    estadoOrdemServico.produtosBusca = [];
+    const corpo = document.getElementById('listaProdutosOS');
+    if (corpo) {
+        corpo.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">Digite para buscar produtos</td>
+            </tr>
+        `;
+    }
+}
+
+async function buscarProdutosOS() {
+    const campoBusca = document.getElementById('buscaProdutoOS');
+    const busca = campoBusca ? campoBusca.value : '';
+
     try {
-        let url = '/api/v1/produtos-cliente/?limit=200';
-        if (clienteId) {
-            url += '&cliente_id=' + encodeURIComponent(clienteId);
-        }
-        const resposta = await fetch(url, { headers: montarHeadersAutenticados() });
+        const resposta = await fetch(`/api/v1/vendas/produtos?busca=${encodeURIComponent(busca)}`, {
+            headers: montarHeadersAutenticados()
+        });
         if (!resposta.ok) {
-            throw new Error('Falha ao listar produtos');
+            throw new Error('Falha na busca de produtos');
         }
-        const payload = await resposta.json();
-        estadoOrdemServico.estoqueItens = Array.isArray(payload.items) ? payload.items : [];
-        preencherSelectItensEstoque();
+        const produtos = await resposta.json();
+        if (!Array.isArray(produtos)) {
+            throw new Error('Resposta inesperada ao buscar produtos');
+        }
+        estadoOrdemServico.produtosBusca = produtos;
+        atualizarListaProdutosOS();
     } catch (erro) {
-        logInfoOS('Erro ao carregar produtos', { erro });
-        mostrarToastOS('Erro ao carregar produtos.', 'error');
-        estadoOrdemServico.estoqueItens = [];
-        preencherSelectItensEstoque();
+        logInfoOS('Erro ao buscar produtos', { erro });
+        mostrarToastOS('Erro ao buscar produtos.', 'error');
+        estadoOrdemServico.produtosBusca = [];
+        atualizarListaProdutosOS();
     }
 }
 
-function preencherSelectItensEstoque() {
-    const seletor = document.getElementById('novoOSItemEstoque');
-    if (!seletor) {
+function atualizarListaProdutosOS() {
+    const corpo = document.getElementById('listaProdutosOS');
+    if (!corpo) {
         return;
     }
-    const valorAnterior = seletor.value;
-    seletor.innerHTML = '<option value="">Selecione...</option>';
 
-    estadoOrdemServico.estoqueItens.forEach((item) => {
-        const option = document.createElement('option');
-        option.value = item.id;
-        const identificador = item.codigo ? `${item.codigo} - ` : '';
-        option.textContent = `${identificador}${item.nome}${item.unidade_medida ? ` (${item.unidade_medida})` : ''}`;
-        seletor.appendChild(option);
-    });
-
-    if (valorAnterior) {
-        seletor.value = valorAnterior;
+    if (!estadoOrdemServico.produtosBusca.length) {
+        corpo.innerHTML = `
+            <tr>
+                <td colspan="5" class="text-center text-muted py-3">Nenhum produto encontrado</td>
+            </tr>
+        `;
+        return;
     }
+
+    corpo.innerHTML = estadoOrdemServico.produtosBusca.map((produto) => `
+        <tr>
+            <td><strong>${escapeHtmlOS(produto.codigo)}</strong></td>
+            <td>${escapeHtmlOS(produto.nome)}</td>
+            <td>${escapeHtmlOS(produto.quantidade_atual)} ${escapeHtmlOS(produto.unidade_medida || '')}</td>
+            <td class="text-end">${formatarMoeda(obterValorProdutoOS(produto))}</td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-primary" data-action="add-produto-os" data-produto-id="${produto.id}">
+                    Adicionar
+                </button>
+            </td>
+        </tr>
+    `).join('');
+    feather.replace();
 }
 
-function adicionarItemEstoqueOS() {
-    const seletor = document.getElementById('novoOSItemEstoque');
+function adicionarProdutoOrdemOS(produtoId) {
+    const produto = estadoOrdemServico.produtosBusca.find((item) => item.id === produtoId);
+    if (!produto) {
+        mostrarToastOS('Produto não encontrado.', 'error');
+        return;
+    }
+
     const campoQuantidade = document.getElementById('novoOSItemQuantidade');
-    if (!seletor || !campoQuantidade) {
-        return;
-    }
-
-    const itemId = Number(seletor.value);
-    const quantidade = Number(campoQuantidade.value);
-
-    if (!itemId) {
-        mostrarToastOS('Selecione um item do estoque.', 'info');
-        return;
-    }
-
+    const quantidade = Number(campoQuantidade ? campoQuantidade.value : 1);
     if (!quantidade || quantidade <= 0) {
         mostrarToastOS('Informe uma quantidade válida.', 'info');
         return;
     }
 
-    const itemEstoque = estadoOrdemServico.estoqueItens.find((item) => item.id === itemId);
-    if (!itemEstoque) {
-        mostrarToastOS('Item de estoque não encontrado.', 'error');
-        return;
-    }
-
-    // Lacre não é usado neste modelo (plano migração): itens são sempre adicionados como produto_cliente
-    // (fluxo de lacres-selos foi ignorado/removido)
-
-    // Adicionar item (produto_cliente_id = item.id)
-    const existente = estadoOrdemServico.itensSelecionados.find((item) => item.id === itemId);
+    const existente = estadoOrdemServico.itensSelecionados.find((item) => item.id === produtoId);
+    const valorUnitario = obterValorProdutoOS(produto);
     if (existente) {
         existente.quantidade += quantidade;
     } else {
         estadoOrdemServico.itensSelecionados.push({
-            id: itemEstoque.id,
-            codigo: itemEstoque.codigo,
-            nome: itemEstoque.nome,
-            unidade: itemEstoque.unidade_medida,
-            valor_unitario: Number(itemEstoque.valor_venda || 0),
+            id: produto.id,
+            codigo: produto.codigo,
+            nome: produto.nome,
+            unidade: produto.unidade_medida,
+            valor_unitario: valorUnitario,
             quantidade,
             bloqueado: true
         });
     }
 
-    campoQuantidade.value = 1;
-    seletor.value = '';
+    if (campoQuantidade) {
+        campoQuantidade.value = 1;
+    }
     renderizarItensEstoqueSelecionados();
     atualizarResumoFinanceiroOS();
     feather.replace();
+}
+
+function atualizarQuantidadeItemOS(itemId, novaQuantidade) {
+    const item = estadoOrdemServico.itensSelecionados.find((registro) => registro.id === Number(itemId));
+    if (!item) {
+        return;
+    }
+    const quantidade = Number(novaQuantidade);
+    if (!quantidade || quantidade <= 0) {
+        removerItemEstoqueOS(itemId);
+        return;
+    }
+    item.quantidade = quantidade;
+    renderizarItensEstoqueSelecionados();
+    atualizarResumoFinanceiroOS();
 }
 
 function renderizarItensEstoqueSelecionados() {
@@ -2084,7 +2440,12 @@ function renderizarItensEstoqueSelecionados() {
                         </button>
                     </div>
                 </td>
-                <td class="text-center">${item.quantidade}${unidade}</td>
+                <td class="text-center">
+                    <input type="number" class="form-control form-control-sm text-center" style="width: 72px; margin: 0 auto;"
+                        value="${item.quantidade}" min="0.01" step="0.01"
+                        onchange="atualizarQuantidadeItemOS(${item.id}, this.value)">
+                    <small class="text-muted">${unidade.trim()}</small>
+                </td>
                 <td class="text-end" id="subtotalItem-${item.id}">${formatarMoeda(subtotal)}</td>
                 <td class="text-end">
                     <button class="btn btn-sm btn-outline-danger" type="button" onclick="removerItemEstoqueOS(${item.id})">
@@ -2303,20 +2664,14 @@ async function salvarNovaOS() {
             ? `Subtotal: ${formatarMoeda(subtotal)} | Desconto: ${formatarMoeda(desconto)} | Total: ${formatarMoeda(total)}`
             : null;
 
-        const observacoesBlocos = [];
-        if (resumoItens) {
-            observacoesBlocos.push(`Itens: ${resumoItens}`);
-        }
-        if (resumoFinanceiro) {
-            observacoesBlocos.push(resumoFinanceiro);
-        }
+        const textoObservacoes = document.getElementById('novoOSObservacoes')?.value || '';
 
         const payload = {
             cliente_id: Number(clienteId),
             tipo_id: Number(tipoId),
             prioridade: 'media',
             status: 'aberta',
-            observacoes: observacoesBlocos.length ? observacoesBlocos.join('\n') : null,
+            observacoes: montarObservacoesOS(textoObservacoes, resumoItens, resumoFinanceiro),
             itens: itensPayload
         };
 
@@ -2372,17 +2727,11 @@ async function salvarEdicaoOS() {
             ? `Subtotal: ${formatarMoeda(subtotal)} | Desconto: ${formatarMoeda(desconto)} | Total: ${formatarMoeda(total)}`
             : null;
 
-        const observacoesBlocos = [];
-        if (resumoItens) {
-            observacoesBlocos.push(`Itens: ${resumoItens}`);
-        }
-        if (resumoFinanceiro) {
-            observacoesBlocos.push(resumoFinanceiro);
-        }
+        const textoObservacoes = document.getElementById('novoOSObservacoes')?.value || '';
 
         const payload = {
             tipo_id: Number(tipoId),
-            observacoes: observacoesBlocos.length ? observacoesBlocos.join('\n') : null,
+            observacoes: montarObservacoesOS(textoObservacoes, resumoItens, resumoFinanceiro),
             itens: itensPayload
         };
 
@@ -2653,7 +3002,7 @@ async function abrirModalCaixaOS() {
 
     corpo.innerHTML = `
         <div class="mb-3">
-            <p class="mb-1"><strong>Ordem de serviço:</strong> ${escapeOsHtml(codigoOs)}</p>
+            <p class="mb-1"><strong>Ordem de serviço:</strong> ${DocRef.docRefSpan(codigoOs)}</p>
             <p class="mb-1"><strong>Cliente:</strong> ${escapeOsHtml(ordem.cliente_nome || '—')}</p>
         </div>
         ${avisoEtapa}
@@ -2744,10 +3093,13 @@ async function confirmarFinalizacaoOS() {
         const numeroPedido = payloadVenda.numero_venda || payloadVenda.id;
         limparCacheFinanceiroOS(dados.id);
         fecharModalCaixaOS();
-        mostrarToastOS(`Venda ${numeroPedido} registrada (origem OS ${dados.codigo || dados.id}). Abrindo módulo de vendas…`, 'success');
+        mostrarToastOS(`Venda ${DocRef.compactDocRef(numeroPedido)} registrada (origem ${DocRef.compactDocRef(dados.codigo || dados.id)}). Abrindo módulo de vendas…`, 'success');
         await selecionarOrdemOS(dados.id);
+        const vendaIdRedirect = payloadVenda.id;
         setTimeout(() => {
-            window.location.href = '/negocio/venda';
+            window.location.href = vendaIdRedirect
+                ? '/negocio/venda?finalizar=' + vendaIdRedirect
+                : '/negocio/venda';
         }, 900);
     } catch (erro) {
         logInfoOS('Erro ao finalizar venda pela OS', { erro });
@@ -2791,9 +3143,11 @@ async function enviarOrdemParaVendas() {
             throw new Error(msg);
         }
         const numeroVenda = payload.numero_venda || payload.id;
-        mostrarToastOS(`Venda ${numeroVenda} criada. Redirecionando para o módulo de vendas.`, 'success');
+        mostrarToastOS(`Venda ${DocRef.compactDocRef(numeroVenda)} criada. Redirecionando para o módulo de vendas.`, 'success');
         setTimeout(() => {
-            window.location.href = '/negocio/venda';
+            window.location.href = payload.id
+                ? '/negocio/venda?finalizar=' + payload.id
+                : '/negocio/venda';
         }, 1500);
     } catch (erro) {
         if (btn) btn.disabled = false;
@@ -3698,9 +4052,7 @@ function confirmarLacreSelecionadoOS() {
     }
 
     // Limpar campos do formulário
-    const seletor = document.getElementById('novoOSItemEstoque');
     const campoQuantidade = document.getElementById('novoOSItemQuantidade');
-    if (seletor) seletor.value = '';
     if (campoQuantidade) campoQuantidade.value = 1;
 
     // Fechar modal e renderizar

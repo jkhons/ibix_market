@@ -18,6 +18,12 @@ from ...core.rate_limiter import check_webhook_rate_limit
 from ...core.scope import ClienteScope
 from ...database.connection import get_db
 from ...models import PaymentProviderConfig, PaymentTransaction, Usuario
+from ...services.payments.marketplace_unified_payment_scope import (
+    filter_transactions_query_for_allowed_clientes,
+    filter_transactions_query_for_estabelecimento,
+    overrides_listagem_transacao_para_tenant,
+    usuario_pode_acessar_transacao_pagamento,
+)
 from ...models.empresa import Empresa
 from ...schemas.payment import (
     PaymentProcessRequest,
@@ -29,9 +35,29 @@ from ...schemas.payment import (
     PaymentTransactionListItem,
 )
 from ...services.payments import PaymentOrchestrator, encrypt_credentials
+from ...services.payments.credentials import encrypt_text
 
 router = APIRouter(prefix="/payments", tags=["Pagamentos (módulo 3.3)"])
 ALLOWED_PROVIDERS = {"mercadopago", "pagbank", "pagarme"}
+
+_WEBHOOK_SECRET_KEYS = ("webhook_secret", "WEBHOOK_SECRET", "mp_webhook_secret")
+
+
+def _webhook_secret_from_credentials(creds: dict) -> Optional[str]:
+    for key in _WEBHOOK_SECRET_KEYS:
+        val = creds.get(key)
+        if val is not None and str(val).strip():
+            return str(val).strip()
+    return None
+
+
+def _apply_webhook_secret_encrypted(row: PaymentProviderConfig, creds: dict) -> None:
+    secret = _webhook_secret_from_credentials(creds if isinstance(creds, dict) else {})
+    if not secret:
+        return
+    enc = encrypt_text(secret)
+    if enc:
+        row.webhook_secret_encrypted = enc
 
 
 def _normalize_method(method: str) -> str:
@@ -185,6 +211,8 @@ async def criar_config(
         is_default=body.is_default,
         test_mode=body.test_mode,
     )
+    if body.credentials is not None:
+        _apply_webhook_secret_encrypted(c, body.credentials if isinstance(body.credentials, dict) else {})
     db.add(c)
     db.flush()
     if body.is_default:
@@ -241,6 +269,7 @@ async def atualizar_config_item(
             raise HTTPException(status_code=400, detail="Credenciais via PATCH só para Mercado Pago ou Pagar.me.")
         creds = body.credentials if isinstance(body.credentials, dict) else {}
         row.credentials_encrypted = encrypt_credentials(creds)
+        _apply_webhook_secret_encrypted(row, creds)
     if body.is_active is not None:
         row.is_active = body.is_active
     if body.test_mode is not None:
@@ -308,7 +337,7 @@ async def reconciliar_transacao(
     if not tx:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
     allowed = _allowed_cliente_ids(scope)
-    if allowed is not None and tx.cliente_id not in allowed:
+    if allowed is not None and not usuario_pode_acessar_transacao_pagamento(db, tx, allowed):
         raise HTTPException(status_code=403, detail="Transação fora do escopo")
     if (tx.status or "").lower() in {"paid", "authorized", "refunded"}:
         return {
@@ -404,7 +433,7 @@ async def retentar_pagamento(
     if not tx:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
     allowed = _allowed_cliente_ids(scope)
-    if allowed is not None and tx.cliente_id not in allowed:
+    if allowed is not None and not usuario_pode_acessar_transacao_pagamento(db, tx, allowed):
         raise HTTPException(status_code=403, detail="Transação fora do escopo")
     if (tx.status or "").lower() not in {"pending", "failed"}:
         raise HTTPException(status_code=400, detail="Retentativa permitida apenas para status pendente/falha")
@@ -460,7 +489,7 @@ async def comprovante_html(
     if not tx:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
     allowed = _allowed_cliente_ids(scope)
-    if allowed is not None and tx.cliente_id not in allowed:
+    if allowed is not None and not usuario_pode_acessar_transacao_pagamento(db, tx, allowed):
         raise HTTPException(status_code=403, detail="Transação fora do escopo")
     from datetime import datetime, timezone
     from pathlib import Path
@@ -504,7 +533,7 @@ async def obter_status(
     if not t:
         raise HTTPException(status_code=404, detail="Transação não encontrada")
     allowed = _allowed_cliente_ids(scope)
-    if allowed is not None and t.cliente_id not in allowed:
+    if allowed is not None and not usuario_pode_acessar_transacao_pagamento(db, t, allowed):
         raise HTTPException(status_code=403, detail="Transação fora do escopo")
     return PaymentStatusResponse.model_validate(t)
 
@@ -531,16 +560,15 @@ async def listar_transacoes(
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     allowed = _allowed_cliente_ids(scope)
+    query = db.query(PaymentTransaction)
     if estabelecimento_id is not None:
         if allowed is not None and estabelecimento_id not in allowed:
             raise HTTPException(status_code=403, detail="Estabelecimento fora do escopo")
-        query = db.query(PaymentTransaction).filter(PaymentTransaction.cliente_id == estabelecimento_id)
-    else:
-        query = db.query(PaymentTransaction)
-        if allowed is not None:
-            if not allowed:
-                return []
-            query = query.filter(PaymentTransaction.cliente_id.in_(allowed))
+        query = filter_transactions_query_for_estabelecimento(query, estabelecimento_id)
+    elif allowed is not None:
+        if not allowed:
+            return []
+        query = filter_transactions_query_for_allowed_clientes(query, allowed)
     if status_filter:
         raw_statuses = [s.strip().lower() for s in status_filter.split(",") if s and s.strip()]
         if not raw_statuses:
@@ -571,8 +599,14 @@ async def listar_transacoes(
     items = []
     for r in rows:
         item = PaymentTransactionListItem.model_validate(r)
-        if r.pedido_id and r.pedido:
-            item.numero_pedido = r.pedido.numero_pedido
+        disp_cid, disp_amt, disp_num, disp_pid = overrides_listagem_transacao_para_tenant(
+            db, r, estabelecimento_id
+        )
+        if disp_cid is not None:
+            item.cliente_id = disp_cid
+        item.amount = disp_amt
+        item.numero_pedido = disp_num
+        item.pedido_id = disp_pid
         items.append(item)
     return items
 

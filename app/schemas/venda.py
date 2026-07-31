@@ -114,6 +114,15 @@ class VendaResponse(BaseModel):
     nota_fiscal_id: Optional[int] = None
     nota_servico_id: Optional[int] = None
     cupom_fiscal_id: Optional[int] = None
+    orcamento_id: Optional[int] = None
+    numero_orcamento: Optional[str] = None
+    ordem_servico_id: Optional[int] = None
+    ordem_servico_codigo: Optional[str] = None
+    origem_imediata_tipo: Optional[str] = None
+    origem_imediata_ref: Optional[str] = None
+    origem_raiz_tipo: Optional[str] = None
+    origem_raiz_ref: Optional[str] = None
+    origem_cadeia: Optional[List[dict]] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -182,6 +191,8 @@ class VendaFinalizarRequest(BaseModel):
     tipo_pagamento: str = Field(..., description="Forma principal (compatível com venda.tipo_pagamento)")
     valor_pago: float = Field(..., ge=0, description="Soma recebida")
     troco: float = Field(0.0, ge=0, description="Troco")
+    desconto: Optional[float] = Field(None, ge=0, description="Desconto geral aplicado na finalização")
+    acrescimo: Optional[float] = Field(None, ge=0, description="Acréscimo geral aplicado na finalização")
     observacoes: Optional[str] = Field(None, description="Acrescenta às observações existentes se houver")
     pagamentos: Optional[List[PagamentoFracionadoIn]] = Field(
         None,

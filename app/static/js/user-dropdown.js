@@ -160,15 +160,16 @@ function initializeUserDropdown() {
         menu.style.transition = 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out';
     });
 
-    // Verificar se o usuário está autenticado
+    // Verificar se o usuário está autenticado (cookie HttpOnly não aparece em document.cookie)
     function checkAuthStatus() {
-        const token = getToken();
-        if (!token) {
-            // Se não há token, redirecionar para login
-            if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-                window.location.href = '/login';
-            }
-        }
+        var path = window.location.pathname || '';
+        if (path === '/login' || path === '/register') return;
+        if (getToken()) return;
+        fetch('/api/v1/auth/me', { credentials: 'include', headers: { Accept: 'application/json' } })
+            .then(function (r) {
+                if (!r.ok) window.location.href = '/login';
+            })
+            .catch(function () {});
     }
 
     // Verificar autenticação a cada 5 minutos
@@ -320,67 +321,48 @@ async function loadUserData() {
 }
 
 // Função para realizar logout
+function clearPdvClientAuthStorage() {
+    try {
+        sessionStorage.removeItem('pdv_solumatica_token');
+        sessionStorage.removeItem('pdv_automscale_token');
+    } catch (_) {}
+    localStorage.removeItem('pdv_solumatica_token');
+    localStorage.removeItem('pdv_automscale_token');
+    localStorage.removeItem('pdv_automscale_user_data');
+    localStorage.removeItem('pdv_automscale_user_data_timestamp');
+    localStorage.removeItem('certilog_user');
+    window.userDataLoaded = false;
+    initializationComplete = false;
+}
+
 async function performLogout() {
     try {
-        const token = getToken();
-        
-        if (token) {
-            // Chamar API de logout
-            const response = await fetch('/api/v1/auth/logout', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-        }
-        
-        // Limpar token do cookie
-        document.cookie = 'pdv_automscale_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        
-        // Limpar sessionStorage e localStorage
-        try { sessionStorage.removeItem('pdv_automscale_token'); } catch (_) {}
-        localStorage.removeItem('pdv_automscale_token');
-        localStorage.removeItem('pdv_automscale_user_data');
-        localStorage.removeItem('pdv_automscale_user_data_timestamp');
-        
-        // Resetar flags
-        window.userDataLoaded = false;
-        initializationComplete = false;
-        
-        // Redirecionar para login
-        window.location.href = '/login';
-        
+        await fetch('/api/v1/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+            },
+        });
     } catch (error) {
         console.error('❌ Erro no logout:', error);
-        // Mesmo com erro, limpar dados e redirecionar
-        document.cookie = 'pdv_automscale_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-        try { sessionStorage.removeItem('pdv_automscale_token'); } catch (_) {}
-        localStorage.removeItem('pdv_automscale_token');
-        localStorage.removeItem('pdv_automscale_user_data');
-        localStorage.removeItem('pdv_automscale_user_data_timestamp');
-        window.userDataLoaded = false;
-        initializationComplete = false;
+    } finally {
+        clearPdvClientAuthStorage();
         window.location.href = '/login';
     }
 }
 
-// Função para obter token (compatível com JWT que pode ter = no valor/base64)
+// Função para obter token (sessionStorage após login; cookies são HttpOnly e não leíveis via JS)
 function getToken() {
-    const cookies = document.cookie.split(';');
-    for (let cookie of cookies) {
-        const s = cookie.trim();
-        const eq = s.indexOf('=');
-        if (eq === -1) continue;
-        const name = s.substring(0, eq);
-        const value = s.substring(eq + 1);
-        if (name === 'pdv_automscale_token' && value) {
-            return value;
-        }
-    }
     try {
-        return sessionStorage.getItem('pdv_automscale_token') || localStorage.getItem('pdv_automscale_token');
+        return (
+            sessionStorage.getItem('pdv_solumatica_token') ||
+            sessionStorage.getItem('pdv_automscale_token') ||
+            localStorage.getItem('pdv_solumatica_token') ||
+            localStorage.getItem('pdv_automscale_token')
+        );
     } catch (_) {
-        return localStorage.getItem('pdv_automscale_token');
+        return localStorage.getItem('pdv_automscale_token') || localStorage.getItem('pdv_solumatica_token');
     }
 } 

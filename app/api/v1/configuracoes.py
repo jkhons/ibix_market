@@ -528,7 +528,6 @@ class ConfiguracoesAlertasRequest(BaseModel):
     intervalo_atualizacao: int
     notif_agendamento_hoje: bool
     notif_novo_agendamento: bool
-    notif_certificado_vencendo: bool
     notif_contrato_vencendo: bool
 
 
@@ -546,7 +545,6 @@ def obter_configuracoes_alertas(db: Session = Depends(get_db)):
             'intervalo_atualizacao': int(get_configuracao(db, 'alertas.intervalo_atualizacao').valor) if get_configuracao(db, 'alertas.intervalo_atualizacao') else 30,
             'notif_agendamento_hoje': get_configuracao(db, 'notificacoes.agendamento_hoje').valor == 'true' if get_configuracao(db, 'notificacoes.agendamento_hoje') else True,
             'notif_novo_agendamento': get_configuracao(db, 'notificacoes.novo_agendamento').valor == 'true' if get_configuracao(db, 'notificacoes.novo_agendamento') else True,
-            'notif_certificado_vencendo': get_configuracao(db, 'notificacoes.certificado_vencendo').valor == 'true' if get_configuracao(db, 'notificacoes.certificado_vencendo') else True,
             'notif_contrato_vencendo': get_configuracao(db, 'notificacoes.contrato_vencendo').valor == 'true' if get_configuracao(db, 'notificacoes.contrato_vencendo') else True
         }
         
@@ -577,7 +575,6 @@ def salvar_configuracoes_alertas(
         # Salvar tipos de notificações
         set_configuracao(db, 'notificacoes.agendamento_hoje', 'true' if configs.notif_agendamento_hoje else 'false', 'Ativar notificações de agendamentos do dia')
         set_configuracao(db, 'notificacoes.novo_agendamento', 'true' if configs.notif_novo_agendamento else 'false', 'Ativar notificações de novos agendamentos')
-        set_configuracao(db, 'notificacoes.certificado_vencendo', 'true' if configs.notif_certificado_vencendo else 'false', 'Ativar notificações de certificados vencendo')
         set_configuracao(db, 'notificacoes.contrato_vencendo', 'true' if configs.notif_contrato_vencendo else 'false', 'Ativar notificações de contratos vencendo')
         
         return {"success": True, "message": "Configurações de alertas salvas com sucesso"}

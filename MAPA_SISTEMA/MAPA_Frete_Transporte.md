@@ -17,9 +17,9 @@ Este documento é a **fonte única de verdade** sobre frete e transporte no PDV 
 
 | Área | Implementado | Observação |
 |------|--------------|------------|
-| **Loja (config)** | Campos de configuração de entrega no modelo e na API | `tipo_entrega`, `raio_entrega_km`, `taxa_entrega_fixa`, `entrega_gratis_apos` — não usados no fluxo de cálculo nem exibidos no card da vitrine |
+| **Loja (config)** | `formato_frete`, taxas, áreas (`LojaAreaEntrega`), override por anúncio | Cálculo no checkout via `marketplace_frete_checkout.py`; **edição** de `formato_frete`/taxas na API restrita a **Superadmin** (ver § 2.0) |
 | **Pedido marketplace** | Tipo de entrega, endereço, taxa no pedido | `tipo_entrega`, `endereco_entrega`, `taxa_entrega`; total = subtotal − desconto + taxa_entrega |
-| **Checkout vitrine** | Formulário tipo de entrega + endereço | Sempre envia `taxa_entrega: 0`; sem cálculo por CEP |
+| **Checkout vitrine** | Formulário tipo de entrega + endereço; cálculo de frete | Front `checkout.html` envia `tipo_entrega` e `taxa_entrega` conforme regras carregadas (API frete da loja / cálculo no cliente); ver `app/api/v1/loja.py` e `marketplace_frete_checkout.py` |
 | **NF-e saída** | Campo valor_frete no modelo e no payload; tag transporte no XML | `valor_frete` na nota; XML com `vFrete` e `<transp><modFrete>9</modFrete></transp>` (sem frete / por conta do destinatário) |
 | **Pedido interno (orçamento/pedido)** | Apenas data prevista de entrega | `data_prevista_entrega`; sem valor de frete nem modalidade de transporte |
 | **Cálculo por CEP** | Não | Nenhuma integração com Correios, transportadora ou API de CEP |
@@ -31,18 +31,37 @@ Este documento é a **fonte única de verdade** sobre frete e transporte no PDV 
 
 ## 2. Loja (Marketplace) — configuração e pedido
 
+### 2.0 Governança: quem altera o transporte da loja (UI × API)
+
+**Módulo dedicado:** desde 2026-05, todo o fluxo de transporte foi extraído em `app/api/v1/transporte.py` (com `app/services/transporte/config_service.py` e `regras_service.py`, schemas em `app/schemas/transporte.py`). `marketplace.py` **não aceita mais** campos de transporte em `POST /loja` nem `PATCH /loja/{id}`: rejeição em dois níveis — (a) `model_validator(mode="before")` em `LojaMarketplaceBase`/`LojaMarketplaceUpdate` devolve **422** com mensagem `"Campos de transporte não são mais aceitos aqui: ... Use PATCH /api/v1/transporte/loja/{loja_id}"`; (b) helper `_bloquear_campos_transporte` em `marketplace.py` devolve **400** caso o schema mude e volte a aceitar. O legado `GET /api/v1/loja/{id}/frete` continua válido como **alias deprecado** (`deprecated=True` no OpenAPI) para `GET /api/v1/transporte/loja/{id}/regras`.
+
+| Aspecto | Comportamento atual (código) |
+|---------|------------------------------|
+| **Campos na loja** | `formato_frete` (`sem_frete`, `gratis`, `taxa_fixa`, `plataforma`), `taxa_entrega_fixa`, `entrega_gratis_apos`, `tipo_entrega`, `raio_entrega_km` (ver modelo `LojaMarketplace`). **Não há colunas novas**: a UI com modo/submodo é **tradução** feita em `services/transporte/config_service.py`. |
+| **Modo (UI) ↔ formato_frete (banco)** | `retirada` ⇄ `sem_frete`; `ambos + propria_gratis` ⇄ `gratis`; `ambos + propria_valor` ⇄ `taxa_fixa` (`taxa_entrega_fixa` ≥ 0 obrigatório; `entrega_gratis_apos` opcional); `ambos + plataforma` ⇄ `plataforma`. |
+| **PATCH `/api/v1/transporte/loja/{loja_id}`** | Requer `marketplace:configurar_loja` + escopo da loja. **CA** salva só a própria loja; **Superadministrador** / Administrador com escopo amplo salva qualquer loja. SEO avançado e demais campos continuam em `PATCH /api/v1/marketplace/loja/{id}`. |
+| **Tela única** (`/negocio/marketplace/areas-entrega`) | Rebatizada **«Transporte»** (também acessível pelo botão **«Configuração de entregas»** em `/negocio/marketplace`). Card de modo + CRUD de áreas + **card Plataforma — gestão de entregas** (atalhos para `/admin/entregadores` e `/negocio/financeiro#row-transportes`) **somente para Superadministrador** — o CA não vê esse card, mesmo escolhendo submodo `plataforma`. O CRUD de áreas continua com **`require_superadmin()`** em POST/PATCH/DELETE — sem mudança de permissão. |
+| **Minha loja & SEO global** | `app/templates/marketplace/minha_loja.html` e `app/templates/admin/marketplace_seo_lojas.html` deixaram de exibir campos de frete; ambos linkam para a tela única de Transporte. |
+| **Regra por item** | `app/services/marketplace_frete_checkout.py` — `resolver_regra_frete_anuncio`: anúncio com `frete_sobrescrever_loja` usa `formato_frete_produto` / taxas do produto; senão usa a regra da **loja**. |
+| **Área × taxa fixa** | Com **cidade + UF** na entrega e linha ativa em `loja_areas_entrega` para essa cidade, o valor cobrado é **`LojaAreaEntrega.taxa_entrega`** (prevalece sobre `loja.taxa_entrega_fixa`). Sem área para a cidade mas com **alguma** área na loja → entrega indisponível naquela localidade. **Sem nenhuma área** → usa só `taxa_entrega_fixa` da loja. |
+
+**Evoluções futuras** (prazos de entrega, SLAs por região, custo do entregador por categoria, regras de cobertura avançadas) devem entrar em `app/api/v1/transporte.py` + `app/services/transporte/` — **não** em `marketplace.py`.
+
+Referência cruzada: **§ 12** em `MAPA_DO_SISTEMA.md` («Minha loja — `cliente_id`…»).
+
 ### 2.1 Modelo e banco (lojas_marketplace)
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
-| `tipo_entrega` | String(20) | `"retirada"` ou `"entrega"` — default `"retirada"` |
-| `raio_entrega_km` | Integer, nullable | Raio de entrega em km (não utilizado no fluxo atual) |
-| `taxa_entrega_fixa` | Numeric(10,2), nullable | Taxa fixa de entrega (não utilizada no checkout atual) |
-| `entrega_gratis_apos` | Numeric(10,2), nullable | Pedido acima de qual valor a entrega é grátis (não utilizado) |
+| `formato_frete` | String(20) | `sem_frete` \| `gratis` \| `taxa_fixa` \| `plataforma` — define o que o checkout oferece (ex.: só retirada vs retirada+entrega). Migração **`ft01_frete_transp`**. |
+| `tipo_entrega` | String(20) | `"retirada"` ou `"entrega"` — preferência/informativo da loja; o checkout usa sobretudo **`formato_frete`** (ver texto de ajuda em Minha loja). |
+| `raio_entrega_km` | Integer, nullable | Raio em km (pouco usado no fluxo atual) |
+| `taxa_entrega_fixa` | Numeric(10,2), nullable | Taxa fixa quando formato exige |
+| `entrega_gratis_apos` | Numeric(10,2), nullable | Pedido acima deste valor → frete grátis (quando aplicável) |
 
-**Migração:** `app/database/migrations/versions/mk01_marketplace_tables.py`. Modelo: `app/models/loja_marketplace.py`.
+**Migrações:** `mk01_marketplace_tables.py` (base); **`ft01_frete_transp`** (`formato_frete` + snapshots em pedido); **`mp05_frete_por_produto_override`** (campos por anúncio). Modelo: `app/models/loja_marketplace.py` e `app/models/anuncio_plataforma.py` (override).
 
-**API:** PATCH `/api/v1/marketplace/loja/{id}` aceita `LojaMarketplaceUpdate` com `tipo_entrega`, `raio_entrega_km`, `taxa_entrega_fixa`, `entrega_gratis_apos` (ver `app/schemas/marketplace.py`). A tela **Minha loja** (`app/templates/marketplace/minha_loja.html`) envia apenas `nome_loja`, `descricao`, `slug`, `tipo_entrega` — **não** envia raio, taxa fixa nem frete grátis. Esses campos existem no backend mas não estão expostos no formulário.
+**API:** `PATCH /api/v1/transporte/loja/{loja_id}` (schema `TransporteConfigUpdate` em `app/schemas/transporte.py`) é o único caminho para alterar `formato_frete`, `taxa_entrega_fixa`, `entrega_gratis_apos`, `tipo_entrega`, `raio_entrega_km`. `PATCH /api/v1/marketplace/loja/{id}` rejeita esses campos com HTTP 400.
 
 ### 2.2 Pedido marketplace (pedidos_marketplace)
 
@@ -53,13 +72,13 @@ Este documento é a **fonte única de verdade** sobre frete e transporte no PDV 
 | `taxa_entrega` | Numeric(10,2) | Valor do frete no pedido; default 0 |
 | `total` | Numeric(10,2) | `subtotal - desconto + taxa_entrega` |
 
-**Modelo:** `app/models/pedido_marketplace.py`. **Checkout:** POST `/api/v1/loja/checkout` — body `PedidoCheckoutCreate` com `endereco_entrega`, `tipo_entrega`, `taxa_entrega` (ver `app/api/v1/loja.py`). O front da vitrine (`app/templates/loja/checkout.html`, `vitrine_raiz/templates/checkout.html`) envia **sempre `taxa_entrega: 0`**; não há campo para o usuário informar valor nem cálculo por CEP.
+**Modelo:** `app/models/pedido_marketplace.py`. **Checkout:** POST `/api/v1/loja/checkout` — body `PedidoCheckoutCreate` com `endereco_entrega`, `tipo_entrega`, `taxa_entrega` (ver `app/api/v1/loja.py`). O front da vitrine (`app/templates/loja/checkout.html`) calcula/exibe frete conforme regras da loja/anúncio e envia `taxa_entrega` no fechamento (não é mais fluxo fixo «sempre zero» quando há entrega e regra configurada).
 
 ### 2.3 Vitrine — exibição
 
-- **Checkout:** formulário com tipo de entrega (Retirada / Entrega) e campo de endereço de entrega (textarea).
-- **Card/listagem:** não há exibição de frete (ex.: "Frete grátis", "A partir de R$ X"). O texto fixo "Entrega para todo o Brasil" aparece no detalhe do produto (`app/templates/loja/produto.html`, `vitrine_raiz/templates/produto.html`) como selo de confiança, sem vínculo com cálculo.
-- **Documentação de fluxo:** `vitrine_raiz/FLUXO_E_MODELO_MARKETPLACE.md` descreve que a loja tem `taxa_entrega_fixa`, `entrega_gratis_apos`, `raio_entrega_km` não expostos no card e que o front não calcula frete por CEP.
+- **Checkout:** formulário com tipo de entrega (Retirada / Entrega) e campo de endereço de entrega (textarea); resumo de frete alinhado a `GET /api/v1/loja/{loja_id}/frete` e lógica em `checkout.html` / `vitrine.js`.
+- **Card/listagem:** badges de frete grátis quando a API de anúncios expõe `frete_gratis` / formato efetivo (ver `loja.py` e templates `produto.html` / `index.html`).
+- **Documentação de fluxo:** `vitrine_raiz/FLUXO_E_MODELO_MARKETPLACE.md` (pode estar parcialmente desatualizado em relação ao cálculo atual — preferir este MAPA e o código).
 
 ---
 
@@ -95,8 +114,8 @@ Este documento é a **fonte única de verdade** sobre frete e transporte no PDV 
 |------|--------|
 | **Cálculo de frete por CEP** | Não implementado. Nenhuma chamada a API de CEP ou de cotação (Correios, etc.). |
 | **Integração com transportadora terceira** | Não. Sem API de etiqueta, coleta ou rastreio (Correios, Jadlog, Melhor Envio, etc.). |
-| **Uso das regras da loja no checkout** | As regras `taxa_entrega_fixa`, `entrega_gratis_apos`, `raio_entrega_km` não são aplicadas ao valor exibido nem ao valor enviado no checkout. |
-| **Exibição de frete no card da vitrine** | Não (ex.: "Frete grátis", "A partir de R$ X"). |
+| **Uso das regras da loja no checkout** | Implementado parcialmente: `marketplace_frete_checkout.py` + front checkout; **edição** dos campos principais de frete da loja na API só **Superadmin** (§ 2.0). |
+| **Exibição de frete no card da vitrine** | Parcial: badges quando a API expõe `frete_gratis` / formato efetivo (ver § 2.3); sem cotação por CEP no card. |
 | **Campo tempo de envio / prazo de entrega** | Não existe no modelo `AnuncioPlataforma` nem no schema da vitrine. |
 | **Sistema de transporte interno** | **Implementado (2026-03):** Módulo **Logística local (entregador)** — ver § 6 abaixo. Frota/rotas/rastreio GPS continuam fora do escopo. |
 | **Rastreio (código de rastreamento)** | Não há campo nem fluxo de rastreio no pedido marketplace. |

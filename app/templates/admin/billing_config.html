@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Billing - Config | PDV Ibix{% endblock %}
+{% block title %}Configuração de cobrança | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
@@ -36,8 +36,8 @@
                     </div>
                     <div class="mb-3">
                         <label for="app_url" class="form-label">URL base da aplicação (APP_URL)</label>
-                        <input type="url" class="form-control" id="app_url" name="app_url" placeholder="https://pdv.automscale.com.br">
-                        <div class="form-text">URL do seu site (ex.: https://pdv.automscale.com.br, sem barra no final). Obrigatória para notification_url e back_urls do Checkout Pro.</div>
+                        <input type="text" class="form-control" id="app_url" name="app_url" placeholder="https://pdv.automscale.com.br" inputmode="url" autocomplete="url" spellcheck="false">
+                        <div class="form-text">URL do seu site (com ou sem <code>https://</code>; salvamos sempre com esquema). Sem barra no final. Obrigatória para links do convite de lojista, notification_url e back_urls do Checkout Pro.</div>
                     </div>
 
                     <hr class="my-4">
@@ -104,6 +104,24 @@
             </div>
         </div>
     </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h2 class="h5 mb-2">Notificações — novo cadastro de lojista (CA)</h2>
+            <p class="text-muted small mb-3">Quando um estabelecimento conclui o cadastro público (<code>/cadastro</code>), a plataforma pode avisar os Superadministradores por <strong>e-mail</strong> (SMTP em Configurações gerais) e pelo <strong>sino</strong> do painel (atualização em alguns segundos).</p>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="novo_ca_email_enabled">
+                <label class="form-check-label" for="novo_ca_email_enabled">Enviar e-mail aos Superadministradores</label>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="novo_ca_in_app_enabled">
+                <label class="form-check-label" for="novo_ca_in_app_enabled">Registrar alerta no sino do painel</label>
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btn-save-novo-ca-notif">Salvar preferências de notificação</button>
+            <span id="msg-novo-ca-notif" class="ms-2 small"></span>
+            <p class="text-muted small mt-3 mb-0">Para enviar convite por e-mail a um novo lojista, use a aba <strong>Convidar comércio</strong> em <a href="/clientes">Gestão de Clientes</a> (Superadministrador).</p>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -160,7 +178,12 @@
         var msg = document.getElementById('msg');
         var tokenVal = document.getElementById('mp_access_token').value.trim();
         var secretVal = document.getElementById('mp_webhook_secret').value.trim();
-        var urlVal = document.getElementById('app_url').value.trim().replace(/\/+$/, '');
+        var urlRaw = document.getElementById('app_url').value.trim().replace(/\/+$/, '');
+        var urlVal = urlRaw;
+        if (urlVal && !/^https?:\/\//i.test(urlVal)) {
+            urlVal = 'https://' + urlVal.replace(/^\/+/, '');
+        }
+        if (urlRaw && document.getElementById('app_url')) document.getElementById('app_url').value = urlVal;
         var pbIdVal = document.getElementById('pagbank_client_id').value.trim();
         var pbSecretVal = document.getElementById('pagbank_client_secret').value.trim();
         var pbSandbox = document.getElementById('pagbank_sandbox').checked;
@@ -245,6 +268,48 @@
     setupVisualizar('plataforma_pagbank_access_token', 'btn-visualizar-plat-pb');
     setupVisualizar('plataforma_pagarme_secret_key', 'btn-visualizar-plat-pg');
     load();
+    loadOnboardingNovoCa();
+
+    function loadOnboardingNovoCa() {
+        fetch('/api/v1/admin/billing/onboarding/novo-ca-notificacoes', { headers: authHeaders(), credentials: 'same-origin' })
+            .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error(d.detail || 'Erro'); return d; }); })
+            .then(function(d) {
+                var e1 = document.getElementById('novo_ca_email_enabled');
+                var e2 = document.getElementById('novo_ca_in_app_enabled');
+                if (e1) e1.checked = !!d.email_enabled;
+                if (e2) e2.checked = !!d.in_app_enabled;
+            })
+            .catch(function() {});
+    }
+
+    var btnNovoCa = document.getElementById('btn-save-novo-ca-notif');
+    if (btnNovoCa) btnNovoCa.addEventListener('click', function() {
+        var msg = document.getElementById('msg-novo-ca-notif');
+        var emailOn = document.getElementById('novo_ca_email_enabled');
+        var inAppOn = document.getElementById('novo_ca_in_app_enabled');
+        if (!emailOn || !inAppOn) return;
+        msg.textContent = 'Salvando...';
+        msg.className = 'ms-2 small text-muted';
+        fetch('/api/v1/admin/billing/onboarding/novo-ca-notificacoes', {
+            method: 'PATCH',
+            headers: authHeaders(),
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                email_enabled: !!emailOn.checked,
+                in_app_enabled: !!inAppOn.checked
+            })
+        })
+            .then(function(r) { return r.json().then(function(d) { if (!r.ok) throw new Error((d.detail && (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail))) || 'Erro'); return d; }); })
+            .then(function() {
+                msg.textContent = 'Salvo.';
+                msg.className = 'ms-2 small text-success';
+            })
+            .catch(function(err) {
+                msg.textContent = (err && err.message) ? err.message : 'Erro ao salvar.';
+                msg.className = 'ms-2 small text-danger';
+            });
+    });
+
 })();
 </script>
 {% endblock %}

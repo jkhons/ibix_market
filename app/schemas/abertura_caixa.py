@@ -22,6 +22,7 @@ class AberturaCaixaResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     caixa_id: int
+    caixa_identificador: Optional[str] = None
     usuario_id: Optional[int] = None
     data_abertura: datetime
     data_fechamento: Optional[datetime] = None

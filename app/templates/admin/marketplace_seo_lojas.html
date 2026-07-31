@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}SEO avançado — Lojas (Marketplace) | PDV Ibix{% endblock %}
+{% block title %}Gestão global — Lojas na vitrine (SEO) | PDV Ibix{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
     <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <h1 class="h3 d-inline align-middle mb-0">SEO avançado — Lojas na vitrine</h1>
+        <h1 class="h3 d-inline align-middle mb-0">Gestão global — Lojas na vitrine</h1>
         <a href="/negocio/marketplace" class="btn btn-outline-secondary btn-sm">Marketplace</a>
     </div>
-    <p class="text-muted small">Apenas Superadministrador. Os campos abaixo seguem as mesmas regras do <code>PATCH /api/v1/marketplace/loja/{id}</code>.</p>
+    <p class="text-muted small mb-0">Apenas Superadministrador. Esta tela cobre <strong>SEO avançado</strong> de qualquer loja. <strong>Transporte/frete e áreas</strong> ficam centralizados em <a href="/negocio/marketplace/areas-entrega"><strong>Configuração de entregas</strong></a> (mesma página para CA e Superadmin).</p>
 
     <div id="alert-seo-loja"></div>
 
@@ -64,8 +64,13 @@
                             <textarea class="form-control" id="seo-desc-longa" rows="4" maxlength="1200"></textarea>
                             <p class="form-text small text-muted mb-0">Texto do hero; máximo 1200 caracteres.</p>
                         </div>
-                        <button type="submit" class="btn btn-primary" id="btn-salvar-seo-loja">Salvar</button>
+                        <button type="submit" class="btn btn-primary" id="btn-salvar-seo-loja">Salvar SEO</button>
                     </form>
+                </div>
+            </div>
+            <div class="card mt-3">
+                <div class="card-body">
+                    <p class="small mb-0">Para configurar <strong>modo de transporte</strong> (Retirada / Ambos → Entrega própria grátis | valor | Plataforma), <strong>taxa padrão</strong>, <strong>entrega grátis acima de</strong> e <strong>áreas por cidade</strong>, acesse <a class="btn btn-sm btn-outline-primary align-middle" href="/negocio/marketplace/areas-entrega">Configuração de entregas</a>.</p>
                 </div>
             </div>
         </div>

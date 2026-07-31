@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
+from ...core.brand_cookie import apply_host_scoped_cookie
 from ...core.audit import audit_action
 from ...core.logging import log_error, log_security
 from ...core.middleware import AuthMiddleware, require_admin, require_permission
@@ -15,7 +16,7 @@ from ...core.rate_limiter import (
     check_register_rate_limit,
     check_reset_password_rate_limit,
 )
-from ...database.connection import get_db
+from ...database.connection import get_db, get_db_pre_auth
 from ...models import Role, Usuario
 from ...schemas.auth import (
     ForgotPasswordRequest,
@@ -43,7 +44,7 @@ router = APIRouter(prefix="/auth", tags=["Autenticação"])
 async def login(
     request: Request,
     login_data: UserLogin,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Endpoint para login do usuário"""
     try:
@@ -52,7 +53,7 @@ async def login(
         # Realizar login
         client = getattr(request, "client", None)
         ip = getattr(client, "host", "") if client else ""
-        token = AuthService.login_user(db, login_data, ip=ip)
+        token = AuthService.login_user(db, login_data, ip=ip, request=request)
         
         # Buscar dados do usuário
         user = AuthService.get_user_by_id(db, token.user_id)
@@ -87,19 +88,21 @@ async def login(
             content = response_data.dict()
         response = JSONResponse(content=content)
 
-        # Secure=True quando a requisição veio por HTTPS (produção atrás de proxy)
-        is_https = (
-            os.getenv("HTTPS", "").lower() == "true"
-            or (request.url.scheme == "https" or (request.headers.get("x-forwarded-proto") or "").strip().lower() == "https")
-        )
-        response.set_cookie(
+        apply_host_scoped_cookie(
+            response,
             key="pdv_solumatica_token",
             value=token.access_token,
-            httponly=False,
-            secure=is_https,
-            samesite="lax",
+            request=request,
             max_age=28800,
-            path="/"
+            httponly=True,
+        )
+        apply_host_scoped_cookie(
+            response,
+            key="pdv_automscale_token",
+            value=token.access_token,
+            request=request,
+            max_age=28800,
+            httponly=True,
         )
         
         return response
@@ -119,7 +122,7 @@ async def login_mobile(
     request: Request,
     username: str = Form(..., description="Email do usuário"),
     password: str = Form(..., description="Senha do usuário"),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """
     Endpoint de login compatível com aplicativos mobile
@@ -136,7 +139,7 @@ async def login_mobile(
         # Realizar login
         client = getattr(request, "client", None)
         ip = getattr(client, "host", "") if client else ""
-        token = AuthService.login_user(db, login_data, ip=ip)
+        token = AuthService.login_user(db, login_data, ip=ip, request=request)
         
         # Buscar dados do usuário
         user = AuthService.get_user_by_id(db, token.user_id)
@@ -182,13 +185,19 @@ async def login_mobile(
 async def register_public(
     request: Request,
     data: RegisterPublicRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Cadastro público: cria empresa (Cliente) + usuário Cliente Administrador (Saas.md Fase 6).
     Rate limit aplicado (check_register_rate_limit). Recomendado: CAPTCHA e confirmação de e-mail (Saas.md 3.5)."""
     await check_register_rate_limit(request)
     try:
-        user = AuthService.register_public(db, data)
+        from ...services.brand_scope_service import brand_id_from_request
+
+        user = AuthService.register_public(
+            db,
+            data,
+            brand_id=brand_id_from_request(request, db),
+        )
         return {
             "message": "Cadastro realizado. Faça login para acessar.",
             "user_id": user.id,
@@ -211,7 +220,7 @@ async def register_public(
 async def register_representante(
     request: Request,
     data: RegisterRepresentanteRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Cadastro público do Representante (Administrador): cria usuário com role Administrador.
     Rate limit aplicado (check_register_rate_limit)."""
@@ -240,7 +249,7 @@ async def register_representante(
 async def register_influencer(
     request: Request,
     data: RegisterInfluencerRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Cadastro publico do Influencer: cria usuario com role Influencer + divulgador.
     Rate limit aplicado."""
@@ -304,11 +313,13 @@ async def register(
         )
 
 def _get_token_from_request(request: Request) -> Optional[str]:
-    """Token do header Authorization Bearer ou do cookie pdv_solumatica_token."""
+    """Token do header Authorization Bearer ou cookie pdv_solumatica_token / pdv_automscale_token."""
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         return auth_header[7:].strip()
-    return request.cookies.get("pdv_solumatica_token") if request else None
+    if not request:
+        return None
+    return request.cookies.get("pdv_solumatica_token") or request.cookies.get("pdv_automscale_token")
 
 
 @router.post("/logout", response_model=LogoutResponse)
@@ -320,35 +331,23 @@ async def logout(
     client = getattr(request, "client", None)
     ip = getattr(client, "host", "") if client else ""
     log_security("logout", ip=ip, user=str(current_user.id), details="")
-    token = _get_token_from_request(request)
-    if token:
-        from jose import jwt
+    from ...core.auth import blacklist_access_token
+    from ...core.brand_cookie import clear_pdv_auth_cookies
 
-        from ...core.auth import ALGORITHM, SECRET_KEY
-        from ...core.redis_cache import add_token_to_blacklist
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            jti = payload.get("jti")
-            exp = payload.get("exp")
-            if jti and exp:
-                import time
-                ttl = max(0, int(exp) - int(time.time()))
-                add_token_to_blacklist(jti, ttl)
-        except Exception:
-            pass
+    token = _get_token_from_request(request)
+    blacklist_access_token(token)
 
     response_data = LogoutResponse(
         success=True,
-        message="Logout realizado com sucesso"
+        message="Logout realizado com sucesso",
     )
-
-    if "text/html" in (request.headers.get("accept") or ""):
-        from fastapi.responses import JSONResponse
-        response = JSONResponse(content=response_data.dict())
-        response.delete_cookie(key="pdv_solumatica_token")
-        return response
-
-    return response_data
+    try:
+        content = response_data.model_dump()
+    except AttributeError:
+        content = response_data.dict()
+    response = JSONResponse(content=content)
+    clear_pdv_auth_cookies(response, request)
+    return response
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
@@ -420,7 +419,7 @@ MESSAGE_FORGOT_PASSWORD = (
 async def forgot_password(
     request: Request,
     body: ForgotPasswordRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Solicita redefinição de senha (Esqueci minha senha). Resposta sempre igual para não revelar se o e-mail existe."""
     await check_forgot_password_rate_limit(request)
@@ -432,7 +431,7 @@ async def forgot_password(
 @router.get("/redefinir-senha/valida")
 async def redefinir_senha_valida(
     token: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Verifica se o token de redefinição é válido (para o front exibir formulário ou erro)."""
     if not token:
@@ -445,7 +444,7 @@ async def redefinir_senha_valida(
 async def redefinir_senha(
     request: Request,
     body: ResetPasswordRequest,
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db_pre_auth),
 ):
     """Redefine a senha usando o token enviado por e-mail."""
     await check_reset_password_rate_limit(request)

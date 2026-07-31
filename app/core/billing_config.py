@@ -23,9 +23,15 @@ def _get_from_db(db: Optional[Session], chave: str) -> Optional[str]:
     if not db:
         return None
     from app.models import Configuracao
+
     row = db.query(Configuracao).filter(Configuracao.chave == chave).first()
     if row and row.valor is not None and str(row.valor).strip():
-        return str(row.valor).strip()
+        raw = str(row.valor).strip()
+        from app.core.billing_secrets import decrypt_stored_secret, is_billing_secret_key
+
+        if is_billing_secret_key(chave):
+            return decrypt_stored_secret(raw)
+        return raw
     return None
 
 

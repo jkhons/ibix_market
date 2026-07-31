@@ -104,7 +104,7 @@ def _apply_single_pedido_paid(
         record_payment_billing(
             db,
             payment_transaction_id=tx.id,
-            cliente_id=tx.cliente_id,
+            cliente_id=pedido.tenant_id,
             loja_id=pedido.loja_id,
             pedido_id=pedido_id,
             provider=tx.provider_code or "mercadopago",

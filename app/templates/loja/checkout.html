@@ -89,6 +89,13 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-outro-endereco">Usar outro endereço</button>
               </div>
               <div id="wrap-endereco">
+                <div id="cobertura-plataforma-banner" class="alert alert-secondary small mb-3 py-2" style="display:none;" role="status">
+                  <strong>Regiões atendidas neste marketplace:</strong>
+                  quando a plataforma ativa esta lista, a entrega ao endereço só é permitida para as cidades abaixo.
+                  <details class="mt-1 mb-0"><summary style="cursor:pointer;">Ver cidades ativas</summary>
+                    <ul id="cobertura-plataforma-lista-ul" class="small mb-0 mt-2 ps-3"></ul>
+                  </details>
+                </div>
                 <div class="row g-2 mb-2">
                   <div class="col-5">
                     <label class="form-label">CEP *</label>
@@ -127,7 +134,8 @@
                   </div>
                 </div>
                 <div id="frete-indisponivel" class="alert alert-warning" style="display:none;">
-                  Infelizmente não entregamos nessa localidade.
+                  <div id="frete-indisponivel-principal" class="fw-semibold mb-0">Frete não disponível para esse endereço.</div>
+                  <div id="frete-indisponivel-extra" class="small mt-2 mb-0" style="display:none;"></div>
                 </div>
               </div>
             </div>
@@ -460,6 +468,7 @@
       applyLoja(groups[0]);
     }
     fetchFreteRules(groups[0].loja_id);
+    carregarBannerRegioesPlataformaCheckout();
     fillDadosConsumidor();
     renderItensResumo();
   }
@@ -661,8 +670,46 @@
   window._entregaDisponivel = true;
   var _freteCidadeCache = null;
 
+  function resetAlertaFreteIndisponivel() {
+    var box = document.getElementById("frete-indisponivel");
+    var p = document.getElementById("frete-indisponivel-principal");
+    var x = document.getElementById("frete-indisponivel-extra");
+    if (p) p.textContent = "Frete não disponível para esse endereço.";
+    if (x) {
+      x.textContent = "";
+      x.style.display = "none";
+    }
+    if (box) box.style.display = "none";
+  }
+
+  function aplicarAlertaFreteIndisponivel(data) {
+    var box = document.getElementById("frete-indisponivel");
+    var p = document.getElementById("frete-indisponivel-principal");
+    var x = document.getElementById("frete-indisponivel-extra");
+    if (!data || data.entrega_disponivel !== false || !box || !p || !x) return;
+    var m = data.mensagem && String(data.mensagem).trim();
+    p.textContent = m || "Frete não disponível para esse endereço.";
+    if (data.cobertura_plataforma_ativa === true && data.cidade_autorizada_plataforma === false) {
+      x.textContent = "Use um endereço em uma das cidades listadas em «Ver cidades ativas» acima.";
+      x.style.display = "block";
+    } else {
+      x.textContent = "";
+      x.style.display = "none";
+    }
+    box.style.display = "block";
+  }
+
+  function carregarBannerRegioesPlataformaCheckout() {
+    if (!window.Vitrine || typeof window.Vitrine.loadRegioesCoberturaPlataformaVitrine !== "function") return;
+    var ul = document.getElementById("cobertura-plataforma-lista-ul");
+    var banner = document.getElementById("cobertura-plataforma-banner");
+    window.Vitrine.loadRegioesCoberturaPlataformaVitrine(ul).then(function (rows) {
+      if (banner) banner.style.display = rows.length ? "block" : "none";
+    });
+  }
+
   function fetchFreteRules(lojaId) {
-    fetch("/api/v1/loja/" + lojaId + "/frete")
+    fetch("/api/v1/transporte/loja/" + lojaId + "/regras")
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) {
         _freteRules = data;
@@ -673,17 +720,17 @@
 
   function consultarFreteCidade(cidade, uf) {
     var lojaId = parseInt(document.getElementById("loja-checkout-loja-id").value, 10);
-    fetch("/api/v1/loja/" + lojaId + "/frete?cidade=" + encodeURIComponent(cidade) + "&uf=" + encodeURIComponent(uf))
+    fetch("/api/v1/transporte/loja/" + lojaId + "/regras?cidade=" + encodeURIComponent(cidade) + "&uf=" + encodeURIComponent(uf))
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) {
         if (!data) return;
         _freteCidadeCache = data;
         if (data.entrega_disponivel === false) {
-          document.getElementById("frete-indisponivel").style.display = "block";
+          aplicarAlertaFreteIndisponivel(data);
           window._freteCalculado = 0;
           window._entregaDisponivel = false;
         } else {
-          document.getElementById("frete-indisponivel").style.display = "none";
+          resetAlertaFreteIndisponivel();
           window._entregaDisponivel = true;
           if (typeof data.taxa_entrega_cidade !== "undefined") {
             window._freteCalculado = parseFloat(data.taxa_entrega_cidade) || 0;
@@ -820,8 +867,7 @@
   function onTipoEntregaChange() {
     _freteCidadeCache = null;
     window._entregaDisponivel = true;
-    var indisponivelEl = document.getElementById("frete-indisponivel");
-    if (indisponivelEl) indisponivelEl.style.display = "none";
+    resetAlertaFreteIndisponivel();
     renderFreteResumo();
     renderItensResumo();
   }

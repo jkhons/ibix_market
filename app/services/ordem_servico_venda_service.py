@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.nota_servico import NotaServico
 from app.models.ordem_servico import OrdemServico
 from app.models.venda import StatusVenda, Venda, VendaItem
+from app.services.conversao_venda_service import orcamento_raiz_da_os, registrar_origem_ordem_servico
 from app.services.venda_numero import gerar_numero_venda
 
 
@@ -74,6 +75,9 @@ def criar_venda_a_partir_da_os(
     corpo_os = (ordem.observacoes or "").strip()
     observacoes_venda = f"{header_obs}\n\n{corpo_os}" if corpo_os else header_obs
 
+    orcamento_raiz = orcamento_raiz_da_os(db, ordem)
+    orcamento_id_venda = orcamento_raiz.id if orcamento_raiz else None
+
     venda = Venda(
         numero_venda=numero_venda,
         data_venda=data_venda,
@@ -89,6 +93,7 @@ def criar_venda_a_partir_da_os(
         troco=Decimal("0"),
         observacoes=observacoes_venda,
         ordem_servico_id=ordem_id,
+        orcamento_id=orcamento_id_venda,
         nota_servico_id=nota_servico_id,
     )
     db.add(venda)
@@ -122,6 +127,7 @@ def criar_venda_a_partir_da_os(
         )
         db.add(item_venda)
 
+    registrar_origem_ordem_servico(db, venda, ordem, usuario_id, orcamento_raiz=orcamento_raiz)
     db.commit()
     db.refresh(venda)
     venda_completa = (

@@ -6,7 +6,7 @@ Este documento é a **fonte única de verdade** sobre o **modelo de pagamento de
 
 **Escopo:** Não cobre a assinatura SaaS (ver `MAPA_PAGAMENTO.md`). Cobre o fluxo de dinheiro entre consumidor, plataforma e lojista em cenários marketplace/interior: baixo custo, sem split financeiro (split apenas contábil), escalável e competitivo.
 
-**Referências cruzadas:** Frete e transporte em `MAPA_Frete_Transporte.md`; regras obrigatórias em `MAPA_DE_REGRAS.md`; APIs e endpoints em `MAPA_DE_API.md`.
+**Referências cruzadas:** Frete e transporte em `MAPA_Frete_Transporte.md`; regras obrigatórias em `MAPA_DE_REGRAS.md`; APIs e endpoints em `MAPA_DE_API.md`; **implementação vitrine multi-loja (sessão unificada, rateio por tenant)** em `MAPA_DO_SISTEMA.md` § 12, `MAPA_PAGAMENTO.md` § 2.6 e serviço `app/services/payments/marketplace_unified_payment_scope.py`.
 
 ---
 
@@ -67,6 +67,23 @@ Fluxo ideal:
    - Boleto, ou
    - Pix, ou
    - Fatura semanal (agrupada).
+
+### 2.3 Checkout unificado marketplace (carrinho multi-loja — **implementado 2026-05-15**)
+
+Este fluxo mantém o princípio do § 8: **uma cobrança no gateway** (sem split financeiro no provedor); o **parcelamento entre lojistas / CAs** é **somente interno** (contábil e operacional), por **pedido** e por **`tenant_id` do pedido** (`pedidos_marketplace.tenant_id` = cliente/estabelecimento dono da loja).
+
+| Aspecto | Comportamento no sistema |
+|--------|---------------------------|
+| **Cliente** | Um único pagamento (ex.: PIX) no valor total do carrinho. |
+| **Gateway** | Preferência/order com valor agregado; `external_reference` no formato **`mcs:{session_uuid}`**. |
+| **Pedidos** | **N** linhas em `pedidos_marketplace` (uma por loja/`loja_id`) ligadas por **`marketplace_checkout_sessions`** + **`marketplace_checkout_session_pedidos`**. |
+| **`PaymentTransaction`** | **Uma** linha com `checkout_session_id` preenchido, `amount` = soma dos totais, e no registro físico **`cliente_id` / `pedido_id` do pedido âncora** (primeiro da ordenação na sessão) — apenas **rótulo de titularidade no DB**, não o rateio oficial por si só. |
+| **Split interno por CA** | Para cada tenant, **soma dos `pedido.total`** dos pedidos da mesma sessão cujo **`tenant_id`** = aquele CA. Esse valor é o “**bruto atribuível**” ao lojista nesta cobrança. |
+| **Recebíveis (painel CA)** | **`GET /api/v1/payments/transactions?estabelecimentoId=`** lista a transação se o CA é âncora **ou** **participante** da sessão; com filtro por estabelecimento, **`amount`**, **`cliente_id`** e referência de pedido refletem o **trecho daquele tenant**. Serviço: `marketplace_unified_payment_scope.py`. |
+| **Billing uso SaaS** | Em confirmação de pagamento, **`BillingUsageEvent` / `record_payment_billing`** consome **`cliente_id = pedido.tenant_id`** **por pedido** (vários eventos ligados ao mesmo `payment_transaction_id`). |
+| **Repasses (SuperAdmin)** | Listagem de transações, sugestão e resumo por `cliente_id` incluem sessões em que o CA participa e aplicam **o mesmo rateio por tenant** (taxas da empresa **daquele** CA sobre o valor atribuível). |
+
+**Implicação para este documento:** o “**valor_lojista**” e a “**comissão**” sobre a venda online, em cenário multi-loja, devem ser computados **por pedido** (ou agregados por tenant a partir dos pedidos da sessão), **não** tomando apenas `PaymentTransaction.cliente_id` como se fosse único titular quando `checkout_session_id` está presente.
 
 ---
 
@@ -156,7 +173,16 @@ Separar claramente no domínio:
 | `lucro_frete` | `valor_frete − custo_frete` (quando frete plataforma). |
 | `status_repasse` | Pendente, agendado, repassado, etc. |
 
+### 6.3 Checkout unificado (vários pedidos, um pagamento gateway)
+
+| Entidade | Papel |
+|----------|--------|
+| `marketplace_checkout_sessions` | Agrupa os pedidos e o estado da sessão (`mcs:{uuid}` no gateway). |
+| `marketplace_checkout_session_pedidos` | Liga sessão ↔ `pedidos_marketplace` em ordem. |
+| `payment_transactions` (uma linha) | Cobrança agregada; **rateio** para comissão/repasse contábil = somar totais dos pedidos **por `tenant_id`**. |
+
 ---
+
 
 ## 7. Regras obrigatórias para segurança
 
@@ -184,6 +210,7 @@ Separar claramente no domínio:
 | Canal | Fluxo |
 |-------|--------|
 | **ONLINE** | Cliente paga → plataforma recebe → plataforma repassa (após D+7/D+14). |
+| **ONLINE multi-loja (checkout unificado)** | Cliente um pagamento só → gateway um débito → **N pedidos**; **atribuição contábil/operacional por `tenant_id` do pedido** (Recebíveis, billing uso, base de repasse). |
 | **OFFLINE** | Lojista recebe → plataforma cobra depois (boleto/Pix/fatura). |
 | **FRETE** | Padrão: lojista; opcional: plataforma com margem (frete_cliente > custo_entregador). |
 | **SPLIT** | Não usar split no gateway; split apenas contábil interno. |
@@ -207,10 +234,11 @@ Modelo adequado para interior:
 |------|------------------|
 | **Pedido** | valor_produto, valor_frete, forma_pagamento, tipo_frete (lojista / plataforma). |
 | **Financeiro** | comissao_plataforma, valor_lojista, custo_frete, lucro_frete, status_repasse. |
+| **Sessão unificada** | `checkout_session_id` na transação + pedidos ligados (`marketplace_checkout_session_pedidos`); rateio por soma de `pedido.total` por `tenant_id`. |
 | **Repasse** | D+7 ou D+14; nunca mesmo dia. |
 | **Frete plataforma** | frete_cliente, custo_entregador, lucro_frete; sempre margem positiva. |
 | **Lojista** | CNPJ validado; limite inicial; bloqueio se inadimplente. |
 
 ---
 
-**Última atualização:** 2026-03-17 — Criação do documento; modelo formalizado (online/offline, frete, repasse, regras de segurança e split contábil).
+**Última atualização:** 2026-05-15 — § 2.3 checkout unificado multi-loja (split contábil por `pedido.tenant_id`; `PaymentTransaction` âncora; Recebíveis, billing uso e repasse SuperAdmin); tabela § 9 e referência rápida. **Anterior:** 2026-03-17 — criação do documento; modelo formalizado (online/offline, frete, repasse, regras de segurança e split contábil).

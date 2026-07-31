@@ -700,6 +700,45 @@
     return div.innerHTML;
   }
 
+  /** Whitelist pública de cidades do marketplace (GET /api/v1/transporte/regioes-cobertura). Cache por carregamento de página. */
+  var _regPlatRowsCache = null;
+  var _regPlatInflight = null;
+  function getRegioesCoberturaPlataformaVitrine() {
+    if (_regPlatRowsCache) return Promise.resolve(_regPlatRowsCache);
+    if (_regPlatInflight) return _regPlatInflight;
+    _regPlatInflight = fetch("/api/v1/transporte/regioes-cobertura", { credentials: "omit" })
+      .then(function (r) {
+        return r.ok ? r.json() : [];
+      })
+      .then(function (data) {
+        _regPlatRowsCache = Array.isArray(data) ? data : [];
+        return _regPlatRowsCache;
+      })
+      .catch(function () {
+        _regPlatRowsCache = [];
+        return _regPlatRowsCache;
+      })
+      .then(function (rows) {
+        _regPlatInflight = null;
+        return rows;
+      });
+    return _regPlatInflight;
+  }
+
+  /** Preenche um &lt;ul&gt; com cidade · UF (escapado). Retorna a lista de linhas. */
+  function loadRegioesCoberturaPlataformaVitrine(ulEl) {
+    return getRegioesCoberturaPlataformaVitrine().then(function (rows) {
+      if (ulEl) {
+        ulEl.innerHTML = (rows || []).map(function (r) {
+          var c = r && r.cidade ? String(r.cidade) : "";
+          var uf = r && r.uf != null ? String(r.uf) : "";
+          return "<li>" + escapeHtml(c) + " · " + escapeHtml(uf) + "</li>";
+        }).join("");
+      }
+      return rows;
+    });
+  }
+
   /** Garante que imagens seja sempre um array de URLs (API pode enviar lista ou JSON string). */
   function ensureImagensArray(imagens) {
     if (Array.isArray(imagens)) return imagens.filter(Boolean);
@@ -1035,6 +1074,8 @@
     setGeoLocation: setGeoLocation,
     clearGeoLocation: clearGeoLocation,
     GEO_STORAGE_KEY: GEO_STORAGE_KEY,
+    getRegioesCoberturaPlataformaVitrine: getRegioesCoberturaPlataformaVitrine,
+    loadRegioesCoberturaPlataformaVitrine: loadRegioesCoberturaPlataformaVitrine,
   };
 
   window.VitrineUpdateCartBadge = updateCartBadge;

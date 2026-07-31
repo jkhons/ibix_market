@@ -105,6 +105,11 @@
                     <i class="align-middle" data-feather="layout"></i> <span class="align-middle">Marketing Vitrine</span>
                 </a>
             </li>
+            <li class="sidebar-item {% if request.url.path == '/admin/marketing-ibix-lancamento' %}active{% endif %}">
+                <a class="sidebar-link" href="/admin/marketing-ibix-lancamento">
+                    <i class="align-middle" data-feather="calendar"></i> <span class="align-middle">Marketing Ibix — Lançamento</span>
+                </a>
+            </li>
             {% endif %}
             {% if brand_has_marketplace %}
             <li class="sidebar-item {% if request.url.path == '/admin/montagem_anuncio' %}active{% endif %}">
@@ -260,7 +265,7 @@
             </li>
             {% endif %}
 
-            {% if user_permissions and ('certificacao:relatorios:visualizar' in user_permissions or 'negocios.venda:visualizar' in user_permissions) %}
+            {% if user_permissions and ('negocios.relatorios:visualizar' in user_permissions or 'negocios.venda:visualizar' in user_permissions) %}
             <li class="sidebar-header">Relatórios</li>
             <li class="sidebar-item {% if request.url.path == '/negocio/relatorios' or request.url.path == '/relatorios' %}active{% endif %}">
                 <a class="sidebar-link" href="/negocio/relatorios">

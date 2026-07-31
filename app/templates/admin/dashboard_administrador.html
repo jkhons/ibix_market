@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Meu Dashboard | Ibix{% endblock %}
+{% block title %}Meu Dashboard | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block extra_css %}
 <style>

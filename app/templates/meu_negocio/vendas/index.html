@@ -1,17 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}Vendas | PDV Ibix{% endblock %}
+{% block title %}Vendas | {{ brand.nome_exibicao | default('PDV') }}{% endblock %}
 
 {% block extra_head %}
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 <link href="/static/css/pdv.css" rel="stylesheet">
-<style>
-@media print {
-    body * { visibility: hidden; }
-    #cupom-print-area, #cupom-print-area * { visibility: visible; }
-    #cupom-print-area { position: absolute; left: 0; top: 0; width: 100%; }
-}
-</style>
+<script src="/static/js/cupom-caixa-print.js?v={{ pdv_static_version }}"></script>
 {% endblock %}
 
 {% block content %}
@@ -207,7 +201,7 @@
 
 
 <!-- MODAL DETALHES VENDA - COMPLETAMENTE INDEPENDENTE -->
-<div id="modalDetalhesVenda" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+<div id="modalDetalhesVenda" data-venda-id="" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 900px; max-height: 90vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
         <!-- Header -->
         <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
@@ -225,14 +219,17 @@
             <button id="btn-fechar-detalhes-venda-footer" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
                 Fechar
             </button>
+            <button type="button" id="btn-detalhes-editar-pendente" style="display: none; padding: 8px 16px; background: #ffc107; color: #212529; border: none; border-radius: 4px; cursor: pointer;">
+                Editar pedido
+            </button>
             <button type="button" id="btn-detalhes-cancelar-pendente" style="display: none; padding: 8px 16px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
                 Cancelar pedido
             </button>
             <button type="button" id="btn-detalhes-finalizar-pendente" style="display: none; padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
                 Registrar pagamento
             </button>
-            <button id="btn-imprimir-venda" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
-                <i data-feather="printer"></i> Imprimir
+            <button type="button" id="btn-imprimir-venda" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                <i data-feather="printer"></i> Imprimir cupom
             </button>
         </div>
     </div>
@@ -287,7 +284,7 @@
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 880px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column;">
         <!-- Header -->
         <div style="padding: 10px 14px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-            <h5 style="margin: 0; font-size: 16px; font-weight: bold;">Nova Venda</h5>
+            <h5 id="modal-nova-venda-titulo" style="margin: 0; font-size: 16px; font-weight: bold;">Nova Venda</h5>
             <button id="btn-fechar-modal-venda" style="background: none; border: none; font-size: 22px; cursor: pointer;">&times;</button>
         </div>
         
@@ -401,13 +398,15 @@
                                 <span>Subtotal:</span>
                                 <span id="subtotal-venda">R$ 0,00</span>
                             </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; align-items: center;">
                                 <span>Desconto:</span>
-                                <span id="desconto-venda">R$ 0,00</span>
+                                <input type="number" id="input-desconto-venda" value="0" min="0" step="0.01"
+                                       style="width: 90px; padding: 2px 6px; border: 1px solid #ccc; border-radius: 4px; text-align: right; font-size: 12px;">
                             </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; align-items: center;">
                                 <span>Acréscimo:</span>
-                                <span id="acrescimo-venda">R$ 0,00</span>
+                                <input type="number" id="input-acrescimo-venda" value="0" min="0" step="0.01"
+                                       style="width: 90px; padding: 2px 6px; border: 1px solid #ccc; border-radius: 4px; text-align: right; font-size: 12px;">
                             </div>
                         </div>
                         <div>
@@ -550,6 +549,28 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL VENDA CONCLUÍDA (sucesso + impressão de comprovante) -->
+<div id="modalVendaConcluida" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 90%; max-width: 460px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold; color: #28a745;">Venda concluída</h5>
+        </div>
+        <div style="padding: 20px;">
+            <p id="modal-venda-concluida-mensagem" style="margin: 0 0 12px; color: #333; font-size: 15px; line-height: 1.5;"></p>
+            <p id="modal-venda-concluida-extra" style="display: none; margin: 0 0 12px; color: #856404; background: #fff3cd; padding: 10px 12px; border-radius: 4px; font-size: 13px; line-height: 1.45;"></p>
+            <p style="margin: 0; color: #555; font-size: 14px;">Deseja imprimir o comprovante de venda?</p>
+        </div>
+        <div style="padding: 16px 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="btn-venda-concluida-fechar" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                Não imprimir
+            </button>
+            <button type="button" id="btn-venda-concluida-imprimir" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <i data-feather="printer" style="width: 16px; height: 16px;"></i> Imprimir comprovante
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -601,14 +622,17 @@ let modalVenda = {
     cliente: null,
     tipoPagamento: '',
     observacoes: '',
-    valorPago: 0
+    valorPago: 0,
+    vendaEditId: null,
+    numeroVendaEdit: null
 };
 
 let modalNovaVendaController = null;
 let popupFinalizarVendaController = null;
 /** Fluxo do popup: nova venda no PDV vs finalizar venda já criada como PENDENTE (ex.: OS). */
 let popupFinalizarContexto = { modo: 'nova', vendaId: null, vendaJson: null };
-let tenantCupomConfig = { cupom_impressao_modo: 'manual', cupom_tipo: 'nao_fiscal' };
+/** ID da venda aberta no modal Detalhes (mesmo padrão de pedidos). */
+let detalhesVendaIdAtual = null;
 
 // Carregar dados iniciais
 document.addEventListener('DOMContentLoaded', function() {
@@ -620,12 +644,6 @@ document.addEventListener('DOMContentLoaded', function() {
     carregarEstatisticas();
     carregarVendas();
     carregarClientes();
-    authFetch('/api/v1/tenant-config/cupom').then(function(r) {
-        if (r.ok) return r.json();
-        return null;
-    }).then(function(data) {
-        if (data) tenantCupomConfig = data;
-    });
     
     // Event listener para busca de produtos no modal
     document.getElementById('busca-produto').addEventListener('keypress', function(e) {
@@ -700,8 +718,54 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('popup-acrescimo').addEventListener('input', function() {
         atualizarResumoPopup();
     });
-    
+
+    const inputDescontoVenda = document.getElementById('input-desconto-venda');
+    const inputAcrescimoVenda = document.getElementById('input-acrescimo-venda');
+    if (inputDescontoVenda) {
+        inputDescontoVenda.addEventListener('input', atualizarResumoNovo);
+    }
+    if (inputAcrescimoVenda) {
+        inputAcrescimoVenda.addEventListener('input', atualizarResumoNovo);
+    }
+
+    processarDeepLinkFinalizar();
 });
+
+async function processarDeepLinkFinalizar() {
+    const params = new URLSearchParams(window.location.search);
+    const vendaIdRaw = params.get('finalizar');
+    if (!vendaIdRaw) {
+        return;
+    }
+    const vendaId = parseInt(vendaIdRaw, 10);
+    if (!Number.isFinite(vendaId)) {
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+        return;
+    }
+    try {
+        const response = await authFetch('/api/v1/vendas/' + vendaId);
+        if (!response.ok) {
+            alert('Venda não encontrada ou fora do seu escopo de acesso.');
+            return;
+        }
+        const venda = await response.json();
+        const statusNorm = String(venda.status || '').toUpperCase();
+        if (statusNorm === 'PENDENTE') {
+            await abrirPopupFinalizarPendente(venda);
+        } else {
+            alert('A venda ' + DocRef.compactDocRef(venda.numero_venda || vendaId) + ' não está pendente (status: ' + (venda.status || '—') + ').');
+        }
+    } catch (err) {
+        console.error('Erro ao abrir popup de finalização:', err);
+        alert('Não foi possível carregar a venda para finalização.');
+    } finally {
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }
+}
 
 function bindVendaUIEvents() {
     const on = (id, handler) => {
@@ -715,6 +779,11 @@ function bindVendaUIEvents() {
     on('btn-aplicar-filtros', aplicarFiltros);
     on('btn-fechar-detalhes-venda-top', fecharModalDetalhesVenda);
     on('btn-fechar-detalhes-venda-footer', fecharModalDetalhesVenda);
+    on('btn-detalhes-editar-pendente', function() {
+        if (window._vendaDetalhesAberta) {
+            abrirModalEditarPedidoPendente(window._vendaDetalhesAberta);
+        }
+    });
     on('btn-detalhes-finalizar-pendente', function() {
         if (window._vendaDetalhesAberta) {
             abrirPopupFinalizarPendente(window._vendaDetalhesAberta);
@@ -738,6 +807,12 @@ function bindVendaUIEvents() {
     on('btn-fechar-popup-finalizar', fecharPopupFinalizar);
     on('btn-cancelar-popup-finalizar', fecharPopupFinalizar);
     on('btn-confirmar-finalizar-venda', confirmarFinalizarVenda);
+    on('btn-venda-concluida-fechar', fecharModalVendaConcluida);
+    on('btn-venda-concluida-imprimir', function() {
+        var vendaId = window._vendaConcluidaImprimirId;
+        fecharModalVendaConcluida();
+        if (vendaId) imprimirCupomVenda(vendaId);
+    });
     on('btn-adicionar-pagamento', function() { adicionarLinhaPagamento(); });
 
     const listaProdutos = document.getElementById('lista-produtos');
@@ -806,6 +881,12 @@ function bindVendaUIEvents() {
             if (btnEstorno) {
                 const vendaId = Number(btnEstorno.dataset.vendaId);
                 if (Number.isFinite(vendaId)) solicitarEstorno(vendaId);
+                return;
+            }
+            const btnEditar = e.target.closest('[data-action="editar-pendente"]');
+            if (btnEditar) {
+                const vendaId = Number(btnEditar.dataset.vendaId);
+                if (Number.isFinite(vendaId)) abrirModalEditarPedidoPendentePorId(vendaId);
             }
         });
     }
@@ -897,8 +978,11 @@ function atualizarTabela() {
     tbody.innerHTML = vendasData.map(venda => `
         <tr>
             <td>
-                <strong>${venda.numero_venda}</strong>
-                ${venda.ordem_servico_codigo ? `<br><small class="text-muted">Origem: OS ${venda.ordem_servico_codigo}</small>` : ''}
+                ${DocRef.docRefSpan(venda.numero_venda)}
+                ${venda.numero_orcamento ? (venda.orcamento_id ? '<br><small class="doc-ref-origin"><a href="/negocio/orcamentos?detalhe=' + venda.orcamento_id + '">Orç. ' + venda.numero_orcamento + '</a></small>' : DocRef.docRefOriginLine('Orç.', venda.numero_orcamento)) : ''}
+                ${venda.ordem_servico_codigo ? (venda.ordem_servico_id ? '<br><small class="doc-ref-origin"><a href="/negocio/ordem-servico?os=' + venda.ordem_servico_id + '">OS ' + venda.ordem_servico_codigo + '</a></small>' : DocRef.docRefOriginLine('OS', venda.ordem_servico_codigo)) : ''}
+                ${(venda.ordem_servico_codigo && venda.origem_raiz_tipo === 'orcamento' && venda.origem_raiz_ref) ? '<br><small class="doc-ref-origin">Cadeia: ' + DocRef.docRefSpan(venda.origem_raiz_ref, { sub: true }) + ' → ' + DocRef.docRefSpan(venda.ordem_servico_codigo, { sub: true }) + '</small>' : ''}
+                ${(!venda.ordem_servico_codigo && !venda.numero_orcamento && venda.origem_raiz_ref) ? DocRef.docRefOriginLine(venda.origem_raiz_tipo || 'Origem', venda.origem_raiz_ref) : ''}
             </td>
             <td>${formatarDataHora(venda.data_venda)}</td>
             <td>${venda.cliente.nome}</td>
@@ -914,6 +998,11 @@ function atualizarTabela() {
                 <button class="btn btn-sm btn-outline-info" data-action="ver-detalhes" data-venda-id="${venda.id}" title="Visualizar">
                     <i data-feather="eye"></i>
                 </button>
+                ${(venda.status || '').toLowerCase() === 'pendente' ? `
+                <button class="btn btn-sm btn-outline-warning" data-action="editar-pendente" data-venda-id="${venda.id}" title="Editar pedido">
+                    <i data-feather="edit-2"></i>
+                </button>
+                ` : ''}
                 ${(venda.status || '').toLowerCase() === 'finalizada' ? `
                 <button class="btn btn-sm btn-outline-success btn-emitir-nota" data-action="emitir-nota" data-venda-id="${venda.id}" title="Emitir nota fiscal">
                     <i data-feather="file-text"></i>
@@ -945,25 +1034,129 @@ function aplicarFiltros() {
 
 // Abrir modal nova venda
 function abrirModalNovaVenda() {
-    // Resetar dados
+    resetModalVendaState();
+    atualizarTituloModalVenda(false);
+    if (modalNovaVendaController) {
+        modalNovaVendaController.open('block');
+    } else {
+        document.getElementById('modalNovaVenda').style.display = 'block';
+    }
+}
+
+function resetModalVendaState() {
     modalVenda.carrinho = [];
     modalVenda.produtos = [];
     modalVenda.cliente = null;
-    
-    // Limpar formulário (apenas campos que existem no modal)
+    modalVenda.vendaEditId = null;
+    modalVenda.numeroVendaEdit = null;
+    modalVenda.observacoes = '';
+
     document.getElementById('busca-cliente-venda').value = '';
     document.getElementById('cliente-venda-id').value = '';
     document.getElementById('busca-produto').value = '';
+    document.getElementById('input-desconto-venda').value = '0';
+    document.getElementById('input-acrescimo-venda').value = '0';
     limparClienteSelecionado();
-    
-    // Ocultar resultados de busca
     document.getElementById('resultados-busca-cliente').style.display = 'none';
-    
-    // Atualizar interface
+
     atualizarCarrinhoNovo();
     atualizarResumoNovo();
-    
-    // Mostrar modal
+    atualizarBotoesModalVenda();
+}
+
+function atualizarTituloModalVenda(editando) {
+    const titulo = document.getElementById('modal-nova-venda-titulo');
+    if (!titulo) return;
+    if (editando && modalVenda.numeroVendaEdit) {
+        titulo.textContent = 'Editar pedido ' + modalVenda.numeroVendaEdit;
+    } else {
+        titulo.textContent = 'Nova Venda';
+    }
+}
+
+function atualizarBotoesModalVenda() {
+    const btnSalvar = document.getElementById('btn-salvar-pedido-pendente');
+    const btnFinalizar = document.getElementById('btn-finalizar-venda');
+    const editando = Boolean(modalVenda.vendaEditId);
+    if (btnSalvar) {
+        btnSalvar.textContent = editando ? 'Salvar alterações' : 'Salvar pedido (pendente)';
+    }
+    if (btnFinalizar) {
+        btnFinalizar.style.display = editando ? 'none' : '';
+    }
+}
+
+async function abrirModalEditarPedidoPendentePorId(vendaId) {
+    try {
+        const response = await authFetch('/api/v1/vendas/' + vendaId);
+        if (!response.ok) {
+            throw new Error('Não foi possível carregar a venda');
+        }
+        const venda = await response.json();
+        abrirModalEditarPedidoPendente(venda);
+    } catch (error) {
+        console.error(error);
+        alert('Erro ao carregar pedido: ' + (error.message || error));
+    }
+}
+
+function abrirModalEditarPedidoPendente(venda) {
+    if (!venda || !venda.id) {
+        return;
+    }
+    const stNorm = (venda.status || '').toLowerCase();
+    if (stNorm !== 'pendente') {
+        alert('Somente vendas pendentes podem ser editadas.');
+        return;
+    }
+    const itens = venda.itens || [];
+    const itensSemProduto = itens.filter(function(item) {
+        return !item.produto_cliente_id;
+    });
+    if (itensSemProduto.length > 0) {
+        alert('Este pedido possui itens de ordem de serviço sem produto cadastrado. Edite pela ordem de serviço de origem.');
+        return;
+    }
+    if (!itens.length) {
+        alert('Este pedido não possui itens editáveis.');
+        return;
+    }
+
+    fecharModalDetalhesVenda();
+    resetModalVendaState();
+
+    modalVenda.vendaEditId = venda.id;
+    modalVenda.numeroVendaEdit = venda.numero_venda;
+    modalVenda.observacoes = venda.observacoes || '';
+
+    if (venda.cliente && venda.cliente.id) {
+        selecionarClienteVenda(venda.cliente.id, venda.cliente.nome || '', '');
+    }
+
+    document.getElementById('input-desconto-venda').value = Number(venda.desconto || 0);
+    document.getElementById('input-acrescimo-venda').value = Number(venda.acrescimo || 0);
+
+    modalVenda.carrinho = itens.map(function(item) {
+        return {
+            produto: {
+                id: item.produto_cliente_id,
+                codigo: item.produto_codigo || ('ID ' + item.produto_cliente_id),
+                nome: item.produto_nome || 'Produto',
+                quantidade_atual: '—',
+                unidade_medida: ''
+            },
+            quantidade: Number(item.quantidade || 0),
+            valor_unitario: Number(item.valor_unitario || 0),
+            desconto_item: Number(item.desconto_item || 0),
+            observacoes: item.observacoes || null
+        };
+    });
+
+    atualizarTituloModalVenda(true);
+    atualizarCarrinhoNovo();
+    atualizarResumoNovo();
+    atualizarBotoesModalVenda();
+
     if (modalNovaVendaController) {
         modalNovaVendaController.open('block');
     } else {
@@ -973,6 +1166,7 @@ function abrirModalNovaVenda() {
 
 // Fechar modal
 function fecharModalVenda() {
+    resetModalVendaState();
     if (modalNovaVendaController) {
         modalNovaVendaController.close();
     } else {
@@ -1127,13 +1321,13 @@ function atualizarResumoNovo() {
         subtotal += item.quantidade * item.valor_unitario - item.desconto_item;
     });
     
-    const desconto = 0;
-    const acrescimo = 0;
+    const descontoInput = document.getElementById('input-desconto-venda');
+    const acrescimoInput = document.getElementById('input-acrescimo-venda');
+    const desconto = descontoInput ? parseFloat(descontoInput.value || '0') : 0;
+    const acrescimo = acrescimoInput ? parseFloat(acrescimoInput.value || '0') : 0;
     const total = subtotal - desconto + acrescimo;
     
     document.getElementById('subtotal-venda').textContent = formatarMoeda(subtotal);
-    document.getElementById('desconto-venda').textContent = formatarMoeda(desconto);
-    document.getElementById('acrescimo-venda').textContent = formatarMoeda(acrescimo);
     document.getElementById('total-venda').textContent = formatarMoeda(total);
 }
 
@@ -1365,14 +1559,22 @@ async function salvarPedidoPendente() {
     modalVenda.carrinho.forEach(function (item) {
         subtotal += item.quantidade * item.valor_unitario - item.desconto_item;
     });
-    var desconto = 0;
-    var acrescimo = 0;
+    var desconto = parseFloat(document.getElementById('input-desconto-venda').value || '0');
+    var acrescimo = parseFloat(document.getElementById('input-acrescimo-venda').value || '0');
+    if (isNaN(desconto) || desconto < 0 || isNaN(acrescimo) || acrescimo < 0) {
+        alert('Desconto e acréscimo devem ser valores numéricos válidos.');
+        return;
+    }
     var total = subtotal - desconto + acrescimo;
+    if (total < 0) {
+        alert('O total não pode ser negativo. Ajuste desconto, acréscimo ou itens.');
+        return;
+    }
     var clienteIdStr = document.getElementById('cliente-venda-id').value;
     var clienteId = clienteIdStr ? parseInt(clienteIdStr, 10) : null;
     var body = {
         cliente_id: clienteId,
-        observacoes: null,
+        observacoes: modalVenda.observacoes || null,
         subtotal: subtotal,
         desconto: desconto,
         acrescimo: acrescimo,
@@ -1388,9 +1590,13 @@ async function salvarPedidoPendente() {
             };
         })
     };
+    var editando = Boolean(modalVenda.vendaEditId);
+    var url = editando
+        ? ('/api/v1/vendas/' + modalVenda.vendaEditId + '/pedido-pendente')
+        : '/api/v1/vendas/pedido-pendente';
     try {
-        var response = await authFetch('/api/v1/vendas/pedido-pendente', {
-            method: 'POST',
+        var response = await authFetch(url, {
+            method: editando ? 'PUT' : 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify(body)
         });
@@ -1400,8 +1606,10 @@ async function salvarPedidoPendente() {
             alert(msg);
             return;
         }
-        var criada = await response.json();
-        alert('Pedido ' + criada.numero_venda + ' salvo como Pendente. Finalize em Negócios > Vendas ao receber o pagamento.');
+        var salva = await response.json();
+        alert(editando
+            ? ('Pedido ' + DocRef.compactDocRef(salva.numero_venda) + ' atualizado com sucesso.')
+            : ('Pedido ' + DocRef.compactDocRef(salva.numero_venda) + ' salvo como Pendente. Finalize em Negócios > Vendas ao receber o pagamento.'));
         fecharModalVenda();
         carregarVendas();
         carregarEstatisticas();
@@ -1420,14 +1628,15 @@ async function abrirPopupFinalizarPendente(venda) {
     var pa = document.getElementById('popup-acrescimo');
     if (pd) {
         pd.value = Number(venda.desconto || 0);
-        pd.disabled = true;
+        pd.disabled = false;
     }
     if (pa) {
         pa.value = Number(venda.acrescimo || 0);
-        pa.disabled = true;
+        pa.disabled = false;
     }
     document.getElementById('popup-observacoes').value = '';
-    initPagamentosPopup(Number(venda.total || 0));
+    var totaisPopup = obterTotaisFinalizacaoPopup();
+    initPagamentosPopup(totaisPopup.total);
     atualizarResumoPopup();
     await carregarCaixasPopup();
     if (popupFinalizarVendaController) {
@@ -1475,19 +1684,11 @@ async function finalizarVendaNovo() {
         return;
     }
     resetPopupFinalizarContexto();
-    document.getElementById('popup-desconto').value = '0';
-    document.getElementById('popup-acrescimo').value = '0';
-    
-    // Calcular total para pré-preencher primeira linha de pagamento
-    var subtotal = 0;
-    modalVenda.carrinho.forEach(function (item) {
-        subtotal += item.quantidade * item.valor_unitario - item.desconto_item;
-    });
-    var desconto = parseFloat(document.getElementById('popup-desconto').value) || 0;
-    var acrescimo = parseFloat(document.getElementById('popup-acrescimo').value) || 0;
-    var total = subtotal - desconto + acrescimo;
-    
-    initPagamentosPopup(total);
+    document.getElementById('popup-desconto').value = document.getElementById('input-desconto-venda').value || '0';
+    document.getElementById('popup-acrescimo').value = document.getElementById('input-acrescimo-venda').value || '0';
+
+    var totaisPopup = obterTotaisFinalizacaoPopup();
+    initPagamentosPopup(totaisPopup.total);
     atualizarResumoPopup();
     await carregarCaixasPopup();
     
@@ -1495,6 +1696,51 @@ async function finalizarVendaNovo() {
         popupFinalizarVendaController.open('block');
     } else {
         document.getElementById('popupFinalizarVenda').style.display = 'block';
+    }
+}
+
+function mostrarModalVendaConcluida(vendaId, mensagem, mensagemExtra) {
+    window._vendaConcluidaImprimirId = vendaId || null;
+    var msgEl = document.getElementById('modal-venda-concluida-mensagem');
+    var extraEl = document.getElementById('modal-venda-concluida-extra');
+    if (msgEl) msgEl.textContent = mensagem || 'Venda finalizada com sucesso!';
+    if (extraEl) {
+        if (mensagemExtra) {
+            extraEl.textContent = mensagemExtra;
+            extraEl.style.display = 'block';
+        } else {
+            extraEl.textContent = '';
+            extraEl.style.display = 'none';
+        }
+    }
+    document.getElementById('modalVendaConcluida').style.display = 'block';
+    if (typeof feather !== 'undefined') feather.replace();
+}
+
+function fecharModalVendaConcluida() {
+    var modal = document.getElementById('modalVendaConcluida');
+    if (modal) modal.style.display = 'none';
+    window._vendaConcluidaImprimirId = null;
+}
+
+async function emitirNotaFiscalPosVenda(vendaId) {
+    var emitir = document.getElementById('popup-emitir-nota-fiscal') && document.getElementById('popup-emitir-nota-fiscal').checked;
+    if (!emitir || !vendaId) return null;
+    try {
+        var rNota = await authFetchEmitirNota('/api/v1/vendas/' + vendaId + '/emitir-nota', { method: 'POST', headers: getAuthHeaders() });
+        if (rNota.ok) {
+            var dNota = await rNota.json();
+            return dNota.mensagem || 'Nota fiscal emitida com sucesso.';
+        }
+        var errNota = await rNota.json().catch(function() { return {}; });
+        var msgSefaz = typeof errNota.detail === 'string' ? errNota.detail
+            : (Array.isArray(errNota.detail) ? errNota.detail.map(function(d) { return d.msg || d; }).join('; ') : (errNota.detail && errNota.detail.msg));
+        return 'Emissão da nota falhou: ' + (msgSefaz || 'erro desconhecido');
+    } catch (eNota) {
+        if (eNota.name === 'AbortError') {
+            return 'A emissão da nota demorou (timeout). Verifique em Notas Fiscais se a nota foi autorizada.';
+        }
+        return 'Emissão da nota falhou: ' + (eNota.message || eNota);
     }
 }
 
@@ -1509,26 +1755,32 @@ function fecharPopupFinalizar() {
 }
 
 // Atualizar resumo no popup (usa lista de pagamentos fracionados)
-function atualizarResumoPopup() {
+function obterTotaisFinalizacaoPopup() {
     var subtotal;
-    var desconto;
-    var acrescimo;
-    var total;
     if (popupFinalizarContexto.modo === 'existente' && popupFinalizarContexto.vendaJson) {
-        var v = popupFinalizarContexto.vendaJson;
-        subtotal = Number(v.subtotal || 0);
-        desconto = Number(v.desconto || 0);
-        acrescimo = Number(v.acrescimo || 0);
-        total = Number(v.total || 0);
+        subtotal = Number(popupFinalizarContexto.vendaJson.subtotal || 0);
     } else {
         subtotal = 0;
         modalVenda.carrinho.forEach(function (item) {
             subtotal += item.quantidade * item.valor_unitario - item.desconto_item;
         });
-        desconto = parseFloat(document.getElementById('popup-desconto').value) || 0;
-        acrescimo = parseFloat(document.getElementById('popup-acrescimo').value) || 0;
-        total = subtotal - desconto + acrescimo;
     }
+    var desconto = parseFloat(document.getElementById('popup-desconto').value) || 0;
+    var acrescimo = parseFloat(document.getElementById('popup-acrescimo').value) || 0;
+    if (desconto < 0 || acrescimo < 0 || isNaN(desconto) || isNaN(acrescimo)) {
+        desconto = 0;
+        acrescimo = 0;
+    }
+    var total = subtotal - desconto + acrescimo;
+    return { subtotal: subtotal, desconto: desconto, acrescimo: acrescimo, total: total };
+}
+
+function atualizarResumoPopup() {
+    var totais = obterTotaisFinalizacaoPopup();
+    var subtotal = totais.subtotal;
+    var desconto = totais.desconto;
+    var acrescimo = totais.acrescimo;
+    var total = totais.total;
 
     document.getElementById('popup-subtotal').textContent = formatarMoeda(subtotal);
     document.getElementById('popup-desconto-display').textContent = formatarMoeda(desconto);
@@ -1639,13 +1891,17 @@ async function confirmarFinalizarVenda() {
             }
         } catch (e) { console.warn('Erro ao consultar turno de caixa:', e); }
         if (!aberturaCaixaId) {
-            alert('Não há turno aberto para este caixa. Abra o caixa em Negócios > Caixa.');
+            alert('Não há turno aberto para este caixa. Abra o caixa em Negócios > Caixa (/negocio/caixa).');
             return;
         }
 
         if (popupFinalizarContexto.modo === 'existente' && popupFinalizarContexto.vendaId && popupFinalizarContexto.vendaJson) {
-            var vRef = popupFinalizarContexto.vendaJson;
-            var totalRef = Number(vRef.total || 0);
+            var totaisFin = obterTotaisFinalizacaoPopup();
+            var totalRef = totaisFin.total;
+            if (totalRef < 0) {
+                alert('O total não pode ser negativo. Ajuste desconto ou acréscimo.');
+                return;
+            }
             if (valorPago + 0.005 < totalRef) {
                 alert('A soma dos pagamentos (R$ ' + valorPago.toFixed(2) + ') não pode ser menor que o total (R$ ' + totalRef.toFixed(2) + ').');
                 return;
@@ -1656,6 +1912,8 @@ async function confirmarFinalizarVenda() {
                 tipo_pagamento: tipoPagamento,
                 valor_pago: valorPago,
                 troco: trocoEx,
+                desconto: totaisFin.desconto,
+                acrescimo: totaisFin.acrescimo,
                 observacoes: observacoes || null,
                 pagamentos: pagamentos.map(function (p) {
                     return { forma: p.forma, valor: p.valor };
@@ -1673,44 +1931,28 @@ async function confirmarFinalizarVenda() {
                 return;
             }
             var vendaFin = await rFin.json();
-            alert('Venda ' + vendaFin.numero_venda + ' finalizada com sucesso!');
-            var emitirNotaChecked2 = document.getElementById('popup-emitir-nota-fiscal') && document.getElementById('popup-emitir-nota-fiscal').checked;
-            if (emitirNotaChecked2 && vendaFin.id) {
-                try {
-                    var rNota2 = await authFetchEmitirNota('/api/v1/vendas/' + vendaFin.id + '/emitir-nota', { method: 'POST', headers: getAuthHeaders() });
-                    if (rNota2.ok) {
-                        var dNota2 = await rNota2.json();
-                        alert(dNota2.mensagem || 'Nota fiscal emitida com sucesso.');
-                    } else {
-                        var errNota2 = await rNota2.json().catch(function() { return {}; });
-                        var msgSefaz2 = typeof errNota2.detail === 'string' ? errNota2.detail : '';
-                        alert('Venda concluída. Emissão da nota falhou: ' + (msgSefaz2 || 'erro'));
-                    }
-                } catch (eNota2) {
-                    alert('Venda concluída. Emissão da nota falhou: ' + (eNota2.message || eNota2));
-                }
-            }
+            var msgNotaFin = await emitirNotaFiscalPosVenda(vendaFin.id);
             fecharPopupFinalizar();
             fecharModalDetalhesVenda();
             carregarVendas();
             carregarEstatisticas();
-            if (tenantCupomConfig.cupom_tipo === 'nao_fiscal') {
-                if (tenantCupomConfig.cupom_impressao_modo === 'automatico') {
-                    imprimirCupomVenda(vendaFin.id);
-                } else {
-                    mostrarBotaoImprimirCupom(vendaFin.numero_venda, vendaFin.id);
-                }
-            }
+            mostrarModalVendaConcluida(
+                vendaFin.id,
+                'Venda ' + DocRef.compactDocRef(vendaFin.numero_venda) + ' finalizada com sucesso!',
+                msgNotaFin
+            );
             return;
         }
 
-        var desconto = parseFloat(document.getElementById('popup-desconto').value) || 0;
-        var acrescimo = parseFloat(document.getElementById('popup-acrescimo').value) || 0;
-        var subtotal = 0;
-        modalVenda.carrinho.forEach(function (item) {
-            subtotal += item.quantidade * item.valor_unitario - item.desconto_item;
-        });
-        var total = subtotal - desconto + acrescimo;
+        var totaisNova = obterTotaisFinalizacaoPopup();
+        var desconto = totaisNova.desconto;
+        var acrescimo = totaisNova.acrescimo;
+        var subtotal = totaisNova.subtotal;
+        var total = totaisNova.total;
+        if (total < 0) {
+            alert('O total não pode ser negativo. Ajuste desconto ou acréscimo.');
+            return;
+        }
         if (valorPago < total) {
             alert('A soma dos pagamentos (R$ ' + valorPago.toFixed(2) + ') não pode ser menor que o total (R$ ' + total.toFixed(2) + ').');
             return;
@@ -1804,68 +2046,123 @@ async function confirmarFinalizarVenda() {
             } catch (e) { console.warn('Erro ao registrar pagamento:', p, e); }
         }
 
-        if (pendentesGateway > 0) {
-            alert('Venda ' + vendaCriada.numero_venda + ' concluída com pagamento pendente em ' + pendentesGateway + ' forma(s).');
-        } else {
-            alert('Venda ' + vendaCriada.numero_venda + ' finalizada com sucesso!');
-        }
-        var emitirNotaChecked = document.getElementById('popup-emitir-nota-fiscal') && document.getElementById('popup-emitir-nota-fiscal').checked;
-        if (emitirNotaChecked && vendaId) {
-            try {
-                var rNota = await authFetchEmitirNota('/api/v1/vendas/' + vendaId + '/emitir-nota', { method: 'POST', headers: getAuthHeaders() });
-                if (rNota.ok) {
-                    var dNota = await rNota.json();
-                    alert(dNota.mensagem || 'Nota fiscal emitida com sucesso.');
-                } else {
-                    var errNota = await rNota.json().catch(function() { return {}; });
-                    var msgSefaz = typeof errNota.detail === 'string' ? errNota.detail
-                        : (Array.isArray(errNota.detail) ? errNota.detail.map(function(d) { return d.msg || d; }).join('; ') : errNota.detail?.msg);
-                    alert('Venda concluída. Emissão da nota falhou: ' + (msgSefaz || 'erro desconhecido'));
-                }
-            } catch (eNota) {
-                const isTimeout = eNota.name === 'AbortError';
-                const msgNota = isTimeout
-                    ? 'Venda concluída. A emissão demorou (timeout). Verifique em Notas Fiscais se a nota foi autorizada.'
-                    : ('Venda concluída. Emissão da nota falhou: ' + (eNota.message || eNota));
-                alert(msgNota);
-            }
-        }
+        var msgNota = await emitirNotaFiscalPosVenda(vendaId);
+        var msgPrincipal = pendentesGateway > 0
+            ? ('Venda ' + DocRef.compactDocRef(vendaCriada.numero_venda) + ' concluída com pagamento pendente em ' + pendentesGateway + ' forma(s).')
+            : ('Venda ' + DocRef.compactDocRef(vendaCriada.numero_venda) + ' finalizada com sucesso!');
         fecharPopupFinalizar();
         fecharModalVenda();
         carregarVendas();
         carregarEstatisticas();
-
-        if (tenantCupomConfig.cupom_tipo === 'nao_fiscal') {
-            if (tenantCupomConfig.cupom_impressao_modo === 'automatico') {
-                imprimirCupomVenda(vendaId);
-            } else {
-                mostrarBotaoImprimirCupom(vendaCriada.numero_venda, vendaId);
-            }
-        }
+        mostrarModalVendaConcluida(vendaId, msgPrincipal, msgNota);
     } catch (error) {
         console.error('Erro ao finalizar venda:', error);
         alert('Erro de conexão ao finalizar venda: ' + error.message);
     }
 }
 
-function imprimirCupomVenda(vendaId) {
-    authFetch('/api/v1/vendas/' + vendaId + '/cupom').then(function(r) {
-        if (!r.ok) return;
-        return r.json();
-    }).then(function(data) {
-        if (!data || data.tipo === 'fiscal') return;
-        var hasContent = (data.html && data.html.trim()) || (Array.isArray(data.linhas) && data.linhas.length > 0);
-        if (!hasContent) return;
-        var el = document.getElementById('cupom-print-area');
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'cupom-print-area';
-            el.style.cssText = 'position:absolute;left:-9999px;top:0;width:280px;';
-            document.body.appendChild(el);
+function escapeHtmlCupom(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function imprimirCupomRespostaCaixa(data) {
+    if (!data) {
+        alert('Sem conteúdo para impressão.');
+        return;
+    }
+    var hasContent = (data.html && String(data.html).trim()) ||
+        (Array.isArray(data.linhas) && data.linhas.length > 0);
+    if (!hasContent) {
+        alert('Sem conteúdo para impressão.');
+        return;
+    }
+
+    var larguraMm = Number(data.largura_mm) === 58 ? 58 : 80;
+    var contentMm = larguraMm - 8;
+    var styleId = 'venda-cupom-print-style';
+    var areaId = 'venda-cupom-print-area';
+    var css = [
+        '@page { size: ' + larguraMm + 'mm auto; margin: 2mm; }',
+        '@media print {',
+        '  body * { visibility: hidden !important; }',
+        '  #' + areaId + ', #' + areaId + ' * { visibility: visible !important; }',
+        '  #' + areaId + ' {',
+        '    position: absolute !important;',
+        '    left: 0 !important;',
+        '    top: 0 !important;',
+        '    width: ' + contentMm + 'mm !important;',
+        '    max-width: ' + contentMm + 'mm !important;',
+        '    margin: 0 !important;',
+        '  }',
+        '  #modalDetalhesVenda { display: none !important; }',
+        '}'
+    ].join('\n');
+
+    var st = document.getElementById(styleId);
+    if (!st) {
+        st = document.createElement('style');
+        st.id = styleId;
+        document.head.appendChild(st);
+    }
+    st.textContent = css;
+
+    var el = document.getElementById(areaId);
+    if (!el) {
+        el = document.createElement('div');
+        el.id = areaId;
+        el.setAttribute('aria-hidden', 'true');
+        el.style.cssText = 'position:absolute;left:-9999px;top:0;';
+        document.body.appendChild(el);
+    }
+
+    if (data.html && String(data.html).trim()) {
+        el.innerHTML = data.html;
+    } else {
+        el.innerHTML = data.linhas.map(function(l) {
+            return '<div>' + escapeHtmlCupom(l) + '</div>';
+        }).join('');
+    }
+
+    var modal = document.getElementById('modalDetalhesVenda');
+    var modalDisplay = modal ? modal.style.display : '';
+    if (modal) modal.style.display = 'none';
+
+    var restoreModal = function() {
+        if (modal) modal.style.display = modalDisplay || 'block';
+        window.removeEventListener('afterprint', restoreModal);
+    };
+    window.addEventListener('afterprint', restoreModal);
+
+    window.print();
+}
+
+async function imprimirCupomVenda(vendaId) {
+    if (!vendaId) {
+        alert('Venda não identificada para impressão.');
+        return;
+    }
+    try {
+        var response = await authFetch('/api/v1/vendas/' + vendaId + '/cupom', {
+            credentials: 'include',
+            headers: { Accept: 'application/json' }
+        });
+        if (!response.ok) {
+            var err = await response.json().catch(function() { return {}; });
+            throw new Error(err.detail || 'Erro ao obter cupom da venda.');
         }
-        el.innerHTML = data.html || data.linhas.map(function(l) { return '<div>' + (l || '&nbsp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'; }).join('');
-        window.print();
-    });
+        var data = await response.json();
+        if (window.PdvCupomCaixa && window.PdvCupomCaixa.imprimirResposta) {
+            window.PdvCupomCaixa.imprimirResposta(data);
+        } else {
+            imprimirCupomRespostaCaixa(data);
+        }
+    } catch (error) {
+        alert(error.message || 'Erro ao imprimir cupom.');
+    }
 }
 
 function mostrarBotaoImprimirCupom(numeroVenda, vendaId) {
@@ -1888,6 +2185,53 @@ function mostrarBotaoImprimirCupom(numeroVenda, vendaId) {
     }, 15000);
 }
 
+// Monta seção de rastreio comercial (Orç → OS → Venda)
+function montarHtmlRastreioOrigem(venda) {
+    const rotulos = {
+        orcamento: 'Orçamento',
+        ordem_servico: 'Ordem de serviço',
+        manual: 'Manual',
+        pedido: 'Pedido',
+        venda: 'Venda',
+    };
+    const links = {
+        orcamento: (id) => '/negocio/orcamentos?detalhe=' + id,
+        ordem_servico: (id) => '/negocio/ordem-servico?os=' + id,
+    };
+    let passos = [];
+    if (Array.isArray(venda.origem_cadeia) && venda.origem_cadeia.length) {
+        passos = venda.origem_cadeia.filter(function(p) { return p.tipo !== 'venda'; });
+    } else {
+        if (venda.origem_raiz_tipo && venda.origem_raiz_ref) {
+            passos.push({ tipo: venda.origem_raiz_tipo, ref: venda.origem_raiz_ref, documento_id: venda.orcamento_id, convertido_em: null });
+        }
+        if (venda.ordem_servico_codigo) {
+            passos.push({ tipo: 'ordem_servico', ref: venda.ordem_servico_codigo, documento_id: venda.ordem_servico_id, convertido_em: null });
+        } else if (venda.numero_orcamento && !venda.origem_raiz_ref) {
+            passos.push({ tipo: 'orcamento', ref: venda.numero_orcamento, documento_id: venda.orcamento_id, convertido_em: null });
+        }
+    }
+    if (!passos.length) {
+        return '';
+    }
+    const itens = passos.map(function(p) {
+        const label = rotulos[p.tipo] || p.tipo || 'Origem';
+        const ref = p.ref || p.documento_id || '—';
+        const hrefFn = links[p.tipo];
+        const link = (hrefFn && p.documento_id)
+            ? '<a href="' + hrefFn(p.documento_id) + '" style="color:#007bff;">' + label + ' ' + ref + '</a>'
+            : (label + ' ' + ref);
+        const quando = p.convertido_em ? '<br><small style="color:#888;">Convertido em ' + formatarDataHora(p.convertido_em) + '</small>' : '';
+        return '<li style="margin-bottom:6px;">' + link + quando + '</li>';
+    }).join('');
+    return `
+        <div style="margin-top: 20px; padding: 14px; background: #f0f7ff; border-radius: 6px; border: 1px solid #cce5ff;">
+            <h6 style="color: #007bff; margin-bottom: 10px; font-size: 14px; font-weight: bold;">Rastreio de origem</h6>
+            <ul style="margin: 0; padding-left: 18px; color: #444;">${itens}</ul>
+        </div>
+    `;
+}
+
 // Ver detalhes da venda
 async function verDetalhesVenda(vendaId) {
     try {
@@ -1898,6 +2242,9 @@ async function verDetalhesVenda(vendaId) {
         
         const venda = await response.json();
         window._vendaDetalhesAberta = venda;
+        detalhesVendaIdAtual = venda.id;
+        const modalDetalhes = document.getElementById('modalDetalhesVenda');
+        if (modalDetalhes) modalDetalhes.dataset.vendaId = String(venda.id);
         const stNorm = (venda.status || '').toLowerCase();
         
         // Formatar data e hora
@@ -1940,7 +2287,7 @@ async function verDetalhesVenda(vendaId) {
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 8px 0; font-weight: bold; color: #333;">Número:</td>
-                            <td style="padding: 8px 0; color: #666;">${venda.numero_venda}</td>
+                            <td style="padding: 8px 0; color: #666;">${DocRef.docRefSpan(venda.numero_venda)}</td>
                         </tr>
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 8px 0; font-weight: bold; color: #333;">Data e Hora:</td>
@@ -2004,6 +2351,7 @@ async function verDetalhesVenda(vendaId) {
                     ` : ''}
                 </div>
             </div>
+            ${montarHtmlRastreioOrigem(venda)}
             <div style="margin-top: 20px;">
                 <h6 style="color: #007bff; margin-bottom: 15px; font-size: 16px; font-weight: bold;">Itens da Venda</h6>
                 <div style="overflow-x: auto;">
@@ -2038,12 +2386,16 @@ async function verDetalhesVenda(vendaId) {
 
         const btnCan = document.getElementById('btn-detalhes-cancelar-pendente');
         const btnFin = document.getElementById('btn-detalhes-finalizar-pendente');
+        const btnEdit = document.getElementById('btn-detalhes-editar-pendente');
         const isPendente = stNorm === 'pendente';
         if (btnCan) {
             btnCan.style.display = isPendente ? 'inline-block' : 'none';
         }
         if (btnFin) {
             btnFin.style.display = isPendente ? 'inline-block' : 'none';
+        }
+        if (btnEdit) {
+            btnEdit.style.display = isPendente ? 'inline-block' : 'none';
         }
         
         // Re-inicializar ícones Feather
@@ -2060,13 +2412,20 @@ async function verDetalhesVenda(vendaId) {
 function fecharModalDetalhesVenda() {
     document.getElementById('modalDetalhesVenda').style.display = 'none';
     window._vendaDetalhesAberta = null;
+    detalhesVendaIdAtual = null;
+    const modalDetalhes = document.getElementById('modalDetalhesVenda');
+    if (modalDetalhes) modalDetalhes.dataset.vendaId = '';
     const btnCan = document.getElementById('btn-detalhes-cancelar-pendente');
     const btnFin = document.getElementById('btn-detalhes-finalizar-pendente');
+    const btnEdit = document.getElementById('btn-detalhes-editar-pendente');
     if (btnCan) {
         btnCan.style.display = 'none';
     }
     if (btnFin) {
         btnFin.style.display = 'none';
+    }
+    if (btnEdit) {
+        btnEdit.style.display = 'none';
     }
 }
 
@@ -2201,8 +2560,11 @@ function exportarVendas() {
     alert('Funcionalidade em desenvolvimento');
 }
 
-function imprimirVenda() {
-    window.print();
+async function imprimirVenda() {
+    var vendaId = detalhesVendaIdAtual
+        || (window._vendaDetalhesAberta && window._vendaDetalhesAberta.id)
+        || (document.getElementById('modalDetalhesVenda') || {}).dataset.vendaId;
+    await imprimirCupomVenda(vendaId);
 }
 
 // Funções auxiliares

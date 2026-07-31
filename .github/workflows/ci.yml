@@ -1,0 +1,54 @@
+name: CI — testes e isolamento
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: pdv_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ENV: test
+      RLS_ENABLED: "false"
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: pdv_test
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Pytest (unit + governance + Fase 9)
+        run: |
+          python -m pytest tests/ \
+            -q --tb=short \
+            --ignore=tests/test_rls_integration.py \
+            -m "not integration"
+
+      - name: RLS integration (optional)
+        run: |
+          python -m pytest tests/test_rls_integration.py -q --tb=short -m integration || true

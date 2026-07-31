@@ -92,9 +92,13 @@
   }
 
   async function carregarClientes() {
-    const r = await api('/api/v1/clientes/todos');
-    if (!r.ok) return;
-    clientes = await r.json();
+    let r = await api('/api/v1/clientes/todos?para_empresa_fiscal=true');
+    let list = r.ok ? await r.json() : [];
+    if (!list.length) {
+      r = await api('/api/v1/clientes/todos');
+      if (r.ok) list = await r.json();
+    }
+    clientes = list;
     const sel = document.getElementById('cliente_id');
     sel.innerHTML = '<option value="">— Selecione —</option>';
     clientes.forEach(c => { sel.innerHTML += `<option value="${c.id}">${(c.nome || '').substring(0, 50)}</option>`; });

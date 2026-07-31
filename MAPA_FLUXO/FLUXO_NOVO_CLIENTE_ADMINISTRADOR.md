@@ -69,6 +69,9 @@ Qualquer pessoa acessa a página de cadastro e cria em um único passo: **Client
 | Template | `app/templates/auth/register_public.html` |
 | API | `POST /api/v1/auth/register/public` |
 | Rate limit | Aplicado (check_register_rate_limit) |
+| Pós-sucesso (plataforma) | Opcional: e-mail e notificação no sino (`usuario_notificacoes`) para usuários com role **Superadministrador**, conforme flags `platform_novo_ca_email_enabled` e `platform_novo_ca_in_app_enabled` (Configuração em **Cobranças > Config**). Implementação: `app/services/platform_novo_ca_notify_service.py`. |
+| Convite Superadmin | Aba **Convidar comércio (cadastro)** em **`/clientes`** — chama `POST /api/v1/admin/billing/onboarding/convite-lojista` (link com query `codigo_promocional` quando informado). |
+| Cadastro com código na URL | `GET /cadastro?codigo_promocional=...` (ou `?codigo=`) pré-preenche o campo no template `register_public.html`. |
 
 ### O que é criado (register_public)
 
@@ -82,7 +85,8 @@ Qualquer pessoa acessa a página de cadastro e cria em um único passo: **Client
 
 - Email único no sistema
 - CNPJ válido e único (`app/utils/cnpj_validator.py`)
-- Schema: `RegisterPublicRequest` — nome, email, password, confirm_password, nome_empresa, cnpj, cep, endereco, cidade, uf, contato, telefone
+- Schema: `RegisterPublicRequest` — nome, email, password, confirm_password, nome_empresa, cnpj, cep, endereco, cidade, uf, contato, telefone, dados bancários/PIX, **`categorias_vitrine_ids`** (ao menos uma; categorias ativas da vitrine = `material_categoria`, mesma lista de `GET /api/v1/loja/categorias`)
+- Superadmin: **`GET /api/v1/clientes/{id}/perfil-lojista`** e botão «ver» em `/clientes` exibem empresa, responsável CA, bancário, categorias, tenant e loja marketplace
 
 ### Diagrama cadastro público
 

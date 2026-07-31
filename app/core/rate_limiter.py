@@ -280,13 +280,20 @@ async def check_rate_limit(request: Request) -> None:
             }
         )
 
+def get_brand_scoped_rate_key(request: Request) -> str:
+    """Chave Redis/IP escopada por marca (Fase 5 — isolamento por brand_slug)."""
+    from .hardening import rate_limit_brand_slug
+
+    return f"{rate_limit_brand_slug(request)}:{get_client_ip(request)}"
+
+
 async def check_login_rate_limit(request: Request) -> None:
     """Rate limit mais restritivo para login"""
-    client_ip = get_client_ip(request)
-    allowed, error_message = await asyncio.to_thread(login_rate_limiter.is_allowed, client_ip)
+    rate_key = get_brand_scoped_rate_key(request)
+    allowed, error_message = await asyncio.to_thread(login_rate_limiter.is_allowed, rate_key)
 
     if not allowed:
-        log_error(f"Rate limit de login excedido para IP {client_ip}: {error_message}")
+        log_error(f"Rate limit de login excedido para {rate_key}: {error_message}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={
@@ -298,10 +305,10 @@ async def check_login_rate_limit(request: Request) -> None:
 
 async def check_register_rate_limit(request: Request) -> None:
     """Rate limit para cadastro público (menos requisições por janela maior)."""
-    client_ip = get_client_ip(request)
-    allowed, error_message = await asyncio.to_thread(register_rate_limiter.is_allowed, client_ip)
+    rate_key = get_brand_scoped_rate_key(request)
+    allowed, error_message = await asyncio.to_thread(register_rate_limiter.is_allowed, rate_key)
     if not allowed:
-        log_error(f"Rate limit de cadastro excedido para IP {client_ip}: {error_message}")
+        log_error(f"Rate limit de cadastro excedido para {rate_key}: {error_message}")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail={"error": "Rate limit exceeded", "message": error_message, "retry_after": 60},
@@ -309,8 +316,8 @@ async def check_register_rate_limit(request: Request) -> None:
 
 async def check_loja_login_rate_limit(request: Request) -> None:
     """Rate limit para POST /loja/login (5/min por IP)."""
-    client_ip = get_client_ip(request)
-    allowed, _ = await asyncio.to_thread(loja_login_rate_limiter.is_allowed, client_ip)
+    rate_key = get_brand_scoped_rate_key(request)
+    allowed, _ = await asyncio.to_thread(loja_login_rate_limiter.is_allowed, rate_key)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -321,8 +328,8 @@ async def check_loja_login_rate_limit(request: Request) -> None:
 
 async def check_loja_cadastro_rate_limit(request: Request) -> None:
     """Rate limit para POST /loja/cadastro (3/min por IP)."""
-    client_ip = get_client_ip(request)
-    allowed, _ = await asyncio.to_thread(loja_cadastro_rate_limiter.is_allowed, client_ip)
+    rate_key = get_brand_scoped_rate_key(request)
+    allowed, _ = await asyncio.to_thread(loja_cadastro_rate_limiter.is_allowed, rate_key)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

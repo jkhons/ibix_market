@@ -12,7 +12,13 @@ from ...schemas.mobile import (
 from ...services.cupom_service import listar_disponiveis, validar_cupom
 from .loja import get_current_consumidor
 
-router = APIRouter(prefix="/loja/cupons", tags=["Loja – Cupons"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja/cupons",
+    tags=["Loja – Cupons"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 @router.post("/validar", response_model=CupomValidarResponse)

@@ -24,6 +24,13 @@ def _fmt_date(d) -> str:
     return str(d)
 
 
+from app.core.document_ref import compact_doc_ref
+
+
+def _ref_pdf(ref) -> str:
+    return compact_doc_ref(ref, fallback="")
+
+
 def gerar_pdf_orcamento(dados: dict) -> bytes:
     """
     Gera PDF do orçamento a partir de um dicionário com: numero_orcamento, data_validade, status,
@@ -41,12 +48,13 @@ def gerar_pdf_orcamento(dados: dict) -> bytes:
             <td>R$ {_fmt_dec(i.get('total_item'))}</td>
         </tr>
         """
+    numero = _ref_pdf(dados.get("numero_orcamento"))
     html = f"""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8"/><title>Orçamento {dados.get('numero_orcamento') or ''}</title></head>
+    <head><meta charset="utf-8"/><title>Orçamento {numero}</title></head>
     <body style="font-family: sans-serif; padding: 20px;">
-        <h1>Orçamento {dados.get('numero_orcamento') or ''}</h1>
+        <h1>Orçamento {numero}</h1>
         <p>Validade: {_fmt_date(dados.get('data_validade'))} | Status: {dados.get('status') or ''}</p>
         <p>{dados.get('titulo_unidade') or 'Unidade (estabelecimento)'}: {dados.get('cliente_nome') or ''}</p>
         <p>{dados.get('titulo_consumidor') or 'Consumidor'}: {dados.get('destinatario_nome') or '-'}</p>
@@ -88,12 +96,13 @@ def gerar_pdf_pedido(dados: dict) -> bytes:
             <td>R$ {_fmt_dec(i.get('total_item'))}</td>
         </tr>
         """
+    numero = _ref_pdf(dados.get("numero_pedido"))
     html = f"""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="utf-8"/><title>Pedido {dados.get('numero_pedido') or ''}</title></head>
+    <head><meta charset="utf-8"/><title>Pedido {numero}</title></head>
     <body style="font-family: sans-serif; padding: 20px;">
-        <h1>Pedido {dados.get('numero_pedido') or ''}</h1>
+        <h1>Pedido {numero}</h1>
         <p>Data: {_fmt_date(dados.get('data_pedido'))} | Previsão entrega: {_fmt_date(dados.get('data_prevista_entrega'))} | Status: {dados.get('status') or ''}</p>
         <p>Estabelecimento: {dados.get('cliente_nome') or ''}</p>
         <table style="width:100%; border-collapse: collapse; margin-top: 16px;">

@@ -5,6 +5,12 @@ class ClientesManager {
         this.itemsPerPage = 10;
         this.currentFilters = {};
         this.clienteEmEdicao = null;
+        /** Aba Superadmin: compradores vitrine (GET /api/v1/marketplace/consumidores) */
+        this.mpSkip = 0;
+        this.mpLimit = 50;
+        this.mpTotal = 0;
+        this.mpTabInitialized = false;
+        this.isSuperadmin = !!(typeof window !== 'undefined' && window.CLIENTES_SUPERADMIN);
         
         this.init();
     }
@@ -14,6 +20,7 @@ class ClientesManager {
         this.setupMasks();
         this.carregarClientes();
         this.carregarPdvClientePadrao();
+        this.setupMarketplaceConsumidoresTab();
     }
     
     setupEventListeners() {
@@ -68,6 +75,192 @@ class ClientesManager {
         }
         
         // Modal de cliente é overlay custom (display block/none); limpeza ao fechar em fecharModalCliente() no template
+    }
+
+    setupMarketplaceConsumidoresTab() {
+        const tabsEl = document.getElementById('clientesMainTabs');
+        if (!tabsEl) return;
+        tabsEl.addEventListener('shown.bs.tab', (ev) => {
+            const t = ev.target;
+            if (t && t.id === 'tab-clientes-mp-btn') {
+                if (!this.mpTabInitialized) {
+                    this.mpTabInitialized = true;
+                    this.mpSkip = 0;
+                    this.carregarConsumidoresMarketplace();
+                }
+            }
+        });
+        const btnBuscar = document.getElementById('mpBtnBuscar');
+        if (btnBuscar) {
+            btnBuscar.addEventListener('click', () => {
+                this.mpSkip = 0;
+                this.carregarConsumidoresMarketplace();
+            });
+        }
+        const btnLimpar = document.getElementById('mpBtnLimpar');
+        if (btnLimpar) {
+            btnLimpar.addEventListener('click', () => this.limparFiltrosMarketplace());
+        }
+    }
+
+    limparFiltrosMarketplace() {
+        const ids = ['mpFiltroNome', 'mpFiltroEmail', 'mpFiltroTenant', 'mpFiltroTipo'];
+        ids.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        this.mpSkip = 0;
+        this.carregarConsumidoresMarketplace();
+    }
+
+    _escapeHtml(str) {
+        if (str == null || str === '') return '';
+        const d = document.createElement('div');
+        d.textContent = String(str);
+        return d.innerHTML;
+    }
+
+    async carregarConsumidoresMarketplace() {
+        const tbody = document.getElementById('tabelaConsumidoresMp');
+        if (!tbody) return;
+        try {
+            const params = new URLSearchParams({
+                skip: String(this.mpSkip),
+                limit: String(this.mpLimit),
+                somente_cadastro_loja_html: 'true',
+            });
+            const nome = (document.getElementById('mpFiltroNome') && document.getElementById('mpFiltroNome').value || '').trim();
+            const email = (document.getElementById('mpFiltroEmail') && document.getElementById('mpFiltroEmail').value || '').trim();
+            const tenantRaw = (document.getElementById('mpFiltroTenant') && document.getElementById('mpFiltroTenant').value || '').trim();
+            const tipo = (document.getElementById('mpFiltroTipo') && document.getElementById('mpFiltroTipo').value || '').trim();
+            if (nome) params.set('nome', nome);
+            if (email) params.set('email', email);
+            if (tenantRaw) params.set('tenant_id', tenantRaw);
+            if (tipo) params.set('tipo_consumidor', tipo);
+
+            const token = this.getToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const response = await fetch(`/api/v1/marketplace/consumidores?${params}`, {
+                headers,
+                credentials: 'include',
+            });
+            if (!response.ok) {
+                const txt = await response.text();
+                let detail = txt;
+                try {
+                    const j = JSON.parse(txt);
+                    if (j.detail) detail = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail);
+                } catch (e) { /* ignore */ }
+                throw new Error(detail || `Erro ${response.status}`);
+            }
+            const data = await response.json();
+            this.mpTotal = data.total != null ? Number(data.total) : 0;
+            this.renderizarTabelaConsumidoresMp(data.items || []);
+            this.renderizarPaginacaoMp();
+            this.atualizarInfoPaginaMp();
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">${
+                this._escapeHtml(err.message || 'Erro ao carregar compradores da vitrine')
+            }</td></tr>`;
+            this.mpTotal = 0;
+            const pag = document.getElementById('paginacaoMp');
+            if (pag) pag.innerHTML = '';
+            const info = document.getElementById('infoPaginaMp');
+            if (info) info.textContent = '—';
+        }
+    }
+
+    renderizarTabelaConsumidoresMp(items) {
+        const tbody = document.getElementById('tabelaConsumidoresMp');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Nenhum comprador encontrado</td></tr>';
+            if (window.feather) feather.replace();
+            return;
+        }
+        items.forEach((c) => {
+            const tr = document.createElement('tr');
+            const tid = c.tenant_id != null ? String(c.tenant_id) : '';
+            const tnome = (c.tenant_nome && String(c.tenant_nome).trim()) || '';
+            const estab = tnome
+                ? `${this._escapeHtml(tnome)} <span class="text-muted">(#${this._escapeHtml(tid)})</span>`
+                : tid
+                    ? `<span class="text-muted">#${this._escapeHtml(tid)}</span>`
+                    : '<span class="text-muted">— (vitrine central)</span>';
+            const mk = c.aceite_marketing ? 'Sim' : 'Não';
+            const criado = c.created_at ? String(c.created_at).slice(0, 19).replace('T', ' ') : '';
+            tr.innerHTML = `
+                <td>${this._escapeHtml(String(c.id))}</td>
+                <td>${estab}</td>
+                <td>${this._escapeHtml(c.nome || '')}</td>
+                <td>${this._escapeHtml(c.email || '')}</td>
+                <td>${this._escapeHtml(c.telefone || '')}</td>
+                <td>${this._escapeHtml(c.tipo_consumidor || '')}</td>
+                <td>${this._escapeHtml(c.status_cadastro || '')}</td>
+                <td>${mk}</td>
+                <td>${this._escapeHtml(criado)}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (window.feather) feather.replace();
+    }
+
+    atualizarInfoPaginaMp() {
+        const info = document.getElementById('infoPaginaMp');
+        if (!info) return;
+        const total = this.mpTotal || 0;
+        if (total === 0) {
+            info.textContent = 'Nenhum registro';
+            return;
+        }
+        const inicio = this.mpSkip + 1;
+        const fim = Math.min(this.mpSkip + this.mpLimit, total);
+        info.textContent = `Mostrando ${inicio} a ${fim} de ${total} comprador(es) da vitrine`;
+    }
+
+    renderizarPaginacaoMp() {
+        const ul = document.getElementById('paginacaoMp');
+        if (!ul) return;
+        ul.innerHTML = '';
+        const total = this.mpTotal || 0;
+        const limit = this.mpLimit || 50;
+        const totalPaginas = Math.max(1, Math.ceil(total / limit));
+        const paginaAtual = Math.min(totalPaginas, Math.floor(this.mpSkip / limit) + 1);
+
+        if (totalPaginas <= 1) return;
+
+        const addBtn = (label, page, disabled, active) => {
+            const li = document.createElement('li');
+            li.className = `page-item ${disabled ? 'disabled' : ''} ${active ? 'active' : ''}`;
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'page-link';
+            b.textContent = label;
+            if (!disabled && !active) {
+                b.addEventListener('click', () => this.irParaPaginaMp(page));
+            }
+            li.appendChild(b);
+            ul.appendChild(li);
+        };
+
+        addBtn('Anterior', paginaAtual - 1, paginaAtual <= 1, false);
+        const inicio = Math.max(1, paginaAtual - 2);
+        const fim = Math.min(totalPaginas, paginaAtual + 2);
+        for (let i = inicio; i <= fim; i++) {
+            addBtn(String(i), i, false, i === paginaAtual);
+        }
+        addBtn('Próximo', paginaAtual + 1, paginaAtual >= totalPaginas, false);
+    }
+
+    irParaPaginaMp(pagina) {
+        const limit = this.mpLimit || 50;
+        const totalPaginas = Math.max(1, Math.ceil((this.mpTotal || 0) / limit));
+        if (pagina < 1 || pagina > totalPaginas) return;
+        this.mpSkip = (pagina - 1) * limit;
+        this.carregarConsumidoresMarketplace();
     }
     
     setupMasks() {
@@ -258,31 +451,24 @@ class ClientesManager {
         
         clientes.forEach(cliente => {
             const row = document.createElement('tr');
+            const nomeEsc = this._escapeHtml(cliente.nome || '');
+            const nomeAttr = (cliente.nome || '').replace(/'/g, "\\'");
+            let acoes = '';
+            if (this.isSuperadmin) {
+                acoes += `<button type="button" class="btn btn-sm btn-outline-info" onclick="clientesManager.verPerfilLojista(${cliente.id})" title="Ver dados do lojista (CA)"><i class="align-middle" data-feather="eye"></i></button>`;
+            }
+            acoes += `<button type="button" class="btn btn-sm btn-outline-success" onclick="abrirModalUsuarioCliente(${cliente.id}, '${nomeAttr}')" title="Criar Usuário"><i class="align-middle" data-feather="user-plus"></i></button>`;
+            acoes += `<button type="button" class="btn btn-sm btn-outline-primary" onclick="clientesManager.editarCliente(${cliente.id})"><i class="align-middle" data-feather="edit-2"></i></button>`;
+            acoes += `<button type="button" class="btn btn-sm btn-outline-danger" onclick="clientesManager.excluirCliente(${cliente.id})"><i class="align-middle" data-feather="trash-2"></i></button>`;
             row.innerHTML = `
                 <td>${cliente.id}</td>
-                <td>${cliente.nome}</td>
-                <td>${cliente.cnpj || cliente.cpf || ''}</td>
-                <td>${cliente.cidade}/${cliente.uf}</td>
-                <td>${cliente.contato}</td>
-                <td>${cliente.telefone}</td>
-                <td>${cliente.email}</td>
-                <td>
-                    <div class="btn-group" role="group">
-                        <button type="button" class="btn btn-sm btn-outline-success" 
-                                onclick="abrirModalUsuarioCliente(${cliente.id}, '${cliente.nome.replace(/'/g, "\\'")}')"
-                                title="Criar Usuário">
-                            <i class="align-middle" data-feather="user-plus"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-primary" 
-                                onclick="clientesManager.editarCliente(${cliente.id})">
-                            <i class="align-middle" data-feather="edit-2"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger" 
-                                onclick="clientesManager.excluirCliente(${cliente.id})">
-                            <i class="align-middle" data-feather="trash-2"></i>
-                        </button>
-                    </div>
-                </td>
+                <td>${nomeEsc}</td>
+                <td>${this._escapeHtml(cliente.cnpj || cliente.cpf || '')}</td>
+                <td>${this._escapeHtml(cliente.cidade)}/${this._escapeHtml(cliente.uf)}</td>
+                <td>${this._escapeHtml(cliente.contato)}</td>
+                <td>${this._escapeHtml(cliente.telefone)}</td>
+                <td>${this._escapeHtml(cliente.email)}</td>
+                <td><div class="btn-group" role="group">${acoes}</div></td>
             `;
             tbody.appendChild(row);
         });
@@ -606,6 +792,112 @@ class ClientesManager {
         }
     }
     
+    _dlRow(container, label, value) {
+        if (!container) return;
+        const dt = document.createElement('dt');
+        dt.className = 'col-sm-4';
+        dt.textContent = label;
+        const dd = document.createElement('dd');
+        dd.className = 'col-sm-8';
+        dd.textContent = (value != null && value !== '') ? String(value) : '—';
+        container.appendChild(dt);
+        container.appendChild(dd);
+    }
+
+    async verPerfilLojista(clienteId) {
+        if (!this.isSuperadmin) return;
+        const modalEl = document.getElementById('modalPerfilLojista');
+        if (!modalEl || typeof bootstrap === 'undefined') {
+            this.mostrarAlerta('Modal de perfil indisponível.', 'warning');
+            return;
+        }
+        const loading = document.getElementById('perfil-lojista-loading');
+        const erro = document.getElementById('perfil-lojista-erro');
+        const conteudo = document.getElementById('perfil-lojista-conteudo');
+        const title = document.getElementById('modalPerfilLojistaLabel');
+        if (loading) loading.classList.remove('d-none');
+        if (erro) { erro.classList.add('d-none'); erro.textContent = ''; }
+        if (conteudo) conteudo.classList.add('d-none');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+        try {
+            const token = this.getToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const response = await fetch(`/api/v1/clientes/${clienteId}/perfil-lojista`, {
+                headers,
+                credentials: 'include',
+            });
+            const data = await response.json().catch(function() { return {}; });
+            if (!response.ok) {
+                throw new Error((data && data.detail) ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Erro ao carregar perfil do lojista.');
+            }
+            if (title) title.textContent = 'Lojista: ' + (data.empresa && data.empresa.nome ? data.empresa.nome : ('#' + clienteId));
+            const emp = document.getElementById('perfil-lojista-empresa');
+            const resp = document.getElementById('perfil-lojista-responsavel');
+            const banco = document.getElementById('perfil-lojista-bancario');
+            const cats = document.getElementById('perfil-lojista-categorias');
+            const tenant = document.getElementById('perfil-lojista-tenant');
+            const loja = document.getElementById('perfil-lojista-loja');
+            [emp, resp, banco, tenant, loja].forEach(function(el) { if (el) el.innerHTML = ''; });
+            if (cats) cats.innerHTML = '';
+            const e = data.empresa || {};
+            this._dlRow(emp, 'Razão social', e.nome);
+            this._dlRow(emp, 'CNPJ', e.cnpj);
+            this._dlRow(emp, 'E-mail', e.email);
+            this._dlRow(emp, 'Telefone', e.telefone);
+            this._dlRow(emp, 'Contato', e.contato);
+            this._dlRow(emp, 'Endereço', [e.endereco, e.cidade, e.uf].filter(Boolean).join(' — '));
+            this._dlRow(emp, 'CEP', e.cep);
+            this._dlRow(emp, 'Cadastro em', e.created_at);
+            const ef = data.empresa_fiscal || {};
+            this._dlRow(emp, 'Empresa fiscal (ID)', ef.id);
+            this._dlRow(emp, 'Ambiente fiscal', ef.ambiente);
+            const r = data.responsavel_ca || {};
+            this._dlRow(resp, 'Nome', r.nome);
+            this._dlRow(resp, 'E-mail', r.email);
+            this._dlRow(resp, 'Usuário ID', r.usuario_id);
+            this._dlRow(resp, 'Perfil', r.role);
+            this._dlRow(resp, 'Ativo', r.ativo === true ? 'Sim' : (r.ativo === false ? 'Não' : '—'));
+            this._dlRow(banco, 'Banco', e.banco_nome);
+            this._dlRow(banco, 'Código banco', e.banco_codigo);
+            this._dlRow(banco, 'Agência / Conta', [e.agencia, e.conta].filter(Boolean).join(' / '));
+            this._dlRow(banco, 'Tipo conta', e.tipo_conta);
+            this._dlRow(banco, 'PIX', e.pix_chave);
+            const listaCats = data.categorias_vitrine || [];
+            if (cats) {
+                if (!listaCats.length) {
+                    cats.innerHTML = '<p class="small text-muted mb-0">Nenhuma categoria registrada (cadastro anterior à coleta ou não informado).</p>';
+                } else {
+                    cats.innerHTML = '<ul class="list-unstyled small mb-0">' + listaCats.map(function(c) {
+                        return '<li><span class="badge bg-light text-dark border me-1">' + (c.nome || c.id) + '</span></li>';
+                    }).join('') + '</ul>';
+                }
+            }
+            const t = data.tenant || {};
+            this._dlRow(tenant, 'Tenant ID', t.id);
+            this._dlRow(tenant, 'Nome', t.nome);
+            this._dlRow(tenant, 'Slug', t.slug);
+            const lm = data.loja_marketplace;
+            if (!lm) {
+                this._dlRow(loja, 'Status', 'Sem loja marketplace cadastrada');
+            } else {
+                this._dlRow(loja, 'Nome', lm.nome_fantasia || lm.nome_loja);
+                this._dlRow(loja, 'Slug', lm.slug);
+                this._dlRow(loja, 'Status', lm.status);
+            }
+            if (conteudo) conteudo.classList.remove('d-none');
+        } catch (err) {
+            if (erro) {
+                erro.textContent = err.message || 'Erro ao carregar perfil.';
+                erro.classList.remove('d-none');
+            }
+        } finally {
+            if (loading) loading.classList.add('d-none');
+            if (window.feather) feather.replace();
+        }
+    }
+
     async editarCliente(id) {
         try {
             const token = this.getToken();

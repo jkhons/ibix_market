@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import Response
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.audit import audit_action
 from app.core.middleware import AuthMiddleware, forbid_cliente_access, get_cliente_scope_dep
@@ -33,6 +34,15 @@ from app.schemas.ordem_servico import (
 from app.schemas.venda import VendaResponse
 from app.services.ordem_servico_service import OrdemServicoService
 from app.services.ordem_servico_venda_service import criar_venda_a_partir_da_os
+from app.services.conversao_venda_service import tenant_id_do_vendedor
+from app.services.documento_impressao_service import (
+    gerar_pdf_bytes,
+    gerar_pdf_ordem_servico_com_template,
+    montar_contexto_ordem_servico,
+    renderizar_html,
+    template_padrao_tenant,
+)
+from app.api.v1.vendas import _venda_response_orm
 
 # Sem forbid_cliente_access no router: Subcliente pode GET (lista, detalhe) com escopo.
 # Rotas de escrita usam Depends(forbid_cliente_access) individualmente.
@@ -405,14 +415,59 @@ def enviar_ordem_para_vendas(
         tenant_id=getattr(current_user, "tenant_id", None),
         recurso_tipo="venda",
         recurso_id=venda.id,
-        detalhes=f"numero={venda.numero_venda} ordem_servico_id={ordem_id}",
+        detalhes=f"numero={venda.numero_venda} ordem_servico_id={ordem_id} origem=ordem_servico",
     )
-    # garante que defaults do banco (timestamps) e relacionamentos estejam carregados
-    db.refresh(venda)
-    for it in (venda.itens or []):
-        db.refresh(it)
+    return _venda_response_orm(db, venda.id)
 
-    return VendaResponse.model_validate(venda, from_attributes=True)
+
+@router.get("/{ordem_id}/pdf")
+def download_pdf_ordem_servico(
+    ordem_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(AuthMiddleware.get_current_user),
+    scope: ClienteScope = Depends(get_cliente_scope_dep),
+):
+    """Gera PDF da ordem de serviço (template tenant ou HTML padrão)."""
+    ordem = (
+        db.query(OrdemServico)
+        .options(
+            joinedload(OrdemServico.itens),
+            joinedload(OrdemServico.cliente),
+            joinedload(OrdemServico.tipo_rel),
+        )
+        .filter(OrdemServico.id == ordem_id)
+        .first()
+    )
+    if not ordem:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ordem de serviço não encontrada")
+    if scope.must_filter_by_cliente() and ordem.cliente_id not in scope.allowed_ids:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ordem de serviço não encontrada")
+
+    brand = getattr(request.state, "brand", None)
+    tenant_id = getattr(current_user, "tenant_id", None) or tenant_id_do_vendedor(
+        db, ordem.responsavel_id or current_user.id
+    )
+    tpl = template_padrao_tenant(db, tenant_id, "ordem_servico") if tenant_id else None
+    try:
+        if tpl:
+            pdf_bytes = gerar_pdf_ordem_servico_com_template(ordem, tpl, brand)
+        else:
+            ctx = montar_contexto_ordem_servico(ordem, brand)
+            html = renderizar_html(
+                "<h1>Ordem de Serviço {{ codigo }}</h1><p>Cliente: {{ cliente_nome }}</p>",
+                ctx,
+            )
+            pdf_bytes = gerar_pdf_bytes(html)
+    except (ImportError, OSError) as e:
+        raise HTTPException(status_code=503, detail=f"Geração PDF indisponível: {e}") from e
+
+    filename = f"ordem-servico-{ordem.codigo or ordem_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/{ordem_id}", status_code=status.HTTP_204_NO_CONTENT)

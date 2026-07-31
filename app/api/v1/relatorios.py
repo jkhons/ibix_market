@@ -1,5 +1,5 @@
 # PDV Ibix - API de relatórios genéricos (E-Relatórios)
-# Catálogo, jobs assíncronos e download. Permissão: certificacao:relatorios:visualizar
+# Catálogo, jobs assíncronos e download. Permissão: negocios.relatorios:visualizar
 import uuid
 from datetime import date, datetime
 
@@ -8,8 +8,9 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ...core.middleware import get_cliente_scope_dep, get_current_user, require_permission
-from ...core.scope import ClienteScope
+from ...core.scope import ClienteScope, get_cliente_ids_for_brand
 from ...database.connection import get_db
+from ...models.brand import Brand
 from ...models.orcamento import Orcamento
 from ...models.report_job import ReportArtifact, ReportJob
 from ...models.usuario import Usuario
@@ -39,23 +40,55 @@ def _allowed_ids(scope: ClienteScope):
     return scope.allowed_ids or []
 
 
+def _brand_cliente_ids_or_403(
+    db: Session,
+    brand_id: int | None,
+    user: Usuario,
+) -> list[int] | None:
+    """Superadmin: filtra relatórios por marca; demais roles ignoram brand_id."""
+    if brand_id is None:
+        return None
+    if not user.role or user.role.nome != "Superadministrador":
+        raise HTTPException(status_code=403, detail="Filtro brand_id restrito ao Superadministrador")
+    brand_row = db.query(Brand).filter(Brand.id == brand_id, Brand.ativo.is_(True)).first()
+    if not brand_row:
+        raise HTTPException(status_code=400, detail="Marca inválida ou inativa")
+    ids = get_cliente_ids_for_brand(db, brand_id)
+    if not ids:
+        return []
+    return ids
+
+
+def _apply_brand_scope_to_query(q, brand_cliente_ids: list[int] | None, *, cliente_col):
+    if brand_cliente_ids is None:
+        return q
+    if not brand_cliente_ids:
+        return q.filter(cliente_col.in_([]))
+    return q.filter(cliente_col.in_(brand_cliente_ids))
+
+
 @router.get("/conversao-orcamentos")
 async def relatorio_conversao_orcamentos(
     data_inicio: date | None = Query(None),
     data_fim: date | None = Query(None),
     cliente_id: int | None = Query(None),
+    brand_id: int | None = Query(None, description="Recorte por marca (Superadmin)"),
     db: Session = Depends(get_db),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
     current_user: Usuario = Depends(get_current_user),
 ):
     """Relatório de conversão orçamentos → pedidos. Período e cliente_id opcionais. Taxa de conversão."""
     allowed = _allowed_ids(scope)
+    brand_clientes = _brand_cliente_ids_or_403(db, brand_id, current_user)
     q = db.query(Orcamento)
+    q = _apply_brand_scope_to_query(q, brand_clientes, cliente_col=Orcamento.cliente_id)
     if allowed is not None:
         q = q.filter(Orcamento.cliente_id.in_(allowed))
     if cliente_id is not None:
         if allowed is not None and cliente_id not in allowed:
             raise HTTPException(status_code=403, detail="Cliente fora do escopo")
+        if brand_clientes is not None and cliente_id not in brand_clientes:
+            raise HTTPException(status_code=403, detail="Cliente fora da marca selecionada")
         q = q.filter(Orcamento.cliente_id == cliente_id)
     if data_inicio is not None:
         q = q.filter(Orcamento.created_at >= datetime.combine(data_inicio, datetime.min.time()))
@@ -71,12 +104,13 @@ async def relatorio_conversao_orcamentos(
         "data_inicio": str(data_inicio) if data_inicio else None,
         "data_fim": str(data_fim) if data_fim else None,
         "cliente_id": cliente_id,
+        "brand_id": brand_id,
     }
 
 
 @router.get("/catalogo")
 async def catalogo_relatorios(
-    current_user: Usuario = Depends(require_permission("certificacao:relatorios:visualizar")),
+    current_user: Usuario = Depends(require_permission("negocios.relatorios:visualizar")),
 ):
     """Lista relatórios disponíveis (do registry em código)."""
     return [
@@ -97,13 +131,14 @@ async def catalogo_relatorios(
 async def criar_job(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_permission("certificacao:relatorios:visualizar")),
+    current_user: Usuario = Depends(require_permission("negocios.relatorios:visualizar")),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     """Cria um job de relatório e envia para a fila Celery."""
     report_key = payload.get("report_key")
     output_format = payload.get("output_format", "pdf")
     params = payload.get("params") or {}
+    brand_id = payload.get("brand_id")
 
     if not report_key:
         raise HTTPException(status_code=400, detail="report_key é obrigatório")
@@ -115,6 +150,15 @@ async def criar_job(
 
     # Cliente_id para escopo: usar primeiro do scope se houver
     cliente_id = scope.allowed_ids[0] if scope.allowed_ids else None
+    brand_clientes = _brand_cliente_ids_or_403(db, brand_id, current_user)
+    if brand_id is not None:
+        params = dict(params)
+        params["brand_id"] = brand_id
+        if brand_clientes:
+            if cliente_id is None or cliente_id not in brand_clientes:
+                cliente_id = brand_clientes[0]
+        else:
+            cliente_id = None
 
     job = create_report_job(
         db,
@@ -132,7 +176,7 @@ async def criar_job(
 async def status_job(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_permission("certificacao:relatorios:visualizar")),
+    current_user: Usuario = Depends(require_permission("negocios.relatorios:visualizar")),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     """Retorna o status do job."""
@@ -157,7 +201,7 @@ async def status_job(
 async def download_job(
     job_id: str,
     db: Session = Depends(get_db),
-    current_user: Usuario = Depends(require_permission("certificacao:relatorios:visualizar")),
+    current_user: Usuario = Depends(require_permission("negocios.relatorios:visualizar")),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
     """Faz download do artefato gerado."""

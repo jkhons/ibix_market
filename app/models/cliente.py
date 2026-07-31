@@ -46,6 +46,11 @@ class Cliente(BaseModel):
     areas_cliente = relationship("AreaCliente", back_populates="cliente", cascade="all, delete-orphan")
     ordens_servico = relationship("OrdemServico", back_populates="cliente", cascade="all, delete-orphan")
     loja_marketplace = relationship("LojaMarketplace", back_populates="cliente", uselist=False, cascade="all, delete-orphan")
+    categorias_vitrine = relationship(
+        "ClienteMaterialCategoria",
+        back_populates="cliente",
+        cascade="all, delete-orphan",
+    )
     
     # Índices e restrições: pelo menos um de cnpj/cpf; cada um único quando preenchido
     __table_args__ = (

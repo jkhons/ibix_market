@@ -12,7 +12,20 @@
         </div>
     </div>
 
+    <div id="caixaAlertaErro" class="alert alert-warning d-none mb-3" role="alert"></div>
+    <div id="caixasAbertosResumo" class="alert alert-success d-none mb-3" role="status">
+        <strong>Turno(s) aberto(s):</strong> <span id="caixasAbertosTexto"></span>
+    </div>
+
     <div class="row mb-3">
+        {% if (user_role | default('')) == 'Superadministrador' %}
+        <div class="col-md-3">
+            <label class="form-label">Empresa fiscal</label>
+            <select id="filtroEmpresaFiscal" class="form-select">
+                <option value="">Carregando…</option>
+            </select>
+        </div>
+        {% endif %}
         <div class="col-md-4">
             <label class="form-label">Caixa</label>
             <select id="filtroCaixa" class="form-select">
@@ -45,7 +58,36 @@
         </div>
     </div>
 
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <strong>Caixas cadastrados</strong>
+            <span class="text-muted small ms-2">Use «Abrir turno» em cada linha para iniciar o caixa</span>
+        </div>
+        <div class="card-body py-2">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Cadastro</th>
+                            <th>Turno agora</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyCaixasCadastrados">
+                        <tr><td colspan="5" class="text-muted">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="card">
+        <div class="card-header py-2">
+            <strong>Turnos de caixa</strong>
+            <span class="text-muted small ms-2">Aberturas e fechamentos — use «Abrir caixa» para iniciar um turno</span>
+        </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-hover">
@@ -86,6 +128,24 @@
         <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
             <button type="button" onclick="fecharModalCadastrarCaixaCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
             <button type="button" id="btnCadastrarCaixa" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Salvar</button>
+        </div>
+    </div>
+</div>
+<div id="modalEditarCaixaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 420px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);">
+        <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+            <h5 style="margin: 0; font-size: 18px; font-weight: bold;">Editar caixa</h5>
+            <button type="button" onclick="fecharModalEditarCaixaCustom()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <input type="hidden" id="editCaixaId" />
+            <div style="margin-bottom: 12px;"><label style="display: block; margin-bottom: 5px; font-weight: bold;">Nome do caixa *</label><input type="text" id="editCaixaIdentificador" maxlength="80" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" /></div>
+            <div style="margin-bottom: 0;"><label style="display: flex; align-items: center; gap: 8px; font-weight: normal;"><input type="checkbox" id="editCaixaAtivo" /> Ativo</label></div>
+            <p id="editCaixaAvisoTurno" class="text-muted small mt-2 mb-0" style="display: none;">Há turno aberto neste caixa. Desativar só impede novas aberturas; feche o turno antes se for encerrar a operação.</p>
+        </div>
+        <div style="padding: 20px; border-top: 1px solid #ddd; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="fecharModalEditarCaixaCustom()" style="padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
+            <button type="button" id="btnSalvarEditarCaixa" style="padding: 8px 16px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Salvar</button>
         </div>
     </div>
 </div>
@@ -167,61 +227,170 @@
 
 {% block extra_js %}
 <script>
-(function() {
-    function getCookie(name) {
-        var value = '; ' + document.cookie;
-        var parts = value.split('; ' + name + '=');
-        if (parts.length === 2) return parts.pop().split(';').shift();
-        return null;
-    }
-    function getToken() {
-        try {
-            return (
-                getCookie('pdv_solumatica_token') ||
-                getCookie('pdv_automscale_token') ||
-                sessionStorage.getItem('pdv_solumatica_token') ||
-                sessionStorage.getItem('pdv_automscale_token') ||
-                ''
-            );
-        } catch (e) {
-            return getCookie('pdv_solumatica_token') || getCookie('pdv_automscale_token') || '';
-        }
-    }
-    function headers() {
-        const t = getToken();
-        const h = { 'Content-Type': 'application/json' };
-        if (t) h['Authorization'] = 'Bearer ' + t;
-        return h;
-    }
+document.addEventListener('DOMContentLoaded', function() {
     function fetchAuth(url, opt) {
         opt = opt || {};
-        return fetch(url, {
-            credentials: 'include',
-            method: opt.method || 'GET',
-            body: opt.body,
-            headers: Object.assign({}, headers(), opt.headers || {}),
-        });
+        if (typeof window.authenticatedFetch === 'function') {
+            return window.authenticatedFetch(url, {
+                method: opt.method || 'GET',
+                body: opt.body,
+                headers: opt.headers || {},
+            });
+        }
+        return fetch(url, Object.assign({ credentials: 'include' }, opt));
+    }
+
+    function extrairLista(data) {
+        if (Array.isArray(data)) return data;
+        if (data && Array.isArray(data.items)) return data.items;
+        return [];
+    }
+
+    function extrairErroApi(data, fallback) {
+        if (!data || !data.detail) return fallback;
+        if (typeof data.detail === 'string') return data.detail;
+        try { return JSON.stringify(data.detail); } catch (e) { return fallback; }
+    }
+
+    function empresaIdFiltro() {
+        var sel = document.getElementById('filtroEmpresaFiscal');
+        return sel && sel.value ? sel.value : null;
+    }
+
+    function urlAberturasApi(extra) {
+        var url = '/api/v1/aberturas-caixa/?';
+        var empId = empresaIdFiltro();
+        if (empId) url += 'empresa_id=' + encodeURIComponent(empId) + '&';
+        if (extra) url += extra;
+        return url;
+    }
+
+    function urlCaixasApi() {
+        var url = '/api/v1/caixas/';
+        var empId = empresaIdFiltro();
+        if (empId) url += '?empresa_id=' + encodeURIComponent(empId);
+        return url;
+    }
+
+    function urlCaixaItemApi(caixaId) {
+        var url = '/api/v1/caixas/' + encodeURIComponent(caixaId);
+        var empId = empresaIdFiltro();
+        if (empId) url += '?empresa_id=' + encodeURIComponent(empId);
+        return url;
     }
 
     let caixasCache = [];
+    let aberturasAbertasIds = {};
+
+    function mostrarAlertaCaixa(msg, tipo) {
+        var box = document.getElementById('caixaAlertaErro');
+        if (!box) return;
+        if (!msg) {
+            box.classList.add('d-none');
+            box.textContent = '';
+            return;
+        }
+        box.className = 'alert alert-' + (tipo || 'warning') + ' mb-3';
+        box.textContent = msg;
+        box.classList.remove('d-none');
+    }
+
+    function nomeCaixa(ab, caixaMap) {
+        return ab.caixa_identificador || caixaMap[ab.caixa_id] || ('Caixa #' + ab.caixa_id);
+    }
+
+    async function carregarResumoCaixasAbertos() {
+        var box = document.getElementById('caixasAbertosResumo');
+        var txt = document.getElementById('caixasAbertosTexto');
+        if (!box || !txt) return;
+        try {
+            var r = await fetchAuth(urlAberturasApi('status=aberta&limit=100'));
+            var data = await r.json().catch(function() { return {}; });
+            if (!r.ok) {
+                box.classList.add('d-none');
+                mostrarAlertaCaixa(extrairErroApi(data, 'Erro ao consultar turnos abertos.'), 'danger');
+                return;
+            }
+            if (data.aviso) {
+                mostrarAlertaCaixa(data.aviso, 'warning');
+            }
+            var abertas = extrairLista(data);
+            aberturasAbertasIds = {};
+            abertas.forEach(function(ab) { aberturasAbertasIds[ab.caixa_id] = ab; });
+            if (!abertas.length) {
+                box.classList.add('d-none');
+                txt.textContent = '';
+                renderCaixasCadastrados();
+                return;
+            }
+            var caixaMap = {};
+            caixasCache.forEach(function(p) { caixaMap[p.id] = p.identificador || ('Caixa ' + p.id); });
+            txt.textContent = abertas.map(function(ab) {
+                return nomeCaixa(ab, caixaMap) + ' (turno #' + ab.id + ', aberto em ' + fmtDt(ab.data_abertura) + ')';
+            }).join(' · ');
+            box.classList.remove('d-none');
+            renderCaixasCadastrados();
+        } catch (e) {
+            console.error(e);
+            box.classList.add('d-none');
+            mostrarAlertaCaixa('Erro ao carregar turnos abertos.', 'danger');
+        }
+    }
+
     async function carregarCaixas() {
         try {
-            const r = await fetchAuth('/api/v1/caixas/');
-            caixasCache = r.ok ? await r.json() : [];
-            const sel = document.getElementById('filtroCaixa');
-            const selAbrir = document.getElementById('abrirCaixaId');
-            [sel, selAbrir].forEach(s => {
+            var r = await fetchAuth(urlCaixasApi());
+            if (!r.ok) {
+                caixasCache = [];
+                var errData = await r.json().catch(function() { return {}; });
+                mostrarAlertaCaixa(extrairErroApi(errData, 'Erro ao carregar caixas.'), 'danger');
+                renderCaixasCadastrados();
+                return;
+            }
+            caixasCache = extrairLista(await r.json());
+            var sel = document.getElementById('filtroCaixa');
+            var selAbrir = document.getElementById('abrirCaixaId');
+            [sel, selAbrir].forEach(function(s) {
                 if (!s) return;
-                const isFiltro = s === sel;
+                var isFiltro = s === sel;
                 s.innerHTML = isFiltro ? '<option value="">Todos</option>' : '<option value="">Selecione o caixa</option>';
-                caixasCache.forEach(p => {
-                    const opt = document.createElement('option');
+                caixasCache.forEach(function(p) {
+                    var opt = document.createElement('option');
                     opt.value = p.id;
-                    opt.textContent = (p.identificador || 'Caixa') + ' (ID ' + p.id + ')';
+                    var sufixo = aberturasAbertasIds[p.id] ? ' — turno aberto' : '';
+                    opt.textContent = (p.identificador || 'Caixa') + ' (ID ' + p.id + ')' + sufixo;
                     s.appendChild(opt);
                 });
             });
+            renderCaixasCadastrados();
         } catch (e) { console.error(e); }
+    }
+
+    function renderCaixasCadastrados() {
+        var tbody = document.getElementById('tbodyCaixasCadastrados');
+        if (!tbody) return;
+        if (!caixasCache.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-muted">Nenhum caixa cadastrado. Use «Cadastrar caixa» acima.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = caixasCache.map(function(p) {
+            var ab = aberturasAbertasIds[p.id];
+            var turno = ab
+                ? '<span class="badge bg-success">Aberto (turno #' + ab.id + ')</span>'
+                : '<span class="badge bg-secondary">Sem turno aberto</span>';
+            var acoes = '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-editar-caixa-cadastro" data-caixa-id="' + p.id + '" data-identificador="' + String(p.identificador || '').replace(/"/g, '&quot;') + '" data-ativo="' + (p.ativo !== false ? '1' : '0') + '" data-turno-aberto="' + (ab ? '1' : '0') + '" title="Editar nome ou status"><i data-feather="edit-2" style="width:14px;height:14px;"></i> Editar</button>';
+            if (ab) {
+                var vInicial = parseFloat(ab.valor_inicial || 0);
+                acoes += '<button type="button" class="btn btn-sm btn-warning me-1 btn-fechar-turno-cadastro" data-abertura-id="' + ab.id + '" data-valor="' + vInicial + '" title="Fechar turno"><i data-feather="log-out" style="width:14px;height:14px;"></i> Fechar</button>';
+                acoes += '<button type="button" class="btn btn-sm btn-outline-secondary btn-movimento-cadastro" data-abertura-id="' + ab.id + '" title="Sangria ou suprimento"><i data-feather="trending-up" style="width:14px;height:14px;"></i> Sangria/Supr.</button>';
+            } else if (p.ativo !== false) {
+                acoes += '<button type="button" class="btn btn-sm btn-success btn-abrir-turno-cadastro" data-caixa-id="' + p.id + '" title="Iniciar turno neste caixa"><i data-feather="log-in" style="width:14px;height:14px;"></i> Abrir turno</button>';
+            } else {
+                acoes += '<span class="text-muted small">Caixa inativo</span>';
+            }
+            return '<tr><td>' + p.id + '</td><td>' + (p.identificador || 'Caixa') + '</td><td>' + fmtDt(p.created_at) + '</td><td>' + turno + '</td><td>' + acoes + '</td></tr>';
+        }).join('');
+        if (typeof feather !== 'undefined') feather.replace();
     }
 
     function fmtDt(d) {
@@ -235,26 +404,51 @@
     }
 
     async function carregarAberturas() {
-        const caixaId = document.getElementById('filtroCaixa').value;
-        const statusFilter = document.getElementById('filtroStatus').value;
-        let url = '/api/v1/aberturas-caixa/?';
-        if (caixaId) url += 'caixa_id=' + caixaId + '&';
-        if (statusFilter) url += 'status=' + statusFilter;
-        const tbody = document.getElementById('tbodyAberturas');
-        const msg = document.getElementById('msgLista');
+        var caixaId = document.getElementById('filtroCaixa').value;
+        var statusFilter = document.getElementById('filtroStatus').value;
+        var url = urlAberturasApi('');
+        if (caixaId) url += 'caixa_id=' + encodeURIComponent(caixaId) + '&';
+        if (statusFilter) url += 'status=' + encodeURIComponent(statusFilter) + '&';
+        var tbody = document.getElementById('tbodyAberturas');
+        var msg = document.getElementById('msgLista');
         try {
-            const r = await fetchAuth(url);
-            if (!r.ok) { tbody.innerHTML = ''; msg.textContent = 'Erro ao carregar.'; return; }
-            const _data = await r.json();
-            const list = _data.items || _data;
-            if (!list.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhuma abertura encontrada.</td></tr>'; msg.textContent = ''; return; }
-            const caixaMap = {};
+            var r = await fetchAuth(url);
+            var data = await r.json().catch(function() { return {}; });
+            if (!r.ok) {
+                tbody.innerHTML = '';
+                mostrarAlertaCaixa(extrairErroApi(data, 'Erro ao carregar aberturas.'), 'danger');
+                msg.textContent = '';
+                return;
+            }
+            if (data.aviso) {
+                mostrarAlertaCaixa(data.aviso, 'warning');
+            } else {
+                mostrarAlertaCaixa('', '');
+            }
+            var list = extrairLista(data);
+            if (!list.length) {
+                var filtroAtivo = caixaId || statusFilter;
+                var hint;
+                if (caixasCache.length && !statusFilter && !caixaId) {
+                    hint = ' Há ' + caixasCache.length + ' caixa(s) cadastrado(s), mas nenhum turno registrado. Clique em «Abrir caixa» para iniciar.';
+                } else if (caixasCache.length && statusFilter === 'aberta') {
+                    hint = ' Há caixas cadastrados, mas nenhum turno aberto. Clique em «Abrir caixa» ou altere o filtro Status para «Todos».';
+                } else if (filtroAtivo) {
+                    hint = ' Nenhum turno com os filtros atuais. Limpe os filtros ou selecione Status «Todos».';
+                } else {
+                    hint = ' Não há turnos registrados. Cadastre um caixa e use «Abrir caixa».';
+                }
+                tbody.innerHTML = '<tr><td colspan="8" class="text-muted">Nenhum turno encontrado.' + hint + '</td></tr>';
+                msg.textContent = '';
+                return;
+            }
+            var caixaMap = {};
             caixasCache.forEach(function(p) { caixaMap[p.id] = p.identificador || ('Caixa ' + p.id); });
-            tbody.innerHTML = list.map(ab => {
-                const caixaNome = caixaMap[ab.caixa_id] || ab.caixa_id;
-                const isAberta = ab.status === 'aberta';
-                const vInicial = parseFloat(ab.valor_inicial || 0);
-                let acoes = '';
+            tbody.innerHTML = list.map(function(ab) {
+                var caixaNome = nomeCaixa(ab, caixaMap);
+                var isAberta = ab.status === 'aberta';
+                var vInicial = parseFloat(ab.valor_inicial || 0);
+                var acoes = '';
                 if (isAberta) {
                     acoes += '<button type="button" class="btn btn-sm btn-warning me-1 btn-fechar-caixa" data-id="' + ab.id + '" data-valor="' + vInicial + '" title="Fechar caixa"><i data-feather="log-out" style="width:14px;height:14px;"></i> Fechar</button>';
                     acoes += '<button type="button" class="btn btn-sm btn-outline-secondary btn-movimento-caixa" data-id="' + ab.id + '" title="Sangria/Suprimento"><i data-feather="trending-up" style="width:14px;height:14px;"></i> Sangria/Supr.</button>';
@@ -265,10 +459,55 @@
             if (typeof feather !== 'undefined') feather.replace();
         } catch (e) {
             tbody.innerHTML = '';
-            msg.textContent = 'Erro.';
+            msg.textContent = 'Erro ao carregar aberturas.';
             console.error(e);
         }
     }
+
+    async function recarregarTudo() {
+        await carregarCaixas();
+        await carregarResumoCaixasAbertos();
+        await carregarAberturas();
+    }
+
+    document.getElementById('tbodyCaixasCadastrados').addEventListener('click', function(ev) {
+        var btnEditar = ev.target.closest('.btn-editar-caixa-cadastro');
+        if (btnEditar) {
+            abrirModalEditarCaixaCustom(
+                btnEditar.getAttribute('data-caixa-id'),
+                btnEditar.getAttribute('data-identificador'),
+                btnEditar.getAttribute('data-ativo') === '1',
+                btnEditar.getAttribute('data-turno-aberto') === '1'
+            );
+        }
+        var btnAbrir = ev.target.closest('.btn-abrir-turno-cadastro');
+        var btnFechar = ev.target.closest('.btn-fechar-turno-cadastro');
+        var btnMov = ev.target.closest('.btn-movimento-cadastro');
+        if (btnAbrir) {
+            abrirModalAbrirCaixaCustom(btnAbrir.getAttribute('data-caixa-id'));
+        }
+        if (btnFechar) {
+            var id = btnFechar.getAttribute('data-abertura-id');
+            var valor = parseFloat(btnFechar.getAttribute('data-valor')) || 0;
+            document.getElementById('fecharAberturaId').value = id;
+            document.getElementById('fecharValorFinal').value = valor.toFixed(2);
+            document.getElementById('fecharResumo').textContent = 'Abertura #' + id + '. Informe o valor em caixa ao fechar.';
+            abrirModalFecharCaixaCustom();
+        }
+        if (btnMov) {
+            var aberturaId = btnMov.getAttribute('data-abertura-id');
+            document.getElementById('movAberturaId').value = aberturaId;
+            document.getElementById('movValor').value = '';
+            document.getElementById('movSenhaMestra').value = '';
+            document.getElementById('movObservacao').value = '';
+            document.getElementById('wrapSenhaMestra').style.display = 'none';
+            fetchAuth('/api/v1/movimentos-caixa/exige-senha-mestra?abertura_caixa_id=' + aberturaId)
+                .then(function(r) { return r.json(); })
+                .then(function(b) { document.getElementById('wrapSenhaMestra').style.display = b.exige_senha ? 'block' : 'none'; })
+                .catch(function() {});
+            abrirModalMovimentoCustom();
+        }
+    });
 
     document.getElementById('tbodyAberturas').addEventListener('click', function(ev) {
         const btnFechar = ev.target.closest('.btn-fechar-caixa');
@@ -295,6 +534,29 @@
             abrirModalMovimentoCustom();
         }
     });
+
+    async function carregarEmpresasFiltroIfNeeded() {
+        var sel = document.getElementById('filtroEmpresaFiscal');
+        if (!sel) return;
+        try {
+            var r = await fetchAuth('/api/v1/fiscal/empresa');
+            if (!r.ok) { sel.innerHTML = '<option value="">Erro ao listar empresas fiscais</option>'; return; }
+            var arr = extrairLista(await r.json());
+            sel.innerHTML = '<option value="">Selecione a empresa fiscal</option>';
+            arr.forEach(function(emp) {
+                var o = document.createElement('option');
+                o.value = emp.id;
+                o.textContent = (emp.razao_social || 'Empresa') + (emp.cliente_nome ? ' · ' + emp.cliente_nome : '') + ' (#' + emp.id + ')';
+                sel.appendChild(o);
+            });
+            if (arr.length === 1) {
+                sel.value = String(arr[0].id);
+            }
+        } catch (e) {
+            console.error(e);
+            sel.innerHTML = '<option value="">Erro ao carregar empresas</option>';
+        }
+    }
 
     async function carregarEmpresasCadCaixaIfNeeded() {
         var sel = document.getElementById('cadCaixaEmpresaId');
@@ -330,10 +592,34 @@
         var m = document.getElementById('modalCadastrarCaixaCustom');
         if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
     }
+    function abrirModalEditarCaixaCustom(caixaId, identificador, ativo, turnoAberto) {
+        var m = document.getElementById('modalEditarCaixaCustom');
+        if (!m) return;
+        document.getElementById('editCaixaId').value = caixaId || '';
+        document.getElementById('editCaixaIdentificador').value = identificador || '';
+        document.getElementById('editCaixaAtivo').checked = !!ativo;
+        var aviso = document.getElementById('editCaixaAvisoTurno');
+        if (aviso) aviso.style.display = turnoAberto ? 'block' : 'none';
+        m.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+    function fecharModalEditarCaixaCustom() {
+        var m = document.getElementById('modalEditarCaixaCustom');
+        if (m) { m.style.display = 'none'; document.body.style.overflow = ''; }
+    }
+    window.abrirModalEditarCaixaCustom = abrirModalEditarCaixaCustom;
+    window.fecharModalEditarCaixaCustom = fecharModalEditarCaixaCustom;
     window.abrirModalCadastrarCaixaCustom = abrirModalCadastrarCaixaCustom;
     window.fecharModalCadastrarCaixaCustom = fecharModalCadastrarCaixaCustom;
 
-    function abrirModalAbrirCaixaCustom() { var m = document.getElementById('modalAbrirCaixaCustom'); if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; } }
+    function abrirModalAbrirCaixaCustom(caixaIdPreset) {
+        var m = document.getElementById('modalAbrirCaixaCustom');
+        if (!m) return;
+        var sel = document.getElementById('abrirCaixaId');
+        if (sel && caixaIdPreset) sel.value = String(caixaIdPreset);
+        m.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
     function fecharModalAbrirCaixaCustom() { var m = document.getElementById('modalAbrirCaixaCustom'); if (m) { m.style.display = 'none'; document.body.style.overflow = ''; } }
     function abrirModalFecharCaixaCustom() { var m = document.getElementById('modalFecharCaixaCustom'); if (m) { m.style.display = 'block'; document.body.style.overflow = 'hidden'; } }
     function fecharModalFecharCaixaCustom() { var m = document.getElementById('modalFecharCaixaCustom'); if (m) { m.style.display = 'none'; document.body.style.overflow = ''; } }
@@ -349,12 +635,19 @@
     window.fecharModalMovimentoCustom = fecharModalMovimentoCustom;
     window.abrirModalSenhaMestraCaixaCustom = abrirModalSenhaMestraCaixaCustom;
     window.fecharModalSenhaMestraCaixaCustom = fecharModalSenhaMestraCaixaCustom;
-    [['modalCadastrarCaixaCustom', 'fecharModalCadastrarCaixaCustom'], ['modalAbrirCaixaCustom', 'fecharModalAbrirCaixaCustom'], ['modalFecharCaixaCustom', 'fecharModalFecharCaixaCustom'], ['modalMovimentoCustom', 'fecharModalMovimentoCustom'], ['modalSenhaMestraCaixaCustom', 'fecharModalSenhaMestraCaixaCustom']].forEach(function(pair) {
+    [['modalCadastrarCaixaCustom', 'fecharModalCadastrarCaixaCustom'], ['modalEditarCaixaCustom', 'fecharModalEditarCaixaCustom'], ['modalAbrirCaixaCustom', 'fecharModalAbrirCaixaCustom'], ['modalFecharCaixaCustom', 'fecharModalFecharCaixaCustom'], ['modalMovimentoCustom', 'fecharModalMovimentoCustom'], ['modalSenhaMestraCaixaCustom', 'fecharModalSenhaMestraCaixaCustom']].forEach(function(pair) {
         var el = document.getElementById(pair[0]);
         if (el) el.addEventListener('click', function(e) { if (e.target === el) window[pair[1]](); });
     });
     document.getElementById('filtroCaixa').addEventListener('change', carregarAberturas);
     document.getElementById('filtroStatus').addEventListener('change', carregarAberturas);
+    var filtroEmp = document.getElementById('filtroEmpresaFiscal');
+    if (filtroEmp) {
+        filtroEmp.addEventListener('change', function() {
+            document.getElementById('filtroCaixa').value = '';
+            recarregarTudo();
+        });
+    }
 
     document.getElementById('btnCadastrarCaixa').addEventListener('click', async function() {
         const ident = (document.getElementById('cadCaixaIdentificador').value || '').trim();
@@ -376,11 +669,34 @@
                 return;
             }
             fecharModalCadastrarCaixaCustom();
-            await carregarCaixas();
-            carregarAberturas();
+            await recarregarTudo();
             alert('Caixa cadastrado: ' + (data.identificador || ident) + ' (ID ' + (data.id || '') + ').');
         } catch (e) {
             alert('Erro ao cadastrar caixa.');
+            console.error(e);
+        }
+    });
+
+    document.getElementById('btnSalvarEditarCaixa').addEventListener('click', async function() {
+        var caixaId = document.getElementById('editCaixaId').value;
+        var ident = (document.getElementById('editCaixaIdentificador').value || '').trim();
+        var ativo = document.getElementById('editCaixaAtivo').checked;
+        if (!caixaId) { alert('Caixa inválido.'); return; }
+        if (!ident) { alert('Informe o nome do caixa.'); return; }
+        try {
+            var r = await fetchAuth(urlCaixaItemApi(caixaId), {
+                method: 'PATCH',
+                body: JSON.stringify({ identificador: ident, ativo: ativo })
+            });
+            var data = await r.json().catch(function() { return {}; });
+            if (!r.ok) {
+                alert('Erro: ' + extrairErroApi(data, r.statusText));
+                return;
+            }
+            fecharModalEditarCaixaCustom();
+            await recarregarTudo();
+        } catch (e) {
+            alert('Erro ao salvar caixa.');
             console.error(e);
         }
     });
@@ -399,7 +715,9 @@
             }
             fecharModalAbrirCaixaCustom();
             document.getElementById('abrirValorInicial').value = '0';
-            carregarAberturas();
+            document.getElementById('filtroStatus').value = 'aberta';
+            document.getElementById('filtroCaixa').value = String(data.caixa_id || caixaIdSel);
+            await recarregarTudo();
         } catch (e) { alert('Erro ao abrir caixa.'); console.error(e); }
     });
 
@@ -416,7 +734,7 @@
                 return;
             }
             fecharModalFecharCaixaCustom();
-            carregarAberturas();
+            await recarregarTudo();
         } catch (e) { alert('Erro ao fechar caixa.'); console.error(e); }
     });
 
@@ -438,11 +756,14 @@
                 return;
             }
             fecharModalMovimentoCustom();
-            carregarAberturas();
+            await recarregarTudo();
         } catch (e) { alert('Erro ao registrar.'); console.error(e); }
     });
 
-    carregarCaixas().then(function() { carregarAberturas(); });
+    (async function initCaixaPage() {
+        await carregarEmpresasFiltroIfNeeded();
+        await recarregarTudo();
+    })();
 
     async function carregarClientesSenhaMestra() {
         const sel = document.getElementById('senhaMestraClienteId');
@@ -492,6 +813,6 @@
     }
 
     if (typeof feather !== 'undefined') feather.replace();
-})();
+});
 </script>
 {% endblock %}

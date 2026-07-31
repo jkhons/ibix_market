@@ -1,7 +1,6 @@
 # PDV Ibix - Códigos de desconto + divulgadores (Fase 2)
 """CRUD codigos_desconto, divulgadores e regras. Criar/editar só Super Admin; listar/ver para Admin (filtrado)."""
 from typing import List, Optional
-from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
@@ -25,6 +24,7 @@ from ...schemas.codigo_desconto import (
     DivulgadorResponse,
     DivulgadorUpdate,
 )
+from ...services.codigo_desconto_lookup import buscar_codigo_desconto_ativo_por_entrada
 
 router = APIRouter(tags=["Códigos de Desconto e Divulgadores"])
 
@@ -209,13 +209,6 @@ def listar_codigos(
     return result
 
 
-def _normalizar_codigo(codigo: str) -> str:
-    """Normaliza código para busca: decode URL, strip e maiúsculas."""
-    if not codigo:
-        return ""
-    return unquote(codigo).strip().upper()
-
-
 @router.get("/codigos-desconto/validar/{codigo}", response_model=CodigoDescontoResponse)
 def validar_codigo(
     codigo: str,
@@ -223,17 +216,7 @@ def validar_codigo(
 ):
     """Endpoint público: verifica se o código é válido e retorna dados. Usado no cadastro.
     Só considera válido se o código estiver ativo e vinculado a um representante (divulgador com usuario_id)."""
-    codigo_norm = _normalizar_codigo(codigo)
-    if not codigo_norm:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código inválido ou expirado")
-    cod = (
-        db.query(CodigoDesconto)
-        .options(
-            joinedload(CodigoDesconto.divulgador).joinedload(Divulgador.usuario)
-        )
-        .filter(CodigoDesconto.codigo == codigo_norm, CodigoDesconto.ativo == True)
-        .first()
-    )
+    cod = buscar_codigo_desconto_ativo_por_entrada(db, codigo)
     if not cod:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Código não encontrado ou expirado.")
     if not cod.divulgador_id or not cod.divulgador or not cod.divulgador.usuario_id or not cod.divulgador.usuario:
@@ -244,7 +227,6 @@ def validar_codigo(
     data = CodigoDescontoResponse.model_validate(cod).model_dump()
     data["representante_nome"] = cod.divulgador.usuario.nome if cod.divulgador.usuario else None
     return CodigoDescontoResponse(**data)
-
 
 @router.get("/codigos-desconto/{codigo_id}", response_model=CodigoDescontoResponse)
 def detalhe_codigo(

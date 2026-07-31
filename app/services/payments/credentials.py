@@ -35,6 +35,37 @@ def _get_fernet() -> Optional[Fernet]:
     return None
 
 
+def encryption_configured() -> bool:
+    """True se PAYMENT_CREDENTIALS_SECRET ou PAYMENT_CREDENTIALS_PASSWORD está definido."""
+    return _get_fernet() is not None
+
+
+def assert_payment_encryption_in_production() -> None:
+    """Fail-fast em produção sem chave de criptografia de credenciais."""
+    env = (os.environ.get("ENV") or "").strip().lower()
+    if env != "production":
+        return
+    if encryption_configured():
+        return
+    raise RuntimeError(
+        "Produção exige PAYMENT_CREDENTIALS_SECRET ou PAYMENT_CREDENTIALS_PASSWORD "
+        "para criptografia de tokens de gateway e segredos de billing."
+    )
+
+
+def encrypt_text(plain: Optional[str]) -> Optional[str]:
+    """Criptografa texto (webhook secrets, tokens billing). Retorna plain se Fernet indisponível (dev)."""
+    if plain is None:
+        return None
+    value = (plain if isinstance(plain, str) else str(plain)).strip()
+    if not value:
+        return None
+    fernet = _get_fernet()
+    if fernet:
+        return fernet.encrypt(value.encode(_ENCODING)).decode(_ENCODING)
+    return value
+
+
 def encrypt_credentials(credentials_dict: Optional[Dict[str, Any]]) -> Optional[str]:
     """
     Criptografa credenciais (dict) para armazenamento. Retorna None se credenciais vazias.

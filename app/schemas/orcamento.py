@@ -75,6 +75,8 @@ class OrcamentoResponse(BaseModel):
     itens: List[OrcamentoItemResponse] = []
     cliente_nome: Optional[str] = None
     destinatario_nome: Optional[str] = None
+    vendedor_nome: Optional[str] = None
+    qtd_itens: Optional[int] = None
 
 
 class OrcamentoListResponse(BaseModel):
@@ -86,12 +88,18 @@ class OrcamentoListResponse(BaseModel):
     data_validade: date
     status: str
     total: Optional[Decimal] = None
+    subtotal: Optional[Decimal] = None
+    desconto: Optional[Decimal] = None
     convertido_em_pedido_id: Optional[int] = None
     convertido_em_ordem_servico_id: Optional[int] = None
     convertido_em_venda_id: Optional[int] = None
     created_at: datetime
     cliente_nome: Optional[str] = None
     destinatario_nome: Optional[str] = None
+    vendedor_nome: Optional[str] = None
+    qtd_itens: Optional[int] = None
+    observacoes: Optional[str] = None
+    condicoes_pagamento: Optional[str] = None
 
 
 class OrcamentoConverterRequest(BaseModel):

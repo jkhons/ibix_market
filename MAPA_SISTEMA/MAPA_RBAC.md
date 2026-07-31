@@ -6,7 +6,7 @@ Este documento é a **fonte única de verdade** sobre o sistema RBAC (Role-Based
 
 **Modelo Atual:** Hierárquico — Superadministrador → Administrador → Cliente Administrador → Técnico / Subcliente. Escopo por role (clientes permitidos). Dados e APIs seguem obrigatoriamente essa hierarquia.
 
-**Última Atualização:** 2026-03-03 — **Vínculo Empresa Fiscal e Usuário:** Adicionada seção descrevendo o fluxo de conexão entre empresa fiscal (sem usuário) e usuário (sem empresa fiscal): mesmo Cliente; passos em `/fiscal/empresa` (campo Cliente) e `/usuarios` (clientes vinculados ao Administrador, só Superadmin); Cliente Administrador via cliente_id da empresa = um dos clientes do CA. Referência cruzada com MAPA_DO_SISTEMA.md. — Anterior 2026-03-02: **Funções (Roles) e Permissões apenas Superadministrador:** O card "Funções (Roles) e Permissões" na página `/usuarios` e a rota `/roles` (página e APIs `/api/v1/roles`, `/api/v1/permissoes`) são acessíveis **apenas** por Superadministrador. O Administrador continua acessando `/usuarios` (lista de usuários, Representantes, criar/editar usuários no escopo), mas não vê o card de roles/permissões nem a página `/roles`; ao acessar `/roles` ou as APIs de roles/permissoes recebe 403. — Anterior: 2026-02-18 — **APIs e tabelas removidas (aux_cadastros, qualidade, lacres, historico_selos):** As APIs `/api/v1/aux-cadastros`, `/api/v1/certificados-auxiliares`, `/api/v1/inspetores-aprovadores`, `/api/v1/historico-selos`, `/api/v1/lacres-selos`, `/api/v1/procedimentos-metodo`, `/api/v1/reclamacoes`, `/api/v1/treinamentos-competencia`, `/api/v1/auditorias-internas` e as tabelas correspondentes foram removidas (migration ii88kk914a4). As referências neste mapa a esses módulos/APIs ficam como histórico; rotas HTML e permissões relacionadas (qualidade:*, negocios:lacres) podem ser limpas em sidebar/seeds em tarefa futura. — Anterior: 2026-02-12 — **Portal Cliente Final (Subcliente):** Subcliente **não** acessa Minhas vendas nem Resumo financeiro (migração x34zz247m3v9 remove permissão `negocios.venda:visualizar` da role Subcliente). Rotas `/portal`, `/portal/certificados`, `/portal/equipamentos`, `/portal/informacoes`, `/portal/ordens-servico`, `/portal/notas-fiscais`, `/portal/historico`, `/portal/downloads`, `/portal/minha-conta`; sidebar exclusivo com Informações, Ordens de serviço, Notas fiscais (sem Resumo financeiro nem Minhas vendas). GET ordens-servico e GET notas-servico permitidos com escopo (Subcliente vê por destinatário em notas). APIs de portal: `GET /api/v1/portal/resumo-gastos`, `GET /api/v1/portal/equipamentos/valores-servicos`. Valores por equipamento (concerto, lacre, peças) na página Equipamentos do portal. — Anterior: 2026-02-09 (Portal Subcliente com vendas read-only; d01pp246k7s2). — **Criação de usuário em dois contextos distintos (padrões):** (1) **Clientes** — modal "Criar usuário" na tela Clientes: `POST /api/v1/clientes/{id}/usuarios` cria **sempre** role **Subcliente**, vínculo em **AreaCliente**; acesso: Superadministrador/Administrador ou Cliente Administrador quando `cliente_id` está no escopo (`require_admin_or_ca_scope_para_criar_usuario`). (2) **Minha equipe** — vincular/criar técnico: `POST /api/v1/minha-equipe/tecnicos` cria/vincula **sempre** role **Técnico**, vínculo em **ClienteAdministradorTecnico**; acesso: apenas Cliente Administrador. Sem escolha de função em cada fluxo: lugares distintos, funções distintas. Ver § 0.11 e padrões em § 0.12. — Anterior: 2026-02-08 (Cliente Administrador sem `/usuarios` e `/configuracoes`; E-mail por cliente; Vincular técnico; E-Relatórios).
+**Última Atualização:** 2026-06-18 — **PII LGPD (br36):** § 0.14 — `pii:visualizar` para Cliente Administrador; máscara na API sem corromper banco; roles nativas com reveal. — Anterior 2026-03-03 — **Vínculo Empresa Fiscal e Usuário:** Adicionada seção descrevendo o fluxo de conexão entre empresa fiscal (sem usuário) e usuário (sem empresa fiscal): mesmo Cliente; passos em `/fiscal/empresa` (campo Cliente) e `/usuarios` (clientes vinculados ao Administrador, só Superadmin); Cliente Administrador via cliente_id da empresa = um dos clientes do CA. Referência cruzada com MAPA_DO_SISTEMA.md. — Anterior 2026-03-02: **Funções (Roles) e Permissões apenas Superadministrador:** O card "Funções (Roles) e Permissões" na página `/usuarios` e a rota `/roles` (página e APIs `/api/v1/roles`, `/api/v1/permissoes`) são acessíveis **apenas** por Superadministrador. O Administrador continua acessando `/usuarios` (lista de usuários, Representantes, criar/editar usuários no escopo), mas não vê o card de roles/permissões nem a página `/roles`; ao acessar `/roles` ou as APIs de roles/permissoes recebe 403. — Anterior: 2026-02-18 — **APIs e tabelas removidas (aux_cadastros, qualidade, lacres, historico_selos):** As APIs `/api/v1/aux-cadastros`, `/api/v1/certificados-auxiliares`, `/api/v1/inspetores-aprovadores`, `/api/v1/historico-selos`, `/api/v1/lacres-selos`, `/api/v1/procedimentos-metodo`, `/api/v1/reclamacoes`, `/api/v1/treinamentos-competencia`, `/api/v1/auditorias-internas` e as tabelas correspondentes foram removidas (migration ii88kk914a4). As referências neste mapa a esses módulos/APIs ficam como histórico; rotas HTML e permissões relacionadas (qualidade:*, negocios:lacres) podem ser limpas em sidebar/seeds em tarefa futura. — Anterior: 2026-02-12 — **Portal Cliente Final (Subcliente):** Subcliente **não** acessa Minhas vendas nem Resumo financeiro (migração x34zz247m3v9 remove permissão `negocios.venda:visualizar` da role Subcliente). Rotas `/portal`, `/portal/certificados`, `/portal/equipamentos`, `/portal/informacoes`, `/portal/ordens-servico`, `/portal/notas-fiscais`, `/portal/historico`, `/portal/downloads`, `/portal/minha-conta`; sidebar exclusivo com Informações, Ordens de serviço, Notas fiscais (sem Resumo financeiro nem Minhas vendas). GET ordens-servico e GET notas-servico permitidos com escopo (Subcliente vê por destinatário em notas). APIs de portal: `GET /api/v1/portal/resumo-gastos`, `GET /api/v1/portal/equipamentos/valores-servicos`. Valores por equipamento (concerto, lacre, peças) na página Equipamentos do portal. — Anterior: 2026-02-09 (Portal Subcliente com vendas read-only; d01pp246k7s2). — **Criação de usuário em dois contextos distintos (padrões):** (1) **Clientes** — modal "Criar usuário" na tela Clientes: `POST /api/v1/clientes/{id}/usuarios` cria **sempre** role **Subcliente**, vínculo em **AreaCliente**; acesso: Superadministrador/Administrador ou Cliente Administrador quando `cliente_id` está no escopo (`require_admin_or_ca_scope_para_criar_usuario`). (2) **Minha equipe** — vincular/criar técnico: `POST /api/v1/minha-equipe/tecnicos` cria/vincula **sempre** role **Técnico**, vínculo em **ClienteAdministradorTecnico**; acesso: apenas Cliente Administrador. Sem escolha de função em cada fluxo: lugares distintos, funções distintas. Ver § 0.11 e padrões em § 0.12. — Anterior: 2026-02-08 (Cliente Administrador sem `/usuarios` e `/configuracoes`; E-mail por cliente; Vincular técnico; E-Relatórios).
 
 ---
 
@@ -48,6 +48,44 @@ Para evitar ambiguidade em toda a documentação e no código:
 - **ClienteScope e isolamento:** APIs orçamento/pedido usam listagem por `allowed_ids`, obter por escopo (_orcamento_no_escopo, _pedido_no_escopo), criar com validação de body.cliente_id e body.orcamento_id; produto validado no estabelecimento (ProdutoCliente.cliente_id == body.cliente_id).
 - **Permissões:** Pendente criar e atribuir `negocios.orçamento:*`, `negocios.pedido:*` e itens "Orçamentos" e "Pedidos" no sidebar; modelo atual (role_permissoes + ClienteScope) é o correto.
 - **forbid_cliente_access:** ROLES_COM_ACESSO_ADMIN = Superadministrador, Administrador, Cliente Administrador. CA, Administrador e Superadministrador podem escrever (criar/editar/emitir/converter orçamento e pedido) dentro do escopo; Subcliente com cliente_id no token é bloqueado nessas rotas.
+
+### 0.13 Multi-brand — gating de módulo por marca
+
+**Mapa:** [MAPA_MULTIBRAND.md](MAPA_MULTIBRAND.md)
+
+Módulos efetivos para o usuário/request = **`brand_modules(marca corrente) ∩ tenant_entitlements ∩ permissões RBAC`**.
+
+| Camada | Verificação |
+|--------|-------------|
+| Sidebar / menu HTML | `check_html_module_permission` — módulo deve existir no catálogo da marca **e** nas permissões do usuário |
+| Rotas HTML vitrine/marketplace | `marketplace_brand_gate_middleware` — paths listados em `app/core/brand_module_gating.py` |
+| API marketplace | `MARKETPLACE_ROUTER_DEPENDENCIES`, `assert_marketplace_ibix_brand` |
+
+**Regras:**
+
+- **Solumática:** catálogo `core` apenas — marketplace retorna **403** (HTML e API)
+- **Ibix:** `core` + `marketplace`
+- Módulos futuros (`certificados`, `calibracao`): bloquear com 403 até implementação real; não simular acesso
+- **Sem fallback:** indisponível na marca ≠ redirecionar para Ibix nem ocultar item sem erro
+
+**Contexto de request:** `request.state.brand`, `request.state.brand_module_slugs` (preenchidos no middleware de resolução de marca).
+
+### 0.14 PII — visualização e máscara LGPD (br34/br36)
+
+**Mapas:** [MAPA_DE_API.md](MAPA_DE_API.md) (Clientes), [MAPA_MULTIBRAND.md](MAPA_MULTIBRAND.md) § 6
+
+| Permissão | Módulo | Ação | Quem tem |
+|-----------|--------|------|----------|
+| `pii:visualizar` | `pii` | `visualizar` | Superadministrador, Administrador; **Cliente Administrador** (br36) |
+
+**Regra de exibição** ([pii_access.py](../app/core/pii_access.py), [pii.py](../app/core/pii.py)):
+
+- Roles **Superadministrador**, **Administrador** e **Cliente Administrador** veem CPF/CNPJ/telefone/e-mail completos na listagem de clientes do tenant (sem depender de permissão explícita).
+- Demais roles só veem dados completos com `pii:visualizar` atribuída via `role_permissoes`.
+- Sem permissão: API aplica máscara (ex.: CNPJ `**.***.***/****-24`) — **dados no banco não são alterados**.
+- Alteração de campos PII exige `pii:visualizar` + registro de auditoria `pii_alteracao_cliente`.
+
+**Migração:** `br36_ca_pii_visualizar` — seed `pii:visualizar` na role Cliente Administrador.
 
 ---
 
@@ -103,18 +141,20 @@ Módulos são os valores de `permissoes.modulo` usados para **controle de acesso
 | `negocios.financeiro` | Financeiro |
 | `negocios.ordem-servico` | Ordem de serviço |
 | `negocios.lacres-selos` | Lacres e selos *(API e tabelas removidas 2026-02-18)* |
-| `termobarohigrometro` | Certificados auxiliares – termobarohigrômetro *(removido 2026-02-18)* |
-| `peso` | Certificados auxiliares – peso *(removido 2026-02-18)* |
-| `inspetores` | Inspetores/aprovadores *(removido 2026-02-18)* |
-| `calibracao` | Procedimentos / Calibração |
+| `termobarohigrometro` | *(permissões removidas 2026-07-16 — legado Certipeso)* |
+| `peso` | *(permissões removidas 2026-07-16 — legado Certipeso)* |
+| `inspetores` | *(permissões removidas 2026-07-16 — legado Certipeso)* |
+| `calibracao` | *(permissões RBAC removidas 2026-07-16; módulo brand reservado futuro Certipeso)* |
 | `afericao` | Procedimentos / Aferição |
 | `qualidade` | Qualidade ISO 17025: apenas **revisoes-direcao** ativo. *(procedimentos-metodo, treinamentos-competencia, reclamacoes, auditorias-internas removidos 2026-02-18.)* Rotas HTML usam `check_html_module_permission(request, db, "qualidade", ...)` para revisões. |
 | `configuracoes` | Configurações |
 | `usuarios` | Usuários |
 | `form_builder` | Form Builder (Templates de Formulários) |
-| `certificacao:relatorios:visualizar` (nome da permissão; módulo `certificacao`) | Relatórios unificados: sidebar exibe um único item **Relatórios** → `/negocio/relatorios` (para quem tem esta permissão ou `negocios.venda:visualizar`). A rota `/relatorios` redireciona (302) para `/negocio/relatorios`. API `/api/v1/relatorios` continua com `require_permission("certificacao:relatorios:visualizar")`. Atribuída a Superadministrador, Administrador e Cliente Administrador (migração b67dd569q5a2, d88gg168r7p5). |
+| `negocios.relatorios:visualizar` (nome da permissão; módulo `negocios`) | Relatórios unificados: sidebar exibe um único item **Relatórios** → `/negocio/relatorios` (para quem tem esta permissão ou `negocios.venda:visualizar`). A rota `/relatorios` redireciona (302) para `/negocio/relatorios`. API `/api/v1/relatorios` (catálogo/jobs) com `require_permission("negocios.relatorios:visualizar")`. Página HTML operacional `/negocio/relatorios` usa módulo `negocios`. Atribuída a Superadministrador, Administrador e Cliente Administrador (migração `rb01_cleanup_permissoes_certipeso`). |
+| `auditoria` | *(permissões removidas 2026-07-16 — legado Certipeso)* |
+| `certificados` | *(permissões RBAC removidas 2026-07-16; módulo brand reservado futuro Certipeso; não confundir com certificado fiscal A1)* |
 | `pdv` | PDV (Ponto de Venda): operar, vendas, estoque_consultar, caixa_fechar, sangria_suprimento. Role **Operador PDV** (migração cc22ee469u8). CRUD de PDVs em `/api/v1/pdvs` usa `forbid_cliente_access` (Super Admin, Admin, CA); escopo por `ClienteScope`. |
-| `marketplace` | Marketplace e Vitrine: `marketplace:visualizar`, `marketplace:configurar_loja`, `marketplace:publicar`, `marketplace:gerenciar_pedidos`, `marketplace:financeiro`. Sidebar: **Marketplace** → `/negocio/marketplace` (visível com `marketplace:visualizar`). Vitrine pública em `/loja` e páginas no raiz `/{slug}` e `/categoria/...` (ver MAPA_DO_SISTEMA); auth consumidor via cookie `loja_consumidor_token`. Seed mk02 atribui permissões a Superadministrador, Administrador e Cliente Administrador. **Regras adicionais (2026-03-26):** no `PATCH /api/v1/marketplace/loja/{id}`, edição de `formato_frete`, `taxa_entrega_fixa` e `entrega_gratis_apos` é somente Superadministrador; edição de SEO avançado (`seo_title`, `seo_description`, `og_image_url`, `seo_enabled`) é somente Superadministrador; frete por anúncio/produto continua disponível para CA/Admin/Super via `marketplace:publicar`. **GET** `/api/v1/marketplace/lojas` — apenas Superadministrador. **Sidebar (Superadministrador):** item **SEO vitrine (lojas)** → `/admin/marketplace-seo-lojas` (edição de SEO por loja; não confundir com `/negocio/marketplace`); item **Marketing Vitrine** → `/admin/marketing-vitrine` — **única** tela de **configuração e parametrização de todos os cards** da home da vitrine (Destaques, Ofertas da semana, cabeçalho de ofertas); APIs `/api/v1/marketing-vitrine/*` com `require_superadmin` — **Administrador e Cliente Administrador não** cadastram esses cards. Ver MAPA_DO_SISTEMA § 12 e MAPA_DE_API § 19 (regra de governança). |
+| `marketplace` | Marketplace e Vitrine: `marketplace:visualizar`, `marketplace:configurar_loja`, `marketplace:publicar`, `marketplace:gerenciar_pedidos`, `marketplace:financeiro`. Sidebar: **Marketplace** → `/negocio/marketplace` (visível com `marketplace:visualizar`). Vitrine pública em `/loja` e páginas no raiz `/{slug}` e `/categoria/...` (ver MAPA_DO_SISTEMA); auth consumidor via cookie `loja_consumidor_token`. Seed mk02 atribui permissões a Superadministrador, Administrador e Cliente Administrador. **Regras adicionais (2026-05-15):** transporte/frete da loja foi extraído para `app/api/v1/transporte.py`. `PATCH /api/v1/transporte/loja/{loja_id}` requer `marketplace:configurar_loja` + escopo: **CA salva a própria loja**; Superadministrador / Administrador com escopo amplo salva qualquer loja. `PATCH /api/v1/marketplace/loja/{id}` **rejeita** campos de transporte (`formato_frete`, `taxa_entrega_fixa`, `entrega_gratis_apos`, `tipo_entrega`, `raio_entrega_km`) com HTTP 400. Edição de SEO avançado (`seo_title`, `seo_description`, `og_image_url`, `seo_enabled`) continua restrita a Superadministrador. Frete por anúncio/produto continua disponível para CA/Admin/Super via `marketplace:publicar`. CRUD de `LojaAreaEntrega` (POST/PATCH/DELETE em `/api/v1/marketplace/.../areas-entrega`) continua restrito a Superadministrador (`require_superadmin()`); leitura adicional em `/api/v1/transporte/loja/{id}/areas`. **GET** `/api/v1/marketplace/lojas` — apenas Superadministrador. **Sidebar (Superadministrador):** item **SEO vitrine (lojas)** → `/admin/marketplace-seo-lojas` (edição de SEO por loja; não confundir com `/negocio/marketplace`); item **Marketing Vitrine** → `/admin/marketing-vitrine` — **única** tela de **configuração e parametrização de todos os cards** da home da vitrine (Destaques, Ofertas da semana, cabeçalho de ofertas); APIs `/api/v1/marketing-vitrine/*` com `require_superadmin` — **Administrador e Cliente Administrador não** cadastram esses cards. Ver MAPA_DO_SISTEMA § 12 e MAPA_DE_API § 19 (regra de governança). |
 
 Algumas entradas do **sidebar** checam o **nome completo** da permissão (ex.: `negocios.venda:visualizar`, `negocios.ordem-servico:visualizar`) em vez de só o módulo. O `user_permissions` contém **módulos** + **nomes** de permissões (ver 0.6).
 
@@ -133,12 +173,12 @@ Usuário com **AreaCliente** (área do cliente): permissões fixas (dashboard, e
 ### 0.6 Verificação de permissões
 
 **Rotas HTML (`main.py`):**  
-Para várias páginas, o sistema verifica se o usuário possui **qualquer permissão** com `Permissao.modulo == '<modulo>'` (ex.: `calibracao`, `afericao`, `certificados`) via `check_html_module_permission(request, db, modulo, ...)`. Para controle por permissão específica, usa-se `check_html_permission(request, db, permission_name, ...)` (ex.: `/relatorios` exige `certificacao:relatorios:visualizar`).
+Para várias páginas, o sistema verifica se o usuário possui **qualquer permissão** com `Permissao.modulo == '<modulo>'` (ex.: `calibracao`, `afericao`, `certificados`) via `check_html_module_permission(request, db, modulo, ...)`. Para controle por permissão específica, usa-se `check_html_permission(request, db, permission_name, ...)` (ex.: `/relatorios` exige `negocios.relatorios:visualizar`).
 
 **Sidebar:**  
 O contexto do template recebe `user_permissions`, obtido por `get_user_permissions(user_id, db)`: **lista** que concatena `modulos` (distintos) + `nomes` de permissões da role do usuário. O sidebar usa `'<modulo>' in user_permissions` ou `'<modulo>:<recurso>:<acao>' in user_permissions` conforme o item (ver `app/templates/components/sidebar.html`).
 
-**Relatórios (unificado):** O sidebar exibe um único item **Relatórios** (→ `/negocio/relatorios`) para usuários com `certificacao:relatorios:visualizar` ou `negocios.venda:visualizar`. A rota `/relatorios` redireciona para `/negocio/relatorios`. **Subcliente** não vê Minhas vendas; utiliza apenas o Portal (Informações, Ordens de serviço, Notas fiscais). **Resumo financeiro** foi removido do sidebar (antes apontava para `/negocio/dashboard`).
+**Relatórios (unificado):** O sidebar exibe um único item **Relatórios** (→ `/negocio/relatorios`) para usuários com `negocios.relatorios:visualizar` ou `negocios.venda:visualizar`. A rota `/relatorios` redireciona para `/negocio/relatorios`. **Subcliente** não vê Minhas vendas; utiliza apenas o Portal (Informações, Ordens de serviço, Notas fiscais). **Resumo financeiro** foi removido do sidebar (antes apontava para `/negocio/dashboard`).
 
 **APIs:**  
 - Por **role:** `require_admin`, `require_technician`, `require_client` checam o **nome** da role.  
@@ -217,7 +257,7 @@ Permissões específicas do módulo de emissão (Calibração → Certificado �
 | estoque | `negocios:editar` | PATCH /{id} | p55rr357j2s6 |
 | estoque | `negocios:excluir` | DELETE /{id} | p55rr357j2s6 |
 | *(lacres_selos API removida 2026-02-18)* | - | - | - |
-| relatorios | `certificacao:relatorios:visualizar` | Router (catálogo, jobs, download); página `/relatorios` | b67dd569q5a2, d88gg168r7p5 |
+| relatorios | `negocios.relatorios:visualizar` | Router E-Relatórios (catálogo, jobs, download); sidebar Relatórios | rb01_cleanup_permissoes_certipeso |
 
 ### 0.11 Criação de usuário em dois contextos distintos (Clientes x Minha equipe)
 
@@ -342,7 +382,7 @@ O PDV Ibix utiliza uma hierarquia de roles baseada em níveis numéricos que for
 - `certificacao:certificados:deletar` - Deletar certificados (apenas gestores)
 - `certificacao:equipamentos:gerenciar` - Gerenciar equipamentos (apenas gestores)
 - `certificacao:clientes:gerenciar` - Gerenciar clientes (apenas gestores)
-- `certificacao:relatorios:visualizar` - Relatórios (Superadministrador, Administrador e Cliente Administrador; Técnico/Operador não têm)
+- `negocios.relatorios:visualizar` - Relatórios (Superadministrador, Administrador e Cliente Administrador; Técnico/Operador não têm)
 
 **Funcionalidades:**
 - Criar certificados através de processo de aferição
@@ -382,7 +422,7 @@ O PDV Ibix utiliza uma hierarquia de roles baseada em níveis numéricos que for
 - `certificacao:equipamentos:gerenciar` - Criar/editar equipamentos
 - `certificacao:clientes:visualizar` - Ver todos os clientes
 - `certificacao:clientes:gerenciar` - Criar/editar clientes
-- `certificacao:relatorios:visualizar` - Acessar relatórios (E-Relatórios; mesma permissão para Cliente Administrador)
+- `negocios.relatorios:visualizar` - Acessar relatórios (E-Relatórios; mesma permissão para Cliente Administrador)
 - *(Permissões afericoes legadas; API removida - usar contratos/agendamentos)*
 
 **Funcionalidades:**
@@ -463,7 +503,7 @@ O PDV Ibix utiliza uma hierarquia de roles baseada em níveis numéricos que for
 - `certificacao:equipamentos:gerenciar` - Gerenciar equipamentos
 - `certificacao:clientes:visualizar` - Visualizar clientes
 - `certificacao:clientes:gerenciar` - Gerenciar clientes
-- `certificacao:relatorios:visualizar` - Visualizar relatórios
+- `negocios.relatorios:visualizar` - Visualizar relatórios
 
 ### 3.2 Verificação de Permissões
 
@@ -562,7 +602,7 @@ O PDV Ibix utiliza uma hierarquia de roles baseada em níveis numéricos que for
 | `certificacao:equipamentos:gerenciar` | ❌ | ✅ | ✅ | Apenas gestores e admin |
 | `certificacao:clientes:visualizar` | ✅ | ✅ | ✅ | Todos podem visualizar |
 | `certificacao:clientes:gerenciar` | ❌ | ✅ | ✅ | Apenas gestores e admin |
-| `certificacao:relatorios:visualizar` | ❌ | ✅ | ✅ | Superadministrador, Administrador e Cliente Administrador (E-Relatórios) |
+| `negocios.relatorios:visualizar` | ❌ | ✅ | ✅ | Superadministrador, Administrador e Cliente Administrador (E-Relatórios) |
 | `afericoes:*` (API removida) | - | - | - | Legado; usar contratos/agendamentos |
 | `configuracoes:usuarios:gerenciar` | ❌ | ❌ | ✅ | Apenas admin |
 | `configuracoes:roles:gerenciar` | ❌ | ❌ | ✅ | Apenas admin |
@@ -631,7 +671,7 @@ certificacao:equipamentos:visualizar
 certificacao:equipamentos:gerenciar
 certificacao:clientes:visualizar
 certificacao:clientes:gerenciar
-certificacao:relatorios:visualizar
+negocios.relatorios:visualizar
 contratos:visualizar (aferições via contratos/agendamentos)
 ```
 
@@ -651,7 +691,7 @@ contratos:visualizar (aferições via contratos/agendamentos)
 - ✅ **APIs de qualidade:** Reclamações, ações corretivas, auditorias internas, revisões direção, procedimentos-metodo, treinamentos-competencia com `get_current_user` + `require_permission("qualidade:<recurso>:<acao>")` (visualizar/criar/editar/excluir)
 - ✅ **Rotas HTML qualidade:** Uso de `check_html_module_permission(request, db, "qualidade", ...)` (incluindo `/reclamacoes`). Página `/reclamacoes` permite Cliente Administrador (bloqueio só quando `cliente_id` no token e role fora de `ROLES_COM_ACESSO_ADMIN`).
 - ✅ **Certificados auxiliares (aux_cadastros):** Todas as operações (listagem, criar, obter, atualizar, excluir, inspetores-aprovadores, arquivos) escopadas por `responsavel_id == current_user.id`; usuário vê apenas seus cadastros.
-- ✅ **Relatórios (unificado):** Um único item **Relatórios** no sidebar → `/negocio/relatorios`; visível para quem tem `certificacao:relatorios:visualizar` ou `negocios.venda:visualizar`. Rota `/relatorios` redireciona (302) para `/negocio/relatorios`. API `/api/v1/relatorios` com `require_permission("certificacao:relatorios:visualizar")`.
+- ✅ **Relatórios (unificado):** Um único item **Relatórios** no sidebar → `/negocio/relatorios`; visível para quem tem `negocios.relatorios:visualizar` ou `negocios.venda:visualizar`. Rota `/relatorios` redireciona (302) para `/negocio/relatorios`. API `/api/v1/relatorios` com `require_permission("negocios.relatorios:visualizar")`.
 - ✅ Seed de permissões granulares do módulo qualidade (qualidade:reclamacoes:*, qualidade:acoes_corretivas:*, etc.) associadas a Superadministrador e Administrador
 - ✅ Modelos e relacionamentos SQLAlchemy; API de autenticação completa; interface de gerenciamento de usuários
 

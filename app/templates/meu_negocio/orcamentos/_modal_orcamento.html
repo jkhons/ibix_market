@@ -1,0 +1,969 @@
+<style>
+    :root {
+        --os-primary: #2c3e50;
+    }
+
+    .modal-os-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(3px);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        overflow-y: auto;
+    }
+
+    .modal-os-overlay.active {
+        display: flex;
+    }
+
+    .modal-os-container {
+        background: #ffffff;
+        border-radius: 14px;
+        width: 100%;
+        max-width: 1280px;
+        max-height: 96vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 65px rgba(15, 23, 42, 0.25);
+        animation: modal-orc-slide-down 0.25s ease;
+    }
+
+    @keyframes modal-orc-slide-down {
+        from { transform: translateY(-30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    .modal-os-scroll-produtos,
+    .modal-os-scroll-itens {
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+
+    .modal-os-scroll-produtos { max-height: 360px; }
+    .modal-os-scroll-itens { max-height: 400px; }
+
+    .modal-os-scroll-produtos .table,
+    .modal-os-scroll-itens .table {
+        font-size: 0.8125rem;
+        margin-bottom: 0;
+    }
+
+    .modal-os-scroll-produtos .table th,
+    .modal-os-scroll-produtos .table td,
+    .modal-os-scroll-itens .table th,
+    .modal-os-scroll-itens .table td {
+        padding: 0.35rem 0.5rem;
+        vertical-align: middle;
+    }
+
+    .modal-os-scroll-produtos .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.45rem;
+    }
+
+    .modal-os-header {
+        padding: 12px 18px;
+        background: linear-gradient(135deg, #2c3e50 0%, #2980b9 100%);
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .modal-os-header h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .modal-os-close {
+        background: rgba(255, 255, 255, 0.22);
+        border: none;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        color: #ffffff;
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+        transition: transform 0.2s ease, background 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-os-close:hover {
+        transform: rotate(90deg) scale(1.05);
+        background: rgba(255, 255, 255, 0.36);
+    }
+
+    .modal-os-body {
+        padding: 14px 18px;
+        overflow-y: auto;
+        flex: 1;
+        font-size: 0.8125rem;
+    }
+
+    .modal-os-body .form-label {
+        font-size: 0.75rem;
+        margin-bottom: 0.2rem;
+        font-weight: 600;
+    }
+
+    .modal-os-body .form-control,
+    .modal-os-body .form-select {
+        font-size: 0.8125rem;
+        padding: 0.35rem 0.55rem;
+    }
+
+    .modal-os-footer {
+        padding: 10px 18px 14px;
+        border-top: 1px solid #e5e7eb;
+        background: #f8fafc;
+        border-radius: 0 0 14px 14px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .modal-os-btn {
+        border: none;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .modal-os-btn-secundario { background: #e5e7eb; color: #111827; }
+    .modal-os-btn-principal {
+        background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+        color: #ffffff;
+    }
+
+    .modal-os-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+    }
+
+    .modal-os-valor-editor {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .modal-os-valor-editor input[readonly] {
+        background: #f1f5f9;
+        cursor: not-allowed;
+    }
+
+    .modal-os-valor-editor button { padding: 6px 10px; }
+
+    .modal-os-section {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 10px;
+        background: #ffffff;
+    }
+
+    .modal-os-section h6 {
+        font-weight: 700;
+        font-size: 0.8125rem;
+        margin-bottom: 8px;
+        color: var(--os-primary);
+    }
+
+    .modal-os-section .small,
+    .modal-os-section p.text-muted {
+        font-size: 0.75rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+
+    .cliente-autocomplete-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        max-height: 300px;
+        overflow-y: auto;
+        z-index: 1055;
+        margin-top: 2px;
+    }
+
+    .cliente-autocomplete-item {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background-color 0.2s;
+    }
+
+    .cliente-autocomplete-item:last-child { border-bottom: none; }
+    .cliente-autocomplete-item:hover,
+    .cliente-autocomplete-item.active { background-color: #f8f9fa; }
+
+    .cliente-autocomplete-item strong {
+        display: block;
+        color: #212529;
+        margin-bottom: 4px;
+    }
+
+    .cliente-autocomplete-item small {
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+</style>
+
+<div id="modalOrcamentoCustom" class="modal-os-overlay">
+    <div class="modal-os-container">
+        <div class="modal-os-header">
+            <h3 id="tituloModalOrcamento"><span data-feather="file-plus"></span> Novo orçamento</h3>
+            <button type="button" class="modal-os-close" onclick="fecharModalOrcamento()">×</button>
+        </div>
+        <div class="modal-os-body">
+            <form id="formOrcamento" onsubmit="return false;">
+                <input type="hidden" id="orcamentoCatalogoClienteId" value="">
+                <div class="modal-os-section">
+                    <h6>Informações gerais</h6>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="orcamentoUnidadeEmissor">Unidade (emissor)</label>
+                            <input type="text" class="form-control form-control-sm bg-light" id="orcamentoUnidadeEmissor" readonly placeholder="Estabelecimento emissor do orçamento">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="orcamentoClienteInput">Consumidor</label>
+                            <div class="position-relative">
+                                <input type="text" class="form-control form-control-sm" id="orcamentoClienteInput" placeholder="Digite o nome do cliente..." autocomplete="off">
+                                <input type="hidden" id="orcamentoDestinatarioId" value="">
+                                <div id="orcamentoClienteAutocompleteDropdown" class="cliente-autocomplete-dropdown" style="display: none;"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="orcamentoDataValidade">Validade <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control form-control-sm" id="orcamentoDataValidade" required>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-1">
+                        <div class="col-12">
+                            <label class="form-label" for="orcamentoObservacoes">Observações</label>
+                            <textarea class="form-control form-control-sm" id="orcamentoObservacoes" rows="2" placeholder="Observações gerais do orçamento"></textarea>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-1">
+                        <div class="col-12">
+                            <label class="form-label" for="orcamentoCondicoesPagamento">Condições de pagamento</label>
+                            <textarea class="form-control form-control-sm" id="orcamentoCondicoesPagamento" rows="2" placeholder="Condições de pagamento (opcional)"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-os-section">
+                    <h6>Peças ou serviços</h6>
+                    <p class="text-muted small mb-3">
+                        Busque produtos do estoque por código, nome ou descrição — mesmo fluxo da Nova Venda.
+                    </p>
+                    <div class="row g-2 align-items-end mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="buscaProdutoOrcamento">Buscar produto</label>
+                            <input type="text" class="form-control form-control-sm" id="buscaProdutoOrcamento" placeholder="Código, nome ou descrição" autocomplete="off">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="orcamentoItemQuantidade">Quantidade</label>
+                            <input type="number" class="form-control form-control-sm" id="orcamentoItemQuantidade" min="0.01" step="0.01" value="1">
+                        </div>
+                        <div class="col-md-3">
+                            <button type="button" class="btn btn-primary btn-sm w-100" id="btnBuscarProdutosOrcamento">
+                                <i data-feather="search" class="me-1"></i>
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
+                    <h6 class="small fw-bold mb-1">Produtos disponíveis</h6>
+                    <div class="table-responsive mb-3 modal-os-scroll-produtos">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Código</th>
+                                    <th>Nome</th>
+                                    <th>Estoque</th>
+                                    <th class="text-end">Valor</th>
+                                    <th class="text-center" style="width: 90px;">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listaProdutosOrcamento">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Digite para buscar produtos</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <h6 class="small fw-bold mb-1">Itens selecionados</h6>
+                    <div class="table-responsive modal-os-scroll-itens">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th style="width: 110px;" class="text-end">Valor unit.</th>
+                                    <th style="width: 80px;" class="text-center">Qtd.</th>
+                                    <th style="width: 120px;" class="text-end">Subtotal</th>
+                                    <th style="width: 60px;" class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelaItensOrcamentoSelecionados">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">Nenhum item selecionado.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="row g-2 mt-2">
+                        <div class="col-md-4 ms-auto">
+                            <div class="border rounded p-2 bg-light" style="font-size: 0.8125rem;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span>Subtotal:</span>
+                                    <strong id="resumoSubtotalOrcamento">R$ 0,00</strong>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label mb-0 me-2" for="resumoDescontoOrcamento" style="font-size: 0.75rem;">Desconto:</label>
+                                    <div class="input-group input-group-sm" style="width: 140px;">
+                                        <span class="input-group-text">R$</span>
+                                        <input type="number" min="0" step="0.01" class="form-control text-end" id="resumoDescontoOrcamento" value="0" oninput="atualizarDescontoOrcamento(this.value)">
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>Total:</span>
+                                    <strong id="resumoTotalOrcamento" class="text-success">R$ 0,00</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-os-footer">
+            <button type="button" class="modal-os-btn modal-os-btn-secundario" onclick="fecharModalOrcamento()">Cancelar</button>
+            <button type="button" class="modal-os-btn modal-os-btn-principal" id="btnSalvarOrcamento" onclick="salvarOrcamento()">
+                <span id="iconeSalvarOrcamento" data-feather="save"></span>
+                <span id="textoSalvarOrcamento">Salvar orçamento</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const estadoOrcamento = {
+        orcamentoId: null,
+        produtosBusca: [],
+        itensSelecionados: [],
+        descontoOrcamento: 0,
+        clienteCatalogoId: null,
+    };
+
+    function getTokenOrcamento() {
+        const cookies = document.cookie.split(';');
+        for (const c of cookies) {
+            const [name, val] = c.trim().split('=');
+            if (name === 'pdv_solumatica_token' || name === 'pdv_automscale_token') return val || null;
+        }
+        return null;
+    }
+
+    function apiOrcamento(url, opts) {
+        const t = getTokenOrcamento();
+        return fetch(url, Object.assign({}, opts || {}, {
+            credentials: 'include',
+            headers: Object.assign({
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                ...(t ? { 'Authorization': 'Bearer ' + t } : {}),
+            }, (opts && opts.headers) || {}),
+        }));
+    }
+
+    function escapeOrcHtml(str) {
+        if (str === undefined || str === null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function formatarMoedaOrc(valor) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(valor || 0));
+    }
+
+    function obterValorProdutoOrc(produto) {
+        if (!produto || typeof produto !== 'object') return 0;
+        for (const campo of ['valor_sugerido', 'valor_venda', 'valor']) {
+            const valor = produto[campo];
+            if (valor !== undefined && valor !== null && !Number.isNaN(Number(valor))) return Number(valor);
+        }
+        return 0;
+    }
+
+    function definirClienteCatalogoOrc(id) {
+        if (!Number.isFinite(id)) return;
+        estadoOrcamento.clienteCatalogoId = id;
+        const campo = document.getElementById('orcamentoCatalogoClienteId');
+        if (campo) campo.value = String(id);
+        atualizarUnidadeEmissorOrc(id);
+    }
+
+    async function atualizarUnidadeEmissorOrc(clienteId) {
+        const campo = document.getElementById('orcamentoUnidadeEmissor');
+        if (!campo) return;
+        if (!Number.isFinite(clienteId)) {
+            campo.value = '';
+            return;
+        }
+        const r = await apiOrcamento('/api/v1/clientes/' + clienteId);
+        if (r.ok) {
+            const c = await r.json();
+            campo.value = c.nome || ('Cliente #' + clienteId);
+        } else {
+            campo.value = 'Cliente #' + clienteId;
+        }
+    }
+
+    function obterClienteCatalogoOrc() {
+        if (Number.isFinite(estadoOrcamento.clienteCatalogoId)) return estadoOrcamento.clienteCatalogoId;
+        const id = parseInt(document.getElementById('orcamentoCatalogoClienteId').value, 10);
+        if (Number.isFinite(id)) return id;
+        for (const item of estadoOrcamento.itensSelecionados) {
+            if (Number.isFinite(item.cliente_id)) return item.cliente_id;
+        }
+        return null;
+    }
+
+    function limparFormularioOrcamento() {
+        estadoOrcamento.orcamentoId = null;
+        estadoOrcamento.produtosBusca = [];
+        estadoOrcamento.itensSelecionados = [];
+        estadoOrcamento.descontoOrcamento = 0;
+        estadoOrcamento.clienteCatalogoId = null;
+
+        document.getElementById('orcamentoCatalogoClienteId').value = '';
+        const unidadeCampo = document.getElementById('orcamentoUnidadeEmissor');
+        if (unidadeCampo) unidadeCampo.value = '';
+        document.getElementById('orcamentoClienteInput').value = '';
+        document.getElementById('orcamentoDestinatarioId').value = '';
+        document.getElementById('orcamentoObservacoes').value = '';
+        document.getElementById('orcamentoCondicoesPagamento').value = '';
+        document.getElementById('buscaProdutoOrcamento').value = '';
+        document.getElementById('orcamentoItemQuantidade').value = '1';
+        document.getElementById('resumoDescontoOrcamento').value = '0';
+
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        document.getElementById('orcamentoDataValidade').value = d.toISOString().slice(0, 10);
+
+        document.getElementById('tituloModalOrcamento').innerHTML = '<span data-feather="file-plus"></span> Novo orçamento';
+        document.getElementById('textoSalvarOrcamento').textContent = 'Salvar orçamento';
+
+        const btnSalvar = document.getElementById('btnSalvarOrcamento');
+        if (btnSalvar) btnSalvar.disabled = false;
+
+        renderizarListaProdutosOrcamento();
+        renderizarItensOrcamentoSelecionados();
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+
+    window.fecharModalOrcamento = function() {
+        document.getElementById('modalOrcamentoCustom').classList.remove('active');
+        document.body.style.overflow = '';
+        if (window.history.replaceState) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('novo');
+            url.searchParams.delete('editar');
+            window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : ''));
+        }
+    };
+
+    window.abrirModalOrcamento = async function(orcamentoId) {
+        limparFormularioOrcamento();
+        await carregarEstabelecimentoPadraoOrc();
+
+        if (orcamentoId) {
+            estadoOrcamento.orcamentoId = orcamentoId;
+            document.getElementById('tituloModalOrcamento').innerHTML = '<span data-feather="edit-2"></span> Editar orçamento';
+            document.getElementById('textoSalvarOrcamento').textContent = 'Salvar alterações';
+            await carregarOrcamentoEdicao(orcamentoId);
+        }
+
+        document.getElementById('modalOrcamentoCustom').classList.add('active');
+        document.body.style.overflow = 'hidden';
+        if (typeof feather !== 'undefined') feather.replace();
+    };
+
+    async function carregarEstabelecimentoPadraoOrc() {
+        let r = await apiOrcamento('/api/v1/clientes/todos?para_empresa_fiscal=true');
+        let list = r.ok ? await r.json() : [];
+        if (!list.length) {
+            r = await apiOrcamento('/api/v1/clientes/todos');
+            if (r.ok) list = await r.json();
+        }
+        if (list.length >= 1 && !obterClienteCatalogoOrc()) {
+            definirClienteCatalogoOrc(list[0].id);
+        }
+    }
+
+    async function carregarOrcamentoEdicao(id) {
+        const r = await apiOrcamento('/api/v1/orcamentos/' + id);
+        if (!r.ok) return;
+        const o = await r.json();
+        definirClienteCatalogoOrc(o.cliente_id);
+        if (o.cliente_nome) {
+            const unidadeCampo = document.getElementById('orcamentoUnidadeEmissor');
+            if (unidadeCampo) unidadeCampo.value = o.cliente_nome;
+        }
+        document.getElementById('orcamentoDestinatarioId').value = o.destinatario_id || '';
+        document.getElementById('orcamentoClienteInput').value = o.destinatario_nome || '';
+        document.getElementById('orcamentoDataValidade').value = (o.data_validade || '').substring(0, 10);
+        document.getElementById('orcamentoObservacoes').value = o.observacoes || '';
+        document.getElementById('orcamentoCondicoesPagamento').value = o.condicoes_pagamento || '';
+
+        let descontoItens = 0;
+        estadoOrcamento.itensSelecionados = (o.itens || []).map(function(i) {
+            descontoItens += parseFloat(i.desconto_valor) || 0;
+            return {
+                id: i.produto_cliente_id,
+                cliente_id: o.cliente_id,
+                codigo: i.codigo_produto || '',
+                nome: i.descricao_produto || '',
+                unidade: '',
+                valor_unitario: parseFloat(i.preco_unitario) || 0,
+                quantidade: parseFloat(i.quantidade) || 0,
+                bloqueado: true,
+            };
+        });
+        estadoOrcamento.descontoOrcamento = parseFloat(o.desconto) || descontoItens || 0;
+        document.getElementById('resumoDescontoOrcamento').value = Number(estadoOrcamento.descontoOrcamento).toFixed(2);
+        renderizarItensOrcamentoSelecionados();
+    }
+
+    function inicializarAutocompleteClienteOrcamento() {
+        const inputBusca = document.getElementById('orcamentoClienteInput');
+        const inputHidden = document.getElementById('orcamentoDestinatarioId');
+        const dropdown = document.getElementById('orcamentoClienteAutocompleteDropdown');
+        if (!inputBusca || !inputHidden || !dropdown) return;
+
+        let timeoutId = null;
+        let clientesCarregados = [];
+        let indiceSelecionado = -1;
+
+        async function buscarClientes(termo) {
+            if (!termo || termo.trim().length < 2) return [];
+            const params = new URLSearchParams({ nome: termo.trim(), por_pagina: '50' });
+            const resposta = await apiOrcamento('/api/v1/clientes/?' + params.toString());
+            if (!resposta.ok) return [];
+            const dados = await resposta.json();
+            return Array.isArray(dados.clientes) ? dados.clientes : [];
+        }
+
+        function selecionarCliente(cliente) {
+            inputBusca.value = cliente.nome || '';
+            inputHidden.value = cliente.id;
+            dropdown.style.display = 'none';
+        }
+
+        function exibirSugestoes(clientes) {
+            clientesCarregados = clientes;
+            dropdown.innerHTML = '';
+            if (!clientes.length) {
+                const item = document.createElement('div');
+                item.className = 'cliente-autocomplete-item';
+                item.textContent = 'Nenhum cliente encontrado';
+                item.style.padding = '10px';
+                item.style.color = '#6c757d';
+                dropdown.appendChild(item);
+            } else {
+                clientes.forEach(function(cliente, index) {
+                    const item = document.createElement('div');
+                    item.className = 'cliente-autocomplete-item';
+                    item.innerHTML = '<strong>' + escapeOrcHtml(cliente.nome) + '</strong>' +
+                        (cliente.cnpj ? '<br><small class="text-muted">CNPJ: ' + escapeOrcHtml(cliente.cnpj) + '</small>' : '');
+                    item.addEventListener('click', function() { selecionarCliente(cliente); });
+                    item.addEventListener('mouseenter', function() {
+                        dropdown.querySelectorAll('.cliente-autocomplete-item').forEach(function(i) { i.classList.remove('active'); });
+                        item.classList.add('active');
+                        indiceSelecionado = index;
+                    });
+                    dropdown.appendChild(item);
+                });
+            }
+            dropdown.style.display = 'block';
+            indiceSelecionado = -1;
+        }
+
+        inputBusca.addEventListener('input', function(e) {
+            const termo = e.target.value;
+            if (!termo.length) {
+                inputHidden.value = '';
+                dropdown.style.display = 'none';
+                return;
+            }
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(async function() {
+                if (termo.length < 2) {
+                    dropdown.style.display = 'none';
+                    inputHidden.value = '';
+                    return;
+                }
+                dropdown.innerHTML = '<div class="cliente-autocomplete-item" style="padding: 10px; color: #6c757d;">Buscando...</div>';
+                dropdown.style.display = 'block';
+                exibirSugestoes(await buscarClientes(termo));
+            }, 300);
+        });
+
+        inputBusca.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (indiceSelecionado < clientesCarregados.length - 1) {
+                    indiceSelecionado++;
+                    dropdown.querySelectorAll('.cliente-autocomplete-item').forEach(function(item, idx) {
+                        item.classList.toggle('active', idx === indiceSelecionado);
+                    });
+                }
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (indiceSelecionado > 0) {
+                    indiceSelecionado--;
+                    dropdown.querySelectorAll('.cliente-autocomplete-item').forEach(function(item, idx) {
+                        item.classList.toggle('active', idx === indiceSelecionado);
+                    });
+                }
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (indiceSelecionado >= 0 && clientesCarregados[indiceSelecionado]) {
+                    selecionarCliente(clientesCarregados[indiceSelecionado]);
+                }
+            } else if (e.key === 'Escape') {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            if (inputBusca.parentElement && !inputBusca.parentElement.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+
+    function renderizarListaProdutosOrcamento() {
+        const corpo = document.getElementById('listaProdutosOrcamento');
+        if (!corpo) return;
+        if (!estadoOrcamento.produtosBusca.length) {
+            corpo.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Nenhum produto encontrado</td></tr>';
+            return;
+        }
+        corpo.innerHTML = estadoOrcamento.produtosBusca.map(function(produto) {
+            return '<tr>' +
+                '<td><strong>' + escapeOrcHtml(produto.codigo) + '</strong></td>' +
+                '<td>' + escapeOrcHtml(produto.nome) + '</td>' +
+                '<td>' + escapeOrcHtml(produto.quantidade_atual) + ' ' + escapeOrcHtml(produto.unidade_medida || '') + '</td>' +
+                '<td class="text-end">' + formatarMoedaOrc(obterValorProdutoOrc(produto)) + '</td>' +
+                '<td class="text-center"><button type="button" class="btn btn-sm btn-primary" onclick="adicionarProdutoOrcamento(' + produto.id + ')">Adicionar</button></td>' +
+            '</tr>';
+        }).join('');
+    }
+
+    window.buscarProdutosOrcamento = async function() {
+        const busca = document.getElementById('buscaProdutoOrcamento').value || '';
+        try {
+            const params = new URLSearchParams();
+            if (busca.trim()) params.set('busca', busca.trim());
+            const url = '/api/v1/vendas/produtos' + (params.toString() ? '?' + params.toString() : '');
+            const resposta = await apiOrcamento(url);
+            if (!resposta.ok) throw new Error('Falha na busca');
+            const produtos = await resposta.json();
+            if (!Array.isArray(produtos)) throw new Error('Resposta inesperada');
+            estadoOrcamento.produtosBusca = produtos;
+            renderizarListaProdutosOrcamento();
+        } catch (erro) {
+            console.error(erro);
+            alert('Erro ao buscar produtos.');
+            estadoOrcamento.produtosBusca = [];
+            renderizarListaProdutosOrcamento();
+        }
+    };
+
+    window.adicionarProdutoOrcamento = function(produtoId) {
+        const produto = estadoOrcamento.produtosBusca.find(function(p) { return p.id === produtoId; });
+        if (!produto) { alert('Produto não encontrado.'); return; }
+
+        const clienteAtual = obterClienteCatalogoOrc();
+        if (clienteAtual && produto.cliente_id && produto.cliente_id !== clienteAtual) {
+            alert('Todos os produtos devem pertencer ao mesmo estabelecimento.');
+            return;
+        }
+        if (produto.cliente_id) definirClienteCatalogoOrc(produto.cliente_id);
+
+        const campoQtd = document.getElementById('orcamentoItemQuantidade');
+        const quantidade = Number(campoQtd ? campoQtd.value : 1);
+        if (!quantidade || quantidade <= 0) { alert('Informe uma quantidade válida.'); return; }
+
+        const existente = estadoOrcamento.itensSelecionados.find(function(item) { return item.id === produtoId; });
+        const valorUnitario = obterValorProdutoOrc(produto);
+        if (existente) {
+            existente.quantidade += quantidade;
+        } else {
+            estadoOrcamento.itensSelecionados.push({
+                id: produto.id,
+                cliente_id: produto.cliente_id,
+                codigo: produto.codigo,
+                nome: produto.nome,
+                unidade: produto.unidade_medida,
+                valor_unitario: valorUnitario,
+                quantidade: quantidade,
+                bloqueado: true,
+            });
+        }
+        if (campoQtd) campoQtd.value = '1';
+        renderizarItensOrcamentoSelecionados();
+        if (typeof feather !== 'undefined') feather.replace();
+    };
+
+    function calcularSubtotalItensOrc() {
+        return estadoOrcamento.itensSelecionados.reduce(function(total, item) {
+            return total + Number(item.valor_unitario || 0) * Number(item.quantidade || 0);
+        }, 0);
+    }
+
+    window.atualizarDescontoOrcamento = function(valor) {
+        estadoOrcamento.descontoOrcamento = Math.max(Number(valor || 0), 0);
+        atualizarResumoFinanceiroOrcamento();
+    };
+
+    function atualizarResumoFinanceiroOrcamento() {
+        const subtotal = calcularSubtotalItensOrc();
+        const desconto = Math.min(Number(estadoOrcamento.descontoOrcamento || 0), subtotal);
+        const total = subtotal - desconto;
+        const campoSubtotal = document.getElementById('resumoSubtotalOrcamento');
+        const campoTotal = document.getElementById('resumoTotalOrcamento');
+        const campoDesconto = document.getElementById('resumoDescontoOrcamento');
+        if (campoSubtotal) campoSubtotal.textContent = formatarMoedaOrc(subtotal);
+        if (campoTotal) campoTotal.textContent = formatarMoedaOrc(total);
+        if (campoDesconto && Number(campoDesconto.value) !== desconto) {
+            campoDesconto.value = Number(desconto).toFixed(2);
+        }
+    }
+
+    function renderizarItensOrcamentoSelecionados() {
+        const corpo = document.getElementById('tabelaItensOrcamentoSelecionados');
+        if (!corpo) return;
+
+        if (!estadoOrcamento.itensSelecionados.length) {
+            corpo.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">Nenhum item selecionado.</td></tr>';
+            atualizarResumoFinanceiroOrcamento();
+            if (typeof feather !== 'undefined') feather.replace();
+            return;
+        }
+
+        corpo.innerHTML = estadoOrcamento.itensSelecionados.map(function(item) {
+            const identificador = item.codigo ? item.codigo + ' - ' : '';
+            const unidade = item.unidade ? ' ' + item.unidade : '';
+            const valorUnitario = Number(item.valor_unitario || 0);
+            const bloqueado = item.bloqueado !== false;
+            const subtotal = valorUnitario * item.quantidade;
+            const icone = bloqueado ? 'lock' : 'unlock';
+            const readonlyAttr = bloqueado ? 'readonly' : '';
+            const valorFormatado = Number.isFinite(valorUnitario) ? valorUnitario.toFixed(2) : '0.00';
+            return '<tr>' +
+                '<td>' + escapeOrcHtml(identificador) + '<strong>' + escapeOrcHtml(item.nome) + '</strong></td>' +
+                '<td class="text-end"><div class="modal-os-valor-editor">' +
+                    '<input type="number" class="form-control form-control-sm text-end" id="valorItemOrc-' + item.id + '" value="' + valorFormatado + '" step="0.01" min="0" ' + readonlyAttr +
+                    ' oninput="editarValorItemOrcamento(' + item.id + ', this.value)" onblur="normalizarValorItemOrcamento(' + item.id + ')">' +
+                    '<button class="btn btn-sm btn-outline-secondary" type="button" onclick="alternarEdicaoValorItemOrcamento(' + item.id + ')" aria-label="Alternar edição de valor">' +
+                        '<i data-feather="' + icone + '"></i></button></div></td>' +
+                '<td class="text-center"><input type="number" class="form-control form-control-sm text-center" style="width: 72px; margin: 0 auto;" value="' + item.quantidade + '" min="0.01" step="0.01" onchange="atualizarQuantidadeItemOrcamento(' + item.id + ', this.value)">' +
+                    '<small class="text-muted">' + escapeOrcHtml(unidade.trim()) + '</small></td>' +
+                '<td class="text-end" id="subtotalItemOrc-' + item.id + '">' + formatarMoedaOrc(subtotal) + '</td>' +
+                '<td class="text-end"><button class="btn btn-sm btn-outline-danger" type="button" onclick="removerItemOrcamento(' + item.id + ')"><i data-feather="trash-2"></i></button></td>' +
+            '</tr>';
+        }).join('');
+        if (typeof feather !== 'undefined') feather.replace();
+        atualizarResumoFinanceiroOrcamento();
+    }
+
+    window.atualizarQuantidadeItemOrcamento = function(itemId, novaQuantidade) {
+        const item = estadoOrcamento.itensSelecionados.find(function(r) { return r.id === Number(itemId); });
+        if (!item) return;
+        const quantidade = Number(novaQuantidade);
+        if (!quantidade || quantidade <= 0) {
+            removerItemOrcamento(itemId);
+            return;
+        }
+        item.quantidade = quantidade;
+        renderizarItensOrcamentoSelecionados();
+    };
+
+    window.removerItemOrcamento = function(itemId) {
+        estadoOrcamento.itensSelecionados = estadoOrcamento.itensSelecionados.filter(function(item) {
+            return item.id !== Number(itemId);
+        });
+        renderizarItensOrcamentoSelecionados();
+    };
+
+    window.alternarEdicaoValorItemOrcamento = function(itemId) {
+        const item = estadoOrcamento.itensSelecionados.find(function(r) { return r.id === Number(itemId); });
+        if (!item) return;
+        const estavaBloqueado = item.bloqueado !== false;
+        item.bloqueado = estavaBloqueado ? false : true;
+        renderizarItensOrcamentoSelecionados();
+        if (item.bloqueado === false) {
+            setTimeout(function() {
+                const input = document.getElementById('valorItemOrc-' + itemId);
+                if (input) { input.focus(); input.select(); }
+            }, 0);
+        }
+    };
+
+    window.editarValorItemOrcamento = function(itemId, novoValor) {
+        const item = estadoOrcamento.itensSelecionados.find(function(r) { return r.id === Number(itemId); });
+        if (!item || item.bloqueado !== false) return;
+        const valorNumero = Number(String(novoValor || '').replace(',', '.'));
+        if (!Number.isFinite(valorNumero) || valorNumero < 0) return;
+        item.valor_unitario = valorNumero;
+        const subtotalCell = document.getElementById('subtotalItemOrc-' + itemId);
+        if (subtotalCell) subtotalCell.textContent = formatarMoedaOrc(valorNumero * item.quantidade);
+        atualizarResumoFinanceiroOrcamento();
+    };
+
+    window.normalizarValorItemOrcamento = function(itemId) {
+        const item = estadoOrcamento.itensSelecionados.find(function(r) { return r.id === Number(itemId); });
+        if (!item || item.bloqueado !== false) return;
+        const input = document.getElementById('valorItemOrc-' + itemId);
+        if (!input) return;
+        const valorNumero = Number(String(input.value || '').replace(',', '.'));
+        if (Number.isFinite(valorNumero) && valorNumero >= 0) {
+            item.valor_unitario = valorNumero;
+            input.value = valorNumero.toFixed(2);
+            const subtotalCell = document.getElementById('subtotalItemOrc-' + itemId);
+            if (subtotalCell) subtotalCell.textContent = formatarMoedaOrc(valorNumero * item.quantidade);
+            atualizarResumoFinanceiroOrcamento();
+        } else {
+            input.value = Number(item.valor_unitario || 0).toFixed(2);
+        }
+    };
+
+    function gerarItensPayloadOrcamento() {
+        const subtotal = calcularSubtotalItensOrc();
+        const desconto = Math.min(Number(estadoOrcamento.descontoOrcamento || 0), subtotal);
+        let descontoRestante = desconto;
+        const subtotalReferencia = subtotal > 0 ? subtotal : 0;
+        const itens = estadoOrcamento.itensSelecionados.map(function(item, index, array) {
+            const quantidade = Number(item.quantidade || 0);
+            const valorUnitario = Number(item.valor_unitario || 0);
+            const valorBruto = quantidade * valorUnitario;
+            let descontoItem = 0;
+            if (descontoRestante > 0 && subtotalReferencia > 0) {
+                if (index === array.length - 1) {
+                    descontoItem = descontoRestante;
+                } else {
+                    descontoItem = Number((desconto * (valorBruto / subtotalReferencia)).toFixed(2));
+                }
+            }
+            descontoRestante = Math.max(descontoRestante - descontoItem, 0);
+            return {
+                produto_cliente_id: item.id,
+                quantidade: quantidade,
+                preco_unitario: valorUnitario,
+                desconto_valor: descontoItem,
+            };
+        });
+        return { itens: itens };
+    }
+
+    window.salvarOrcamento = async function() {
+        if (!estadoOrcamento.itensSelecionados.length) {
+            alert('Adicione ao menos um item.');
+            return;
+        }
+        const dataValidade = document.getElementById('orcamentoDataValidade').value;
+        if (!dataValidade) {
+            alert('Informe a data de validade.');
+            return;
+        }
+        const clienteId = obterClienteCatalogoOrc();
+        if (!clienteId) {
+            alert('Não foi possível identificar o estabelecimento do catálogo. Adicione um produto ou verifique seu escopo de acesso.');
+            return;
+        }
+
+        const btn = document.getElementById('btnSalvarOrcamento');
+        btn.disabled = true;
+        const destId = document.getElementById('orcamentoDestinatarioId').value;
+        const payload = gerarItensPayloadOrcamento();
+        const body = {
+            cliente_id: clienteId,
+            destinatario_id: destId ? parseInt(destId, 10) : null,
+            data_validade: dataValidade,
+            observacoes: document.getElementById('orcamentoObservacoes').value || null,
+            condicoes_pagamento: document.getElementById('orcamentoCondicoesPagamento').value || null,
+            itens: payload.itens,
+        };
+
+        try {
+            const url = estadoOrcamento.orcamentoId
+                ? '/api/v1/orcamentos/' + estadoOrcamento.orcamentoId
+                : '/api/v1/orcamentos';
+            const r = await apiOrcamento(url, {
+                method: estadoOrcamento.orcamentoId ? 'PUT' : 'POST',
+                body: JSON.stringify(body),
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(function() { return {}; });
+                throw new Error(err.detail || r.statusText);
+            }
+            fecharModalOrcamento();
+            if (typeof window.recarregarListagemOrcamentos === 'function') {
+                window.recarregarListagemOrcamentos();
+            }
+        } catch (err) {
+            alert(err.message || 'Erro ao salvar.');
+            btn.disabled = false;
+        }
+    };
+
+    document.getElementById('btnBuscarProdutosOrcamento').addEventListener('click', buscarProdutosOrcamento);
+    document.getElementById('buscaProdutoOrcamento').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); buscarProdutosOrcamento(); }
+    });
+
+    inicializarAutocompleteClienteOrcamento();
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('novo') === '1') {
+            abrirModalOrcamento();
+        } else if (params.get('editar')) {
+            const id = parseInt(params.get('editar'), 10);
+            if (Number.isFinite(id)) abrirModalOrcamento(id);
+        }
+    });
+})();
+</script>

@@ -104,7 +104,13 @@ from ...services.password_reset_service import (
 )
 from ...services.push_token_service import registrar_push_token, remover_push_token
 
-router = APIRouter(prefix="/loja", tags=["Loja (vitrine)"])
+from app.core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja",
+    tags=["Loja (vitrine)"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 def _public_base_url_for_checkout(request: Request) -> str:
@@ -266,17 +272,23 @@ def _merge_checkout_single_attribution(request: Request, body: PedidoCheckoutCre
 
 
 @router.get("/auth/social/config")
-async def loja_auth_social_config():
-    """Retorna client IDs OAuth da vitrine (públicos). Sem secrets."""
+async def loja_auth_social_config(request: Request):
+    """Retorna client IDs OAuth da vitrine (públicos) e origem por marca (redirect Google/Apple)."""
+    from app.core.hardening import public_origin_from_request
+
     def _trim(v: Optional[str]) -> Optional[str]:
         if not v or not str(v).strip():
             return None
         return str(v).strip()
 
+    origin = public_origin_from_request(request)
+    login_path = "/loja/login"
     return {
         "google_client_id": _trim(settings.LOJA_OAUTH_GOOGLE_CLIENT_ID),
         "facebook_app_id": _trim(settings.LOJA_OAUTH_FACEBOOK_APP_ID),
         "apple_client_id": _trim(settings.LOJA_OAUTH_APPLE_CLIENT_ID),
+        "origin": origin or None,
+        "apple_redirect_uri": f"{origin}{login_path}" if origin else None,
     }
 
 
@@ -427,6 +439,31 @@ def _imagens_anuncio_ou_fallback(anuncio: AnuncioPlataforma, db: Session) -> Lis
     from .marketplace import _galeria_produto_para_imagens
     galeria_json = _galeria_produto_para_imagens(prod)
     return _imagens_as_list(galeria_json) if galeria_json else []
+
+
+def _imagens_anuncio_completas(anuncio: AnuncioPlataforma, db: Session) -> List[str]:
+    """Galeria completa para montagem/carrossel: anúncio + produto, sem duplicar URLs."""
+    seen: set[str] = set()
+    out: List[str] = []
+
+    def _add(url: str) -> None:
+        u = (url or "").strip()
+        if not u or u in seen:
+            return
+        seen.add(u)
+        out.append(u)
+
+    for u in _imagens_as_list(anuncio.imagens):
+        _add(u)
+    prod = db.query(ProdutoCliente).filter(ProdutoCliente.id == anuncio.produto_ca_id).first()
+    if prod:
+        from .marketplace import _galeria_produto_para_imagens
+        for u in _imagens_as_list(_galeria_produto_para_imagens(prod)):
+            _add(u)
+    og = (getattr(anuncio, "og_image_url", None) or "").strip()
+    if og:
+        _add(_normalize_image_url(og))
+    return out
 
 
 # --- Público: lojas parceiras (marketplace público) ---
@@ -1282,18 +1319,23 @@ async def obter_anuncio_vitrine(
         and produto_base.quantidade_atual is not None
     ):
         estoque_vitrine = float(produto_base.quantidade_atual)
+    cli = None
+    if loja and loja.cliente_id:
+        cli = db.query(Cliente).filter(Cliente.id == loja.cliente_id).first()
     return {
         "id": anuncio.id,
         "titulo": anuncio.titulo,
         "descricao": anuncio.descricao,
         "produto_ca_descricao": produto_base.descricao if produto_base else None,
         "categoria_id": produto_base.categoria_id if produto_base else None,
-        "imagens": _imagens_anuncio_ou_fallback(anuncio, db),
+        "imagens": _imagens_anuncio_completas(anuncio, db),
         "og_image_url": (getattr(anuncio, "og_image_url", None) or "").strip() or None,
         "preco_original": anuncio.preco_original,
         "preco_promocional": anuncio.preco_promocional,
         "estoque_atual": estoque_vitrine,
         "atributos": anuncio.atributos,
+        "cidade_loja": (cli.cidade if cli else None),
+        "uf_loja": (cli.uf if cli else None),
         "frete_formato_efetivo": (
             (anuncio.formato_frete_produto if anuncio.frete_sobrescrever_loja else (loja.formato_frete if loja else None))
             or "sem_frete"
@@ -1414,17 +1456,19 @@ class TokenResponse(BaseModel):
     consumidor: Optional[ConsumidorSnippet] = None
 
 
+from app.core.brand_cookie import apply_host_scoped_cookie
+
+
 def _set_consumidor_cookie(response: Response, token: str, request: Optional[Request] = None) -> None:
     if request and request.headers.get("X-Client") == "mobile":
         return
-    secure_cookie = os.getenv("HTTPS", "false").lower() in ("true", "1")
-    response.set_cookie(
+    apply_host_scoped_cookie(
+        response,
         key=COOKIE_LOJA_CONSUMIDOR,
         value=token,
-        httponly=True,
-        secure=secure_cookie,
-        samesite="lax",
+        request=request,
         max_age=60 * 60 * 24 * 7,
+        httponly=True,
     )
 
 
@@ -1539,6 +1583,9 @@ async def cadastrar_consumidor(
     _: None = Depends(check_loja_cadastro_rate_limit),
 ):
     """Cadastro de consumidor (cliente final) na vitrine. Opcional loja_id para escopo tenant."""
+    from app.services.brand_scope_service import assert_marketplace_ibix_brand
+
+    assert_marketplace_ibix_brand(request)
     if not body.aceite_termos:
         raise HTTPException(status_code=400, detail="É necessário aceitar os termos")
     email_norm = body.email.strip().lower()
@@ -1577,6 +1624,7 @@ async def cadastrar_consumidor(
         ativo=True,
         tipo_consumidor="REGISTERED",
         status_cadastro="COMPLETO",
+        origem_cadastro="loja_cadastro",
     )
     db.add(consumidor)
     db.commit()
@@ -1601,6 +1649,9 @@ async def login_consumidor(
     _: None = Depends(check_loja_login_rate_limit),
 ):
     """Login do consumidor. Opcional loja_id para escopo tenant (tenant_id + email)."""
+    from app.services.brand_scope_service import assert_marketplace_ibix_brand
+
+    assert_marketplace_ibix_brand(request)
     from sqlalchemy import func
     email_norm = body.email.strip().lower()
     if body.loja_id:
@@ -1654,6 +1705,9 @@ async def login_social_consumidor(
     db: Session = Depends(get_db),
     _: None = Depends(check_loja_login_rate_limit),
 ):
+    from app.services.brand_scope_service import assert_marketplace_ibix_brand
+
+    assert_marketplace_ibix_brand(request)
     from sqlalchemy import func
 
     provider = _normalize_provider(body.provider)
@@ -1774,6 +1828,9 @@ async def confirmar_link_social_consumidor(
     db: Session = Depends(get_db),
     _: None = Depends(check_loja_login_rate_limit),
 ):
+    from app.services.brand_scope_service import assert_marketplace_ibix_brand
+
+    assert_marketplace_ibix_brand(request)
     token_hash = hashlib.sha256(body.link_token.encode("utf-8")).hexdigest()
     pending = db.query(ConsumidorSocialLinkPending).filter(
         ConsumidorSocialLinkPending.token_hash == token_hash,
@@ -2578,57 +2635,21 @@ async def checkout_unificado(
         raise HTTPException(status_code=502, detail="Falha ao finalizar checkout unificado. Tente novamente em instantes.")
 
 
-# --- API pública de regras de frete da loja ---
-@router.get("/{loja_id}/frete")
+# --- API pública de regras de frete da loja (DEPRECADO) ---
+# Mantido como alias por 1 release para a vitrine antiga. Migrar fetches para
+# GET /api/v1/transporte/loja/{loja_id}/regras (idêntico contrato).
+@router.get("/{loja_id}/frete", deprecated=True)
 def get_frete_loja(
     loja_id: int,
     cidade: Optional[str] = None,
     uf: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    """Retorna regras de frete da loja (público, sem auth).
-    Quando `cidade` e `uf` informados, verifica área de abrangência e retorna taxa da cidade."""
-    loja = db.query(LojaMarketplace).filter(
-        LojaMarketplace.id == loja_id,
-        LojaMarketplace.status == "ativo",
-    ).first()
-    if not loja:
-        raise HTTPException(status_code=404, detail="Loja não encontrada ou inativa")
+    """[DEPRECADO] Use `GET /api/v1/transporte/loja/{loja_id}/regras`. Mantido por
+    compatibilidade com versões antigas do front da vitrine."""
+    from ...services.transporte.regras_service import regras_publicas_loja
 
-    resp = {
-        "formato_frete": getattr(loja, "formato_frete", None) or "sem_frete",
-        "tipo_entrega": loja.tipo_entrega or "retirada",
-        "taxa_entrega_fixa": float(loja.taxa_entrega_fixa) if loja.taxa_entrega_fixa else None,
-        "entrega_gratis_apos": float(loja.entrega_gratis_apos) if loja.entrega_gratis_apos else None,
-        "raio_entrega_km": loja.raio_entrega_km,
-    }
-
-    if cidade and uf:
-        from sqlalchemy import func
-        area = db.query(LojaAreaEntrega).filter(
-            LojaAreaEntrega.loja_id == loja_id,
-            func.lower(LojaAreaEntrega.cidade) == cidade.strip().lower(),
-            func.upper(LojaAreaEntrega.uf) == uf.strip().upper(),
-            LojaAreaEntrega.ativo == True,
-        ).first()
-        if area:
-            resp["entrega_disponivel"] = True
-            resp["taxa_entrega_cidade"] = float(area.taxa_entrega)
-            resp["prazo_dias"] = area.prazo_dias
-        else:
-            has_any_area = db.query(LojaAreaEntrega).filter(
-                LojaAreaEntrega.loja_id == loja_id,
-                LojaAreaEntrega.ativo == True,
-            ).first()
-            if has_any_area:
-                resp["entrega_disponivel"] = False
-                resp["mensagem"] = "Não entregamos nessa localidade"
-            else:
-                resp["entrega_disponivel"] = True
-                resp["taxa_entrega_cidade"] = float(loja.taxa_entrega_fixa) if loja.taxa_entrega_fixa else 0
-                resp["prazo_dias"] = None
-
-    return resp
+    return regras_publicas_loja(db, loja_id, cidade=cidade, uf=uf)
 
 
 # --- Nova tentativa de pagamento (gateway) ---
@@ -3098,9 +3119,13 @@ async def loja_refresh_token(
 @router.post("/auth/social/apple")
 async def loja_apple_sign_in(
     body: AppleSignInRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Sign In with Apple — verifica id_token, cria/associa consumidor, retorna JWT + refresh."""
+    from app.services.brand_scope_service import assert_marketplace_ibix_brand
+
+    assert_marketplace_ibix_brand(request)
     apple_client_id = settings.LOJA_OAUTH_APPLE_SERVICE_ID or settings.LOJA_OAUTH_APPLE_CLIENT_ID
     if not apple_client_id:
         raise HTTPException(status_code=501, detail="Apple Sign-In não configurado")

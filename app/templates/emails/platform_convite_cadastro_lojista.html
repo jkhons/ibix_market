@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Convite Ibix</title>
+    <!-- Identidade alinhada à vitrine: app/static/css/loja.css :root (--ibix-*); tipografia DM Sans como base_loja.html -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+    <style type="text/css">
+        body { margin: 0; padding: 0; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; background-color: #FEF7F1; }
+        table { border-collapse: collapse; }
+        .preheader { display: none !important; visibility: hidden; opacity: 0; color: transparent; height: 0; width: 0; overflow: hidden; }
+    </style>
+</head>
+<body style="margin:0;padding:0;background-color:#FEF7F1;font-family:'DM Sans',Segoe UI,Roboto,Helvetica Neue,Arial,sans-serif;font-size:16px;line-height:1.55;color:#4A627A;-webkit-font-smoothing:antialiased;">
+    <span class="preheader">Cadastre sua empresa na Ibix — PDV e vitrine em um só lugar.</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FEF7F1;padding:28px 14px;">
+        <tr>
+            <td align="center">
+                <!-- Cartão: superfície branca (--ibix-surface), borda --ibix-border -->
+                <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid rgba(47,58,68,0.14);box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                    <!-- Faixa superior = mesmo tom do cabeçalho dos e-mails da vitrine (layout_comprador) -->
+                    <tr>
+                        <td style="background-color:#FEF7F1;border-bottom:1px solid rgba(44,62,80,0.06);padding:26px 28px 22px;text-align:center;">
+                            {{logo_html}}
+                            <p style="margin:14px 0 0;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;">Convite · Cadastro de lojista</p>
+                            <h1 style="margin:10px 0 0;font-size:22px;font-weight:700;color:#2F3A44;line-height:1.25;">Cadastre sua empresa</h1>
+                            <p style="margin:8px 0 0;font-size:14px;color:#4A627A;line-height:1.5;">Venda com PDV em nuvem e presença na vitrine Ibix.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:28px 28px 24px;">
+                            <p style="margin:0 0 12px;color:#2F3A44;font-weight:600;font-size:17px;">{{nome_destinatario}},</p>
+                            <p style="margin:0 0 16px;color:#4A627A;">Você foi convidado a criar sua conta de <strong style="color:#2F3A44;">estabelecimento (lojista)</strong> na plataforma <strong style="color:#2F3A44;">Ibix</strong>: PDV, estoque, vendas e integrações em um só lugar.</p>
+                            {{mensagem_personalizada_html}}
+                            {{codigo_linha}}
+                            <!-- CTA: --ibix-action / --ibix-action-hover (vitrine) -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:26px auto 8px;">
+                                <tr>
+                                    <td style="border-radius:10px;background-color:#5C6E4A;mso-padding-alt:0;">
+                                        <a href="{{cadastro_url}}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:15px 36px;font-size:15px;font-weight:700;color:#ffffff!important;text-decoration:none;border-radius:10px;background-color:#5C6E4A;font-family:'DM Sans',Segoe UI,sans-serif;">Iniciar cadastro</a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <p style="margin:0;font-size:13px;color:#64748b;line-height:1.5;text-align:center;">O cadastro leva poucos minutos. Tenha em mãos dados da empresa e do responsável legal.</p>
+                            <p style="margin:18px 0 0;font-size:12px;color:#94a3b8;line-height:1.45;word-break:break-all;text-align:center;">Link direto:<br/><a href="{{cadastro_url}}" style="color:#C47A44;font-weight:600;text-decoration:none;">{{cadastro_url}}</a></p>
+                            {{vitrine_link_html}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:18px 28px;background-color:rgba(47,58,68,0.04);border-top:1px solid rgba(47,58,68,0.1);text-align:center;">
+                            <p style="margin:0;font-size:11px;color:#94a3b8;line-height:1.45;">{{ano}} Ibix · Marketplace e PDV</p>
+                            <p style="margin:8px 0 0;font-size:11px;color:#94a3b8;line-height:1.45;">Se você não esperava este convite, pode ignorar este e-mail com segurança.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

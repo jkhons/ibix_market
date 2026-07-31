@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Financeiro | PDV Ibix{% endblock %}
+{% block title %}Repasses | PDV Ibix{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
@@ -9,7 +9,7 @@
     <div class="mb-3">
         <div class="row align-items-center">
             <div class="col">
-                <h1 class="h3 d-inline align-middle"><strong>Financeiro</strong></h1>
+                <h1 class="h3 d-inline align-middle"><strong>Repasses</strong></h1>
             </div>
             {% if user_role == 'Superadministrador' %}
             <div class="col-auto">
@@ -352,26 +352,6 @@
         </div>
     </div>
 
-    {% else %}
-    <!-- Visão CA / outros roles -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">
-                        <i class="align-middle me-2" data-feather="dollar-sign"></i>
-                        Módulo Financeiro
-                    </h5>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info" role="alert">
-                        <i class="align-middle me-2" data-feather="info"></i>
-                        Em breve você poderá acompanhar seus recebimentos e extratos aqui.
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
     {% endif %}
 </div>
 {% endblock %}
@@ -492,18 +472,19 @@ async function carregarTransacoes() {
         const statusList = window.listaStatusRepasse || [];
         if (!data.length) { tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Nenhuma transação encontrada.</td></tr>'; return; }
         tbody.innerHTML = data.map(tx => {
-            const ref = tx.numero_pedido || tx.numero_venda || ('#' + (tx.pedido_id || tx.venda_id || tx.id));
+            const refRaw = tx.numero_pedido || tx.numero_venda || ('#' + (tx.pedido_id || tx.venda_id || tx.id));
+            const refCell = (tx.numero_pedido || tx.numero_venda) ? DocRef.docRefSpan(refRaw) : (refRaw || '—');
             const dt = tx.paid_at || tx.created_at;
             const dataStr = dt ? new Date(dt).toLocaleString('pt-BR') : '—';
             const pct = tx.taxa_plataforma_percentual != null ? tx.taxa_plataforma_percentual + '%' : '—';
             const sigla = tx.status_repasse_sigla || '—';
             const nomeStatus = tx.status_repasse_nome || sigla;
             const badgeClass = sigla !== '—' ? 'bg-' + badgeCorStatusRepasse(sigla) : 'bg-secondary';
-            const btnAcao = statusList.length ? `<button type="button" class="btn btn-sm btn-link text-secondary p-0" title="Alterar status" data-tx-id="${tx.id}" data-ref="${(ref||'').replace(/"/g,'&quot;')}" data-status-id="${tx.status_repasse_id||0}" onclick="abrirModalStatusRepasseFromBtn(this)"><i data-feather="more-horizontal" style="width:16px;height:16px;"></i></button>` : '';
+            const btnAcao = statusList.length ? `<button type="button" class="btn btn-sm btn-link text-secondary p-0" title="Alterar status" data-tx-id="${tx.id}" data-ref="${(refRaw||'').replace(/"/g,'&quot;')}" data-status-id="${tx.status_repasse_id||0}" onclick="abrirModalStatusRepasseFromBtn(this)"><i data-feather="more-horizontal" style="width:16px;height:16px;"></i></button>` : '';
             return `<tr>
                 <td>${dataStr}</td>
                 <td>${tx.cliente_nome || '#' + tx.cliente_id}</td>
-                <td>${ref}</td>
+                <td>${refCell}</td>
                 <td>${fmt(tx.amount)}</td>
                 <td>${pct}</td>
                 <td>${fmt(tx.valor_taxa)}</td>

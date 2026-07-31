@@ -8,7 +8,13 @@ from ...database.connection import get_db
 from ...schemas.mobile import AutocompleteResponse, TermoPopularResponse
 from ...services.busca_service import autocomplete, registrar_termo, termos_populares
 
-router = APIRouter(prefix="/loja/busca", tags=["Loja – Busca"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja/busca",
+    tags=["Loja – Busca"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 @router.get("/autocomplete", response_model=AutocompleteResponse)

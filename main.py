@@ -32,10 +32,11 @@ from app.core.slug_utils import (
     produto_slug_url,
     slugify,
 )
+from app.core.document_ref import compact_doc_ref
 from app.core.subscription_guard import _path_in_allowlist, check_subscription_redirect, is_subscription_blocked
 
 # Importar configurações do banco
-from app.database.connection import SessionLocal, engine, get_db
+from app.database.connection import engine, get_db
 from app.models import *  # Importar todos os modelos
 from app.models.usuario import Usuario
 from app.utils.visitante import classificar_visitante
@@ -67,6 +68,7 @@ ROUTER_SPECS = [
     ("app.api.v1.dashboard_negocios", "router", "dashboard_negocios"),
     ("app.api.v1.vendas", "router", "vendas"),
     ("app.api.v1.orcamentos", "router", "orcamentos"),
+    ("app.api.v1.documentos_impressao", "router", "documentos_impressao"),
     ("app.api.v1.pedidos", "router", "pedidos"),
     ("app.api.v1.ordens_servico", "router", "ordens_servico"),
     ("app.api.v1.empresa", "router", "empresa_fiscal"),
@@ -80,11 +82,14 @@ ROUTER_SPECS = [
     ("app.api.v1.form_builder", "router", "form_builder"),
     ("app.api.v1.billing", "router", "billing"),
     ("app.api.v1.admin_billing", "router", "admin_billing"),
+    ("app.api.v1.admin_lgpd", "router", "admin_lgpd"),
+    ("app.api.v1.admin_tenant_lifecycle", "router", "admin_tenant_lifecycle"),
     ("app.api.v1.admin_compras_global", "router", "admin_compras_global"),
     ("app.api.v1.admin_audit_pagamentos", "router", "admin_audit_pagamentos"),
     ("app.api.v1.nfse", "router", "nfse"),
     ("app.api.v1.tenant_config", "router", "tenant_config"),
     ("app.api.v1.admin_dashboard", "router", "admin_dashboard"),
+    ("app.api.v1.admin_montagem_anuncio", "router", "admin_montagem_anuncio"),
     ("app.api.webhooks_mercadopago", "router", "webhooks_mp"),
     ("app.api.webhooks_payments", "router", "webhooks_payments"),
     ("app.api.v1.plans", "router", "plans"),
@@ -113,6 +118,7 @@ ROUTER_SPECS = [
     ("app.api.v1.precos_publico", "router", "precos_publico"),
     ("app.api.v1.admin_hierarquia", "router", "admin_hierarquia"),
     ("app.api.v1.marketplace", "router", "marketplace"),
+    ("app.api.v1.transporte", "router", "transporte"),
     ("app.api.v1.loja", "router", "loja"),
     ("app.api.v1.loja_favoritos", "router", "loja_favoritos"),
     ("app.api.v1.loja_notificacoes", "router", "loja_notificacoes"),
@@ -123,6 +129,7 @@ ROUTER_SPECS = [
     ("app.api.v1.loja_busca", "router", "loja_busca"),
     ("app.api.v1.ws_loja", "router", "ws_loja"),
     ("app.api.v1.marketing_vitrine", "router", "marketing_vitrine"),
+    ("app.api.v1.marketing.marketing_ibix_lancamento", "router", "marketing_ibix_lancamento"),
     ("app.api.v1.integracao", "router", "integracao"),
     ("app.api.v1.entregador", "router", "entregador"),
     ("app.api.v1.admin_entregadores", "router", "admin_entregadores"),
@@ -148,22 +155,50 @@ app = FastAPI(
 install_redact_token_filter()
 # Log de banco (sqlalchemy.engine) em logs/database.log
 setup_database_logging()
+from app.core.db_session_scope import setup_db_performance_hooks
+
+setup_db_performance_hooks()
+
+from app.services.payments.credentials import assert_payment_encryption_in_production
+
+assert_payment_encryption_in_production()
+
+from app.core.enterprise_checks import run_enterprise_startup_checks
+from app.core.structured_log_context import install_structured_log_context
+
+install_structured_log_context()
+try:
+    run_enterprise_startup_checks()
+except RuntimeError as _enterprise_exc:
+    logger.error(str(_enterprise_exc))
+    raise
 # Indicar onde estão os arquivos de log (login_falha e outros eventos em security.log / pdv_solumatica.log)
 _log_dir = getattr(logger, "_log_dir", None)
 if _log_dir:
     logger.info("Logs: %s (security.log, pdv_solumatica.log, errors.log). Para ver falhas de login: tail -f %s/security.log" % (_log_dir, _log_dir))
 
-# CORS: em produção, exige CORS_ORIGINS explícito; wildcard só em dev.
-_cors_origins = os.getenv("CORS_ORIGINS", "").strip()
+# CORS: em produção, exige CORS_ORIGINS + brand_domains; wildcard só em dev.
+from app.core.hardening import resolve_cors_allowlist
+
 _is_production = (settings.ENV or "").lower() == "production"
-if _cors_origins:
-    _origins_list = [o.strip() for o in _cors_origins.split(",") if o.strip()]
-    _cors_allow_origins = _origins_list if _origins_list else ["https://www.ibix.com.br"]
-elif _is_production:
-    _cors_allow_origins = ["https://www.ibix.com.br", "https://ibix.com.br"]
-    logger.warning("CORS_ORIGINS não definido em produção — usando domínios padrão Ibix")
-else:
+_cors_allow_origins: list[str]
+try:
+    from app.database.connection import SessionLocal
+
+    _cors_db = SessionLocal()
+    try:
+        _cors_allow_origins = resolve_cors_allowlist(db=_cors_db, is_production=_is_production)
+    finally:
+        _cors_db.close()
+except Exception as _cors_exc:
+    if _is_production:
+        raise RuntimeError(f"Falha ao resolver CORS allowlist em produção: {_cors_exc}") from _cors_exc
     _cors_allow_origins = ["*"]
+    logger.warning(f"CORS allowlist indisponível em dev — usando wildcard: {_cors_exc}")
+if _is_production:
+    logger.info(
+        f"CORS allowlist ({len(_cors_allow_origins)} origens): {', '.join(_cors_allow_origins)}"
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allow_origins,
@@ -203,8 +238,131 @@ async def request_id_middleware(request: Request, call_next):
     """Define request_id em toda requisição para correlação em logs (request_id, tenant_id, user_id)."""
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     request.state.request_id = request_id
+    from app.core.request_context import set_request_context
+
+    set_request_context(request_id=request_id)
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
+    return response
+
+
+@app.middleware("http")
+async def marketplace_brand_gate_middleware(request: Request, call_next):
+    """Bloqueia rotas de marketplace/vitrine quando a marca não oferece o módulo (ex.: Solumática)."""
+    from app.core.brand_module_gating import (
+        MODULE_MARKETPLACE,
+        marketplace_brand_available,
+        path_requires_marketplace_module,
+    )
+
+    if request.method not in ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"):
+        return await call_next(request)
+
+    path = request.url.path or "/"
+    if path.startswith("/static/"):
+        return await call_next(request)
+
+    if marketplace_brand_available(request):
+        return await call_next(request)
+
+    if not path_requires_marketplace_module(path):
+        return await call_next(request)
+
+    # Raiz institucional (marcas só core) — servida em root()/index_html()
+    if path in ("/", "/index.html"):
+        return await call_next(request)
+
+    if path.startswith("/api/"):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": f"Módulo '{MODULE_MARKETPLACE}' indisponível nesta marca."},
+        )
+
+    from app.database.connection import open_db_session
+
+    if path.startswith("/negocio/marketplace"):
+        db = open_db_session()
+        try:
+            return await _response_403(
+                request,
+                db,
+                "Marketplace não disponível nesta marca.",
+            )
+        finally:
+            db.close()
+
+    if (
+        path.startswith("/admin/marketing-vitrine")
+        or path.startswith("/admin/marketing-ibix-lancamento")
+        or path.startswith("/admin/marketplace-seo")
+        or path.startswith("/admin/lojas_produtos")
+    ):
+        db = open_db_session()
+        try:
+            return await _response_403(
+                request,
+                db,
+                "Marketplace não disponível nesta marca.",
+            )
+        finally:
+            db.close()
+
+    return RedirectResponse(url="/login", status_code=302)
+
+
+@app.middleware("http")
+async def brand_resolution_middleware(request: Request, call_next):
+    """Resolve marca white-label pelo Host → request.state.brand (cache Redis + DB)."""
+    from app.core.brand_module_gating import load_brand_module_slugs
+    from app.services.brand_service import normalize_host, resolve_brand_by_host
+
+    host = normalize_host(request.headers.get("host"))
+
+    from app.database.connection import open_db_session
+
+    def _resolve():
+        db = open_db_session()
+        try:
+            brand_ctx = resolve_brand_by_host(db, host)
+            module_slugs = load_brand_module_slugs(db, brand_ctx.id)
+            return brand_ctx, module_slugs
+        finally:
+            db.close()
+
+    try:
+        brand_ctx, module_slugs = await asyncio.to_thread(_resolve)
+        request.state.brand = brand_ctx
+        request.state.brand_module_slugs = module_slugs
+        from app.core.request_context import set_request_context
+
+        if brand_ctx:
+            set_request_context(brand_slug=brand_ctx.slug, brand_id=brand_ctx.id)
+    except Exception as e:
+        log_error(f"Falha ao resolver marca para host={host!r}", exc_info=e)
+        request.state.brand = None
+        request.state.brand_module_slugs = frozenset()
+    return await call_next(request)
+
+
+@app.middleware("http")
+async def multibrand_http_metrics_middleware(request: Request, call_next):
+    """Métricas Prometheus por brand_slug (Fase 3.2 — cardinalidade controlada)."""
+    import time
+
+    from app.core.multibrand_metrics import record_http_request
+    from app.core.request_context import clear_request_context
+
+    started = time.perf_counter()
+    response = await call_next(request)
+    brand = getattr(request.state, "brand", None)
+    brand_slug = getattr(brand, "slug", None) or "unknown"
+    record_http_request(
+        method=request.method,
+        brand_slug=brand_slug,
+        status_code=response.status_code,
+        duration_seconds=time.perf_counter() - started,
+    )
+    clear_request_context()
     return response
 
 
@@ -287,8 +445,24 @@ async def performance_logger(request: Request, call_next):
     return response
 
 @app.middleware("http")
+async def metrics_localhost_guard_middleware(request: Request, call_next):
+    """Fase 5: /metrics acessível só em localhost (camada app; Nginx também restringe)."""
+    if request.url.path == "/metrics":
+        from app.core.hardening import is_metrics_client_allowed
+        from app.core.rate_limiter import get_client_ip
+
+        if not is_metrics_client_allowed(get_client_ip(request)):
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Headers de segurança para sistema na internet (OWASP recommended headers)."""
+    from app.core.brand_cookie import request_is_https
+    from app.core.hardening import build_csp_header
+    from app.services.brand_service import brand_context_from_request
+
     request.state.csp_nonce = ""
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -298,28 +472,21 @@ async def add_security_headers(request: Request, call_next):
         "camera=(), microphone=(), geolocation=(self), payment=(self), usb=()"
     )
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    if request_is_https(request):
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
     _csp_extra = os.getenv("CSP_EXTRA_SOURCES", "").strip()
-    _csp = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://sdk.mercadopago.com https://www.googletagmanager.com https://www.google-analytics.com https://code.jquery.com https://maps.googleapis.com https://accounts.google.com https://www.gstatic.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; "
-        "font-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.gstatic.com data:; "
-        "img-src 'self' data: blob: https:; "
-        "connect-src 'self' https://*.ibix.com.br https://cdn.jsdelivr.net https://api.mercadopago.com https://viacep.com.br https://www.google-analytics.com https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com wss:; "
-        "frame-src 'self' https://sdk.mercadopago.com https://accounts.google.com; "
-        "object-src 'none'; "
-        "base-uri 'self'; "
-        "form-action 'self'"
-    )
-    if _csp_extra:
-        _csp += "; " + _csp_extra
-    response.headers["Content-Security-Policy"] = _csp
+    brand = brand_context_from_request(request)
+    response.headers["Content-Security-Policy"] = build_csp_header(brand, extra_sources=_csp_extra)
     return response
 
 
 def _check_subscription_sync(request: Request):
     """Executa check em thread para não bloquear o event loop."""
-    db = SessionLocal()
+    from app.database.connection import open_db_session
+
+    db = open_db_session()
     try:
         return check_subscription_redirect(request, db)
     finally:
@@ -381,14 +548,16 @@ async def tenant_rate_limit_middleware(request: Request, call_next):
     if user_id is None:
         return await call_next(request)
     try:
+        from app.core.request_context import populate_pdv_user_context
         from app.core.scope import resolve_tenant_pagador
-        from app.database.connection import SessionLocal
+        from app.database.connection import open_db_session
         from sqlalchemy.orm import joinedload
-        db = SessionLocal()
+        db = open_db_session()
         try:
             user = db.query(Usuario).options(joinedload(Usuario.role)).filter(Usuario.id == user_id).first()
             if not user:
                 return await call_next(request)
+            populate_pdv_user_context(db, user.id)
             tenant_id = resolve_tenant_pagador(db, user.id, user.role.nome if user.role else None)
             if tenant_id is not None:
                 allowed, error_message = await asyncio.to_thread(tenant_rate_limiter.is_allowed, str(tenant_id))
@@ -425,6 +594,20 @@ async def add_user_to_request(request: Request, call_next):
             if user_id:
                 request.state.user_id = int(user_id)
                 request.state.user_payload = payload
+                path = request.url.path or ""
+                token_tipo = payload.get("tipo")
+                if token_tipo not in ("consumidor", "entregador"):
+                    try:
+                        from app.core.request_context import populate_pdv_user_context
+                        from app.database.connection import open_db_session
+
+                        db = open_db_session()
+                        try:
+                            populate_pdv_user_context(db, int(user_id))
+                        finally:
+                            db.close()
+                    except Exception:
+                        pass
             # cliente_id do JWT (estabelecimento/contexto), não o tenant_id de billing; usado para correlação em logs
             cid = payload.get("cliente_id")
             if cid is not None:
@@ -479,6 +662,7 @@ PDV_STATIC_VERSION = os.environ.get("PDV_STATIC_VERSION", str(int(time.time())))
 # Configurar templates Jinja2
 templates = Jinja2Templates(directory="app/templates")
 templates.env.filters["slugify"] = slugify
+templates.env.filters["compact_doc_ref"] = compact_doc_ref
 
 COOKIE_LOJA_CONSUMIDOR = "loja_consumidor_token"
 
@@ -663,6 +847,7 @@ ROUTER_INCLUDE = [
     ("dashboard_negocios", "/api/v1", None),
     ("vendas", "/api/v1", ["Vendas"]),
     ("orcamentos", "/api/v1", None),
+    ("documentos_impressao", "/api/v1", None),
     ("pedidos", "/api/v1", None),
     ("ordens_servico", "/api/v1", ["Ordens de Serviço"]),
     ("empresa_fiscal", "/api/v1", None),
@@ -676,11 +861,14 @@ ROUTER_INCLUDE = [
     ("form_builder", "/api/v1", None),
     ("billing", "/api/v1", None),
     ("admin_billing", "/api/v1", None),
+    ("admin_lgpd", "/api/v1", None),
+    ("admin_tenant_lifecycle", "/api/v1", None),
     ("admin_compras_global", "/api/v1", None),
     ("admin_audit_pagamentos", "/api/v1", None),
     ("nfse", "/api/v1", None),
     ("tenant_config", "/api/v1", None),
     ("admin_dashboard", "/api/v1", None),
+    ("admin_montagem_anuncio", "/api/v1", None),
     ("webhooks_mp", "/api/webhooks", None),
     ("webhooks_payments", "/api/webhooks", None),
     ("plans", "/api/v1", None),
@@ -709,6 +897,7 @@ ROUTER_INCLUDE = [
     ("precos_publico", "/api/v1", None),
     ("admin_hierarquia", "/api/v1", None),
     ("marketplace", "/api/v1", None),
+    ("transporte", "/api/v1", None),
     ("loja", "/api/v1", None),
     ("loja_favoritos", "/api/v1", None),
     ("loja_notificacoes", "/api/v1", None),
@@ -719,6 +908,7 @@ ROUTER_INCLUDE = [
     ("loja_busca", "/api/v1", None),
     ("ws_loja", None, None),
     ("marketing_vitrine", "/api/v1", None),
+    ("marketing_ibix_lancamento", "/api/v1", None),
     ("integracao", "/api", None),
     ("entregador", "/api/v1", None),
     ("admin_entregadores", "/api/v1", None),
@@ -750,7 +940,25 @@ except Exception as e:
 def get_template_context(request: Request, db: Session):
     """Obtém contexto comum para templates incluindo permissões do usuário.
     Reutiliza request.state (user_id, user_payload, user_permissions, user) para evitar queries duplicadas na mesma requisição."""
-    context = {"request": request, "user_is_cliente": False, "subscription_blocked": False, "csp_nonce": getattr(request.state, "csp_nonce", "")}
+    brand_dict = _brand_template_dict(request)
+    is_origem = brand_dict.get("is_origem", True)
+    nome_exib = brand_dict.get("nome_exibicao") or brand_dict.get("nome") or "PDV"
+    context = {
+        "request": request,
+        "user_is_cliente": False,
+        "subscription_blocked": False,
+        "csp_nonce": getattr(request.state, "csp_nonce", ""),
+        "brand": brand_dict,
+        "brand_has_marketplace": "marketplace" in getattr(request.state, "brand_module_slugs", frozenset()),
+        "brand_scope": {
+            "id": brand_dict.get("id"),
+            "nome": nome_exib,
+            "slug": brand_dict.get("slug", ""),
+            "is_origem": is_origem,
+            "scope_locked": not is_origem,
+            "scope_label": f"Dados: {nome_exib}" if not is_origem else f"Visão global ({nome_exib})",
+        },
+    }
     try:
         user_id = getattr(request.state, "user_id", None)
         payload = getattr(request.state, "user_payload", None)
@@ -841,6 +1049,21 @@ async def check_html_any_module_permission(request: Request, db: Session, modulo
         return RedirectResponse(url="/login", status_code=302)
 
 
+async def check_html_brand_module(request: Request, db: Session, module_slug: str, error_message: str):
+    """403 se a marca atual (Host) não oferece o módulo."""
+    from app.core.brand_module_gating import load_brand_module_slugs, request_has_brand_module
+    from app.services.brand_service import brand_context_from_request
+
+    brand = brand_context_from_request(request)
+    if not brand:
+        return await _response_403(request, db, error_message)
+    if not hasattr(request.state, "brand_module_slugs"):
+        request.state.brand_module_slugs = load_brand_module_slugs(db, brand.id)
+    if not request_has_brand_module(request, module_slug):
+        return await _response_403(request, db, error_message)
+    return None
+
+
 async def check_html_module_permission(request: Request, db: Session, modulo: str, error_message: str):
     """Verifica se o usuário tem permissão para o módulo (role_permissoes). Retorna Response 403 ou None.
     Reutiliza request.state.user_payload e request.state.user_permissions quando disponíveis."""
@@ -894,12 +1117,46 @@ async def check_html_permission(request: Request, db: Session, permission_name: 
         return RedirectResponse(url="/login", status_code=302)
 
 
+def _public_brand_context(request: Request, **extra) -> dict:
+    """Contexto mínimo para páginas auth públicas (marca pelo Host)."""
+    ctx = {"request": request, "brand": _brand_template_dict(request)}
+    ctx.update(extra)
+    return ctx
+
+
+def _brand_template_dict(request: Request) -> dict:
+    """Dict de marca para templates Jinja (requer brand_resolution_middleware)."""
+    ctx = getattr(request.state, "brand", None)
+    if ctx is None:
+        return {
+            "id": 0,
+            "slug": "ibix",
+            "nome_exibicao": settings.APP_DISPLAY_NAME,
+            "nome_curto": settings.APP_DISPLAY_NAME_SHORT,
+            "nome": settings.APP_DISPLAY_NAME_SHORT,
+            "logo_url": "/static/img/ibix/cab.png",
+            "logo_footer_url": "/static/img/ibix/rodape.png",
+            "logo_display_url": "/static/img/ibix/cab.png",
+            "logo_footer_display_url": "/static/img/ibix/rodape.png",
+            "favicon_url": "/static/img/arte-pdv.png",
+            "telefone": "",
+            "whatsapp": "",
+            "email_remetente": "",
+            "cor_primaria": "",
+            "cor_secundaria": "",
+            "seo_base_url": "",
+            "is_origem": True,
+        }
+    return ctx.to_template_dict()
+
+
 def _landing_base_url(request: Request) -> str:
     """URL base pública para canonical, OG e sitemap.
-    Ordem: SEO_PUBLIC_BASE_URL (domínio oficial indexável) → host da requisição → APP_URL.
-    Defina SEO_PUBLIC_BASE_URL em produção com o domínio oficial (ex.: https://www.ibix.com.br) quando APP_URL ou
-    o host visto pelo proxy não coincidir com o que você submete no Search Console, evitando canônicos conflitantes.
+    Ordem: brand.seo_base_url (multi-brand) → SEO_PUBLIC_BASE_URL → host da requisição → APP_URL.
     """
+    ctx = getattr(request.state, "brand", None)
+    if ctx and (ctx.seo_base_url or "").strip():
+        return ctx.seo_base_url.strip().rstrip("/")
     explicit = (getattr(settings, "SEO_PUBLIC_BASE_URL", None) or "").strip().rstrip("/")
     if explicit:
         return explicit
@@ -909,17 +1166,68 @@ def _landing_base_url(request: Request) -> str:
     return (settings.APP_URL or "").rstrip("/") if settings.APP_URL else ""
 
 
+def _whatsapp_link_digits(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    digits = "".join(c for c in str(raw) if c.isdigit())
+    return digits or None
+
+
+def _core_landing_context(request: Request) -> dict:
+    """Contexto da landing institucional (marcas sem marketplace)."""
+    brand = _brand_template_dict(request)
+    telefone = (brand.get("telefone") or brand.get("whatsapp") or "").strip() or None
+    whatsapp = (brand.get("whatsapp") or brand.get("telefone") or "").strip() or None
+    wa_link = _whatsapp_link_digits(whatsapp)
+    return _public_brand_context(
+        request,
+        base_url=_landing_base_url(request),
+        canonical_path="/",
+        contact_telefone=telefone,
+        contact_whatsapp=whatsapp,
+        contact_whatsapp_link=wa_link,
+    )
+
+
+async def _maybe_redirect_authenticated_to_dashboard(request: Request):
+    """Usuário PDV logado na landing → dashboard."""
+    token = request.cookies.get("pdv_solumatica_token") or request.cookies.get("pdv_automscale_token")
+    if not token:
+        return None
+    try:
+        payload = AuthConfig.verify_token(token)
+        if payload.get("sub"):
+            return RedirectResponse(url="/dashboard", status_code=302)
+    except Exception:
+        pass
+    return None
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, db: Session = Depends(get_db)):
-    """Página inicial: vitrine (loja). Sempre exibida; usuário PDV logado vê link Painel no header."""
+    """Página inicial: vitrine (Ibix/marketplace) ou landing institucional (core-only)."""
+    from app.core.brand_module_gating import marketplace_brand_available
+
     await check_loja_public_page_rate_limit(request)
+    if not marketplace_brand_available(request):
+        redirect = await _maybe_redirect_authenticated_to_dashboard(request)
+        if redirect:
+            return redirect
+        return await _render_template_async("pages/landing_core.html", _core_landing_context(request))
     return await _render_template_async("loja/index.html", await _loja_context(request, db=db))
 
 
 @app.get("/index.html", response_class=HTMLResponse)
 async def index_html(request: Request, db: Session = Depends(get_db)):
-    """Página index.html: mesmo que / — vitrine sempre exibida."""
+    """Página index.html: mesmo comportamento que /."""
+    from app.core.brand_module_gating import marketplace_brand_available
+
     await check_loja_public_page_rate_limit(request)
+    if not marketplace_brand_available(request):
+        redirect = await _maybe_redirect_authenticated_to_dashboard(request)
+        if redirect:
+            return redirect
+        return await _render_template_async("pages/landing_core.html", _core_landing_context(request))
     return await _render_template_async("loja/index.html", await _loja_context(request, db=db))
 
 
@@ -1294,6 +1602,7 @@ async def dashboard(request: Request, db: Session = Depends(get_db)):
 async def login(request: Request, db: Session = Depends(get_db)):
     """Página de login (mesmo padrão visual da vitrine: base loja, logo e header)."""
     user_id = getattr(request.state, "user_id", None)
+    stale_cookie = False
     if user_id:
         try:
             user = (
@@ -1302,13 +1611,20 @@ async def login(request: Request, db: Session = Depends(get_db)):
                 .filter(Usuario.id == user_id)
                 .first()
             )
-            if user and user.role and user.role.nome == "Subcliente":
-                return RedirectResponse(url="/portal", status_code=302)
+            if user and user.ativo:
+                if user.role and user.role.nome == "Subcliente":
+                    return RedirectResponse(url="/portal", status_code=302)
+                return RedirectResponse(url="/dashboard", status_code=302)
         except Exception:
             pass
-        return RedirectResponse(url="/dashboard", status_code=302)
+        stale_cookie = True
     ctx = await _loja_context(request, db=db)
-    return await _render_template_async("auth/login.html", ctx)
+    response = await _render_template_async("auth/login.html", ctx)
+    if stale_cookie:
+        from app.core.brand_cookie import clear_pdv_auth_cookies
+
+        clear_pdv_auth_cookies(response, request)
+    return response
 
 @app.get("/register", response_class=HTMLResponse)
 async def register(request: Request):
@@ -1324,14 +1640,16 @@ async def cadastro_publico(request: Request):
 @app.get("/auth/esqueci-senha", response_class=HTMLResponse)
 async def auth_esqueci_senha(request: Request):
     """Página Esqueci minha senha (PDV)."""
-    return await _render_template_async("auth/esqueci_senha.html", {"request": request})
+    return await _render_template_async("auth/esqueci_senha.html", _public_brand_context(request))
 
 
 @app.get("/auth/redefinir-senha", response_class=HTMLResponse)
 async def auth_redefinir_senha(request: Request, token: Optional[str] = None):
     """Página Redefinir senha (PDV) com token na URL."""
-    context = {"request": request, "token": token or ""}
-    return await _render_template_async("auth/redefinir_senha.html", context)
+    return await _render_template_async(
+        "auth/redefinir_senha.html",
+        _public_brand_context(request, token=token or ""),
+    )
 
 
 @app.get("/cadastro-representante", response_class=HTMLResponse)
@@ -1392,9 +1710,15 @@ async def change_password_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/logout", response_class=HTMLResponse)
 async def logout_page(request: Request):
-    """Página de logout - redireciona para login"""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse(url="/login")
+    """Logout PDV: invalida token, remove cookies HttpOnly e redireciona para login."""
+    from app.core.auth import blacklist_access_token
+    from app.core.brand_cookie import clear_pdv_auth_cookies
+
+    token = request.cookies.get("pdv_solumatica_token") or request.cookies.get("pdv_automscale_token")
+    blacklist_access_token(token)
+    response = RedirectResponse(url="/login", status_code=302)
+    clear_pdv_auth_cookies(response, request)
+    return response
 
 # Rotas de páginas
 @app.get("/clientes", response_class=HTMLResponse)
@@ -1566,7 +1890,7 @@ async def admin_email(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/marketplace-seo-lojas", response_class=HTMLResponse)
 async def admin_marketplace_seo_lojas(request: Request, db: Session = Depends(get_db)):
-    """SEO avançado das lojas da vitrine — apenas Superadministrador."""
+    """SEO avançado e frete padrão da loja (formato + taxa fixa) — apenas Superadministrador."""
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
@@ -1606,6 +1930,27 @@ async def admin_marketing_vitrine(request: Request, db: Session = Depends(get_db
     return await _render_template_async("admin/marketing_vitrine.html", context)
 
 
+@app.get("/admin/marketing-ibix-lancamento", response_class=HTMLResponse)
+async def admin_marketing_ibix_lancamento(request: Request, db: Session = Depends(get_db)):
+    """Campanha operacional Marketing Ibix Lançamento — apenas Superadministrador."""
+    auth_check = await check_auth_for_html(request, db)
+    if auth_check:
+        return auth_check
+    try:
+        token = request.cookies.get("pdv_solumatica_token")
+        if not token:
+            return RedirectResponse(url="/login", status_code=302)
+        payload = AuthConfig.verify_token(token)
+        user_id = payload.get("sub")
+        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
+        if not user or not user.role or user.role.nome != "Superadministrador":
+            return await _response_403(request, db, "Acesso restrito a Superadministrador.")
+    except Exception:
+        return RedirectResponse(url="/login", status_code=302)
+    context = await get_template_context_async(request, db)
+    return await _render_template_async("admin/marketing_ibix_lancamento.html", context)
+
+
 @app.get("/admin/montagen_anuncio", response_class=HTMLResponse)
 async def admin_montagen_anuncio_redirect():
     """Alias do slug informado no produto — redireciona para /admin/montagem_anuncio."""
@@ -1632,6 +1977,28 @@ async def admin_montagem_anuncio(request: Request, db: Session = Depends(get_db)
     context = await get_template_context_async(request, db)
     context["montagem_public_base"] = _landing_base_url(request)
     return await _render_template_async("admin/montagem_anuncio.html", context)
+
+
+@app.get("/admin/lojas_produtos", response_class=HTMLResponse)
+async def admin_lojas_produtos(request: Request, db: Session = Depends(get_db)):
+    """Visão geral lojas ativas e anúncios publicados — apenas Superadministrador."""
+    auth_check = await check_auth_for_html(request, db)
+    if auth_check:
+        return auth_check
+    try:
+        token = request.cookies.get("pdv_solumatica_token")
+        if not token:
+            return RedirectResponse(url="/login", status_code=302)
+        payload = AuthConfig.verify_token(token)
+        user_id = payload.get("sub")
+        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
+        if not user or not user.role or user.role.nome != "Superadministrador":
+            return await _response_403(request, db, "Acesso restrito a Superadministrador.")
+    except Exception:
+        return RedirectResponse(url="/login", status_code=302)
+    context = await get_template_context_async(request, db)
+    context["montagem_public_base"] = _landing_base_url(request)
+    return await _render_template_async("admin/lojas_produtos.html", context)
 
 
 @app.get("/admin/billing/tenant/{tenant_id:int}", response_class=HTMLResponse)
@@ -2104,17 +2471,18 @@ async def roles_page(request: Request, db: Session = Depends(get_db)):
     context = await get_template_context_async(request, db)
     return await _render_template_async("roles/index.html", context)
 
-def _redirect_with_cookie_set(url: str, token: str):
-    """Redireciona para url e define cookie pdv_solumatica_token (evita perda de cookie em navegação)."""
+def _redirect_with_cookie_set(url: str, token: str, request: Optional[Request] = None):
+    """Redireciona para url e define cookie pdv_solumatica_token (host-only, sem Domain)."""
+    from app.core.brand_cookie import apply_host_scoped_cookie
+
     r = RedirectResponse(url=url, status_code=302)
-    r.set_cookie(
+    apply_host_scoped_cookie(
+        r,
         key="pdv_solumatica_token",
         value=token,
-        httponly=False,
-        secure=os.getenv("HTTPS", "false").lower() == "true",
-        samesite="lax",
+        request=request,
         max_age=28800,
-        path="/",
+        httponly=False,
     )
     return r
 
@@ -2707,6 +3075,7 @@ async def negocio_venda(request: Request, db: Session = Depends(get_db)):
         return perm_check
     
     context = await get_template_context_async(request, db)
+    context["pdv_static_version"] = PDV_STATIC_VERSION
     return await _render_template_async("meu_negocio/vendas/index.html", context)
 
 @app.get("/negocio/venda/pdv", response_class=HTMLResponse)
@@ -2767,18 +3136,28 @@ async def negocio_caixa(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/negocio/configuracoes-cupom", response_class=HTMLResponse)
 async def negocio_configuracoes_cupom(request: Request, db: Session = Depends(get_db)):
-    """Configuração de impressão de cupom (modo automático/manual e tipo não fiscal/fiscal). CA, Admin ou SuperAdmin."""
+    """Orientação sobre comprovante de venda e NF-e no fechamento. CA e demais perfis com acesso a vendas."""
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
-    perm_check = await check_html_module_permission(request, db, "negocios", "Você não tem permissão para configurar o cupom")
+    perm_check = await check_html_module_permission(request, db, "negocios", "Você não tem permissão para acessar esta página")
     if perm_check:
         return perm_check
-    user_role = (request.state.user.role.nome if getattr(request.state, "user", None) and getattr(request.state.user, "role", None) else "") or ""
-    if user_role not in ("Superadministrador", "Administrador", "Cliente Administrador"):
-        return await _render_template_async("errors/403.html", await get_template_context_async(request, db), status_code=403)
     context = await get_template_context_async(request, db)
     return await _render_template_async("meu_negocio/configuracoes_cupom.html", context)
+
+
+@app.get("/negocio/formatos-impressao", response_class=HTMLResponse)
+async def negocio_formatos_impressao(request: Request, db: Session = Depends(get_db)):
+    """Templates PDF configuráveis de Orçamento e Ordem de serviço (tenant)."""
+    auth_check = await check_auth_for_html(request, db)
+    if auth_check:
+        return auth_check
+    perm_check = await check_html_module_permission(request, db, "negocios", "Você não tem permissão para acessar formatos de impressão")
+    if perm_check:
+        return perm_check
+    context = await get_template_context_async(request, db)
+    return await _render_template_async("meu_negocio/formatos_impressao.html", context)
 
 
 @app.get("/negocio/recebiveis", response_class=HTMLResponse)
@@ -2840,8 +3219,10 @@ async def negocio_recebiveis_comprovante(
     role_nome = user.role.nome if getattr(user, "role", None) else None
     cliente_id_token = getattr(request.state, "cliente_id", None)
     scope = get_cliente_scope(db, user.id, role_nome, cliente_id_token)
+    from app.services.payments.marketplace_unified_payment_scope import usuario_pode_acessar_transacao_pagamento
+
     allowed = scope.allowed_ids if scope.must_filter_by_cliente() else None
-    if allowed is not None and tx.cliente_id not in allowed:
+    if allowed is not None and not usuario_pode_acessar_transacao_pagamento(db, tx, allowed):
         return await _render_template_async(
             "errors/403.html",
             await get_template_context_async(request, db),
@@ -3189,20 +3570,16 @@ async def negocio_entrada_nfe_conciliar(
 
 @app.get("/negocio/financeiro", response_class=HTMLResponse)
 async def negocio_financeiro(request: Request, db: Session = Depends(get_db)):
-    """Página de financeiro de negócios (resumo financeiro). Um contexto, permissão via user_permissions."""
+    """Página de repasses marketplace (Superadministrador)."""
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
-    perm_check = await check_html_module_permission(request, db, "negocios", "Você não tem permissão para acessar o módulo financeiro")
-    if perm_check:
-        return perm_check
     try:
         context = await get_template_context_async(request, db)
         if not context.get("user_id"):
             return RedirectResponse(url="/login", status_code=302)
-        perms = context.get("user_permissions") or []
-        if "negocios.financeiro" not in perms and "negocios" not in perms and context.get("user_role") != "Superadministrador":
-            return await _response_403(request, db, "Você não tem permissão para acessar o módulo financeiro")
+        if context.get("user_role") != "Superadministrador":
+            return await _response_403(request, db, "Acesso restrito ao Superadministrador")
     except Exception:
         return RedirectResponse(url="/login", status_code=302)
     return await _render_template_async("meu_negocio/financeiro/index.html", context)
@@ -3283,7 +3660,7 @@ async def negocio_orcamentos(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/negocio/orcamentos/novo", response_class=HTMLResponse)
 async def negocio_orcamentos_novo(request: Request, db: Session = Depends(get_db)):
-    """Formulário de novo orçamento."""
+    """Redireciona para listagem com modal de novo orçamento."""
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
@@ -3294,13 +3671,12 @@ async def negocio_orcamentos_novo(request: Request, db: Session = Depends(get_db
     perms = context.get("user_permissions") or []
     if "negocios.orcamento:visualizar" not in perms and "negocios.orcamento:criar" not in perms and context.get("user_role") != "Superadministrador":
         return await _response_403(request, db, "Você não tem permissão para criar orçamento")
-    context["orcamento_id"] = None
-    return await _render_template_async("meu_negocio/orcamentos/form.html", context)
+    return RedirectResponse(url="/negocio/orcamentos?novo=1", status_code=302)
 
 
 @app.get("/negocio/orcamentos/{orcamento_id:int}/editar", response_class=HTMLResponse)
 async def negocio_orcamentos_editar(request: Request, orcamento_id: int, db: Session = Depends(get_db)):
-    """Formulário de edição de orçamento (apenas rascunho)."""
+    """Redireciona para listagem com modal de edição de orçamento."""
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
@@ -3311,8 +3687,7 @@ async def negocio_orcamentos_editar(request: Request, orcamento_id: int, db: Ses
     perms = context.get("user_permissions") or []
     if "negocios.orcamento:visualizar" not in perms and context.get("user_role") != "Superadministrador":
         return await _response_403(request, db, "Você não tem permissão para editar orçamento")
-    context["orcamento_id"] = orcamento_id
-    return await _render_template_async("meu_negocio/orcamentos/form.html", context)
+    return RedirectResponse(url=f"/negocio/orcamentos?editar={orcamento_id}", status_code=302)
 
 
 @app.get("/negocio/pedidos", response_class=HTMLResponse)
@@ -3389,6 +3764,11 @@ async def negocio_marketplace(request: Request, db: Session = Depends(get_db)):
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
+    brand_check = await check_html_brand_module(
+        request, db, "marketplace", "Marketplace não disponível nesta marca."
+    )
+    if brand_check:
+        return brand_check
     perm_check = await check_html_module_permission(request, db, "marketplace:visualizar", "Você não tem permissão para acessar o Marketplace")
     if perm_check:
         return perm_check
@@ -3402,6 +3782,11 @@ async def negocio_marketplace_minha_loja(request: Request, db: Session = Depends
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
+    brand_check = await check_html_brand_module(
+        request, db, "marketplace", "Marketplace não disponível nesta marca."
+    )
+    if brand_check:
+        return brand_check
     perm_check = await check_html_module_permission(request, db, "marketplace:visualizar", "Você não tem permissão para acessar o Marketplace")
     if perm_check:
         return perm_check
@@ -3416,6 +3801,11 @@ async def negocio_marketplace_consumidores(request: Request, db: Session = Depen
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
+    brand_check = await check_html_brand_module(
+        request, db, "marketplace", "Marketplace não disponível nesta marca."
+    )
+    if brand_check:
+        return brand_check
     perm_check = await check_html_module_permission(request, db, "marketplace:visualizar", "Você não tem permissão para acessar o Marketplace")
     if perm_check:
         return perm_check
@@ -3430,6 +3820,11 @@ async def negocio_marketplace_integracao_eventos(request: Request, db: Session =
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
+    brand_check = await check_html_brand_module(
+        request, db, "marketplace", "Marketplace não disponível nesta marca."
+    )
+    if brand_check:
+        return brand_check
     perm_check = await check_html_module_permission(request, db, "marketplace:visualizar", "Você não tem permissão para acessar o Marketplace")
     if perm_check:
         return perm_check
@@ -3444,6 +3839,11 @@ async def negocio_marketplace_logistica_entrega(request: Request, entrega_id: in
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
+    brand_check = await check_html_brand_module(
+        request, db, "marketplace", "Marketplace não disponível nesta marca."
+    )
+    if brand_check:
+        return brand_check
     perm_check = await check_html_module_permission(request, db, "marketplace:visualizar", "Você não tem permissão para acessar o Marketplace")
     if perm_check:
         return perm_check
@@ -3458,6 +3858,11 @@ async def negocio_marketplace_areas_entrega(request: Request, db: Session = Depe
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
+    brand_check = await check_html_brand_module(
+        request, db, "marketplace", "Marketplace não disponível nesta marca."
+    )
+    if brand_check:
+        return brand_check
     perm_check = await check_html_module_permission(request, db, "marketplace:visualizar", "Você não tem permissão para acessar o Marketplace")
     if perm_check:
         return perm_check
@@ -3480,9 +3885,19 @@ async def negocio_marketplace_areas_entrega(request: Request, db: Session = Depe
 
 async def _loja_context(request: Request, db: Session | None = None, **extra):
     """Contexto base para páginas da vitrine (consumidor_logado, consumidor_id, consumidor_nome quando logado, pdv_user_logado, request)."""
+    if db is not None and "marketplace" in getattr(request.state, "brand_module_slugs", frozenset()):
+        from app.core.marketplace_rls import apply_marketplace_loja_rls_context
+
+        apply_marketplace_loja_rls_context(db, request)
     logado = await _loja_consumidor_logado(request)
     base_url = _landing_base_url(request)
-    ctx = {"request": request, "consumidor_logado": logado, "base_url": base_url or ""}
+    ctx = {
+        "request": request,
+        "consumidor_logado": logado,
+        "base_url": base_url or "",
+        "brand": _brand_template_dict(request),
+        "brand_has_marketplace": "marketplace" in getattr(request.state, "brand_module_slugs", frozenset()),
+    }
     if logado:
         ctx["consumidor_id"] = _loja_consumidor_id(request)
         if db is not None:
@@ -4212,7 +4627,7 @@ async def loja_acompanhar_pedido(request: Request, db: Session = Depends(get_db)
 @app.get("/entregas", response_class=HTMLResponse)
 async def entregador_login_page(request: Request):
     """Login do entregador."""
-    return await _render_template_async("entregador/login.html", {"request": request})
+    return await _render_template_async("entregador/login.html", _public_brand_context(request))
 
 
 @app.get("/entregas/logout", response_class=HTMLResponse)

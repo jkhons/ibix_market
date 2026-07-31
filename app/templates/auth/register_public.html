@@ -14,6 +14,29 @@
 	<link href="/static/css/dashboard.css" rel="stylesheet">
 	<link href="/static/css/certipeso.css" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	<style>
+		.wizard-step-indicator { font-size: 0.8125rem; }
+		.wizard-step-indicator .step-dot {
+			width: 2rem; height: 2rem; border-radius: 50%;
+			display: inline-flex; align-items: center; justify-content: center;
+			font-weight: 600; border: 2px solid var(--bs-secondary, #6c757d);
+			color: var(--bs-secondary, #6c757d); background: transparent;
+		}
+		.wizard-step-indicator .step-dot.active {
+			border-color: var(--bs-primary, #0d6efd);
+			background: var(--bs-primary, #0d6efd);
+			color: #fff;
+		}
+		.wizard-step-indicator .step-dot.done {
+			border-color: var(--bs-success, #198754);
+			background: var(--bs-success, #198754);
+			color: #fff;
+		}
+		.wizard-step-label { min-width: 0; text-align: center; }
+		@media (max-width: 575.98px) {
+			.wizard-step-label span:last-child { display: none; }
+		}
+	</style>
 </head>
 
 <body>
@@ -24,120 +47,161 @@
 					<div class="d-table-cell align-middle">
 						<div class="text-center mt-2 mb-3">
 							<h1 class="h2">Cadastre sua empresa</h1>
-							<p class="lead">Cadastre sua empresa e comece a usar o Ibix.</p>
+							<p class="lead mb-1">Cadastre sua empresa e comece a usar o Ibix.</p>
+							<p class="text-muted small mb-0" id="wizard-subtitle">Passo 1 de 4 — Dados da empresa</p>
 						</div>
 
 						<div class="card">
 							<div class="card-body">
 								<div class="m-sm-3">
+									<div class="wizard-step-indicator d-flex justify-content-between align-items-start mb-4 px-1" role="navigation" aria-label="Etapas do cadastro">
+										<div class="wizard-step-label flex-fill">
+											<div class="step-dot mx-auto mb-1 active" id="wiz-dot-1" aria-current="step">1</div>
+											<span class="d-block small text-muted">Empresa</span>
+										</div>
+										<div class="flex-fill align-self-center pt-2 mx-1 border-top border-2 opacity-25" style="margin-top:1rem;" id="wiz-line-1" aria-hidden="true"></div>
+										<div class="wizard-step-label flex-fill">
+											<div class="step-dot mx-auto mb-1" id="wiz-dot-2">2</div>
+											<span class="d-block small text-muted">Categorias</span>
+										</div>
+										<div class="flex-fill align-self-center pt-2 mx-1 border-top border-2 opacity-25" style="margin-top:1rem;" id="wiz-line-2" aria-hidden="true"></div>
+										<div class="wizard-step-label flex-fill">
+											<div class="step-dot mx-auto mb-1" id="wiz-dot-3">3</div>
+											<span class="d-block small text-muted">Responsável</span>
+										</div>
+										<div class="flex-fill align-self-center pt-2 mx-1 border-top border-2 opacity-25" style="margin-top:1rem;" id="wiz-line-3" aria-hidden="true"></div>
+										<div class="wizard-step-label flex-fill">
+											<div class="step-dot mx-auto mb-1" id="wiz-dot-4">4</div>
+											<span class="d-block small text-muted">Bancário</span>
+										</div>
+									</div>
+
 									<div id="alert-area"></div>
-									<form id="cadastro-form">
-										<h6 class="mb-2">Dados do responsável</h6>
-										<div class="mb-2">
-											<label class="form-label">Nome completo</label>
-											<input class="form-control" type="text" name="nome" id="nome" placeholder="Seu nome" required />
-										</div>
-										<div class="mb-2">
-											<label class="form-label">Email</label>
-											<input class="form-control" type="email" name="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
-										</div>
-										<div class="row">
-											<div class="col-md-6 mb-2">
-												<label class="form-label">Senha</label>
-												<input class="form-control" type="password" name="password" id="password" placeholder="Mín. 6 caracteres" required autocomplete="new-password" />
+									<form id="cadastro-form" novalidate>
+										<div class="wizard-panel" data-wizard-step="1">
+											<h6 class="mb-2">Dados da empresa</h6>
+											<div class="mb-2">
+												<label class="form-label">Nome da empresa</label>
+												<input class="form-control" type="text" name="nome_empresa" id="nome_empresa" placeholder="Razão social" required autocomplete="organization" />
 											</div>
-											<div class="col-md-6 mb-2">
-												<label class="form-label">Confirmar senha</label>
-												<input class="form-control" type="password" name="confirm_password" id="confirm_password" placeholder="Repita a senha" required autocomplete="new-password" />
+											<div class="mb-2">
+												<label class="form-label">CNPJ</label>
+												<input class="form-control" type="text" name="cnpj" id="cnpj" placeholder="00.000.000/0001-00" required autocomplete="off" />
+											</div>
+											<div class="mb-2">
+												<label class="form-label">CEP (opcional)</label>
+												<input class="form-control" type="text" name="cep" id="cep" placeholder="00000-000" autocomplete="postal-code" />
+											</div>
+											<div class="mb-2">
+												<label class="form-label">Endereço</label>
+												<input class="form-control" type="text" name="endereco" id="endereco" placeholder="Rua, número, bairro" required autocomplete="street-address" />
+											</div>
+											<div class="row">
+												<div class="col-md-6 mb-2">
+													<label class="form-label">Cidade</label>
+													<input class="form-control" type="text" name="cidade" id="cidade" required autocomplete="address-level2" />
+												</div>
+												<div class="col-md-3 mb-2">
+													<label class="form-label">UF</label>
+													<input class="form-control" type="text" name="uf" id="uf" maxlength="2" placeholder="SP" required autocomplete="address-level1" />
+												</div>
+											</div>
+											<div class="mb-2">
+												<label class="form-label">Contato (nome)</label>
+												<input class="form-control" type="text" name="contato" id="contato" placeholder="Nome do contato" required autocomplete="name" />
+											</div>
+											<div class="mb-2">
+												<label class="form-label">Telefone</label>
+												<input class="form-control" type="text" name="telefone" id="telefone" placeholder="(11) 99999-9999" required autocomplete="tel" />
 											</div>
 										</div>
 
-										<hr class="my-3" />
-										<h6 class="mb-2">Dados da empresa</h6>
-										<div class="mb-2">
-											<label class="form-label">Nome da empresa</label>
-											<input class="form-control" type="text" name="nome_empresa" id="nome_empresa" placeholder="Razão social" required />
-										</div>
-										<div class="mb-2">
-											<label class="form-label">CNPJ</label>
-											<input class="form-control" type="text" name="cnpj" id="cnpj" placeholder="00.000.000/0001-00" required />
-										</div>
-										<div class="mb-2">
-											<label class="form-label">CEP (opcional)</label>
-											<input class="form-control" type="text" name="cep" id="cep" placeholder="00000-000" />
-										</div>
-										<div class="mb-2">
-											<label class="form-label">Endereço</label>
-											<input class="form-control" type="text" name="endereco" id="endereco" placeholder="Rua, número, bairro" required />
-										</div>
-										<div class="row">
-											<div class="col-md-6 mb-2">
-												<label class="form-label">Cidade</label>
-												<input class="form-control" type="text" name="cidade" id="cidade" required />
-											</div>
-											<div class="col-md-3 mb-2">
-												<label class="form-label">UF</label>
-												<input class="form-control" type="text" name="uf" id="uf" maxlength="2" placeholder="SP" required />
-											</div>
-										</div>
-										<div class="mb-2">
-											<label class="form-label">Contato (nome)</label>
-											<input class="form-control" type="text" name="contato" id="contato" placeholder="Nome do contato" required />
-										</div>
-										<div class="mb-3">
-											<label class="form-label">Telefone</label>
-											<input class="form-control" type="text" name="telefone" id="telefone" placeholder="(11) 99999-9999" required />
-										</div>
-										<div class="mb-3">
-											<label class="form-label">Código promocional (opcional)</label>
-											<input class="form-control" type="text" name="codigo_promocional" id="codigo_promocional" placeholder="" maxlength="50" autocomplete="off" />
-											<small class="text-muted d-block mt-1" id="codigo-msg"></small>
+										<div class="wizard-panel d-none" data-wizard-step="2">
+											<h6 class="mb-2">Categorias de produtos</h6>
+											<p class="text-muted small mb-3">Selecione <strong>ao menos uma</strong> categoria que sua loja comercializa — as mesmas exibidas na vitrine Ibix.</p>
+											<div id="cadastro-categorias-loading" class="text-muted small mb-2">Carregando categorias...</div>
+											<div id="cadastro-categorias-erro" class="alert alert-danger py-2 small d-none" role="alert"></div>
+											<div id="cadastro-categorias-list" class="row g-2"></div>
 										</div>
 
-										<hr class="my-3" />
-										<h6 class="mb-2">Dados bancários e PIX</h6>
-										<div class="row">
-											<div class="col-md-8 mb-2">
-												<label class="form-label">Banco (nome)</label>
-												<input class="form-control" type="text" name="banco_nome" id="banco_nome" placeholder="Ex.: Banco do Brasil" required />
+										<div class="wizard-panel d-none" data-wizard-step="3">
+											<h6 class="mb-2">Dados do responsável</h6>
+											<div class="mb-2">
+												<label class="form-label">Nome completo</label>
+												<input class="form-control" type="text" name="nome" id="nome" placeholder="Seu nome" required autocomplete="name" />
 											</div>
-											<div class="col-md-4 mb-2">
-												<label class="form-label">Banco (código) (opcional)</label>
-												<input class="form-control" type="text" name="banco_codigo" id="banco_codigo" placeholder="Ex.: 001" maxlength="10" />
+											<div class="mb-2">
+												<label class="form-label">Email</label>
+												<input class="form-control" type="email" name="email" id="email" placeholder="seu@email.com" required autocomplete="email" />
 											</div>
-										</div>
-										<div class="row">
-											<div class="col-md-4 mb-2">
-												<label class="form-label">Agência</label>
-												<input class="form-control" type="text" name="agencia" id="agencia" placeholder="Ex.: 1234" required />
+											<div class="row">
+												<div class="col-md-6 mb-2">
+													<label class="form-label">Senha</label>
+													<input class="form-control" type="password" name="password" id="password" placeholder="Mín. 6 caracteres" required autocomplete="new-password" />
+												</div>
+												<div class="col-md-6 mb-2">
+													<label class="form-label">Confirmar senha</label>
+													<input class="form-control" type="password" name="confirm_password" id="confirm_password" placeholder="Repita a senha" required autocomplete="new-password" />
+												</div>
 											</div>
-											<div class="col-md-4 mb-2">
-												<label class="form-label">Conta</label>
-												<input class="form-control" type="text" name="conta" id="conta" placeholder="Ex.: 12345-6" required />
+											<div class="mb-2">
+												<label class="form-label">Código promocional (opcional)</label>
+												<input class="form-control" type="text" name="codigo_promocional" id="codigo_promocional" placeholder="" maxlength="50" autocomplete="off" />
+												<small class="text-muted d-block mt-1" id="codigo-msg"></small>
 											</div>
-											<div class="col-md-4 mb-2">
-												<label class="form-label">Tipo de conta</label>
-												<select class="form-select" name="tipo_conta" id="tipo_conta" required>
-													<option value="" selected disabled>Selecione</option>
-													<option value="corrente">Corrente</option>
-													<option value="poupanca">Poupança</option>
-													<option value="pagamento">Pagamento</option>
-												</select>
-											</div>
-										</div>
-										<div class="mb-3">
-											<label class="form-label">Chave PIX</label>
-											<input class="form-control" type="text" name="pix_chave" id="pix_chave" placeholder="CPF/CNPJ, e-mail, telefone ou chave aleatória" required />
 										</div>
 
-										<div class="d-grid gap-2 mt-3">
-											<button type="submit" class="btn btn-lg btn-primary" id="btn-cadastro">
-												<span class="btn-text">Cadastrar</span>
-												<span class="btn-loading d-none">
-													<span class="spinner-border spinner-border-sm me-2"></span>
-													Enviando...
-												</span>
-											</button>
+										<div class="wizard-panel d-none" data-wizard-step="4">
+											<h6 class="mb-2">Dados bancários e PIX</h6>
+											<div class="row">
+												<div class="col-md-8 mb-2">
+													<label class="form-label">Banco (nome)</label>
+													<input class="form-control" type="text" name="banco_nome" id="banco_nome" placeholder="Ex.: Banco do Brasil" required />
+												</div>
+												<div class="col-md-4 mb-2">
+													<label class="form-label">Banco (código) (opcional)</label>
+													<input class="form-control" type="text" name="banco_codigo" id="banco_codigo" placeholder="Ex.: 001" maxlength="10" />
+												</div>
+											</div>
+											<div class="row">
+												<div class="col-md-4 mb-2">
+													<label class="form-label">Agência</label>
+													<input class="form-control" type="text" name="agencia" id="agencia" placeholder="Ex.: 1234" required />
+												</div>
+												<div class="col-md-4 mb-2">
+													<label class="form-label">Conta</label>
+													<input class="form-control" type="text" name="conta" id="conta" placeholder="Ex.: 12345-6" required />
+												</div>
+												<div class="col-md-4 mb-2">
+													<label class="form-label">Tipo de conta</label>
+													<select class="form-select" name="tipo_conta" id="tipo_conta" required>
+														<option value="" selected disabled>Selecione</option>
+														<option value="corrente">Corrente</option>
+														<option value="poupanca">Poupança</option>
+														<option value="pagamento">Pagamento</option>
+													</select>
+												</div>
+											</div>
+											<div class="mb-2">
+												<label class="form-label">Chave PIX</label>
+												<input class="form-control" type="text" name="pix_chave" id="pix_chave" placeholder="CPF/CNPJ, e-mail, telefone ou chave aleatória" required />
+											</div>
+										</div>
+
+										<div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mt-4 pt-2 border-top">
+											<button type="button" class="btn btn-outline-secondary" id="btn-wizard-prev" disabled>Voltar</button>
+											<div class="ms-auto d-flex gap-2">
+												<button type="button" class="btn btn-primary" id="btn-wizard-next">
+													Próximo
+												</button>
+												<button type="submit" class="btn btn-lg btn-primary d-none" id="btn-cadastro">
+													<span class="btn-text">Cadastrar</span>
+													<span class="btn-loading d-none">
+														<span class="spinner-border spinner-border-sm me-2"></span>
+														Enviando...
+													</span>
+												</button>
+											</div>
 										</div>
 									</form>
 								</div>
@@ -158,6 +222,20 @@
 		var form = document.getElementById('cadastro-form');
 		var alertArea = document.getElementById('alert-area');
 		var btn = document.getElementById('btn-cadastro');
+		var btnNext = document.getElementById('btn-wizard-next');
+		var btnPrev = document.getElementById('btn-wizard-prev');
+		var subtitle = document.getElementById('wizard-subtitle');
+		var totalSteps = 4;
+		var step = 1;
+		var categoriasCarregadas = false;
+
+		var subtitles = [
+			'',
+			'Passo 1 de 4 — Dados da empresa',
+			'Passo 2 de 4 — Categorias de produtos',
+			'Passo 3 de 4 — Dados do responsável',
+			'Passo 4 de 4 — Dados bancários e PIX'
+		];
 
 		function showAlert(type, msg) {
 			var text = (msg && String(msg).trim()) ? String(msg).trim() : 'Erro ao cadastrar. Tente novamente.';
@@ -169,17 +247,188 @@
 			btn.disabled = loading;
 			btn.querySelector('.btn-text').classList.toggle('d-none', loading);
 			btn.querySelector('.btn-loading').classList.toggle('d-none', !loading);
+			btnNext.disabled = loading;
+			btnPrev.disabled = loading || step <= 1;
 		}
+
+		function setStepDots() {
+			for (var s = 1; s <= totalSteps; s++) {
+				var dot = document.getElementById('wiz-dot-' + s);
+				if (!dot) continue;
+				dot.classList.remove('active', 'done');
+				dot.removeAttribute('aria-current');
+				if (s < step) dot.classList.add('done');
+				else if (s === step) {
+					dot.classList.add('active');
+					dot.setAttribute('aria-current', 'step');
+				}
+			}
+			for (var li = 1; li <= 3; li++) {
+				var line = document.getElementById('wiz-line-' + li);
+				if (!line) continue;
+				var done = step > li;
+				line.classList.toggle('opacity-25', !done);
+				line.classList.toggle('border-success', done);
+				line.classList.toggle('border-secondary', !done);
+			}
+		}
+
+		function carregarCategoriasVitrine() {
+			if (categoriasCarregadas) return Promise.resolve();
+			var loading = document.getElementById('cadastro-categorias-loading');
+			var erro = document.getElementById('cadastro-categorias-erro');
+			var list = document.getElementById('cadastro-categorias-list');
+			if (!list) return Promise.resolve();
+			if (loading) loading.classList.remove('d-none');
+			if (erro) { erro.classList.add('d-none'); erro.textContent = ''; }
+			return fetch('/api/v1/loja/categorias?ativa=true')
+				.then(function(r) {
+					if (!r.ok) throw new Error('Não foi possível carregar as categorias.');
+					return r.json();
+				})
+				.then(function(items) {
+					categoriasCarregadas = true;
+					if (loading) loading.classList.add('d-none');
+					list.innerHTML = '';
+					if (!items || !items.length) {
+						if (erro) {
+							erro.textContent = 'Nenhuma categoria disponível no momento. Tente novamente mais tarde.';
+							erro.classList.remove('d-none');
+						}
+						return;
+					}
+					items.forEach(function(c) {
+						var col = document.createElement('div');
+						col.className = 'col-sm-6 col-md-4';
+						var id = 'cat-vitrine-' + c.id;
+						col.innerHTML =
+							'<div class="form-check border rounded p-2 h-100">' +
+							'<input class="form-check-input cadastro-cat-check" type="checkbox" value="' + c.id + '" id="' + id + '">' +
+							'<label class="form-check-label small" for="' + id + '">' + (c.nome || ('Categoria ' + c.id)) + '</label>' +
+							'</div>';
+						list.appendChild(col);
+					});
+				})
+				.catch(function(err) {
+					if (loading) loading.classList.add('d-none');
+					if (erro) {
+						erro.textContent = (err && err.message) ? err.message : 'Erro ao carregar categorias.';
+						erro.classList.remove('d-none');
+					}
+				});
+		}
+
+		function getCategoriasSelecionadasIds() {
+			var ids = [];
+			document.querySelectorAll('.cadastro-cat-check:checked').forEach(function(el) {
+				var n = parseInt(el.value, 10);
+				if (!isNaN(n)) ids.push(n);
+			});
+			return ids;
+		}
+
+		function updateWizardUI() {
+			document.querySelectorAll('.wizard-panel').forEach(function(panel) {
+				var ps = parseInt(panel.getAttribute('data-wizard-step'), 10);
+				panel.classList.toggle('d-none', ps !== step);
+			});
+			if (subtitle) subtitle.textContent = subtitles[step] || '';
+			btnPrev.disabled = step <= 1;
+			if (step >= totalSteps) {
+				btnNext.classList.add('d-none');
+				btn.classList.remove('d-none');
+			} else {
+				btnNext.classList.remove('d-none');
+				btn.classList.add('d-none');
+			}
+			setStepDots();
+		}
+
+		function trimVal(id) {
+			var el = document.getElementById(id);
+			return el ? String(el.value || '').trim() : '';
+		}
+
+		function validateStep1() {
+			if (!trimVal('nome_empresa')) return 'Informe o nome da empresa.';
+			var cnpj = trimVal('cnpj').replace(/\D/g, '');
+			if (cnpj.length !== 14) return 'Informe um CNPJ válido (14 dígitos).';
+			if (!trimVal('endereco')) return 'Informe o endereço.';
+			if (!trimVal('cidade')) return 'Informe a cidade.';
+			if (!trimVal('uf') || trimVal('uf').length !== 2) return 'Informe a UF com 2 letras.';
+			if (!trimVal('contato')) return 'Informe o nome do contato.';
+			if (!trimVal('telefone')) return 'Informe o telefone.';
+			return null;
+		}
+
+		function validateStep2() {
+			if (!categoriasCarregadas) return 'Aguarde o carregamento das categorias ou recarregue a página.';
+			var cats = getCategoriasSelecionadasIds();
+			if (!cats.length) return 'Selecione ao menos uma categoria de produtos que sua loja comercializa.';
+			return null;
+		}
+
+		function validateStep3() {
+			if (!trimVal('nome')) return 'Informe seu nome completo.';
+			var em = trimVal('email');
+			if (!em) return 'Informe o e-mail.';
+			if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return 'Informe um e-mail válido.';
+			var pwd = document.getElementById('password').value;
+			var conf = document.getElementById('confirm_password').value;
+			if (!pwd || pwd.length < 6) return 'A senha deve ter no mínimo 6 caracteres.';
+			if (pwd !== conf) return 'As senhas não coincidem.';
+			return null;
+		}
+
+		function validateStep4() {
+			if (!trimVal('banco_nome')) return 'Informe o nome do banco.';
+			if (!trimVal('agencia')) return 'Informe a agência.';
+			if (!trimVal('conta')) return 'Informe a conta.';
+			var tipo = document.getElementById('tipo_conta').value;
+			if (!tipo) return 'Selecione o tipo de conta.';
+			if (!trimVal('pix_chave')) return 'Informe a chave PIX.';
+			return null;
+		}
+
+		function validateCurrentStep() {
+			if (step === 1) return validateStep1();
+			if (step === 2) return validateStep2();
+			if (step === 3) return validateStep3();
+			if (step === 4) return validateStep4();
+			return null;
+		}
+
+		btnNext.addEventListener('click', function() {
+			var err = validateCurrentStep();
+			if (err) {
+				showAlert('danger', err);
+				return;
+			}
+			alertArea.innerHTML = '';
+			if (step < totalSteps) {
+				step++;
+				if (step === 2) carregarCategoriasVitrine();
+				updateWizardUI();
+				window.scrollTo({ top: 0, behavior: 'smooth' });
+			}
+		});
+
+		btnPrev.addEventListener('click', function() {
+			if (step > 1) {
+				step--;
+				alertArea.innerHTML = '';
+				updateWizardUI();
+				window.scrollTo({ top: 0, behavior: 'smooth' });
+			}
+		});
 
 		var codigoInput = document.getElementById('codigo_promocional');
 		var codigoMsg = document.getElementById('codigo-msg');
-		var codigoDica = document.getElementById('codigo-dica');
 		if (codigoInput && codigoMsg) {
 			codigoInput.addEventListener('blur', function() {
 				var v = this.value.trim();
 				codigoMsg.textContent = '';
 				codigoMsg.className = 'text-muted';
-				if (codigoDica) codigoDica.style.display = '';
 				if (!v) return;
 				var url = '/api/v1/codigos-desconto/validar/' + encodeURIComponent(v.toUpperCase());
 				fetch(url)
@@ -187,7 +436,6 @@
 						if (r.ok) {
 							codigoMsg.textContent = 'Código válido.';
 							codigoMsg.className = 'text-success';
-							if (codigoDica) codigoDica.style.display = 'none';
 						} else {
 							r.json().then(function(body) {
 								var msg = (body && body.detail) ? (typeof body.detail === 'string' ? body.detail : (body.detail.msg || body.detail.message || 'Código não encontrado ou expirado.')) : 'Código não encontrado ou expirado. Verifique se digitou exatamente como recebeu.';
@@ -201,13 +449,31 @@
 					.catch(function() {
 						codigoMsg.textContent = 'Não foi possível validar o código. Tente novamente.';
 						codigoMsg.className = 'text-danger';
-						if (codigoDica) codigoDica.style.display = '';
 					});
 			});
 		}
 
+		if (codigoInput) {
+			try {
+				var params = new URLSearchParams(window.location.search);
+				var fromUrl = params.get('codigo_promocional') || params.get('codigo');
+				if (fromUrl) {
+					codigoInput.value = fromUrl.trim().toUpperCase();
+					setTimeout(function() { codigoInput.dispatchEvent(new Event('blur')); }, 0);
+				}
+			} catch (e0) {}
+		}
+
+		updateWizardUI();
+		carregarCategoriasVitrine();
+
 		form.addEventListener('submit', function(e) {
 			e.preventDefault();
+			var err = validateStep1() || validateStep2() || validateStep3() || validateStep4();
+			if (err) {
+				showAlert('danger', err);
+				return;
+			}
 			var pwd = document.getElementById('password').value;
 			var conf = document.getElementById('confirm_password').value;
 			if (pwd !== conf) {
@@ -218,6 +484,7 @@
 			alertArea.innerHTML = '';
 			var codigoPromoRaw = document.getElementById('codigo_promocional').value.trim() || null;
 			var codigoPromo = codigoPromoRaw ? codigoPromoRaw.toUpperCase() : null;
+			var cnpjDigits = document.getElementById('cnpj').value.trim().replace(/\D/g, '');
 			var payload = {
 				nome: document.getElementById('nome').value.trim(),
 				email: document.getElementById('email').value.trim(),
@@ -225,7 +492,7 @@
 				confirm_password: conf,
 				codigo_promocional: codigoPromo || null,
 				nome_empresa: document.getElementById('nome_empresa').value.trim(),
-				cnpj: document.getElementById('cnpj').value.trim().replace(/\D/g, ''),
+				cnpj: cnpjDigits,
 				cep: document.getElementById('cep').value.trim() || null,
 				endereco: document.getElementById('endereco').value.trim(),
 				cidade: document.getElementById('cidade').value.trim(),
@@ -237,12 +504,9 @@
 				agencia: document.getElementById('agencia').value.trim(),
 				conta: document.getElementById('conta').value.trim(),
 				tipo_conta: document.getElementById('tipo_conta').value,
-				pix_chave: document.getElementById('pix_chave').value.trim()
+				pix_chave: document.getElementById('pix_chave').value.trim(),
+				categorias_vitrine_ids: getCategoriasSelecionadasIds()
 			};
-			// CNPJ: API espera string (pode ser formatada ou só números); backend formata
-			if (payload.cnpj.length === 14) {
-				payload.cnpj = payload.cnpj;
-			}
 			fetch('/api/v1/auth/register/public', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -266,7 +530,6 @@
 			})
 			.then(function(data) {
 				showAlert('success', (data.message || 'Cadastro realizado!') + ' Redirecionando para o login...');
-				// Redirecionar para o login no mesmo domínio (evitar host de login externo)
 				var loginUrl = window.location.origin + '/login';
 				setTimeout(function() { window.location.href = loginUrl; }, 2000);
 			})
@@ -276,6 +539,7 @@
 			})
 			.finally(function() {
 				setLoading(false);
+				btnPrev.disabled = step <= 1;
 			});
 		});
 	})();

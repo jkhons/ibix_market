@@ -1,3 +1,4 @@
+from app.worker.db_task import worker_db_session
 # PDV Ibix - Tasks de geocodificacao (CEP + numero -> lat/lng/precision assincrono)
 import json
 import logging
@@ -40,15 +41,13 @@ def geocode_endereco(self, tabela: str, registro_id: int, cep: str):
     6. finally: db.close()
     """
     from app.core.audit import audit_action
-    from app.database.connection import SessionLocal
     from app.services.geo_service import geocode_address, geocode_cep
 
     if tabela not in ("clientes", "enderecos_consumidor"):
         logger.error("geo_tasks: tabela invalida %s", tabela)
         return {"status": "error", "reason": "tabela_invalida"}
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         if tabela == "clientes":
             from app.models.cliente import Cliente
             registro = db.query(Cliente).filter(Cliente.id == registro_id).first()
@@ -125,8 +124,3 @@ def geocode_endereco(self, tabela: str, registro_id: int, cep: str):
             "lng": registro.longitude,
             "precision": precision_log,
         }
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()

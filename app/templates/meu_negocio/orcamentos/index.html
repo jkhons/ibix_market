@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Orçamentos | PDV Ibix{% endblock %}
+{% block title %}Orçamentos | {{ brand.nome_exibicao | default('PDV') }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -27,17 +27,17 @@
                     <i data-feather="bar-chart-2" style="width: 18px; height: 18px;"></i>
                     Relatório de conversão
                 </a>
-                <a href="/negocio/orcamentos/novo" class="btn btn-primary" id="btn-novo-orcamento">
+                <button type="button" class="btn btn-primary" id="btn-novo-orcamento" onclick="abrirModalOrcamento()">
                     <i data-feather="plus" style="width: 18px; height: 18px;"></i>
                     Novo orçamento
-                </a>
+                </button>
             </div>
         </div>
     </div>
     <div class="card mb-3">
         <div class="card-body">
             <div class="row g-2 align-items-end">
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <label class="form-label">Status</label>
                     <select class="form-select" id="filtro-status">
                         <option value="">Todos</option>
@@ -47,12 +47,6 @@
                         <option value="convertido">Convertido</option>
                         <option value="expirado">Expirado</option>
                         <option value="cancelado">Cancelado</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Unidade (estabelecimento)</label>
-                    <select class="form-select" id="filtro-cliente-id">
-                        <option value="">Todas</option>
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -72,22 +66,36 @@
     </div>
 </div>
 
-<div class="modal fade" id="modalConverterOs" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Converter em ordem de serviço</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <label class="form-label">Tipo de OS <span class="text-danger">*</span></label>
-                <select class="form-select" id="modal-os-tipo-id" required></select>
-                <p class="text-muted small mt-2 mb-0">O consumidor do orçamento será o cliente da OS. É obrigatório informar o tipo.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="btn-confirmar-converter-os">Converter</button>
-            </div>
+{% include "meu_negocio/orcamentos/_modal_orcamento.html" %}
+
+<div id="modalDetalhesOrcamentoCustom" class="modal-os-overlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.55); align-items:center; justify-content:center; padding:16px;">
+    <div class="modal-os-container" style="background:#fff; border-radius:14px; max-width:900px; width:100%; max-height:92vh; display:flex; flex-direction:column;">
+        <div class="modal-os-header" style="padding:12px 18px; background:linear-gradient(135deg,#2c3e50,#2980b9); color:#fff; display:flex; justify-content:space-between; align-items:center; border-radius:14px 14px 0 0;">
+            <h3 id="tituloDetalhesOrcamento" style="margin:0; font-size:1.05rem;">Detalhes do orçamento</h3>
+            <button type="button" class="modal-os-close" onclick="fecharDetalhesOrcamento()" style="background:rgba(255,255,255,0.22); border:none; color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer;">×</button>
+        </div>
+        <div id="painelDetalhesOrcamento" class="modal-os-body" style="padding:14px 18px; overflow-y:auto; flex:1; font-size:0.875rem;"></div>
+        <div class="modal-os-footer" style="padding:10px 18px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:8px;">
+            <a id="btnDetalhesOrcamentoPdf" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">PDF</a>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="fecharDetalhesOrcamento()">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div id="modalConverterOsCustom" class="modal-os-overlay" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.55); align-items:center; justify-content:center; padding:16px;">
+    <div class="modal-os-container" style="background:#fff; border-radius:14px; max-width:480px; width:100%; display:flex; flex-direction:column;">
+        <div class="modal-os-header" style="padding:12px 18px; background:linear-gradient(135deg,#2c3e50,#2980b9); color:#fff; display:flex; justify-content:space-between; align-items:center; border-radius:14px 14px 0 0;">
+            <h3 style="margin:0; font-size:1.05rem;">Converter em ordem de serviço</h3>
+            <button type="button" class="modal-os-close" onclick="fecharModalConverterOs()" style="background:rgba(255,255,255,0.22); border:none; color:#fff; width:34px; height:34px; border-radius:50%; cursor:pointer;">×</button>
+        </div>
+        <div class="modal-os-body" style="padding:14px 18px;">
+            <label class="form-label">Tipo de OS <span class="text-danger">*</span></label>
+            <select class="form-select" id="modal-os-tipo-id" required></select>
+            <p class="text-muted small mt-2 mb-0">O consumidor do orçamento será o cliente da OS. É obrigatório informar o tipo.</p>
+        </div>
+        <div class="modal-os-footer" style="padding:10px 18px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-sm btn-secondary" onclick="fecharModalConverterOs()">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-confirmar-converter-os">Converter</button>
         </div>
     </div>
 </div>
@@ -133,21 +141,16 @@
         return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
     }
 
-    async function carregarFiltroEstabelecimentos() {
-        let r = await api('/api/v1/clientes/todos?para_empresa_fiscal=true');
-        let list = r.ok ? await r.json() : [];
-        if (!list.length) {
-            r = await api('/api/v1/clientes/todos');
-            if (r.ok) list = await r.json();
-        }
-        const sel = document.getElementById('filtro-cliente-id');
-        const cur = sel.value;
-        sel.innerHTML = '<option value="">Todas</option>';
-        list.forEach(function(c) {
-            sel.innerHTML += '<option value="' + c.id + '">' + (c.nome || '').substring(0, 60) + '</option>';
-        });
-        if (cur) sel.value = cur;
+    function abrirModalConverterOs() {
+        const modal = document.getElementById('modalConverterOsCustom');
+        if (modal) modal.style.display = 'flex';
     }
+
+    function fecharModalConverterOs() {
+        const modal = document.getElementById('modalConverterOsCustom');
+        if (modal) modal.style.display = 'none';
+    }
+    window.fecharModalConverterOs = fecharModalConverterOs;
 
     async function carregarTiposOsModal() {
         const r = await api('/api/v1/ordens-servico/tipos');
@@ -162,10 +165,8 @@
 
     async function carregar() {
         const status = document.getElementById('filtro-status').value;
-        const clienteFiltro = document.getElementById('filtro-cliente-id').value;
         let url = '/api/v1/orcamentos?skip=0&limit=200';
         if (status) url += '&status=' + encodeURIComponent(status);
-        if (clienteFiltro) url += '&cliente_id=' + encodeURIComponent(clienteFiltro);
         const res = await api(url);
         if (!res.ok) {
             document.getElementById('orcamentos-listagem').innerHTML = '<p class="text-danger p-3">Erro ao carregar orçamentos.</p>';
@@ -177,20 +178,23 @@
             document.getElementById('orcamentos-listagem').innerHTML = '<p class="text-muted p-3">Nenhum orçamento encontrado.</p>';
             return;
         }
-        let html = '<table class="table table-striped table-hover mb-0"><thead><tr><th>Número</th><th>Unidade</th><th>Consumidor</th><th>Validade</th><th>Status</th><th>Total</th><th>Criado</th><th>Ações</th></tr></thead><tbody>';
+        let html = '<table class="table table-striped table-hover mb-0"><thead><tr><th>Número</th><th>Unidade</th><th>Consumidor</th><th>Vendedor</th><th>Validade</th><th>Status</th><th>Itens</th><th>Total</th><th>Criado</th><th>Ações</th></tr></thead><tbody>';
         list.forEach(function(o) {
-            let acoes = '<a href="/api/v1/orcamentos/' + o.id + '/pdf" target="_blank" class="btn btn-sm btn-outline-secondary me-1">PDF</a>';
+            let acoes = '<button type="button" class="btn btn-sm btn-outline-info me-1 btn-detalhes-orcamento" data-id="' + o.id + '">Detalhes</button>';
+            acoes += '<a href="/api/v1/orcamentos/' + o.id + '/pdf" target="_blank" class="btn btn-sm btn-outline-secondary me-1">PDF</a>';
             if (o.status === 'rascunho') {
-                acoes += ' <a href="/negocio/orcamentos/' + o.id + '/editar" class="btn btn-sm btn-outline-primary me-1">Editar</a>';
+                acoes += ' <button type="button" class="btn btn-sm btn-outline-primary me-1 btn-editar-orcamento" data-id="' + o.id + '">Editar</button>';
                 acoes += ' <button type="button" class="btn btn-sm btn-outline-success me-1 btn-emitir" data-id="' + o.id + '">Emitir</button>';
             }
             if (o.status === 'emitido' || o.status === 'aprovado') {
                 acoes += ' <div class="btn-group btn-group-sm" role="group">' +
                     '<button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown">Converter</button>' +
                     '<ul class="dropdown-menu">' +
-                    '<li><a class="dropdown-item btn-converter-pedido" href="#" data-id="' + o.id + '">Pedido</a></li>' +
                     '<li><a class="dropdown-item btn-converter-os" href="#" data-id="' + o.id + '">Ordem de serviço…</a></li>' +
-                    '<li><a class="dropdown-item btn-converter-venda" href="#" data-id="' + o.id + '">Venda pendente</a></li>' +
+                    '<li><a class="dropdown-item btn-converter-venda" href="#" data-id="' + o.id + '">Venda</a></li>' +
+                    '<li><hr class="dropdown-divider"></li>' +
+                    '<li><h6 class="dropdown-header">Avançado</h6></li>' +
+                    '<li><a class="dropdown-item btn-converter-pedido" href="#" data-id="' + o.id + '">Pedido</a></li>' +
                     '</ul></div>';
             }
             let dest = (o.destinatario_nome || '—');
@@ -201,11 +205,27 @@
                 if (o.convertido_em_venda_id) dest += 'Venda #' + o.convertido_em_venda_id;
                 dest += '</small>';
             }
-            html += '<tr><td>' + (o.numero_orcamento || '') + '</td><td>' + (o.cliente_nome || '—') + '</td><td>' + dest + '</td><td>' + fmtDate(o.data_validade) + '</td><td><span class="' + badgeClass(o.status) + '">' + (o.status || '') + '</span></td><td>' + fmtMoney(o.total) + '</td><td>' + fmtDate(o.created_at) + '</td><td>' + acoes + '</td></tr>';
+            html += '<tr><td>' + DocRef.docRefSpan(o.numero_orcamento || '') + '</td><td>' + (o.cliente_nome || '—') + '</td><td>' + dest + '</td><td>' + (o.vendedor_nome || '—') + '</td><td>' + fmtDate(o.data_validade) + '</td><td><span class="' + badgeClass(o.status) + '">' + (o.status || '') + '</span></td><td>' + (o.qtd_itens != null ? o.qtd_itens : '—') + '</td><td>' + fmtMoney(o.total) + '</td><td>' + fmtDate(o.created_at) + '</td><td>' + acoes + '</td></tr>';
         });
         html += '</tbody></table>';
         document.getElementById('orcamentos-listagem').innerHTML = html;
         if (typeof feather !== 'undefined') feather.replace();
+
+        document.querySelectorAll('.btn-detalhes-orcamento').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = parseInt(btn.getAttribute('data-id'), 10);
+                if (Number.isFinite(id)) abrirDetalhesOrcamento(id);
+            });
+        });
+
+        document.querySelectorAll('.btn-editar-orcamento').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const id = parseInt(btn.getAttribute('data-id'), 10);
+                if (Number.isFinite(id) && typeof abrirModalOrcamento === 'function') {
+                    abrirModalOrcamento(id);
+                }
+            });
+        });
 
         document.querySelectorAll('.btn-emitir').forEach(function(btn) {
             btn.addEventListener('click', async function() {
@@ -224,8 +244,10 @@
         document.querySelectorAll('.btn-converter-pedido').forEach(function(a) {
             a.addEventListener('click', async function(e) {
                 e.preventDefault();
+                if (a.disabled) return;
                 const id = parseInt(a.getAttribute('data-id'), 10);
                 const reservar = confirm('Reservar estoque ao criar o pedido?');
+                a.disabled = true;
                 const r = await api('/api/v1/orcamentos/' + id + '/converter', {
                     method: 'POST',
                     body: JSON.stringify({ reservar_estoque: !!reservar }),
@@ -233,6 +255,7 @@
                 if (!r.ok) {
                     const err = await r.json().catch(function() { return {}; });
                     alert(err.detail || 'Falha na conversão');
+                    a.disabled = false;
                     return;
                 }
                 const msg = await r.json().catch(function() { return {}; });
@@ -247,35 +270,45 @@
                 orcamentoConverterOsId = parseInt(a.getAttribute('data-id'), 10);
                 carregarTiposOsModal();
                 document.getElementById('modal-os-tipo-id').value = '';
-                new bootstrap.Modal(document.getElementById('modalConverterOs')).show();
+                abrirModalConverterOs();
             });
         });
 
         document.querySelectorAll('.btn-converter-venda').forEach(function(a) {
             a.addEventListener('click', async function(e) {
                 e.preventDefault();
+                if (a.disabled) return;
                 const id = parseInt(a.getAttribute('data-id'), 10);
                 if (!confirm('Criar venda pendente a partir deste orçamento? (sem baixa de estoque até finalizar no PDV)')) return;
+                a.disabled = true;
                 const r = await api('/api/v1/orcamentos/' + id + '/converter-venda', { method: 'POST', body: '{}' });
                 if (!r.ok) {
                     const err = await r.json().catch(function() { return {}; });
                     alert(err.detail || 'Falha na conversão');
+                    a.disabled = false;
                     return;
                 }
                 const msg = await r.json().catch(function() { return {}; });
-                alert((msg.message || 'Venda criada.') + (msg.numero_venda ? ' Nº ' + msg.numero_venda : ''));
+                if (msg.venda_id) {
+                    window.location.href = '/negocio/venda?finalizar=' + msg.venda_id;
+                    return;
+                }
+                alert((msg.message || 'Venda criada.') + (msg.numero_venda ? ' Nº ' + DocRef.compactDocRef(msg.numero_venda) : ''));
                 carregar();
             });
         });
     }
 
     document.getElementById('btn-confirmar-converter-os').addEventListener('click', async function() {
+        const btn = this;
+        if (btn.disabled) return;
         const tipoId = document.getElementById('modal-os-tipo-id').value;
         if (!tipoId) {
             alert('Selecione o tipo de ordem de serviço.');
             return;
         }
         if (!orcamentoConverterOsId) return;
+        btn.disabled = true;
         const r = await api('/api/v1/orcamentos/' + orcamentoConverterOsId + '/converter-os', {
             method: 'POST',
             body: JSON.stringify({ tipo_id: parseInt(tipoId, 10) }),
@@ -283,22 +316,118 @@
         if (!r.ok) {
             const err = await r.json().catch(function() { return {}; });
             alert(err.detail || 'Falha na conversão');
+            btn.disabled = false;
             return;
         }
         const msg = await r.json().catch(function() { return {}; });
-        alert((msg.message || 'OS criada.') + (msg.codigo ? ' Código: ' + msg.codigo : ''));
-        bootstrap.Modal.getInstance(document.getElementById('modalConverterOs')).hide();
+        fecharModalConverterOs();
         orcamentoConverterOsId = null;
+        const codigoOs = msg.codigo || msg.ordem_servico_id || '';
+        const abrirOs = confirm(
+            (msg.message || 'Ordem de serviço criada.') +
+            (codigoOs ? ' Código: ' + codigoOs : '') +
+            '\n\nDeseja abrir o módulo de ordem de serviço?'
+        );
+        if (abrirOs && msg.ordem_servico_id) {
+            window.location.href = '/negocio/ordem-servico?os=' + msg.ordem_servico_id;
+            return;
+        }
         carregar();
+        btn.disabled = false;
     });
+
+    window.recarregarListagemOrcamentos = carregar;
+
+    function escHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    async function abrirDetalhesOrcamento(id) {
+        const r = await api('/api/v1/orcamentos/' + id);
+        if (!r.ok) {
+            alert('Orçamento não encontrado.');
+            return;
+        }
+        const o = await r.json();
+        const painel = document.getElementById('painelDetalhesOrcamento');
+        const titulo = document.getElementById('tituloDetalhesOrcamento');
+        const linkPdf = document.getElementById('btnDetalhesOrcamentoPdf');
+        if (titulo) titulo.textContent = 'Orçamento ' + DocRef.compactDocRef(o.numero_orcamento || o.id);
+        if (linkPdf) linkPdf.href = '/api/v1/orcamentos/' + o.id + '/pdf';
+
+        let itensHtml = '<p class="text-muted mb-0">Nenhum item.</p>';
+        if (o.itens && o.itens.length) {
+            itensHtml = '<table class="table table-sm mb-0"><thead><tr><th>Cód.</th><th>Descrição</th><th class="text-end">Qtd</th><th class="text-end">Unit.</th><th class="text-end">Total</th></tr></thead><tbody>';
+            o.itens.forEach(function(it) {
+                itensHtml += '<tr><td>' + escHtml(it.codigo_produto || '—') + '</td><td>' + escHtml(it.descricao_produto || '') + '</td><td class="text-end">' + it.quantidade + '</td><td class="text-end">' + fmtMoney(it.preco_unitario) + '</td><td class="text-end">' + fmtMoney(it.total_item) + '</td></tr>';
+            });
+            itensHtml += '</tbody></table>';
+        }
+
+        let rastreio = '';
+        if (o.convertido_em_venda_id) rastreio += '<div>Venda #' + o.convertido_em_venda_id + '</div>';
+        if (o.convertido_em_ordem_servico_id) rastreio += '<div>OS #' + o.convertido_em_ordem_servico_id + '</div>';
+        if (o.convertido_em_pedido_id) rastreio += '<div>Pedido #' + o.convertido_em_pedido_id + '</div>';
+        if (!rastreio) rastreio = '<span class="text-muted">—</span>';
+
+        painel.innerHTML =
+            '<div class="mb-2"><span class="' + badgeClass(o.status) + '">' + escHtml(o.status) + '</span></div>' +
+            '<div class="row g-2 mb-2">' +
+            '<div class="col-md-6"><strong>Unidade (emissor)</strong><p class="mb-0">' + escHtml(o.cliente_nome || '—') + '</p></div>' +
+            '<div class="col-md-6"><strong>Consumidor</strong><p class="mb-0">' + escHtml(o.destinatario_nome || '—') + '</p></div>' +
+            '<div class="col-md-6"><strong>Vendedor</strong><p class="mb-0">' + escHtml(o.vendedor_nome || '—') + '</p></div>' +
+            '<div class="col-md-6"><strong>Validade</strong><p class="mb-0">' + fmtDate(o.data_validade) + '</p></div>' +
+            '</div>' +
+            '<div class="border rounded p-2 mb-2"><strong>Peças e serviços</strong>' + itensHtml + '</div>' +
+            '<div class="row g-2 mb-2">' +
+            '<div class="col-md-4"><strong>Subtotal</strong><p class="mb-0">' + fmtMoney(o.subtotal) + '</p></div>' +
+            '<div class="col-md-4"><strong>Desconto</strong><p class="mb-0">' + fmtMoney(o.desconto) + '</p></div>' +
+            '<div class="col-md-4"><strong>Total</strong><p class="mb-0 text-success fw-bold">' + fmtMoney(o.total) + '</p></div>' +
+            '</div>' +
+            '<div class="border rounded p-2 mb-2"><strong>Condições de pagamento</strong><p class="mb-0" style="white-space:pre-wrap;">' + escHtml(o.condicoes_pagamento || '—') + '</p></div>' +
+            '<div class="border rounded p-2 mb-2"><strong>Observações</strong><p class="mb-0" style="white-space:pre-wrap;">' + escHtml(o.observacoes || '—') + '</p></div>' +
+            '<div class="border rounded p-2"><strong>Rastreio / conversão</strong>' + rastreio + '</div>';
+
+        const modal = document.getElementById('modalDetalhesOrcamentoCustom');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    window.fecharDetalhesOrcamento = function() {
+        const modal = document.getElementById('modalDetalhesOrcamentoCustom');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    };
+
+    const modalDetalhesOrc = document.getElementById('modalDetalhesOrcamentoCustom');
+    if (modalDetalhesOrc) {
+        modalDetalhesOrc.addEventListener('click', function(e) {
+            if (e.target === modalDetalhesOrc) fecharDetalhesOrcamento();
+        });
+    }
+
+    window.abrirDetalhesOrcamento = abrirDetalhesOrcamento;
 
     document.getElementById('btn-filtrar').addEventListener('click', carregar);
     document.getElementById('filtro-status').addEventListener('change', carregar);
 
-    document.addEventListener('DOMContentLoaded', async function() {
-        await carregarFiltroEstabelecimentos();
+    document.addEventListener('DOMContentLoaded', function() {
         carregar();
         if (typeof feather !== 'undefined') feather.replace();
+
+        const params = new URLSearchParams(window.location.search);
+        const detalheId = parseInt(params.get('detalhe') || '', 10);
+        if (Number.isFinite(detalheId) && typeof abrirDetalhesOrcamento === 'function') {
+            abrirDetalhesOrcamento(detalheId);
+            if (window.history && window.history.replaceState) {
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        }
     });
 })();
 </script>

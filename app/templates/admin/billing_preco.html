@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Billing - Valor e descontos | PDV Ibix{% endblock %}
+{% block title %}Valor e descontos | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block content %}
+{% include 'components/brand_scope_banner.html' %}
 <div class="container-fluid p-0">
     <div class="mb-3">
         <a href="/admin/billing/tenants" class="btn btn-outline-secondary btn-sm me-2">&larr; Voltar</a>

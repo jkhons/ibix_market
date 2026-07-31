@@ -39,13 +39,28 @@ Este documento consolida todas as regras, diretrizes e políticas do PDV Ibix. �
 - **MAPA_DE_REGRAS.md** — regras de desenvolvimento, modais, template, segurança.
 - **MAPA_RBAC.md** — permissões, roles, controle de acesso; **criar/alterar rotas HTML:** consultar Ap. A (performance, um contexto, request.state); Ap. B (acesso por role).
 
-**Estrutura de documentação (apenas estes 5 arquivos + INDICE):**
-- `MAPA_DO_SISTEMA.md` — Sistema + Banco de Dados + Auditoria + Impactos + Deploy (Ap. D) + Etapas (Ap. E) + Performance rotas HTML (ref. MAPA_RBAC Ap. A)
-- `MAPA_DE_API.md` — APIs REST
+**Estrutura de documentação (núcleo + satélites + índice):**
+
+Consulte sempre `MAPA_SISTEMA/INDICE.md` primeiro. **Planos de execução** ficam em `.cursor/plans/` (não em `MAPA_SISTEMA/`).
+
+**Núcleo (6 mapas — consultar na maioria das tarefas):**
+- `MAPA_DO_SISTEMA.md` — Arquitetura, módulos, banco (Parte 2), deploy (Ap. D), etapas (Ap. E); sumário no topo
+- `MAPA_DE_API.md` — Endpoints REST, schemas, auth
 - `MAPA_DE_REGRAS.md` — Regras e padrões (este arquivo)
-- `MAPA_RBAC.md` — Controle de acesso; Ap. A Performance Auth/RBAC e rotas HTML (referência para novas rotas); Ap. B Acesso por Role
-- `MAPA_PAGAMENTO.md` — Pagamento e assinatura
-- `INDICE.md` — Índice para pesquisa (Cursor)
+- `MAPA_RBAC.md` — Roles, permissões; Ap. A performance HTML; Ap. B acesso por role
+- `MAPA_PAGAMENTO.md` — Assinatura SaaS + vendas PDV/loja (gateways, Recebíveis)
+- `MAPA_FATURAMENTO.md` — Emissão NF-e/NFC-e (XML, SEFAZ, validação)
+
+**Satélites (7 — domínio específico):**
+- `MAPA_MODELO_PAGAMENTO_MARKETPLACE.md` — Intermediação marketplace, repasse D+7/D+14
+- `MAPA_Frete_Transporte.md` — Frete venda CA + vitrine; logística entregador (§ 6)
+- `MAPA_DEPLOY_SERVICOS.md` — systemd, Nginx, SSL produção
+- `MAPA_GOOGLE_OAUTH_VITRINE.md` — Login Google `/loja`
+- `MAPA_PADRONIZACAO_PDV_VITRINE.md` — Glossário PDV vs vitrine
+- `REPOSITORIOS_GITHUB.md` — Repositórios `ibix_market` / mobile
+- `INDICE.md` — Roteamento e palavras-chave (Cursor)
+
+**Entrada do repositório:** `README.md` (humano), `AGENTS.md` (IA).
 
 **Extensões Cursor/VS Code recomendadas:** **Obrigatórias:** Python, Pylance, GitLens, Thunder Client, PostgreSQL (ou DBeaver), Jinja. **Recomendadas:** Black Formatter, Flake8, Error Lens, Auto Rename Tag, Path Intellisense.
 
@@ -156,7 +171,7 @@ Este documento consolida todas as regras, diretrizes e políticas do PDV Ibix. �
 - **❌ PROIBIDO:** Dados hardcoded no frontend (ver seção "Dados Hardcoded no Frontend - PROIBIDO")
 - **✅ OBRIGATÓRIO:** Todos os dados dinâmicos devem vir de APIs REST que consultam o banco de dados
 - **✅ OBRIGATÓRIO:** Requisições REST no frontend devem usar `window.authenticatedFetch` para incluir cookie + `Authorization` e respeitar o `cliente_id` do token. A página Novo Processo (`novo_processo.html`) foi alinhada a esta regra: todas as chamadas à API usam `window.authenticatedFetch` (definido em `app/static/js/certipeso.js`).
-- **Cookies de autenticação:** O backend (`main.py` add_user_to_request) e middleware (`app/core/middleware.py`) aceitam os cookies `pdv_solumatica_token` e `pdv_automscale_token` como alternativa ao Bearer para autenticação. Usado em rotas HTML (ex.: comprovante) e em fetch com `credentials: 'include'`.
+- **Cookies de autenticação:** O backend (`main.py` add_user_to_request) e middleware (`app/core/middleware.py`) aceitam os cookies `pdv_solumatica_token` e `pdv_automscale_token` como alternativa ao Bearer para autenticação. Cookies PDV são **HttpOnly** (2026-06-18): o front **não** deve ler JWT via `document.cookie`; usar `credentials: 'include'` em fetch e `GET /api/v1/auth/me` para checar sessão (`user-dropdown.js`). Logout: `POST /api/v1/auth/logout` ou `GET /logout` — ambos chamam `clear_pdv_auth_cookies()`. Ver MAPA_DE_API (auth), MAPA_PADRONIZACAO § 5.
 
 ### PWA dedicado do PDV (obrigatório para modo app)
 - Escopo exclusivo do PDV: usar `manifest` e `service worker` apenas em `/negocio/venda/pdv`.
@@ -469,7 +484,7 @@ NUNCA aplique tokens do PDV no Marketplace ou vice-versa. Eles são produtos dif
 
 - `app/static/css/loja.css` — fonte canônica de tokens
 - `mobile_marketplace/AGENTS.md` § 6 e § 8.1 — regras detalhadas para o app
-- `MAPA_SISTEMA/PLANO_APP_MOBILE_MARKETPLACE.md` — Fase 1.3 (Design System) e Fase 7.2 (ASO)
+- `.cursor/plans/plano_app_mobile_marketplace.plan.md` — Fase 1.3 (Design System) e Fase 7.2 (ASO)
 
 ---
 

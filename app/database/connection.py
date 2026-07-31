@@ -2,6 +2,8 @@
 import os
 from urllib.parse import quote_plus
 
+from typing import Optional
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -48,6 +50,7 @@ def _get_connect_args():
 
 
 # Pool de conexões (configurável por env; total_conexões = (gunicorn + celery workers) × (pool_size + max_overflow) < max_connections)
+# SET LOCAL (statement_timeout, futuro RLS) é aplicado por request em get_db — compatível com PgBouncer transaction mode.
 _pool_kw = {
     "pool_pre_ping": True,
     "pool_recycle": 300,
@@ -72,9 +75,43 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def open_db_session(
+    *,
+    tenant_id: Optional[int] = None,
+    brand_id: Optional[int] = None,
+    bypass_rls: Optional[bool] = None,
+):
+    """Sessão com SET LOCAL statement_timeout + RLS (middleware, workers, scripts)."""
+    from app.core.db_session_scope import apply_db_session_locals
+
+    db = SessionLocal()
+    apply_db_session_locals(
+        db,
+        tenant_id=tenant_id,
+        brand_id=brand_id,
+        bypass_rls=bypass_rls,
+    )
+    return db
+
+
 def get_db():
     """Dependency para obter sessão do banco de dados"""
-    db = SessionLocal()
+    db = open_db_session()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_db_pre_auth():
+    """Sessão para login/cadastro/recuperação de senha (tenant ainda desconhecido).
+
+    Com RLS ativo, consultas a usuarios/tenants sem bypass retornam zero linhas para
+    registros com tenant_id preenchido — o login falhava com «Email ou senha incorretos».
+    """
+    from app.core.rls import rls_enabled
+
+    db = open_db_session(bypass_rls=True if rls_enabled() else None)
     try:
         yield db
     finally:

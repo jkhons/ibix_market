@@ -4,9 +4,6 @@
 
 {% block content %}
 <h1 class="h4 mb-3">Carrinho</h1>
-<div id="loja-carrinho-multi-loja" class="alert alert-warning" style="display: none;" role="alert">
-    Há itens de mais de uma loja no carrinho. O checkout é feito por loja. Remova itens ou finalize um pedido por vez.
-</div>
 <div id="loja-carrinho-toolbar" class="mb-2 text-end" style="display: none;">
     <button type="button" class="btn btn-outline-secondary btn-sm" id="loja-carrinho-limpar">Limpar carrinho</button>
 </div>
@@ -27,7 +24,6 @@
   var emptyEl = document.getElementById("loja-carrinho-empty");
   var footerEl = document.getElementById("loja-carrinho-footer");
   var totalEl = document.getElementById("loja-carrinho-total");
-  var multiLojaEl = document.getElementById("loja-carrinho-multi-loja");
   var toolbarEl = document.getElementById("loja-carrinho-toolbar");
 
   function render() {
@@ -37,20 +33,12 @@
       listEl.innerHTML = "";
       emptyEl.style.display = "block";
       footerEl.style.display = "none";
-      multiLojaEl.style.display = "none";
       if (toolbarEl) toolbarEl.style.display = "none";
       return;
     }
     emptyEl.style.display = "none";
     footerEl.style.display = "block";
     if (toolbarEl) toolbarEl.style.display = "block";
-
-    var lojaIds = {};
-    items.forEach(function (i) {
-      lojaIds[i.loja_id] = true;
-    });
-    var numLojas = Object.keys(lojaIds).length;
-    multiLojaEl.style.display = numLojas > 1 ? "block" : "none";
 
     var total = 0;
     var html = '<div class="list-group">';

@@ -138,27 +138,35 @@
     overflow: hidden;
   }
   .ma-carousel {
-    position: relative; aspect-ratio: 1; background: #ececec;
+    position: relative;
+    aspect-ratio: 1;
+    background: #ececec;
+    overflow: hidden;
+    isolation: isolate;
   }
   .ma-carousel img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+    z-index: 0;
+    pointer-events: none;
+    background: #ececec;
   }
-  .ma-carousel-nav {
-    position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px;
-  }
-  .ma-carousel-nav button {
-    width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0;
-    background: rgba(255,255,255,0.5); cursor: pointer;
-  }
-  .ma-carousel-nav button.ma-dot-on { background: var(--ibix-action); }
   .ma-prev-next {
     position: absolute; top: 50%; transform: translateY(-50%);
-    border: none; background: rgba(255,255,255,0.85); border-radius: 50%;
-    width: 36px; height: 36px; cursor: pointer;
+    border: none; background: rgba(255,255,255,0.92); border-radius: 50%;
+    width: 40px; height: 40px; cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--ibix-text-strong);
+    z-index: 20 !important;
+    pointer-events: auto !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
   }
   .ma-prev-next.ma-prev { left: 8px; }
   .ma-prev-next.ma-next { right: 8px; }
@@ -166,7 +174,27 @@
     width: 1.35rem;
     height: 1.35rem;
     stroke-width: 2.25;
+    pointer-events: none;
   }
+  .ma-prev-next .ma-nav-fallback {
+    display: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .ma-prev-next:not(:has(svg)) .ma-nav-fallback { display: block; }
+  .ma-carousel-nav {
+    position: absolute; bottom: 8px; left: 0; right: 0; display: flex; justify-content: center; gap: 6px;
+    z-index: 20 !important;
+    pointer-events: auto !important;
+  }
+  .ma-carousel-nav button {
+    width: 10px; height: 10px; border-radius: 50%; border: none; padding: 0;
+    background: rgba(255,255,255,0.55); cursor: pointer;
+    pointer-events: auto !important;
+  }
+  .ma-carousel-nav button.ma-dot-on { background: var(--ibix-action); }
   .ma-body-pad { padding: 1rem; }
   .ma-title { font-family: Poppins, DM Sans, sans-serif; font-weight: 700; font-size: 1rem; color: var(--ibix-text-strong); margin: 0 0 0.5rem; }
   .ma-price-row { margin-bottom: 0.75rem; }
@@ -305,12 +333,31 @@
     stroke-width: 2.25;
   }
   .ma-export-row {
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+  }
+  .ma-export-groups {
+    margin-top: 0.75rem;
+    width: 100%;
+  }
+  .ma-export-group {
+    margin-bottom: 0.85rem;
+  }
+  .ma-export-group-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--ibix-text-strong);
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+  .ma-export-group .ma-btn {
+    font-size: 0.78rem;
+    padding: 0.4rem 0.65rem;
   }
   .ma-btn-wa {
     background: #25d366;
@@ -323,23 +370,8 @@
   .ma-btn-wa svg {
     stroke: #fff;
   }
-  .ma-msg { font-size: 0.85rem; color: var(--ibix-text); margin-top: 0.5rem; text-align: center; }
+  .ma-msg { font-size: 0.85rem; color: var(--ibix-text); margin-top: 0.5rem; text-align: left; }
   .ma-msg.ma-err { color: #b42318; }
-
-  /* Exportação: clone do card maior fora da tela */
-  #ma-export-slot {
-    position: fixed;
-    left: -12000px;
-    top: 0;
-    z-index: -1;
-    pointer-events: none;
-    opacity: 0;
-    overflow: visible;
-  }
-  .ma-export-snapshot .ma-prev-next,
-  .ma-export-snapshot .ma-carousel-nav {
-    display: none !important;
-  }
 </style>
 {% endblock %}
 
@@ -365,10 +397,10 @@
               <div class="ma-carousel" id="ma-carousel">
                 <img id="ma-carousel-img" src="" alt="">
                 <button type="button" class="ma-prev-next ma-prev" id="ma-prev" aria-label="Imagem anterior" title="Anterior">
-                  <i data-feather="chevron-left"></i>
+                  <i data-feather="chevron-left"></i><span class="ma-nav-fallback" aria-hidden="true">‹</span>
                 </button>
                 <button type="button" class="ma-prev-next ma-next" id="ma-next" aria-label="Próxima imagem" title="Próxima">
-                  <i data-feather="chevron-right"></i>
+                  <i data-feather="chevron-right"></i><span class="ma-nav-fallback" aria-hidden="true">›</span>
                 </button>
                 <div class="ma-carousel-nav" id="ma-dots"></div>
               </div>
@@ -384,9 +416,9 @@
               <div class="ma-footer-brand">
                 <div class="ma-footer-brand-inner">
                   <div class="ma-footer-brand-copy">
-                    <span class="ma-footer-site">&nbsp;&nbsp;www.IBIX.com.br</span>
+                    <span class="ma-footer-site" id="ma-footer-site">{% if brand and brand.seo_base_url %}{% set _h = brand.seo_base_url.replace('https://','').replace('http://','').rstrip('/') %}www.{{ _h.replace('www.','') }}{% elif brand %}{{ brand.nome_exibicao }}{% else %}—{% endif %}</span>
                     <div class="ma-footer-badge-stack">
-                      <span class="ma-badge ma-badge--geo">Apenas em Lençóis Paulista</span>
+                      <span class="ma-badge ma-badge--geo" id="ma-badge-geo">Local da loja</span>
                       <span class="ma-footer-badge-row-inline">
                         <span class="ma-badge ma-badge--frete"><i data-feather="truck"></i>Receba em instantes</span>
                         <span class="ma-footer-ou">ou</span>
@@ -427,24 +459,32 @@
             </button>
           </div>
         </div>
-        <div class="ma-export-row">
-          <button type="button" class="ma-btn ma-btn-icon" id="ma-exp-1080" aria-label="Exportar JPEG quadrado 1080 por 1080" title="JPEG 1080×1080 (feed)">
-            <i data-feather="image"></i>
-          </button>
-          <button type="button" class="ma-btn ma-btn-icon" id="ma-exp-1920" aria-label="Exportar JPEG vertical 1080 por 1920" title="JPEG 1080×1920 (Stories/Reels)">
-            <i data-feather="smartphone"></i>
-          </button>
-          <button type="button" class="ma-btn ma-btn-icon ma-btn-wa" id="ma-share-wa" aria-label="Compartilhar imagem e legenda no WhatsApp" title="WhatsApp: imagem + texto (compartilhar ou baixar + colar)">
-            <i data-feather="message-circle"></i>
-          </button>
+        <div class="ma-export-groups">
+          <div class="ma-export-group">
+            <div class="ma-export-group-label">Instagram</div>
+            <div class="ma-export-row">
+              <button type="button" class="ma-btn ma-btn-secondary" data-ma-fmt="ig_stories" title="Stories 9:16 · 1080×1920">Stories 9:16</button>
+              <button type="button" class="ma-btn ma-btn-secondary" data-ma-fmt="ig_post_4x5" title="Post 4:5 · 1080×1350">Post 4:5</button>
+            </div>
+          </div>
+          <div class="ma-export-group">
+            <div class="ma-export-group-label">Facebook</div>
+            <div class="ma-export-row">
+              <button type="button" class="ma-btn ma-btn-secondary" data-ma-fmt="fb_stories" title="Stories 9:16 · 1080×1920">Stories 9:16</button>
+              <button type="button" class="ma-btn ma-btn-secondary" data-ma-fmt="fb_post_191" title="Post 1.91:1 · 1200×630">Post 1.91:1</button>
+            </div>
+          </div>
+          <div class="ma-export-row">
+            <button type="button" class="ma-btn ma-btn-icon ma-btn-wa" id="ma-share-wa" aria-label="Compartilhar imagem e legenda no WhatsApp" title="WhatsApp: Post 4:5 + texto">
+              <i data-feather="message-circle"></i>
+            </button>
+          </div>
         </div>
         <p class="ma-msg" id="ma-exp-msg"></p>
       </aside>
     </div>
   </div>
 </div>
-
-<div id="ma-export-slot" aria-hidden="true"></div>
 {% endblock %}
 
 {% block scripts_extra %}
@@ -625,54 +665,78 @@
     document.getElementById('ma-preview-title').textContent = d.titulo || '';
 
     var imgEl = document.getElementById('ma-carousel-img');
-    function setCrossOrigin(img, url) {
-      try {
-        if (/^https?:/i.test(url) && url.indexOf(location.origin) !== 0) img.crossOrigin = 'anonymous';
-        else img.crossOrigin = null;
-      } catch (e) {}
+    var btnPrev = document.getElementById('ma-prev');
+    var btnNext = document.getElementById('ma-next');
+    var dots = document.getElementById('ma-dots');
+    if (!imgEl || !btnPrev || !btnNext || !dots) {
+      document.getElementById('ma-err').textContent = 'Carrossel indisponível nesta página.';
+      document.getElementById('ma-err').classList.remove('d-none');
+      return;
+    }
+
+    function syncDots() {
+      Array.prototype.forEach.call(dots.children, function (c, j) {
+        c.className = j === state.idx ? 'ma-dot-on' : '';
+      });
     }
     function showImg(i) {
-      if (!imgs.length) { imgEl.removeAttribute('src'); return; }
-      var u = imgs[i % imgs.length];
-      setCrossOrigin(imgEl, u);
-      imgEl.src = u;
+      if (!imgs.length) {
+        imgEl.removeAttribute('src');
+        return;
+      }
+      state.idx = ((i % imgs.length) + imgs.length) % imgs.length;
+      // Sem crossOrigin: preview só exibe; exportação resolve a foto no servidor.
+      imgEl.removeAttribute('crossorigin');
+      imgEl.src = imgs[state.idx];
       imgEl.alt = d.titulo || '';
+      syncDots();
     }
-    showImg(0);
 
-    var dots = document.getElementById('ma-dots');
     dots.innerHTML = '';
     for (var di = 0; di < imgs.length; di++) {
-      var b = document.createElement('button');
-      b.type = 'button';
-      b.setAttribute('aria-label', 'Imagem ' + (di + 1));
-      if (di === 0) b.className = 'ma-dot-on';
       (function (ii) {
-        b.addEventListener('click', function () {
-          state.idx = ii;
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', 'Imagem ' + (ii + 1));
+        if (ii === 0) b.className = 'ma-dot-on';
+        b.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
           showImg(ii);
-          Array.prototype.forEach.call(dots.children, function (c, j) {
-            c.className = j === ii ? 'ma-dot-on' : '';
-          });
         });
+        dots.appendChild(b);
       })(di);
-      dots.appendChild(b);
     }
 
-    document.getElementById('ma-prev').onclick = function () {
-      if (!imgs.length) return;
-      state.idx = (state.idx + imgs.length - 1) % imgs.length;
-      showImg(state.idx);
-      Array.prototype.forEach.call(dots.children, function (c, j) { c.className = j === state.idx ? 'ma-dot-on' : ''; });
+    btnPrev.onclick = function (ev) {
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+      if (imgs.length < 2) return;
+      showImg(state.idx - 1);
     };
-    document.getElementById('ma-next').onclick = function () {
-      if (!imgs.length) return;
-      state.idx = (state.idx + 1) % imgs.length;
-      showImg(state.idx);
-      Array.prototype.forEach.call(dots.children, function (c, j) { c.className = j === state.idx ? 'ma-dot-on' : ''; });
+    btnNext.onclick = function (ev) {
+      if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+      if (imgs.length < 2) return;
+      showImg(state.idx + 1);
     };
 
+    var multi = imgs.length > 1;
+    btnPrev.hidden = !multi;
+    btnNext.hidden = !multi;
+    dots.hidden = !multi;
+    btnPrev.setAttribute('aria-hidden', multi ? 'false' : 'true');
+    btnNext.setAttribute('aria-hidden', multi ? 'false' : 'true');
+
+    showImg(0);
+
     document.getElementById('ma-preview-price').innerHTML = renderPriceHtml(d);
+
+    var geoEl = document.getElementById('ma-badge-geo');
+    if (geoEl) {
+      var cidade = (d.cidade_loja || '').trim();
+      var uf = (d.uf_loja || '').trim();
+      var loc = cidade ? (uf ? (cidade + ' - ' + uf) : cidade) : '';
+      geoEl.textContent = loc ? ('Apenas em ' + loc) : 'Local da loja indisponível';
+    }
 
     var abs = linkAbsoluto(d.titulo, d.id);
     var utm = linkComUtm(abs);
@@ -683,7 +747,14 @@
     });
 
     document.getElementById('ma-preview-wrap').classList.remove('d-none');
-    if (typeof feather !== 'undefined' && feather.replace) feather.replace();
+    // Só ícones Feather ainda não convertidos (evita reprocessar o carrossel)
+    if (typeof feather !== 'undefined' && feather.replace) {
+      try {
+        feather.replace({
+          'stroke-width': 2.25
+        });
+      } catch (e) {}
+    }
   }
 
   function bindCopy(idBtn, idField) {
@@ -760,41 +831,6 @@
       });
   }
 
-  function stripCloneIds(root) {
-    Array.prototype.forEach.call(root.querySelectorAll('[id]'), function (el) {
-      el.removeAttribute('id');
-    });
-  }
-
-  function waitCloneImages(clone, cb) {
-    var imgs = clone.querySelectorAll('img');
-    var pending = 0;
-    Array.prototype.forEach.call(imgs, function (img) {
-      if (!img.complete) pending++;
-    });
-    if (!pending) return cb();
-    var left = pending;
-    Array.prototype.forEach.call(imgs, function (img) {
-      if (img.complete) return;
-      img.onload = img.onerror = function () {
-        left--;
-        if (left <= 0) cb();
-      };
-    });
-  }
-
-  function loadHtml2Canvas(cb) {
-    if (window.html2canvas) return cb();
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-    s.crossOrigin = 'anonymous';
-    s.onload = function () { cb(); };
-    s.onerror = function () {
-      document.getElementById('ma-exp-msg').textContent = 'Não foi possível carregar html2canvas (rede).';
-    };
-    document.head.appendChild(s);
-  }
-
   function downloadBlob(blob, name) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -803,85 +839,78 @@
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
   }
 
-  /** mode: '1080' | '1920' — done(errMsg|null, blob|null) */
-  function captureMontagemBlob(mode, done) {
-    var outer = document.querySelector('.ma-preview-outer');
-    if (!outer || !state.detail) {
-      done('Sem criativo carregado.', null);
-      return;
+  function maAuthFetch(url, options) {
+    if (typeof window.authenticatedFetch === 'function') {
+      return window.authenticatedFetch(url, options || {});
     }
-    loadHtml2Canvas(function () {
-      if (!window.html2canvas) {
-        done('Não foi possível carregar html2canvas.', null);
-        return;
-      }
-      document.fonts.ready.then(function () {
-        var slot = document.getElementById('ma-export-slot');
-        var clone = outer.cloneNode(true);
-        clone.classList.add('ma-export-snapshot');
-        stripCloneIds(clone);
-        slot.innerHTML = '';
-        slot.appendChild(clone);
-
-        waitCloneImages(clone, function () {
-          requestAnimationFrame(function () {
-            requestAnimationFrame(function () {
-              var tw = 1080;
-              var th = mode === '1920' ? 1920 : 1080;
-              var w = Math.max(1, clone.offsetWidth);
-              var h = Math.max(1, clone.offsetHeight);
-              var captureScale = Math.min(4, Math.max(2.25, tw / w));
-
-              window.html2canvas(clone, {
-                scale: captureScale,
-                useCORS: true,
-                allowTaint: false,
-                backgroundColor: '#F6EDE4',
-                logging: false
-              }).then(function (srcCanvas) {
-                slot.innerHTML = '';
-                var aw = srcCanvas.width;
-                var ah = srcCanvas.height;
-                var fit = Math.min(tw / aw, th / ah);
-                var dw = Math.round(aw * fit);
-                var dh = Math.round(ah * fit);
-                var ox = Math.round((tw - dw) / 2);
-                var oy = Math.round((th - dh) / 2);
-
-                var out = document.createElement('canvas');
-                out.width = tw;
-                out.height = th;
-                var ctx = out.getContext('2d');
-                ctx.fillStyle = '#F6EDE4';
-                ctx.fillRect(0, 0, tw, th);
-                ctx.drawImage(srcCanvas, ox, oy, dw, dh);
-
-                out.toBlob(function (blob) {
-                  done(blob ? null : 'Falha ao gerar JPEG.', blob);
-                }, 'image/jpeg', 0.92);
-              }).catch(function () {
-                slot.innerHTML = '';
-                done(
-                  'Captura bloqueada (imagem externa sem CORS ou recurso indisponível). Use fotos no mesmo domínio ou print manual.',
-                  null
-                );
-              });
-            });
-          });
-        });
-      });
-    });
+    var opts = options || {};
+    opts.credentials = opts.credentials || 'include';
+    return fetch(url, opts);
   }
 
-  function runExport(mode, fname) {
-    document.getElementById('ma-exp-msg').textContent = '';
-    captureMontagemBlob(mode, function (err, blob) {
+  function parseErrorDetail(payload, status) {
+    if (!payload) return 'Erro HTTP ' + status;
+    if (typeof payload === 'string') return payload;
+    if (payload.detail) {
+      if (typeof payload.detail === 'string') return payload.detail;
+      try { return JSON.stringify(payload.detail); } catch (e) { return 'Erro HTTP ' + status; }
+    }
+    return 'Erro HTTP ' + status;
+  }
+
+  /**
+   * Gera o criativo no servidor (Pillow) no formato escolhido.
+   * JPEG = módulo backend do formato (formats/*.py) — NÃO ajustar CSS do preview
+   * para “consertar” Stories/Post; preview é só referência de conteúdo.
+   * done(errMsg|null, blob|null, filename|null)
+   */
+  function captureMontagemBlob(formato, done) {
+    if (!state.detail || !state.detail.id) {
+      done('Selecione um anúncio antes.', null, null);
+      return;
+    }
+    maAuthFetch('/api/v1/admin/montagem-anuncio/image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'image/jpeg, application/json' },
+      body: JSON.stringify({ anuncio_id: state.detail.id, formato: formato })
+    })
+      .then(function (r) {
+        var cd = r.headers.get('Content-Disposition') || '';
+        var m = /filename="?([^";]+)"?/i.exec(cd);
+        var fname = m ? m[1] : ('montagem-' + formato + '.jpg');
+        if (!r.ok) {
+          return r.text().then(function (t) {
+            var payload = null;
+            try { payload = JSON.parse(t); } catch (e) { payload = t; }
+            throw new Error(parseErrorDetail(payload, r.status));
+          });
+        }
+        return r.blob().then(function (blob) {
+          return { blob: blob, fname: fname };
+        });
+      })
+      .then(function (res) {
+        done(null, res.blob, res.fname);
+      })
+      .catch(function (err) {
+        done((err && err.message) ? err.message : 'Falha ao gerar criativo.', null, null);
+      });
+  }
+
+  function runExport(formato) {
+    var expMsg = document.getElementById('ma-exp-msg');
+    expMsg.textContent = 'Gerando criativo…';
+    captureMontagemBlob(formato, function (err, blob, fname) {
       if (err) {
-        document.getElementById('ma-exp-msg').textContent = err;
+        expMsg.textContent = err;
         return;
       }
-      if (blob) downloadBlob(blob, fname);
-      else document.getElementById('ma-exp-msg').textContent = 'Falha ao gerar arquivo.';
+      if (blob) {
+        downloadBlob(blob, fname || ('montagem-' + formato + '.jpg'));
+        expMsg.textContent = 'Download iniciado: ' + (fname || formato);
+      } else {
+        expMsg.textContent = 'Falha ao gerar arquivo.';
+      }
     });
   }
 
@@ -901,18 +930,19 @@
       return;
     }
     var fullText = document.getElementById('ma-copy-text').value || '';
+    var brandHint = (document.title || 'Produto').split('|')[0].trim() || 'Produto';
 
     function fallbackDownloadAndClipboard(blob) {
       var hint =
-        'Ibix — cole aqui a legenda que está na área de transferência e anexe a foto ibix-montagem-whatsapp.jpg (baixada agora).';
-      if (blob) downloadBlob(blob, 'ibix-montagem-whatsapp.jpg');
+        brandHint + ' — cole aqui a legenda que está na área de transferência e anexe a foto montagem-whatsapp.jpg (baixada agora).';
+      if (blob) downloadBlob(blob, 'montagem-whatsapp.jpg');
       function openWa() {
-        if (!openWhatsAppWithText(hint)) openWhatsAppWithText('Ibix — veja a imagem baixada e a legenda copiada na ferramenta.');
+        if (!openWhatsAppWithText(hint)) openWhatsAppWithText(brandHint + ' — veja a imagem baixada e a legenda copiada na ferramenta.');
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(fullText).then(function () {
           expMsg.textContent =
-            'Legenda copiada. Imagem baixada (ibix-montagem-whatsapp.jpg). Abrindo WhatsApp: cole o texto e envie a foto em anexo.';
+            'Legenda copiada. Imagem baixada (montagem-whatsapp.jpg). Abrindo WhatsApp: cole o texto e envie a foto em anexo.';
           openWa();
         }).catch(function () {
           expMsg.textContent =
@@ -926,7 +956,8 @@
       }
     }
 
-    captureMontagemBlob('1080', function (err, blob) {
+    expMsg.textContent = 'Gerando Post 4:5 para WhatsApp…';
+    captureMontagemBlob('ig_post_4x5', function (err, blob) {
       if (!blob) {
         if (err) expMsg.textContent = err + ' ';
         if (openWhatsAppWithText(fullText)) {
@@ -934,8 +965,8 @@
         } else if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(fullText).then(function () {
             expMsg.textContent =
-              (err || '') + ' Legenda copiada (texto longo para o link). Abra o WhatsApp e cole.';
-            openWhatsAppWithText('Ibix — cole a legenda copiada da ferramenta Montagem de anúncio.');
+              (err || '') + ' Legenda copiada. Abra o WhatsApp e cole.';
+            openWhatsAppWithText(brandHint + ' — cole a legenda copiada da ferramenta Montagem de anúncio.');
           }).catch(function () {
             expMsg.textContent =
               (err || '') + ' Copie a legenda manualmente e envie pelo WhatsApp.';
@@ -947,11 +978,11 @@
         return;
       }
 
-      var file = new File([blob], 'ibix-montagem.jpg', { type: 'image/jpeg' });
+      var file = new File([blob], 'montagem.jpg', { type: 'image/jpeg' });
       var canFiles = navigator.share && navigator.canShare && navigator.canShare({ files: [file] });
       if (canFiles) {
         navigator
-          .share({ files: [file], text: fullText, title: 'Ibix — produto' })
+          .share({ files: [file], text: fullText, title: brandHint + ' — produto' })
           .then(function () {
             expMsg.textContent = 'Se aparecer o menu do sistema, escolha WhatsApp para enviar imagem e texto.';
           })
@@ -965,11 +996,11 @@
     });
   }
 
-  document.getElementById('ma-exp-1080').addEventListener('click', function () {
-    runExport('1080', 'ibix-montagem-1080.jpg');
-  });
-  document.getElementById('ma-exp-1920').addEventListener('click', function () {
-    runExport('1920', 'ibix-montagem-1080x1920.jpg');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ma-fmt]'), function (btn) {
+    btn.addEventListener('click', function () {
+      var fmt = btn.getAttribute('data-ma-fmt');
+      if (fmt) runExport(fmt);
+    });
   });
   document.getElementById('ma-share-wa').addEventListener('click', shareWhatsAppMontagem);
 

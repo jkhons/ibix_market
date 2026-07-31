@@ -330,7 +330,7 @@
         }
         var ped = await res.json();
         var itens = ped.itens || [];
-        var tbl = '<div class="row mb-2"><div class="col-md-6"><strong>Número:</strong> ' + escapeHtml(ped.numero_pedido || '') + '</div><div class="col-md-6"><strong>Status:</strong> <span class="' + badgeClass(ped.status) + '">' + escapeHtml(String((ped.status || '').replace(/_/g, ' '))) + '</span></div></div>';
+        var tbl = '<div class="row mb-2"><div class="col-md-6"><strong>Número:</strong> ' + DocRef.docRefSpan(ped.numero_pedido || '') + '</div><div class="col-md-6"><strong>Status:</strong> <span class="' + badgeClass(ped.status) + '">' + escapeHtml(String((ped.status || '').replace(/_/g, ' '))) + '</span></div></div>';
         tbl += '<div class="row mb-2"><div class="col-md-6"><strong>Data pedido:</strong> ' + fmtDate(ped.data_pedido) + '</div><div class="col-md-6"><strong>Entrega prevista:</strong> ' + (ped.data_prevista_entrega ? escapeHtml(String(ped.data_prevista_entrega)) : '-') + '</div></div>';
         tbl += '<div class="mb-2"><strong>Total:</strong> ' + fmtMoney(ped.total) + '</div>';
         if (ped.observacoes) tbl += '<div class="mb-2"><strong>Observações:</strong><div class="small text-muted">' + escapeHtml(ped.observacoes) + '</div></div>';
@@ -359,7 +359,7 @@
             var acoes = '<a href="/api/v1/pedidos/' + p.id + '/pdf" target="_blank" class="btn btn-sm btn-outline-secondary me-1">PDF</a>';
             if (p.status === 'rascunho') acoes += ' <a href="/negocio/pedidos/' + p.id + '/editar" class="btn btn-sm btn-outline-primary me-1">Editar</a>';
             if (p.status !== 'cancelado' && p.status !== 'faturado_total') acoes += ' <a href="/negocio/pedidos/' + p.id + '/faturar" class="btn btn-sm btn-success">Faturar</a>';
-            html += '<tr><td>' + (p.numero_pedido || '') + '</td><td>' + fmtDate(p.data_pedido) + '</td><td><span class="' + badgeClass(p.status) + '">' + (p.status || '').replace('_', ' ') + '</span></td><td>' + fmtMoney(p.total) + '</td><td>' + fmtDate(p.created_at) + '</td><td><button type="button" class="btn btn-sm btn-outline-primary btn-ver-pedido-interno" data-pedido-id="' + p.id + '">Ver</button></td><td>' + acoes + '</td></tr>';
+            html += '<tr><td>' + DocRef.docRefSpan(p.numero_pedido || '') + '</td><td>' + fmtDate(p.data_pedido) + '</td><td><span class="' + badgeClass(p.status) + '">' + (p.status || '').replace('_', ' ') + '</span></td><td>' + fmtMoney(p.total) + '</td><td>' + fmtDate(p.created_at) + '</td><td><button type="button" class="btn btn-sm btn-outline-primary btn-ver-pedido-interno" data-pedido-id="' + p.id + '">Ver</button></td><td>' + acoes + '</td></tr>';
         });
         html += '</tbody></table>';
         document.getElementById('pedidos-listagem').innerHTML = html;
@@ -407,7 +407,7 @@
             return;
         }
         var itens = ped.itens || [];
-        var tbl = '<div class="row mb-2"><div class="col-md-6"><strong>Pedido:</strong> ' + escapeHtml(ped.numero_pedido || '') + '</div><div class="col-md-6"><strong>Data:</strong> ' + fmtDate(ped.created_at) + '</div></div>';
+        var tbl = '<div class="row mb-2"><div class="col-md-6"><strong>Pedido:</strong> ' + DocRef.docRefSpan(ped.numero_pedido || '') + '</div><div class="col-md-6"><strong>Data:</strong> ' + fmtDate(ped.created_at) + '</div></div>';
         tbl += '<div class="row mb-2"><div class="col-md-4"><strong>Comprador:</strong> ' + escapeHtml(ped.comprador_nome || '') + '</div><div class="col-md-4"><strong>E-mail:</strong> ' + escapeHtml(ped.comprador_email || '—') + '</div><div class="col-md-4"><strong>Tel:</strong> ' + escapeHtml(ped.comprador_telefone || '—') + '</div></div>';
         if (ped.destinatario_nome) tbl += '<div class="mb-2"><strong>Destinatário:</strong> ' + escapeHtml(ped.destinatario_nome) + '</div>';
         tbl += '<div class="mb-2"><strong>Status pedido:</strong> ' + escapeHtml(labelStatusPedido(ped.status_pedido)) + ' &nbsp; <strong>Pagamento:</strong> ' + escapeHtml(ped.status_pagamento || '') + '</div>';
@@ -477,7 +477,7 @@
             var labelStatus = labelStatusPedido(p.status_pedido);
             var nomeExibicao = p.comprador_nome || '—';
             if (p.destinatario_nome) nomeExibicao += ' <small class="text-muted">(p/ ' + p.destinatario_nome + ')</small>';
-            html += '<tr><td>' + (p.numero_pedido || '') + '</td><td>' + fmtDate(p.created_at) + '</td><td>' + nomeExibicao + '</td><td>' + fmtMoney(p.total) + '</td><td><span class="badge bg-secondary badge-status">' + labelStatus + '</span></td><td>' + (p.status_pagamento || '—') + '</td><td><button type="button" class="btn btn-sm btn-outline-primary btn-ver-pedido-loja" data-pedido-id="' + p.id + '">Ver</button></td><td>' + acoes + '</td></tr>';
+            html += '<tr><td>' + DocRef.docRefSpan(p.numero_pedido || '') + '</td><td>' + fmtDate(p.created_at) + '</td><td>' + nomeExibicao + '</td><td>' + fmtMoney(p.total) + '</td><td><span class="badge bg-secondary badge-status">' + labelStatus + '</span></td><td>' + (p.status_pagamento || '—') + '</td><td><button type="button" class="btn btn-sm btn-outline-primary btn-ver-pedido-loja" data-pedido-id="' + p.id + '">Ver</button></td><td>' + acoes + '</td></tr>';
         });
         html += '</tbody></table>';
         listagem.innerHTML = html;

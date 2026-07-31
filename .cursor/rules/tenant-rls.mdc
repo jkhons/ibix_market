@@ -1,0 +1,34 @@
+---
+description: Tenant + RLS — tenant_id NOT NULL, SET LOCAL, políticas PostgreSQL
+globs: "**/*.{py}"
+alwaysApply: true
+---
+
+# Tenant, brand_id e Row-Level Security
+
+Defesa em profundidade: `scope.py` (1ª barreira) + RLS PostgreSQL (2ª barreira).
+
+## Tabelas novas de negócio
+
+- `tenant_id NOT NULL` + FK coerente
+- `brand_id` quando o dado for escopado por produto/marca (ex.: `tenants.brand_id`)
+- Índice composto **iniciando por `tenant_id`** (ou `brand_id` quando aplicável)
+- Política RLS em migração Alembic (`br35`+ padrão `rls_{table}_tenant`)
+
+## Sessão DB
+
+- Usar `open_db_session()` / `get_db` — aplica `SET LOCAL app.current_tenant`, `app.current_brand`, `app.bypass_rls`
+- **Nunca** `SET` de sessão (vaza entre tenants no PgBouncer transaction mode)
+- Superadministrador: `app.bypass_rls = on` via [rls.py](../../app/core/rls.py)
+- Workers Celery: `open_db_session(tenant_id=..., bypass_rls=...)` — não `SessionLocal()` cru
+- Produção: `RLS_ENABLED=true` + role DB **sem BYPASSRLS**
+
+## Proibido
+
+- Confiar só no filtro Python sem RLS em tabela com `tenant_id`
+- Query cross-tenant sem bypass explícito e auditado
+
+## Referências
+
+- [rls.py](../../app/core/rls.py), [db_session_scope.py](../../app/core/db_session_scope.py)
+- [MAPA_MULTIBRAND.md](../../MAPA_SISTEMA/MAPA_MULTIBRAND.md) § RLS

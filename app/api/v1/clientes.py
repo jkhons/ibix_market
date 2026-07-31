@@ -12,6 +12,8 @@ from ...core.middleware import (
     get_user_permissions,
     require_permission,
 )
+from ...core.pii import apply_cliente_pii_mask
+from ...core.pii_access import audit_pii_access, user_can_view_pii
 from ...core.scope import ClienteScope, get_current_cliente_admin_id, get_empresa_fiscal_cliente_id
 from ...database.connection import get_db
 from ...models.area_cliente import AreaCliente
@@ -20,8 +22,10 @@ from ...models.cliente_administrador_cliente import ClienteAdministradorCliente
 from ...models.empresa import Empresa
 from ...models.usuario import Usuario
 from ...schemas.cliente import ClienteCreate, ClienteListResponse, ClienteResponse, ClienteSearchParams, ClienteUpdate
+from ...schemas.cliente_lojista import ClientePerfilLojistaResponse
 from ...schemas.usuario import UsuarioClienteCreate
 from ...schemas.usuario import UsuarioResponse as UsuarioResponseSchema
+from ...services.cliente_categorias_vitrine_service import build_perfil_lojista
 from ...services.cliente_service import ClienteService
 from ...services.usuario_service import UsuarioService
 from .configuracoes import get_configuracao, set_configuracao
@@ -51,6 +55,62 @@ def require_admin_or_ca_scope_para_criar_usuario(
 
 router = APIRouter(prefix="/clientes", tags=["Clientes"])
 
+_CLIENTE_PII_FIELDS = frozenset({"cpf", "cnpj", "telefone", "email"})
+
+
+def _cliente_response_dict(cliente: Cliente) -> dict:
+    return {
+        "id": cliente.id,
+        "nome": cliente.nome,
+        "cnpj": cliente.cnpj,
+        "cpf": cliente.cpf,
+        "cep": cliente.cep,
+        "endereco": cliente.endereco,
+        "cidade": cliente.cidade,
+        "uf": cliente.uf,
+        "contato": cliente.contato,
+        "telefone": cliente.telefone,
+        "email": cliente.email,
+        "created_at": cliente.created_at.isoformat() if cliente.created_at else None,
+        "updated_at": cliente.updated_at.isoformat() if cliente.updated_at else None,
+    }
+
+
+def _cliente_to_response(
+    cliente: Cliente,
+    db: Session,
+    current_user: Usuario,
+    *,
+    request: Request | None = None,
+    audit_access: bool = False,
+) -> ClienteResponse:
+    reveal = user_can_view_pii(db, current_user)
+    payload = apply_cliente_pii_mask(_cliente_response_dict(cliente), reveal=reveal)
+    if audit_access and reveal and request is not None:
+        from app.core.rate_limiter import get_client_ip
+
+        audit_pii_access(
+            db,
+            acao="pii_acesso_cliente",
+            actor=current_user,
+            recurso_tipo="cliente",
+            recurso_id=cliente.id,
+            ip=get_client_ip(request),
+            request_id=getattr(request.state, "request_id", None),
+        )
+    return ClienteResponse(**payload)
+
+
+def require_superadministrador(
+    current_user: Usuario = Depends(get_current_user),
+) -> Usuario:
+    if not current_user.role or current_user.role.nome != "Superadministrador":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acesso restrito ao Superadministrador.",
+        )
+    return current_user
+
 
 def require_clientes_listar_ou_para_venda(
     request: Request,
@@ -75,26 +135,18 @@ def require_clientes_listar_ou_para_venda(
     )
 
 
-def _allowed_cliente_ids_for_list(
+def _ids_estabelecimento_para_excluir(
     db: Session, scope: ClienteScope, current_user: Usuario
-) -> Optional[List[int]]:
+) -> set[int]:
     """
-    Para Cliente Administrador: exclui da listagem os clientes que são empresa fiscal (ou "ele mesmo").
-    O Cliente Administrador deve ver apenas sub-clientes (níveis abaixo), não a empresa fiscal.
-    - Administrador/Superadministrador: vê clientes (empresas fiscais).
-    - Cliente Administrador: vê só sub-clientes (criados no módulo Clientes).
-    Minha equipe = técnicos do cliente (outra função, não clientes).
+    Clientes que são estabelecimento/emissor (cadastro do CA) — não devem aparecer como cliente final.
+    Usado em venda, orçamento, ordem de serviço e PDV.
     """
-    if not scope.must_filter_by_cliente():
-        return None
+    ids_excluir: set[int] = set()
     if not scope.allowed_ids:
-        return []
-    if not current_user.role or current_user.role.nome != "Cliente Administrador":
-        return scope.allowed_ids
-    # Cliente Admin: excluir empresa fiscal e o "próprio" cliente
-    ids_excluir = set()
-    # 1) Clientes que têm Empresa vinculada (empresa fiscal)
-    ids_empresa_fiscal = {
+        return ids_excluir
+
+    ids_com_empresa = {
         r[0]
         for r in db.query(Empresa.cliente_id)
         .filter(
@@ -104,18 +156,48 @@ def _allowed_cliente_ids_for_list(
         .distinct()
         .all()
     }
-    ids_excluir.update(ids_empresa_fiscal)
-    # 2) Cliente "próprio" via AreaCliente (nome_area=administrador) - caso ainda não tenha Empresa
-    area_own = db.query(AreaCliente.cliente_id).filter(
-        AreaCliente.usuario_id == current_user.id,
-        AreaCliente.ativo == True,
-        AreaCliente.nome_area == "administrador",
-        AreaCliente.cliente_id.in_(scope.allowed_ids),
-    ).first()
-    if area_own:
-        ids_excluir.add(area_own[0])
-    filtered = [cid for cid in scope.allowed_ids if cid not in ids_excluir]
-    return filtered
+    ids_excluir.update(ids_com_empresa)
+
+    role = (current_user.role.nome if current_user.role else "") or ""
+    ca_user_id = get_current_cliente_admin_id(db, current_user.id, role)
+    if ca_user_id:
+        area_own = (
+            db.query(AreaCliente.cliente_id)
+            .filter(
+                AreaCliente.usuario_id == ca_user_id,
+                AreaCliente.ativo == True,
+                AreaCliente.nome_area == "administrador",
+            )
+            .first()
+        )
+        if area_own and area_own[0]:
+            ids_excluir.add(area_own[0])
+        ef_cid = get_empresa_fiscal_cliente_id(db, ca_user_id, "Cliente Administrador", None)
+        if ef_cid:
+            ids_excluir.add(ef_cid)
+
+    return ids_excluir
+
+
+def _allowed_cliente_ids_for_list(
+    db: Session, scope: ClienteScope, current_user: Usuario
+) -> Optional[List[int]]:
+    """
+    Lista para seleção de cliente final (comprador/destinatário).
+    CA, Técnico e Contador: excluem estabelecimento/emissor — apenas subclientes.
+    Administrador/Superadministrador: mantém escopo completo (CAs gerenciados).
+    """
+    if not scope.must_filter_by_cliente():
+        return None
+    if not scope.allowed_ids:
+        return []
+
+    role = (current_user.role.nome if current_user.role else "") or ""
+    if role in ("Cliente Administrador", "Técnico", "Contador"):
+        ids_excluir = _ids_estabelecimento_para_excluir(db, scope, current_user)
+        return [cid for cid in scope.allowed_ids if cid not in ids_excluir]
+
+    return scope.allowed_ids
 
 
 def _allowed_cliente_ids_para_empresa_fiscal(
@@ -186,22 +268,7 @@ async def criar_cliente(
             db.commit()
             db.refresh(cliente)
         
-        # Converter datetime para string
-        return ClienteResponse(
-            id=cliente.id,
-            nome=cliente.nome,
-            cnpj=cliente.cnpj,
-            cpf=cliente.cpf,
-            cep=cliente.cep,
-            endereco=cliente.endereco,
-            cidade=cliente.cidade,
-            uf=cliente.uf,
-            contato=cliente.contato,
-            telefone=cliente.telefone,
-            email=cliente.email,
-            created_at=cliente.created_at.isoformat() if cliente.created_at else None,
-            updated_at=cliente.updated_at.isoformat() if cliente.updated_at else None
-        )
+        return _cliente_to_response(cliente, db, current_user)
     except HTTPException:
         raise
     except Exception as e:
@@ -218,7 +285,7 @@ async def listar_clientes(
     cidade: Optional[str] = Query(None, description="Filtrar por cidade"),
     uf: Optional[str] = Query(None, description="Filtrar por UF"),
     empresa_fiscal: Optional[str] = Query(None, description="true=apenas Empresas Fiscais, false=apenas Subclientes (Admin/SuperAdmin)"),
-    para_venda: bool = Query(False, description="true=estabelecimentos para usar em Nova Venda (CA: subclientes + própria empresa)"),
+    para_venda: bool = Query(False, description="true=clientes finais para venda/orçamento/OS/PDV (exclui cadastro do CA/emissor)"),
     pagina: int = Query(1, ge=1, description="Número da página"),
     por_pagina: int = Query(10, ge=1, le=50000, description="Itens por página"),
     db: Session = Depends(get_db),
@@ -228,12 +295,9 @@ async def listar_clientes(
     """Lista clientes com filtros e paginação (Saas.md Fase 3: escopo por role)."""
     try:
         # IDs permitidos para listagem:
-        # - padrão: Cliente Administrador vê subclientes (exclui empresa fiscal/próprio)
-        # - empresa_fiscal=true: Cliente Administrador vê clientes emissores (inclui próprio)
-        # - para_venda=true: Nova Venda / PDV — CA vê TODOS do escopo (subclientes + próprio, ex. Consumidor Final)
-        if para_venda and scope.must_filter_by_cliente() and scope.allowed_ids:
-            ids_para_lista = list(scope.allowed_ids)
-        elif str(empresa_fiscal).lower() == "true":
+        # - padrão e para_venda: subclientes (cliente final); exclui estabelecimento do CA
+        # - empresa_fiscal=true: clientes emissores (inclui cadastro do CA)
+        if str(empresa_fiscal).lower() == "true":
             ids_para_lista = _allowed_cliente_ids_para_empresa_fiscal(db, scope, current_user)
         else:
             ids_para_lista = _allowed_cliente_ids_for_list(db, scope, current_user)
@@ -259,24 +323,10 @@ async def listar_clientes(
         
         resultado = ClienteService.listar_clientes(db, params)
         
-        # Converter clientes para response
-        clientes_response = []
-        for cliente in resultado["clientes"]:
-            clientes_response.append(ClienteResponse(
-                id=cliente.id,
-                nome=cliente.nome,
-                cnpj=cliente.cnpj,
-                cpf=cliente.cpf,
-                cep=cliente.cep,
-                endereco=cliente.endereco,
-                cidade=cliente.cidade,
-                uf=cliente.uf,
-                contato=cliente.contato,
-                telefone=cliente.telefone,
-                email=cliente.email,
-                created_at=cliente.created_at.isoformat() if cliente.created_at else None,
-                updated_at=cliente.updated_at.isoformat() if cliente.updated_at else None
-            ))
+        clientes_response = [
+            _cliente_to_response(cliente, db, current_user)
+            for cliente in resultado["clientes"]
+        ]
         
         return ClienteListResponse(
             clientes=clientes_response,
@@ -302,7 +352,7 @@ async def listar_todos_clientes(
     current_user: Usuario = Depends(require_permission("clientes:visualizar")),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
 ):
-    """Lista clientes sem paginação (para filtros/selects). Cliente Administrador: apenas sub-clientes (exclui empresa fiscal / próprio)."""
+    """Lista clientes sem paginação (para filtros/selects). Exclui estabelecimento do CA — apenas clientes finais."""
     try:
         if para_empresa_fiscal:
             ids_para_lista = _allowed_cliente_ids_para_empresa_fiscal(db, scope, current_user)
@@ -315,24 +365,9 @@ async def listar_todos_clientes(
             q = q.filter(Cliente.id.in_(ids_para_lista))
         clientes = q.all()
 
-        # Converter clientes para response
-        clientes_response = []
-        for cliente in clientes:
-            clientes_response.append(ClienteResponse(
-                id=cliente.id,
-                nome=cliente.nome,
-                cnpj=cliente.cnpj,
-                cpf=cliente.cpf,
-                cep=cliente.cep,
-                endereco=cliente.endereco,
-                cidade=cliente.cidade,
-                uf=cliente.uf,
-                contato=cliente.contato,
-                telefone=cliente.telefone,
-                email=cliente.email,
-                created_at=cliente.created_at.isoformat() if cliente.created_at else None,
-                updated_at=cliente.updated_at.isoformat() if cliente.updated_at else None
-            ))
+        clientes_response = [
+            _cliente_to_response(cliente, db, current_user) for cliente in clientes
+        ]
         
         return clientes_response
         
@@ -442,9 +477,24 @@ async def set_pdv_cliente_padrao(
     return PdvClientePadraoResponse(cliente_id=body.cliente_id)
 
 
+@router.get("/{cliente_id}/perfil-lojista", response_model=ClientePerfilLojistaResponse)
+async def obter_perfil_lojista(
+    cliente_id: int,
+    db: Session = Depends(get_db),
+    _: Usuario = Depends(require_superadministrador),
+):
+    """
+    Perfil completo do lojista (CA): empresa, responsável, bancário, categorias da vitrine, tenant e loja.
+    Apenas Superadministrador; somente clientes com empresa fiscal (cadastro público).
+    """
+    data = build_perfil_lojista(db, cliente_id)
+    return ClientePerfilLojistaResponse.model_validate(data)
+
+
 @router.get("/{cliente_id}", response_model=ClienteResponse)
 async def obter_cliente(
     cliente_id: int,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(require_permission("clientes:visualizar")),
     scope: ClienteScope = Depends(get_cliente_scope_dep),
@@ -455,20 +505,8 @@ async def obter_cliente(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não encontrado")
         cliente = ClienteService.obter_cliente(db, cliente_id)
         
-        return ClienteResponse(
-            id=cliente.id,
-            nome=cliente.nome,
-            cnpj=cliente.cnpj,
-            cpf=cliente.cpf,
-            cep=cliente.cep,
-            endereco=cliente.endereco,
-            cidade=cliente.cidade,
-            uf=cliente.uf,
-            contato=cliente.contato,
-            telefone=cliente.telefone,
-            email=cliente.email,
-            created_at=cliente.created_at.isoformat() if cliente.created_at else None,
-            updated_at=cliente.updated_at.isoformat() if cliente.updated_at else None
+        return _cliente_to_response(
+            cliente, db, current_user, request=request, audit_access=True
         )
         
     except HTTPException:
@@ -483,6 +521,7 @@ async def obter_cliente(
 async def atualizar_cliente(
     cliente_id: int,
     cliente_data: ClienteUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     _: None = Depends(forbid_cliente_access),
     current_user: Usuario = Depends(require_permission("clientes:editar")),
@@ -492,26 +531,32 @@ async def atualizar_cliente(
     try:
         if scope.must_filter_by_cliente() and (not scope.allowed_ids or cliente_id not in scope.allowed_ids):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não encontrado")
+        dump = cliente_data.model_dump(exclude_unset=True)
+        pii_touched = _CLIENTE_PII_FIELDS.intersection(dump.keys())
+        if pii_touched and not user_can_view_pii(db, current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permissão necessária para alterar dados pessoais (PII): pii:visualizar",
+            )
         ids_escopo = None
         if current_user.role and current_user.role.nome == "Cliente Administrador":
             ids_escopo = _ids_subclientes_do_ca(db, current_user.id)
         cliente = ClienteService.atualizar_cliente(db, cliente_id, cliente_data, ids_escopo_subcliente=ids_escopo)
+        if pii_touched:
+            from app.core.rate_limiter import get_client_ip
+
+            audit_pii_access(
+                db,
+                acao="pii_alteracao_cliente",
+                actor=current_user,
+                recurso_tipo="cliente",
+                recurso_id=cliente_id,
+                ip=get_client_ip(request),
+                request_id=getattr(request.state, "request_id", None),
+                detalhes=f"campos={','.join(sorted(pii_touched))}",
+            )
         
-        return ClienteResponse(
-            id=cliente.id,
-            nome=cliente.nome,
-            cnpj=cliente.cnpj,
-            cpf=cliente.cpf,
-            cep=cliente.cep,
-            endereco=cliente.endereco,
-            cidade=cliente.cidade,
-            uf=cliente.uf,
-            contato=cliente.contato,
-            telefone=cliente.telefone,
-            email=cliente.email,
-            created_at=cliente.created_at.isoformat() if cliente.created_at else None,
-            updated_at=cliente.updated_at.isoformat() if cliente.updated_at else None
-        )
+        return _cliente_to_response(cliente, db, current_user)
         
     except HTTPException:
         raise
@@ -562,21 +607,7 @@ async def buscar_cliente_por_cnpj(
         if scope.must_filter_by_cliente() and (not scope.allowed_ids or cliente.id not in scope.allowed_ids):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente não encontrado")
         
-        return ClienteResponse(
-            id=cliente.id,
-            nome=cliente.nome,
-            cnpj=cliente.cnpj,
-            cpf=cliente.cpf,
-            cep=cliente.cep,
-            endereco=cliente.endereco,
-            cidade=cliente.cidade,
-            uf=cliente.uf,
-            contato=cliente.contato,
-            telefone=cliente.telefone,
-            email=cliente.email,
-            created_at=cliente.created_at.isoformat() if cliente.created_at else None,
-            updated_at=cliente.updated_at.isoformat() if cliente.updated_at else None
-        )
+        return _cliente_to_response(cliente, db, current_user)
         
     except HTTPException:
         raise

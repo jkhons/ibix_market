@@ -194,7 +194,27 @@
 
 <div id="pdv-toast-stack" class="pdv-toast-stack" aria-live="polite" aria-atomic="true"></div>
 
+<div id="pdv-modal-venda-concluida" class="pdv-modal" style="display:none; z-index: 1200;">
+    <div class="pdv-modal-dialog">
+        <header class="pdv-modal-header">
+            <h3 style="color: var(--pdv-success, #1cbb8c);">Venda concluída</h3>
+        </header>
+        <div class="pdv-modal-body">
+            <p id="pdv-venda-concluida-mensagem" style="margin: 0 0 12px; line-height: 1.5;"></p>
+            <p id="pdv-venda-concluida-extra" style="display: none; margin: 0 0 12px; padding: 10px 12px; border-radius: 8px; background: #fff3cd; color: #856404; font-size: 13px; line-height: 1.45;"></p>
+            <p style="margin: 0; color: #555;">Deseja imprimir o comprovante de venda?</p>
+        </div>
+        <footer class="pdv-modal-footer">
+            <button type="button" class="pdv-btn pdv-btn-ghost" id="pdv-btn-venda-concluida-fechar">Não imprimir</button>
+            <button type="button" class="pdv-btn pdv-btn-success" id="pdv-btn-venda-concluida-imprimir">
+                <i class="fas fa-print"></i> Imprimir comprovante
+            </button>
+        </footer>
+    </div>
+</div>
+
 <script src="/static/js/modal-template.js?v={{ pdv_static_version }}"></script>
+<script src="/static/js/cupom-caixa-print.js?v={{ pdv_static_version }}"></script>
 <script src="/static/js/pdv.js?v={{ pdv_static_version }}"></script>
 <script src="/static/js/pdv-pwa.js?v={{ pdv_static_version }}"></script>
 </body>

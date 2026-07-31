@@ -1,23 +1,7 @@
 /**
- * PDV Ibix - Registro da PWA Calibração
- * Instala o Service Worker para tela cheia (sem barra de URL) e cache offline
+ * PDV Ibix - Registro de Service Worker (desativado).
+ * O SW de calibração (Certipeso) foi removido; mantém no-op para não 404 no browser.
  */
 (function () {
   'use strict';
-  if (!('serviceWorker' in navigator)) return;
-
-  navigator.serviceWorker.register('/sw-calibracao.js', { scope: '/' })
-    .then(function (reg) {
-      reg.addEventListener('updatefound', function () {
-        var worker = reg.installing;
-        worker.addEventListener('statechange', function () {
-          if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-            if (typeof window.showPWAUpdateToast === 'function') {
-              window.showPWAUpdateToast();
-            }
-          }
-        });
-      });
-    })
-    .catch(function () {});
 })();

@@ -1,40 +1,178 @@
 {% extends "base.html" %}
 
-{% block title %}Áreas de Entrega | Marketplace | Ibix{% endblock %}
+{% block title %}Transporte | Marketplace | Ibix{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-0">
-    <div class="mb-3 d-flex align-items-center justify-content-between">
-        <h1 class="h3 d-inline align-middle"><strong>Áreas de Entrega</strong></h1>
+    <input type="hidden" id="minha_loja_cliente_id" value="{{ minha_loja_cliente_id or '' }}">
+
+    <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <h1 class="h3 d-inline align-middle mb-0"><strong>Transporte</strong></h1>
+            <div class="text-muted small">Modo de entrega e áreas de cobertura da loja na vitrine.</div>
+        </div>
         <a href="/negocio/marketplace" class="btn btn-outline-secondary btn-sm">Voltar ao Marketplace</a>
     </div>
 
+    <div id="alert-transporte"></div>
+
+    <!-- Card: Seletor de loja (Superadmin) -->
     <div class="card mb-3" id="card-selector-loja" style="{% if user_role != 'Superadministrador' %}display:none;{% endif %}">
         <div class="card-body">
             <div class="row g-3 align-items-end">
-                <div class="col-md-6">
+                <div class="col-md-8">
                     <label class="form-label fw-bold">Selecione a loja</label>
                     <select class="form-select" id="select-loja">
                         <option value="">Carregando lojas...</option>
                     </select>
                 </div>
-                <div class="col-md-6 text-end">
-                    <button class="btn btn-primary" id="btn-adicionar" disabled>
-                        <i data-feather="plus" style="width:16px;height:16px;"></i> Adicionar cidade
-                    </button>
+                <div class="col-md-4 small text-muted">
+                    Superadministrador: pode escolher qualquer loja para configurar transporte e gerenciar áreas.
                 </div>
             </div>
         </div>
     </div>
+
     {% if user_role != 'Superadministrador' %}
-    <div class="alert alert-info mb-3" id="info-ca-areas">
+    <div class="alert alert-info mb-3" id="info-ca-transporte">
         <i data-feather="info" style="width:18px;height:18px;"></i>
-        Áreas de entrega da sua loja (configuração feita pelo administrador da plataforma).
+        <span id="info-ca-transporte-texto">Configure o transporte da sua loja abaixo.</span>
     </div>
     {% endif %}
 
-    <div class="card">
+    <!-- Card: Modo de transporte da loja -->
+    <div class="card mb-3" id="card-modo-transporte">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Modo de transporte</h5>
+        </div>
         <div class="card-body">
+            <p id="transporte-loja-info" class="small text-muted mb-3">Carregando configuração da loja…</p>
+
+            <div class="mb-3">
+                <label class="form-label fw-bold">O que sua loja oferece?</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="t-modo" id="t-modo-retirada" value="retirada">
+                    <label class="form-check-label" for="t-modo-retirada">
+                        <strong>Apenas retirada</strong> <span class="text-muted small">— cliente busca no endereço da loja, sem entrega.</span>
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="t-modo" id="t-modo-ambos" value="ambos">
+                    <label class="form-check-label" for="t-modo-ambos">
+                        <strong>Retirada + entrega</strong> <span class="text-muted small">— cliente escolhe no checkout entre retirar ou receber.</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="wrap-submodo" class="mb-3 ps-3 border-start" style="display:none;">
+                <label class="form-label fw-bold">Como será a entrega?</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="t-submodo" id="t-sub-gratis" value="propria_gratis">
+                    <label class="form-check-label" for="t-sub-gratis">
+                        <strong>Entrega própria — Grátis</strong> <span class="text-muted small">— a loja absorve o custo; o consumidor não paga frete.</span>
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="t-submodo" id="t-sub-valor" value="propria_valor">
+                    <label class="form-check-label" for="t-sub-valor">
+                        <strong>Entrega própria — Cobrar valor</strong> <span class="text-muted small">— você define quanto cobrar de frete na sua entrega.</span>
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="t-submodo" id="t-sub-plataforma" value="plataforma">
+                    <label class="form-check-label" for="t-sub-plataforma">
+                        <strong>Entrega plataforma</strong> <span class="text-muted small">— o entregador é alocado pela logística local; a plataforma gerencia custos e repasses.</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="wrap-valores" class="row g-3 mb-3" style="display:none;">
+                <div class="col-md-6">
+                    <label class="form-label" for="t-taxa-fixa">Taxa de entrega (R$)</label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="t-taxa-fixa" placeholder="0,00">
+                    <div class="form-text small" id="help-taxa-fixa">Valor de frete na entrega própria (exibido ao cliente).</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="t-gratis-apos">Frete grátis acima de (R$) <span class="text-muted small">(opcional)</span></label>
+                    <input type="number" step="0.01" min="0" class="form-control" id="t-gratis-apos" placeholder="0,00">
+                </div>
+            </div>
+
+            <div id="aviso-plataforma" class="alert alert-secondary small" style="display:none;">
+                <strong>Modo plataforma:</strong> o valor exibido ao consumidor é calculado a partir das áreas cadastradas pela plataforma; o entregador é alocado via logística local (Ibix Entrega). Repasses são consolidados pelo financeiro da plataforma.
+            </div>
+
+            <button type="button" id="btn-salvar-transporte" class="btn btn-primary" disabled>Salvar transporte</button>
+        </div>
+    </div>
+
+    <!-- Card: Plataforma — gestão (Superadministrador apenas) -->
+    <div class="card mb-3" id="card-plataforma" style="display:none;">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Plataforma — gestão de entregas</h5>
+        </div>
+        <div class="card-body">
+            <p class="small text-muted mb-3">Quando o transporte é executado pela <strong>plataforma</strong>, os entregadores, custos e repasses são gerenciados pelo Superadministrador. Atalhos:</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="/admin/entregadores" class="btn btn-outline-primary btn-sm" id="lnk-entregadores">
+                    <i data-feather="truck" style="width:16px;height:16px;"></i> Entregadores (cadastro, veículo, status)
+                </a>
+                <a href="/negocio/financeiro#row-transportes" class="btn btn-outline-primary btn-sm" id="lnk-repasses">
+                    <i data-feather="dollar-sign" style="width:16px;height:16px;"></i> Financeiro — repasses de transporte
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card: Regiões atendidas pelo marketplace (whitelist plataforma) -->
+    <div class="card mb-3" id="card-plataforma-regioes">
+        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <h5 class="card-title mb-0">Regiões atendidas pelo marketplace</h5>
+                <div class="text-muted small">Somente o Superadmin altera esta lista. Com ao menos uma cidade <strong>ativa</strong>, checkout e cadastro de «áreas por cidade» da loja exigem cidade/UF autorizados aqui.</div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="btn-plataforma-regiao-add" style="display:none;">
+                <i data-feather="plus" style="width:16px;height:16px;"></i> Incluir cidade
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="plataforma-regioes-alerta"></div>
+            <p class="small text-muted mb-2" id="plataforma-regioes-msg"></p>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0" id="tabela-plataforma-regioes">
+                    <thead>
+                        <tr>
+                            <th>Cidade</th>
+                            <th>UF</th>
+                            <th class="d-none d-md-table-cell">IBGE</th>
+                            <th id="th-plat-ativo" style="display:none;">Ativo</th>
+                            <th id="th-plat-acoes" style="display:none;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="plataforma-regioes-tbody">
+                        <tr><td colspan="5" class="text-center text-muted">Carregando…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card: Áreas por cidade (CRUD restrito a Superadmin) — CA só vê em «Entrega plataforma». -->
+    <div class="card mb-3" id="card-areas" {% if user_role != 'Superadministrador' %}style="display:none;"{% endif %}>
+        <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+                <h5 class="card-title mb-0">Áreas por cidade</h5>
+                <div class="text-muted small">Quando o consumidor informa CEP/cidade coberta, a taxa desta tabela substitui a taxa padrão da loja.</div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-adicionar" disabled style="{% if user_role != 'Superadministrador' %}display:none;{% endif %}">
+                <i data-feather="plus" style="width:16px;height:16px;"></i> Adicionar cidade
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-light border small mb-3" id="info-taxa-padrao" style="display:none;">
+                <strong>Taxa padrão da loja:</strong> <span id="info-taxa-padrao-valor">—</span>
+                <span class="d-block text-muted" id="info-taxa-padrao-detalhe">Aplicada quando o consumidor está em cidade sem linha cadastrada nesta tabela.</span>
+            </div>
             <div class="table-responsive">
                 <table class="table table-striped" id="tabela-areas">
                     <thead>
@@ -56,7 +194,51 @@
     </div>
 </div>
 
-<!-- Modal Adicionar/Editar (padrão MAPA_DE_REGRAS: CSS inline, sem Bootstrap Modal) -->
+<!-- Modal cidade na cobertura da plataforma (Superadmin) -->
+<div id="modalRegiaoPlat" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10001;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+        <div style="background: linear-gradient(135deg, #2c5282 0%, #2a4365 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
+            <h3 id="modal-plat-title" style="margin: 0; font-size: 1.5rem; font-weight: 700;">Incluir cidade</h3>
+            <button type="button" onclick="window.fecharModalRegiaoPlat()" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer;">×</button>
+        </div>
+        <div style="padding: 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+            <input type="hidden" id="modal-plat-id">
+            <div class="mb-3">
+                <label class="form-label">CEP auxiliar (preenche cidade/UF)</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="modal-plat-cep" maxlength="9" placeholder="00000-000">
+                    <button class="btn btn-outline-secondary" type="button" id="modal-plat-cep-btn">Buscar</button>
+                </div>
+                <span id="modal-plat-cep-status" class="small text-muted"></span>
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-8">
+                    <label class="form-label">Cidade *</label>
+                    <input type="text" class="form-control" id="modal-plat-cidade" required>
+                </div>
+                <div class="col-4">
+                    <label class="form-label">UF *</label>
+                    <input type="text" class="form-control" id="modal-plat-uf" maxlength="2" required>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Código IBGE (opcional)</label>
+                <input type="number" class="form-control" id="modal-plat-ibge" min="1" placeholder="Ex.: 3550308">
+            </div>
+            <div class="mb-3 form-check" id="modal-plat-ativo-wrap" style="display:none;">
+                <input class="form-check-input" type="checkbox" id="modal-plat-ativo" checked>
+                <label class="form-check-label" for="modal-plat-ativo">Ativa (participa da cobertura)</label>
+            </div>
+            <div id="modal-plat-error" class="alert alert-danger" style="display:none;"></div>
+        </div>
+        <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="window.fecharModalRegiaoPlat()" class="btn btn-secondary">Cancelar</button>
+            <button type="button" id="modal-plat-salvar" class="btn btn-primary">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar/Editar área (CRUD intocado: continua só Superadmin no backend) -->
 <div id="modalAreaCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
     <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 500px; max-height: 95vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
         <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center;">
@@ -112,27 +294,163 @@
 (function() {
   var userRole = {{ (user_role or '')|tojson }};
   var isSuperAdmin = userRole === "Superadministrador";
+  var caClienteId = (document.getElementById("minha_loja_cliente_id") || {}).value || null;
+
   var selectLoja = document.getElementById("select-loja");
   var btnAdicionar = document.getElementById("btn-adicionar");
   var tbody = document.getElementById("areas-tbody");
   var currentLojaId = null;
+  var currentLojas = [];
+  var plataformaRegioesPublic = [];
 
-  function abrirModalArea() {
-    var modal = document.getElementById("modalAreaCustom");
-    if (modal) {
-      modal.style.display = "block";
-      document.body.style.overflow = "hidden";
-    }
+  // ---------- cobertura plataforma (whitelist) ----------
+  function plataformaCovAtiva() {
+    return plataformaRegioesPublic.length >= 1;
   }
-  function fecharModalArea() {
-    var modal = document.getElementById("modalAreaCustom");
-    if (modal) {
-      modal.style.display = "none";
-      document.body.style.overflow = "";
-    }
-  }
-  window.fecharModalArea = fecharModalArea;
 
+  function matchPlataformaPublic(cidade, uf) {
+    var c = (cidade || "").trim().toLowerCase();
+    var u = (uf || "").trim().toUpperCase();
+    if (!c || u.length !== 2) return false;
+    return plataformaRegioesPublic.some(function (r) {
+      return ((r.cidade || "").trim().toLowerCase() === c) && ((r.uf || "").trim().toUpperCase() === u);
+    });
+  }
+
+  function fecharModalRegiaoPlat() {
+    var m = document.getElementById("modalRegiaoPlat");
+    if (m) { m.style.display = "none"; document.body.style.overflow = ""; }
+  }
+  window.fecharModalRegiaoPlat = fecharModalRegiaoPlat;
+
+  function atualizarCabecalhoTabelaPlat(admin) {
+    var thA = document.getElementById("th-plat-ativo");
+    var thB = document.getElementById("th-plat-acoes");
+    if (thA) thA.style.display = admin ? "" : "none";
+    if (thB) thB.style.display = admin ? "" : "none";
+  }
+
+  function renderPlataformaRegioesCa() {
+    atualizarCabecalhoTabelaPlat(false);
+    var btnAdd = document.getElementById("btn-plataforma-regiao-add");
+    if (btnAdd) btnAdd.style.display = "none";
+    var tbody = document.getElementById("plataforma-regioes-tbody");
+    var msg = document.getElementById("plataforma-regioes-msg");
+    var alertEl = document.getElementById("plataforma-regioes-alerta");
+    if (!tbody || !msg || !alertEl) return;
+    if (!plataformaCovAtiva()) {
+      msg.textContent = "Nenhuma restrição no momento: a plataforma ainda não definiu whitelist de cidades (comportamento aberto até o Superadmin cadastrar regiões).";
+      alertEl.innerHTML = "";
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">—</td></tr>';
+      return;
+    }
+    alertEl.innerHTML = '<div class="alert alert-warning py-2 small mb-3">Com a whitelist ativa, só são aceitos pedidos para entrega nestas cidades/UF. O Superadmin cadastra as regiões; você configura frete e modo de entrega no card acima.</div>';
+    msg.textContent = "Cidades atualmente autorizadas na plataforma:";
+    var html = "";
+    plataformaRegioesPublic.forEach(function (r) {
+      html += "<tr><td>" + esc(r.cidade) + "</td><td>" + esc(r.uf) + "</td><td class=\"d-none d-md-table-cell\">" + (r.codigo_ibge != null ? esc(String(r.codigo_ibge)) : "—") + "</td></tr>";
+    });
+    tbody.innerHTML = html;
+  }
+
+  function renderPlataformaRegioesSa(rows) {
+    atualizarCabecalhoTabelaPlat(true);
+    var btnAdd = document.getElementById("btn-plataforma-regiao-add");
+    if (btnAdd) btnAdd.style.display = "";
+    var tbody = document.getElementById("plataforma-regioes-tbody");
+    var msg = document.getElementById("plataforma-regioes-msg");
+    var alertEl = document.getElementById("plataforma-regioes-alerta");
+    if (!tbody || !msg || !alertEl) return;
+    alertEl.innerHTML = "";
+    if (!rows.length) {
+      msg.textContent = "Nenhuma cidade cadastrada — sem whitelist (liberado). Cadastre cidades abaixo para restringir entregas ao marketplace.";
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">Nenhuma região cadastrada</td></tr>';
+      return;
+    }
+    msg.textContent = "Gerenciar whitelist: inativar remove da cobertura sem apagar o registro.";
+    var html = "";
+    rows.forEach(function (r) {
+      var acoes = '<button type="button" class="btn btn-sm btn-outline-primary me-1 btn-plat-edit" data-id="' + r.id + '">Editar</button>' +
+        '<button type="button" class="btn btn-sm btn-outline-danger btn-plat-del" data-id="' + r.id + '" data-cidade="' + esc(r.cidade) + '">Excluir</button>';
+      html += "<tr><td>" + esc(r.cidade) + "</td><td>" + esc(r.uf) + "</td><td class=\"d-none d-md-table-cell\">" + (r.codigo_ibge != null ? esc(String(r.codigo_ibge)) : "—") + "</td>" +
+        "<td>" + (r.ativo ? '<span class="badge bg-success">Sim</span>' : '<span class="badge bg-secondary">Não</span>') + "</td>" +
+        "<td>" + acoes + "</td></tr>";
+    });
+    tbody.innerHTML = html;
+    tbody.querySelectorAll(".btn-plat-edit").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var id = parseInt(b.getAttribute("data-id"), 10);
+        var row = rows.filter(function (x) { return x.id === id; })[0];
+        if (row) openModalRegiaoPlat(true, row);
+      });
+    });
+    tbody.querySelectorAll(".btn-plat-del").forEach(function (b) {
+      b.addEventListener("click", function () {
+        excluirRegiaoPlataforma(b.getAttribute("data-id"), b.getAttribute("data-cidade"));
+      });
+    });
+  }
+
+  function refreshPlataformaPublic() {
+    return fetch("/api/v1/transporte/regioes-cobertura", { credentials: "omit" })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (data) {
+        plataformaRegioesPublic = Array.isArray(data) ? data : [];
+        if (!isSuperAdmin) renderPlataformaRegioesCa();
+      })
+      .catch(function () {
+        plataformaRegioesPublic = [];
+        if (!isSuperAdmin) renderPlataformaRegioesCa();
+      });
+  }
+
+  function loadPlataformaRegioesAdmin() {
+    fetch("/api/v1/marketplace/regioes-cobertura", { credentials: "include", headers: getHeaders() })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        renderPlataformaRegioesSa(Array.isArray(rows) ? rows : []);
+        return refreshPlataformaPublic();
+      })
+      .catch(function () {
+        renderPlataformaRegioesSa([]);
+        return refreshPlataformaPublic();
+      })
+      .finally(function () { if (typeof feather !== "undefined") feather.replace(); });
+  }
+
+  function openModalRegiaoPlat(edit, row) {
+    var errEl = document.getElementById("modal-plat-error");
+    if (errEl) errEl.style.display = "none";
+    document.getElementById("modal-plat-title").textContent = edit ? "Editar cidade (plataforma)" : "Incluir cidade (plataforma)";
+    document.getElementById("modal-plat-id").value = edit && row ? String(row.id) : "";
+    document.getElementById("modal-plat-cidade").value = row && row.cidade ? row.cidade : "";
+    document.getElementById("modal-plat-uf").value = row && row.uf ? row.uf : "";
+    document.getElementById("modal-plat-ibge").value = row && row.codigo_ibge != null ? String(row.codigo_ibge) : "";
+    document.getElementById("modal-plat-cep").value = "";
+    var cs = document.getElementById("modal-plat-cep-status");
+    if (cs) cs.textContent = "";
+    var aw = document.getElementById("modal-plat-ativo-wrap");
+    if (edit && row) {
+      aw.style.display = "block";
+      document.getElementById("modal-plat-ativo").checked = row.ativo !== false;
+    } else {
+      aw.style.display = "none";
+    }
+    document.getElementById("modalRegiaoPlat").style.display = "block";
+    document.body.style.overflow = "hidden";
+  }
+
+  function excluirRegiaoPlataforma(idStr, cidade) {
+    if (!confirm("Excluir " + cidade + " da lista da plataforma?")) return;
+    fetch("/api/v1/marketplace/regioes-cobertura/" + idStr, { method: "DELETE", credentials: "include", headers: getHeaders() })
+      .then(function (r) {
+        if (!r.ok && r.status !== 204) return r.json().then(function (d) { throw new Error(d.detail || "Erro"); });
+      })
+      .then(function () { showAlert("Região removida.", true); loadPlataformaRegioesAdmin(); })
+      .catch(function (e) { showAlert(e.message || "Erro ao excluir", false); });
+  }
+
+  // ---------- helpers ----------
   function getToken() {
     var c = document.cookie.split(";");
     for (var i = 0; i < c.length; i++) {
@@ -145,98 +463,352 @@
     var token = (typeof window.getAuthToken === "function" ? window.getAuthToken() : null) || getToken() || "";
     return { "Content-Type": "application/json", "Authorization": "Bearer " + token };
   }
+  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+  function showAlert(msg, ok) {
+    var el = document.getElementById("alert-transporte");
+    if (!el) return;
+    el.innerHTML = '<div class="alert alert-' + (ok ? 'success' : 'danger') + ' py-2 small">' + esc(msg) + '</div>';
+    if (ok) setTimeout(function () { el.innerHTML = ""; }, 4000);
+  }
 
-  function loadLojas() {
-    fetch("/api/v1/marketplace/lojas?limit=200", {
-      credentials: "include",
-      headers: getHeaders(),
-    })
-      .then(function(r) {
-        if (!r.ok) return r.json().then(function(err) { return { _error: r.status, _detail: err }; });
+  // ---------- modal de áreas ----------
+  function abrirModalArea() {
+    var modal = document.getElementById("modalAreaCustom");
+    if (modal) { modal.style.display = "block"; document.body.style.overflow = "hidden"; }
+  }
+  function fecharModalArea() {
+    var modal = document.getElementById("modalAreaCustom");
+    if (modal) { modal.style.display = "none"; document.body.style.overflow = ""; }
+  }
+  window.fecharModalArea = fecharModalArea;
+
+  /* Lojista (CA): em entrega própria só mostrar o valor do card «Modo» — esconder tabela/banner
+   * que misturam taxa da loja com tarifas por cidade (visão operada pela plataforma).
+   * Superadmin vê tudo; CA vê tabela só em «Entrega plataforma». */
+  function atualizarVisibilidadeCardAreas() {
+    var card = document.getElementById("card-areas");
+    if (!card) return;
+    if (isSuperAdmin) {
+      card.style.display = "";
+      return;
+    }
+    var modo = (document.querySelector('input[name="t-modo"]:checked') || {}).value;
+    var sub = (document.querySelector('input[name="t-submodo"]:checked') || {}).value;
+    if (modo === "ambos" && sub === "plataforma") {
+      card.style.display = "";
+    } else {
+      card.style.display = "none";
+    }
+  }
+
+  function atualizarAlertaCa() {
+    var span = document.getElementById("info-ca-transporte-texto");
+    if (!span || isSuperAdmin) return;
+    var modo = (document.querySelector('input[name="t-modo"]:checked') || {}).value;
+    var sub = (document.querySelector('input[name="t-submodo"]:checked') || {}).value;
+    if (modo === "retirada") {
+      span.textContent = "Somente retirada: sem frete e sem entrega ao endereço do cliente.";
+    } else if (modo !== "ambos" || !sub) {
+      span.textContent = "Escolha abaixo como será a entrega.";
+    } else if (sub === "plataforma") {
+      span.textContent = "Entrega pela plataforma: o frete segue as cidades da tabela abaixo. Este modo não usa o valor de «entrega própria».";
+    } else {
+      span.textContent = "Entrega própria: o frete para o cliente é só o que você define neste card (grátis ou valor abaixo).";
+    }
+  }
+
+  function atualizarHintTaxaFixa() {
+    var el = document.getElementById("help-taxa-fixa");
+    if (!el) return;
+    if (isSuperAdmin) {
+      el.textContent = "Valor padrão da loja na entrega própria quando o cliente não está em cidade com linha na tabela desta página.";
+      return;
+    }
+    var sub = (document.querySelector('input[name="t-submodo"]:checked') || {}).value;
+    if (sub === "propria_valor") {
+      el.textContent = "Frete cobrado na sua entrega própria — é o úico valor referente ao seu frete que você gerencia aqui.";
+    } else {
+      el.textContent = "Preencha ao escolher «Entrega própria — Cobrar valor». Será o frete cobrado ao cliente na sua entrega.";
+    }
+  }
+
+  function sincronizarCardAreas() {
+    atualizarVisibilidadeCardAreas();
+    atualizarAlertaCa();
+    atualizarHintTaxaFixa();
+    var card = document.getElementById("card-areas");
+    if (!card || !currentLojaId || isSuperAdmin) return;
+    var visivel = card.style.display !== "none";
+    if (visivel) {
+      carregarAreas(currentLojaId, true);
+    }
+  }
+
+  // ---------- card de transporte ----------
+  function setSubmodoVisibility() {
+    var modo = (document.querySelector('input[name="t-modo"]:checked') || {}).value;
+    var submodoWrap = document.getElementById("wrap-submodo");
+    var valoresWrap = document.getElementById("wrap-valores");
+    var avisoPlat = document.getElementById("aviso-plataforma");
+
+    if (modo === "ambos") {
+      submodoWrap.style.display = "";
+      var sub = (document.querySelector('input[name="t-submodo"]:checked') || {}).value;
+      valoresWrap.style.display = sub === "propria_valor" ? "" : "none";
+      avisoPlat.style.display = sub === "plataforma" ? "" : "none";
+    } else {
+      submodoWrap.style.display = "none";
+      valoresWrap.style.display = "none";
+      avisoPlat.style.display = "none";
+    }
+    atualizarInfoTaxaPadrao();
+    sincronizarCardAreas();
+    if (!isSuperAdmin && typeof feather !== "undefined") feather.replace();
+  }
+
+  function formatBrl(v) {
+    var n = Number(v || 0);
+    return "R$ " + n.toFixed(2).replace(".", ",");
+  }
+
+  function atualizarInfoTaxaPadrao() {
+    var info = document.getElementById("info-taxa-padrao");
+    var valorEl = document.getElementById("info-taxa-padrao-valor");
+    var detalheEl = document.getElementById("info-taxa-padrao-detalhe");
+    if (!info || !valorEl || !detalheEl) return;
+
+    var modo = (document.querySelector('input[name="t-modo"]:checked') || {}).value;
+    var sub = (document.querySelector('input[name="t-submodo"]:checked') || {}).value;
+
+    if (!isSuperAdmin && (sub === "propria_gratis" || sub === "propria_valor")) {
+      info.style.display = "none";
+      return;
+    }
+
+    if (modo !== "ambos") {
+      info.style.display = "none";
+      return;
+    }
+
+    var detalhePadrao = "Aplicada quando o consumidor está em cidade sem linha cadastrada nesta tabela.";
+
+    if (sub === "propria_gratis") {
+      info.style.display = "";
+      valorEl.textContent = "Grátis";
+      detalheEl.textContent =
+        "Por padrão a loja entrega sem cobrar; cidades cadastradas abaixo, se houver, substituem o padrão.";
+      return;
+    }
+    if (sub === "propria_valor") {
+      var taxaRaw = (document.getElementById("t-taxa-fixa") || {}).value;
+      var gratisRaw = (document.getElementById("t-gratis-apos") || {}).value;
+      var taxa = parseFloat(taxaRaw);
+      info.style.display = "";
+      if (isNaN(taxa)) {
+        valorEl.textContent = "— (informe o valor no card acima)";
+      } else {
+        valorEl.textContent = formatBrl(taxa);
+      }
+      var gratis = parseFloat(gratisRaw);
+      if (!isNaN(gratis) && gratis > 0) {
+        detalheEl.textContent =
+          detalhePadrao +
+          " Frete grátis acima de " +
+          formatBrl(gratis) +
+          " no carrinho.";
+      } else {
+        detalheEl.textContent = detalhePadrao;
+      }
+      return;
+    }
+    if (sub === "plataforma") {
+      info.style.display = "";
+      valorEl.textContent = "Definida pela plataforma";
+      detalheEl.textContent =
+        "Cidades cadastradas abaixo prevalecem; sem cidade cadastrada, o valor é calculado pela plataforma.";
+      return;
+    }
+    info.style.display = "none";
+  }
+
+  function atualizarCardPlataforma() {
+    var card = document.getElementById("card-plataforma");
+    if (!card) return;
+    card.style.display = isSuperAdmin ? "" : "none";
+    if (isSuperAdmin && typeof feather !== "undefined") feather.replace();
+  }
+
+  function preencherTransporte(cfg) {
+    if (!cfg) return;
+    var modo = cfg.modo || "retirada";
+    var sub = cfg.submodo || null;
+    var radioModo = document.getElementById("t-modo-" + (modo === "ambos" ? "ambos" : "retirada"));
+    if (radioModo) radioModo.checked = true;
+    if (modo === "ambos" && sub) {
+      var map = { propria_gratis: "t-sub-gratis", propria_valor: "t-sub-valor", plataforma: "t-sub-plataforma" };
+      var radioSub = document.getElementById(map[sub]);
+      if (radioSub) radioSub.checked = true;
+    } else {
+      ["t-sub-gratis", "t-sub-valor", "t-sub-plataforma"].forEach(function (id) {
+        var r = document.getElementById(id); if (r) r.checked = false;
+      });
+    }
+    document.getElementById("t-taxa-fixa").value = cfg.taxa_entrega_fixa != null ? String(cfg.taxa_entrega_fixa) : "";
+    document.getElementById("t-gratis-apos").value = cfg.entrega_gratis_apos != null ? String(cfg.entrega_gratis_apos) : "";
+    setSubmodoVisibility();
+    document.getElementById("btn-salvar-transporte").disabled = false;
+    document.getElementById("transporte-loja-info").textContent =
+      "Loja #" + cfg.loja_id + " — formato atual: " + (cfg.formato_frete || "sem_frete") + ".";
+  }
+
+  function carregarTransporte(lojaId) {
+    document.getElementById("transporte-loja-info").textContent = "Carregando configuração da loja…";
+    document.getElementById("btn-salvar-transporte").disabled = true;
+    fetch("/api/v1/transporte/loja/" + lojaId, { credentials: "include", headers: getHeaders() })
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail || "Erro ao carregar transporte"); });
         return r.json();
       })
-      .then(function(data) {
-        if (data && data._error) {
-          selectLoja.innerHTML = '<option value="">Erro ' + data._error + (data._detail && data._detail.detail ? ': ' + (typeof data._detail.detail === 'string' ? data._detail.detail : 'sem permissão') : '') + '</option>';
+      .then(preencherTransporte)
+      .catch(function (err) {
+        document.getElementById("transporte-loja-info").innerHTML = '<span class="text-danger">' + esc(err.message) + "</span>";
+      });
+  }
+
+  function salvarTransporte() {
+    if (!currentLojaId) { showAlert("Selecione uma loja.", false); return; }
+    var modo = (document.querySelector('input[name="t-modo"]:checked') || {}).value;
+    if (!modo) { showAlert("Escolha o modo de transporte.", false); return; }
+
+    var body = { modo: modo };
+    if (modo === "ambos") {
+      var sub = (document.querySelector('input[name="t-submodo"]:checked') || {}).value;
+      if (!sub) { showAlert("Escolha o submodo (Grátis / Cobrar valor / Plataforma).", false); return; }
+      body.submodo = sub;
+      if (sub === "propria_valor") {
+        var taxaRaw = document.getElementById("t-taxa-fixa").value;
+        if (taxaRaw === "" || isNaN(parseFloat(taxaRaw))) {
+          showAlert("Informe a taxa de entrega (use 0 para cobrar zero).", false);
           return;
         }
+        body.taxa_entrega_fixa = parseFloat(taxaRaw);
+        var gratisRaw = document.getElementById("t-gratis-apos").value;
+        if (gratisRaw !== "" && !isNaN(parseFloat(gratisRaw))) body.entrega_gratis_apos = parseFloat(gratisRaw);
+      }
+    }
+
+    var btn = document.getElementById("btn-salvar-transporte");
+    btn.disabled = true;
+    fetch("/api/v1/transporte/loja/" + currentLojaId, {
+      method: "PATCH", credentials: "include", headers: getHeaders(), body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+      .then(function (res) {
+        if (res.ok) {
+          showAlert("Transporte salvo com sucesso.", true);
+          preencherTransporte(res.data);
+        } else {
+          var d = res.data && res.data.detail;
+          showAlert(Array.isArray(d) ? d.map(function (x) { return x.msg || x; }).join("; ") : (d || "Erro ao salvar."), false);
+        }
+      })
+      .catch(function () { showAlert("Erro de rede ao salvar.", false); })
+      .finally(function () { btn.disabled = false; });
+  }
+
+  // ---------- listas (Superadmin) ----------
+  function loadLojas() {
+    fetch("/api/v1/marketplace/lojas?limit=500", { credentials: "include", headers: getHeaders() })
+      .then(function (r) { return r.ok ? r.json() : { items: [] }; })
+      .then(function (data) {
         var lojas = Array.isArray(data) ? data : (data && data.items) || [];
+        currentLojas = lojas;
         selectLoja.innerHTML = '<option value="">-- Selecione --</option>';
-        lojas.forEach(function(l) {
+        lojas.forEach(function (l) {
           var opt = document.createElement("option");
           opt.value = l.id;
           opt.textContent = (l.nome_loja || l.slug || "Loja #" + l.id) + " (ID: " + l.id + ")";
           selectLoja.appendChild(opt);
         });
       })
-      .catch(function(err) {
-        selectLoja.innerHTML = '<option value="">Erro ao carregar lojas</option>';
-        console.error("loadLojas:", err);
+      .catch(function () { selectLoja.innerHTML = '<option value="">Erro ao carregar lojas</option>'; });
+  }
+
+  // ---------- CA: descobre própria loja via cliente_id ----------
+  function loadMinhaLoja() {
+    if (!caClienteId) {
+      document.getElementById("transporte-loja-info").innerHTML =
+        '<span class="text-warning">Nenhum estabelecimento em contexto.</span>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sem loja para o estabelecimento atual.</td></tr>';
+      return;
+    }
+    fetch("/api/v1/marketplace/loja?cliente_id=" + encodeURIComponent(caClienteId), {
+      credentials: "include", headers: getHeaders(),
+    })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (loja) {
+        if (!loja || !loja.id) {
+          document.getElementById("transporte-loja-info").innerHTML =
+            '<span class="text-warning">Ative sua loja em Minha loja antes de configurar o transporte.</span>';
+          tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Sem loja para o estabelecimento atual.</td></tr>';
+          return;
+        }
+        currentLojaId = loja.id;
+        carregarTransporte(loja.id);
+      })
+      .catch(function () {
+        document.getElementById("transporte-loja-info").innerHTML =
+          '<span class="text-danger">Erro ao carregar loja.</span>';
       });
   }
 
+  // ---------- áreas (CRUD intocado nos endpoints) ----------
   function renderAreas(areas, readOnly) {
     if (!areas || !areas.length) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Nenhuma área cadastrada</td></tr>';
       return;
     }
     var html = "";
-    areas.forEach(function(a) {
+    areas.forEach(function (a) {
       var acoes = readOnly
         ? '<span class="text-muted small">—</span>'
-        : '<button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="' + a.id + '" data-cidade="' + esc(a.cidade) + '" data-uf="' + esc(a.uf) + '" data-taxa="' + a.taxa_entrega + '" data-prazo="' + (a.prazo_dias || '') + '" data-ativo="' + a.ativo + '">Editar</button>' +
+        : '<button class="btn btn-sm btn-outline-primary me-1 btn-editar" data-id="' + a.id + '" data-cidade="' + esc(a.cidade) + '" data-uf="' + esc(a.uf) + '" data-taxa="' + a.taxa_entrega + '" data-prazo="' + (a.prazo_dias || "") + '" data-ativo="' + a.ativo + '">Editar</button>' +
           '<button class="btn btn-sm btn-outline-danger btn-remover" data-id="' + a.id + '" data-cidade="' + esc(a.cidade) + '">Remover</button>';
-      html += '<tr>' +
-        '<td>' + esc(a.cidade) + '</td>' +
-        '<td>' + esc(a.uf) + '</td>' +
-        '<td>R$ ' + parseFloat(a.taxa_entrega).toFixed(2) + '</td>' +
-        '<td>' + (a.prazo_dias != null ? a.prazo_dias : '-') + '</td>' +
-        '<td>' + (a.ativo ? '<span class="badge bg-success">Sim</span>' : '<span class="badge bg-secondary">Não</span>') + '</td>' +
-        '<td>' + acoes + '</td></tr>';
+      html += "<tr>" +
+        "<td>" + esc(a.cidade) + "</td>" +
+        "<td>" + esc(a.uf) + "</td>" +
+        "<td>R$ " + parseFloat(a.taxa_entrega).toFixed(2) + "</td>" +
+        "<td>" + (a.prazo_dias != null ? a.prazo_dias : "-") + "</td>" +
+        "<td>" + (a.ativo ? '<span class="badge bg-success">Sim</span>' : '<span class="badge bg-secondary">Não</span>') + "</td>" +
+        "<td>" + acoes + "</td></tr>";
     });
     tbody.innerHTML = html;
     if (!readOnly) bindButtons();
   }
 
-  function loadMinhaLojaAreas() {
-    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Carregando...</td></tr>';
-    fetch("/api/v1/marketplace/minha-loja/areas-entrega", { credentials: "include", headers: getHeaders() })
-      .then(function(r) {
-        if (!r.ok) return r.json().then(function(err) { throw new Error(err.detail || "Erro ao carregar"); });
-        return r.json();
-      })
-      .then(function(areas) {
-        renderAreas(Array.isArray(areas) ? areas : [], true);
-      })
-      .catch(function(err) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">' + esc(err.message) + '</td></tr>';
-      });
-  }
-
-  function loadAreas(lojaId) {
-    currentLojaId = lojaId;
+  function carregarAreas(lojaId, readOnly) {
     if (!lojaId) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Selecione uma loja acima</td></tr>';
       btnAdicionar.disabled = true;
       return;
     }
-    btnAdicionar.disabled = false;
+    btnAdicionar.disabled = readOnly;
     tbody.innerHTML = '<tr><td colspan="6" class="text-center">Carregando...</td></tr>';
-    fetch("/api/v1/marketplace/loja/" + lojaId + "/areas-entrega", { credentials: "include", headers: getHeaders() })
-      .then(function(r) { return r.ok ? r.json() : []; })
-      .then(function(areas) {
-        renderAreas(areas, false);
-      });
+    var url = readOnly
+      ? "/api/v1/marketplace/minha-loja/areas-entrega"
+      : "/api/v1/marketplace/loja/" + lojaId + "/areas-entrega";
+    fetch(url, { credentials: "include", headers: getHeaders() })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (areas) { renderAreas(Array.isArray(areas) ? areas : [], readOnly); })
+      .catch(function () { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Erro ao carregar áreas</td></tr>'; });
   }
 
-  function esc(s) { var d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
-
   function bindButtons() {
-    tbody.querySelectorAll(".btn-editar").forEach(function(btn) {
-      btn.addEventListener("click", function() { openEdit(btn.dataset); });
+    tbody.querySelectorAll(".btn-editar").forEach(function (btn) {
+      btn.addEventListener("click", function () { openEdit(btn.dataset); });
     });
-    tbody.querySelectorAll(".btn-remover").forEach(function(btn) {
-      btn.addEventListener("click", function() { remover(btn.dataset.id, btn.dataset.cidade); });
+    tbody.querySelectorAll(".btn-remover").forEach(function (btn) {
+      btn.addEventListener("click", function () { remover(btn.dataset.id, btn.dataset.cidade); });
     });
   }
 
@@ -261,28 +833,27 @@
     document.getElementById("modal-uf").readOnly = isEdit;
     abrirModalArea();
   }
-
   function openEdit(data) { openModal(true, data); }
 
-  btnAdicionar.addEventListener("click", function() { openModal(false, {}); });
+  btnAdicionar.addEventListener("click", function () { openModal(false, {}); });
 
-  document.getElementById("modal-cep-btn").addEventListener("click", function() {
+  document.getElementById("modal-cep-btn").addEventListener("click", function () {
     var cep = document.getElementById("modal-cep").value.replace(/\D/g, "");
     var statusEl = document.getElementById("modal-cep-status");
     if (cep.length !== 8) { statusEl.textContent = "CEP inválido"; return; }
     statusEl.textContent = "Buscando...";
-    fetch("https://viacep.com.br/ws/" + cep + "/json/", {credentials: "omit"})
-      .then(function(r) { return r.json(); })
-      .then(function(data) {
+    fetch("https://viacep.com.br/ws/" + cep + "/json/", { credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
         if (data.erro) { statusEl.textContent = "CEP não encontrado"; return; }
         statusEl.textContent = data.localidade + " - " + data.uf;
         document.getElementById("modal-cidade").value = data.localidade || "";
         document.getElementById("modal-uf").value = data.uf || "";
       })
-      .catch(function() { statusEl.textContent = "Erro ao buscar CEP"; });
+      .catch(function () { statusEl.textContent = "Erro ao buscar CEP"; });
   });
 
-  document.getElementById("modal-salvar").addEventListener("click", function() {
+  document.getElementById("modal-salvar").addEventListener("click", function () {
     var errEl = document.getElementById("modal-error");
     errEl.style.display = "none";
     var areaId = document.getElementById("modal-area-id").value;
@@ -291,6 +862,12 @@
     var taxa = parseFloat(document.getElementById("modal-taxa").value) || 0;
     var prazo = parseInt(document.getElementById("modal-prazo").value) || null;
     if (!cidade || !uf) { errEl.textContent = "Cidade e UF são obrigatórios."; errEl.style.display = "block"; return; }
+
+    if (!areaId && plataformaCovAtiva() && !matchPlataformaPublic(cidade, uf)) {
+      errEl.textContent = "Esta cidade não está na lista da plataforma. Cadastre a região em «Regiões atendidas pelo marketplace» antes de vincular taxa por loja.";
+      errEl.style.display = "block";
+      return;
+    }
 
     var url, method, body;
     if (areaId) {
@@ -304,33 +881,114 @@
     }
 
     fetch(url, { method: method, credentials: "include", headers: getHeaders(), body: JSON.stringify(body) })
-      .then(function(r) {
-        if (!r.ok) return r.json().then(function(d) { throw new Error(d.detail || "Erro"); });
+      .then(function (r) {
+        if (!r.ok) return r.json().then(function (d) { throw new Error(d.detail || "Erro"); });
         return r.json();
       })
-      .then(function() {
-        fecharModalArea();
-        loadAreas(currentLojaId);
-      })
-      .catch(function(err) { errEl.textContent = err.message; errEl.style.display = "block"; });
+      .then(function () { fecharModalArea(); carregarAreas(currentLojaId, false); })
+      .catch(function (err) { errEl.textContent = err.message; errEl.style.display = "block"; });
   });
 
   function remover(areaId, cidade) {
     if (!confirm("Remover a cidade " + cidade + "?")) return;
     fetch("/api/v1/marketplace/areas-entrega/" + areaId, { method: "DELETE", credentials: "include", headers: getHeaders() })
-      .then(function(r) {
+      .then(function (r) {
         if (!r.ok && r.status !== 204) throw new Error("Erro ao remover");
-        loadAreas(currentLojaId);
+        carregarAreas(currentLojaId, false);
       })
-      .catch(function(err) { alert(err.message); });
+      .catch(function (err) { alert(err.message); });
   }
 
-  selectLoja.addEventListener("change", function() { loadAreas(this.value); });
+  // ---------- eventos ----------
+  document.querySelectorAll('input[name="t-modo"]').forEach(function (el) { el.addEventListener("change", setSubmodoVisibility); });
+  document.querySelectorAll('input[name="t-submodo"]').forEach(function (el) { el.addEventListener("change", setSubmodoVisibility); });
+  ["t-taxa-fixa", "t-gratis-apos"].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("input", atualizarInfoTaxaPadrao);
+  });
+  document.getElementById("btn-salvar-transporte").addEventListener("click", salvarTransporte);
+
+  selectLoja.addEventListener("change", function () {
+    currentLojaId = this.value ? parseInt(this.value, 10) : null;
+    if (currentLojaId) {
+      carregarTransporte(currentLojaId);
+      carregarAreas(currentLojaId, false);
+    } else {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Selecione uma loja acima</td></tr>';
+      btnAdicionar.disabled = true;
+    }
+  });
+
+  atualizarCardPlataforma();
+
+  document.getElementById("btn-plataforma-regiao-add").addEventListener("click", function () {
+    openModalRegiaoPlat(false, null);
+  });
+  document.getElementById("modal-plat-cep-btn").addEventListener("click", function () {
+    var cep = document.getElementById("modal-plat-cep").value.replace(/\D/g, "");
+    var statusEl = document.getElementById("modal-plat-cep-status");
+    if (cep.length !== 8) { statusEl.textContent = "CEP inválido"; return; }
+    statusEl.textContent = "Buscando...";
+    fetch("https://viacep.com.br/ws/" + cep + "/json/", { credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.erro) { statusEl.textContent = "CEP não encontrado"; return; }
+        statusEl.textContent = (data.localidade || "") + " - " + (data.uf || "");
+        document.getElementById("modal-plat-cidade").value = data.localidade || "";
+        document.getElementById("modal-plat-uf").value = data.uf || "";
+        if (data.ibge) document.getElementById("modal-plat-ibge").value = data.ibge;
+      })
+      .catch(function () { statusEl.textContent = "Erro ao buscar CEP"; });
+  });
+  document.getElementById("modal-plat-salvar").addEventListener("click", function () {
+    var errEl = document.getElementById("modal-plat-error");
+    errEl.style.display = "none";
+    var id = document.getElementById("modal-plat-id").value.trim();
+    var cidade = document.getElementById("modal-plat-cidade").value.trim();
+    var uf = document.getElementById("modal-plat-uf").value.trim().toUpperCase();
+    var ibgeRaw = document.getElementById("modal-plat-ibge").value.trim();
+    if (!cidade || uf.length !== 2) {
+      errEl.textContent = "Cidade e UF (2 letras) são obrigatórios.";
+      errEl.style.display = "block";
+      return;
+    }
+    var body = { cidade: cidade, uf: uf };
+    if (ibgeRaw !== "" && !isNaN(parseInt(ibgeRaw, 10))) body.codigo_ibge = parseInt(ibgeRaw, 10);
+    var url, method;
+    if (id) {
+      url = "/api/v1/marketplace/regioes-cobertura/" + id;
+      method = "PATCH";
+      body.ativo = document.getElementById("modal-plat-ativo").checked;
+    } else {
+      url = "/api/v1/marketplace/regioes-cobertura";
+      method = "POST";
+    }
+    fetch(url, { method: method, credentials: "include", headers: getHeaders(), body: JSON.stringify(body) })
+      .then(function (r) {
+        if (!r.ok) {
+          return r.json().then(function (d) {
+            var detail = d.detail;
+            throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+          });
+        }
+        return r.json().catch(function () { return {}; });
+      })
+      .then(function () {
+        fecharModalRegiaoPlat();
+        showAlert("Lista da plataforma atualizada.", true);
+        loadPlataformaRegioesAdmin();
+      })
+      .catch(function (e) { errEl.textContent = e.message || "Erro"; errEl.style.display = "block"; });
+  });
+
   if (isSuperAdmin) {
     loadLojas();
+    loadPlataformaRegioesAdmin();
   } else {
-    loadMinhaLojaAreas();
+    refreshPlataformaPublic();
+    loadMinhaLoja();
   }
+  if (typeof feather !== "undefined") feather.replace();
 })();
 </script>
 {% endblock %}

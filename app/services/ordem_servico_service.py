@@ -8,6 +8,7 @@ from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.document_ref import build_doc_ref
 from app.core.logging import log_error
 from app.core.scope import resolve_tenant_id_from_cliente_id
 from app.models import (
@@ -38,7 +39,7 @@ class OrdemServicoService:
     # ------------------------------------------------------------------ #
     @staticmethod
     def _gerar_codigo(db: Session) -> str:
-        """Gera código sequencial no formato OS-ANO-#####"""
+        """Gera código sequencial no formato compacto OS-YY-SEQ."""
         ano_atual = datetime.now().year
 
         config = (
@@ -60,8 +61,7 @@ class OrdemServicoService:
             numero = int(config.valor)
             config.valor = str(numero + 1)
 
-        codigo = f"{OrdemServicoService.CODIGO_PREFIX}-{ano_atual}-{numero:05d}"
-        return codigo
+        return build_doc_ref(OrdemServicoService.CODIGO_PREFIX, numero, ano_atual)
 
     @staticmethod
     def _sanitizar_decimal(valor: Any, default: Decimal = Decimal("0")) -> Decimal:

@@ -6,7 +6,7 @@ from typing import Tuple
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models import Orcamento, ProdutoCliente
+from app.models import Orcamento, OrdemServico, ProdutoCliente
 from app.models.venda import StatusVenda, Venda, VendaItem
 from app.schemas.ordem_servico import (
     OrdemServicoCreate,
@@ -14,6 +14,7 @@ from app.schemas.ordem_servico import (
     OrdemServicoPrioridadeEnum,
     OrdemServicoStatusEnum,
 )
+from app.services.conversao_venda_service import registrar_origem_orcamento
 from app.services.ordem_servico_service import OrdemServicoService
 from app.services.venda_numero import gerar_numero_venda
 
@@ -87,6 +88,10 @@ def converter_orcamento_em_ordem_servico(
 
     os_obj = OrdemServicoService.criar_ordem(db, dados_os, usuario_id)
 
+    os_row = db.query(OrdemServico).filter(OrdemServico.id == os_obj.id).first()
+    if os_row:
+        os_row.orcamento_origem_id = o.id
+
     o2 = db.query(Orcamento).filter(Orcamento.id == o.id).first()
     if not o2:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Orçamento não encontrado após criar OS")
@@ -120,10 +125,14 @@ def converter_orcamento_em_venda_pendente(
         obs_parts.append(str(o.observacoes).strip())
     observacoes = "\n\n".join(obs_parts)
 
-    subtotal = Decimal(str(o.subtotal or 0))
-    desconto = Decimal(str(o.desconto or 0))
+    subtotal = sum(
+        Decimal(str(oi.quantidade)) * Decimal(str(oi.preco_unitario)) for oi in o.itens
+    )
+    desconto = sum(Decimal(str(oi.desconto_valor or 0)) for oi in o.itens)
     acrescimo = Decimal(str(o.acrescimo or 0))
-    total = Decimal(str(o.total or 0))
+    total = subtotal - desconto + acrescimo
+    if total <= 0 and o.total:
+        total = Decimal(str(o.total))
 
     v = Venda(
         numero_venda=numero,
@@ -161,6 +170,7 @@ def converter_orcamento_em_venda_pendente(
     o.status = "convertido"
     o.convertido_em_venda_id = v.id
     o.data_conversao = datetime.utcnow()
+    registrar_origem_orcamento(db, v, o, usuario_id)
     db.commit()
     db.refresh(v)
     return v.id, v.numero_venda

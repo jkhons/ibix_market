@@ -34,12 +34,23 @@ _STATE_TTL_SECONDS = 900  # 15 minutos
 PAGBANK_SCOPES = "payments.create+payments.read+payments.refund+accounts.read"
 
 
-def _get_app_url() -> str:
-    """Retorna APP_URL configurada no ambiente."""
+def _get_app_url(request: Optional[Request] = None) -> str:
+    """Retorna URL pública da app (marca corrente ou APP_URL do ambiente)."""
+    if request is not None:
+        from ...core.hardening import public_origin_from_request
+
+        origin = public_origin_from_request(request)
+        if origin:
+            return origin
     url = os.environ.get("APP_URL", "").strip().rstrip("/")
     if not url:
         raise ValueError("APP_URL não configurada no ambiente. Necessária para OAuth redirect_uri.")
     return url
+
+
+def _get_redirect_uri(request: Optional[Request] = None) -> str:
+    app_url = _get_app_url(request)
+    return f"{app_url}/api/v1/payments/connect/pagbank/callback"
 
 
 def _generate_state(cliente_id: int, user_id: int) -> str:
@@ -76,11 +87,6 @@ def _validate_state(state: str) -> tuple:
     return int(cliente_id_str), int(user_id_str)
 
 
-def _get_redirect_uri() -> str:
-    app_url = _get_app_url()
-    return f"{app_url}/api/v1/payments/connect/pagbank/callback"
-
-
 # --- PagBank OAuth ---
 
 @router.get("/pagbank/start")
@@ -106,7 +112,7 @@ async def pagbank_oauth_start(
 
     client_id = get_pagbank_client_id(db)
     connect_url = get_pagbank_connect_url(db)
-    redirect_uri = _get_redirect_uri()
+    redirect_uri = _get_redirect_uri(request)
     state = _generate_state(estabelecimento_id, current_user.id)
 
     params = {
@@ -151,7 +157,7 @@ async def pagbank_oauth_callback(
             status_code=302,
         )
 
-    redirect_uri = _get_redirect_uri()
+    redirect_uri = _get_redirect_uri(request)
 
     try:
         token_data = exchange_code_for_token(db, code, redirect_uri)

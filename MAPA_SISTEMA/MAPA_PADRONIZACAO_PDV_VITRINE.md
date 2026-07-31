@@ -2,7 +2,7 @@
 
 **Uso:** Fonte única de verdade para terminologia, hierarquia de rotas e navegação entre Sistema de Gestão (PDV) e Vitrine. Consultar ao implementar alterações que envolvam acesso à loja, fluxos de usuário PDV na vitrine ou links entre painel e loja.
 
-**Última atualização:** 2026-03-21
+**Última atualização:** 2026-06-18
 
 ---
 
@@ -25,6 +25,8 @@
 |------|-----------|--------|
 | `/` | Vitrine (home da loja) | Público; sempre exibida |
 | `/index.html` | Igual a `/` | Público |
+| `/login` | Login PDV (CA, Admin, técnico, etc.) | Público; layout vitrine (`base_loja.html`) — **não** confundir com `/loja/login` |
+| `/logout` | Logout PDV (GET) | Invalida JWT + remove cookies HttpOnly + redirect `/login` |
 | `/dashboard` | Painel do sistema | Usuário PDV autenticado |
 | `/loja` | Landing institucional | Público |
 | `/loja/categoria/{slug}` | Vitrine por categoria | Público |
@@ -76,20 +78,28 @@ flowchart TB
 | Sidebar PDV | Vitrine (`/`) | Link **"Ver loja"** (abre em nova aba) |
 | Header Vitrine | Dashboard (`/dashboard`) | Link **"Painel"** (visível apenas quando usuário PDV está logado) |
 
-**Regra:** A vitrine (`/`) é sempre acessível, inclusive para usuários PDV logados. O redirect para `/dashboard` **não** ocorre ao acessar `/`. O redirect para `/dashboard` ocorre apenas **após o login** (POST de autenticação).
+**Regra:** A vitrine (`/`) é sempre acessível, inclusive para usuários PDV logados. O redirect para `/dashboard` **não** ocorre ao acessar `/`. O redirect para `/dashboard` ocorre apenas **após o login** (POST de autenticação), e somente se o cookie JWT for válido **e** o middleware resolver o usuário (com RLS: `populate_pdv_user_context` — ver MAPA_MULTIBRAND § 6). Cookie inválido ou usuário não resolvido: `/login` permanece ou limpa cookies stale.
 
 ---
 
 ## 5. Autenticação
 
-| Contexto | Cookie | Tabela |
-|----------|--------|--------|
-| Usuário PDV (gestão) | `pdv_solumatica_token` | `usuarios` |
-| Consumidor (vitrine) | `loja_consumidor_token` | `consumidores_marketplace` |
+| Contexto | Cookie | Tabela | Observação |
+|----------|--------|--------|------------|
+| Usuário PDV (gestão) | `pdv_solumatica_token` (+ legado `pdv_automscale_token`) | `usuarios` | **HttpOnly** — JS não lê via `document.cookie`; front usa `credentials: 'include'` e `GET /api/v1/auth/me` |
+| Consumidor (vitrine) | `loja_consumidor_token` | `consumidores_marketplace` | Sessão independente do PDV |
 
 São sessões independentes. Um usuário PDV pode estar logado no painel e, ao acessar a vitrine, ver o link "Painel" para retornar. Pode também logar-se como consumidor na vitrine (outro cookie).
 
----
+**Logout PDV (2026-06-18):**
+
+| Via | Comportamento |
+|-----|---------------|
+| Dropdown **Sair** | `POST /api/v1/auth/logout` com `credentials: 'include'` → blacklist JWT + `clear_pdv_auth_cookies()` |
+| Link **GET /logout** | Mesma invalidação + redirect 302 → `/login` |
+| Front | `user-dropdown.js` — não depende de token legível no JS; `certipeso.js` não redireciona cegamente em 401 |
+
+**Rotas distintas — sem conflito técnico:** `/login` (PDV) vs `/loja/login` (consumidor); cookies e APIs separados.
 
 ## 5.1 Identidade do comprador no checkout (`tenant_id` NULL e `meus-pedidos`)
 

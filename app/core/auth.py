@@ -118,10 +118,29 @@ def create_user_token(user_id: int, email: str, role: str, cliente_id: Optional[
     if cliente_id is not None:
         token_data["cliente_id"] = cliente_id
 
-    return AuthConfig.create_access_token(
-        data=token_data,
-        expires_delta=access_token_expires
-    )
+    return AuthConfig.create_access_token(data=token_data, expires_delta=access_token_expires)
+
+
+def blacklist_access_token(token: Optional[str]) -> None:
+    """Invalida JWT PDV (logout) via blacklist Redis."""
+    if not token:
+        return
+    try:
+        import time
+
+        from jose import jwt
+
+        from .redis_cache import add_token_to_blacklist
+
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti and exp:
+            ttl = max(0, int(exp) - int(time.time()))
+            add_token_to_blacklist(jti, ttl)
+    except Exception:
+        pass
+
 
 def create_consumidor_token(consumidor_id: int) -> str:
     """Token JWT para consumidor da loja (vitrine). Sem jti para não usar blacklist de logout PDV."""

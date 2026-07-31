@@ -1,3 +1,4 @@
+from app.worker.db_task import worker_db_session
 # PDV Ibix - Tasks do Worker (E1.5/E1.6 confirmação de impl.)
 # Geração de PDF (certificados/relatórios) e tarefas pesadas no Worker.
 from datetime import datetime, timedelta, timezone
@@ -38,75 +39,74 @@ def generate_report_task(job_id: str):
     """
     import uuid
 
-    from app.database.connection import SessionLocal
     from app.models.report_job import ReportArtifact, ReportJob
     from app.services.relatorios import get_report, save_bytes
 
-    db = SessionLocal()
     try:
-        uid = uuid.UUID(job_id)
-        job = db.get(ReportJob, uid)
-        if not job:
-            return
-
-        job.status = "RUNNING"
-        job.started_at = datetime.now(timezone.utc)
-        db.commit()
-        db.refresh(job)
-
-        runtime = get_report(job.report_key)
-        ctx = {
-            "db": db,
-            "cliente_id": job.cliente_id,
-            "user_id": job.user_id,
-            "output_format": job.output_format,
-        }
-        content, filename, mime = runtime.handler(job.params_json, ctx)
-
-        scope_key = str(job.cliente_id) if job.cliente_id else str(job.user_id)
-        storage_path, size, checksum = save_bytes(scope_key, str(job.id), filename, content)
-
-        art = ReportArtifact(
-            job_id=job.id,
-            cliente_id=job.cliente_id,
-            filename=filename,
-            mime_type=mime,
-            file_size=size,
-            checksum_sha256=checksum,
-            storage_path=storage_path,
-        )
-        db.add(art)
-
-        job.status = "DONE"
-        job.progress = 100
-        job.finished_at = datetime.now(timezone.utc)
-        db.commit()
-    except KeyError as e:
-        try:
+        with worker_db_session() as db:
             uid = uuid.UUID(job_id)
             job = db.get(ReportJob, uid)
-        except (ValueError, NameError):
-            job = None
-        if job:
-            job.status = "FAILED"
-            job.error_message = str(e)[:2000]
+            if not job:
+                return
+
+            job.status = "RUNNING"
+            job.started_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(job)
+
+            runtime = get_report(job.report_key)
+            ctx = {
+                "db": db,
+                "cliente_id": job.cliente_id,
+                "user_id": job.user_id,
+                "output_format": job.output_format,
+            }
+            content, filename, mime = runtime.handler(job.params_json, ctx)
+
+            scope_key = str(job.cliente_id) if job.cliente_id else str(job.user_id)
+            storage_path, size, checksum = save_bytes(scope_key, str(job.id), filename, content)
+
+            art = ReportArtifact(
+                job_id=job.id,
+                cliente_id=job.cliente_id,
+                filename=filename,
+                mime_type=mime,
+                file_size=size,
+                checksum_sha256=checksum,
+                storage_path=storage_path,
+            )
+            db.add(art)
+
+            job.status = "DONE"
+            job.progress = 100
             job.finished_at = datetime.now(timezone.utc)
             db.commit()
+    except KeyError as e:
+        with worker_db_session() as db:
+            try:
+                uid = uuid.UUID(job_id)
+                job = db.get(ReportJob, uid)
+            except (ValueError, NameError):
+                job = None
+            if job:
+                job.status = "FAILED"
+                job.error_message = str(e)[:2000]
+                job.finished_at = datetime.now(timezone.utc)
+                db.commit()
         raise
     except Exception as e:
-        try:
-            uid = uuid.UUID(job_id)
-            job = db.get(ReportJob, uid)
-        except (ValueError, NameError):
-            job = None
-        if job:
-            job.status = "FAILED"
-            job.error_message = str(e)[:2000]
-            job.finished_at = datetime.now(timezone.utc)
-            db.commit()
+        with worker_db_session() as db:
+            try:
+                uid = uuid.UUID(job_id)
+                job = db.get(ReportJob, uid)
+            except (ValueError, NameError):
+                job = None
+            if job:
+                job.status = "FAILED"
+                job.error_message = str(e)[:2000]
+                job.finished_at = datetime.now(timezone.utc)
+                db.commit()
         raise
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.apply_billing_grace_policy")
@@ -116,15 +116,11 @@ def apply_billing_grace_policy():
     Seta assinaturas ativa/inadimplente como bloqueada e tenant.ativo = False
     quando hoje > next_charge_at + grace_days.
     """
-    from app.database.connection import SessionLocal
     from app.services.billing_service import apply_grace_policy as svc_apply_grace_policy
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         changed = svc_apply_grace_policy(db)
         return {"changed": changed}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.log_access_task")
@@ -133,12 +129,10 @@ def log_access_task(ip: str, user_agent: str, tipo_visitante: str, path: str | N
     Registra acesso em access_log (classificação HUMANO/BOT/CLOUD).
     Executada de forma assíncrona via Celery; não bloqueia requisições HTTP.
     """
-    from app.database.connection import SessionLocal
     from app.models.access_log import AccessLog
 
     try:
-        db = SessionLocal()
-        try:
+        with worker_db_session() as db:
             entry = AccessLog(
                 ip=ip or None,
                 user_agent=(user_agent or None)[:500] if user_agent else None,
@@ -147,10 +141,12 @@ def log_access_task(ip: str, user_agent: str, tipo_visitante: str, path: str | N
             )
             db.add(entry)
             db.commit()
-        finally:
-            db.close()
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "log_access_task falhou: %s", exc, exc_info=True
+        )
 
 
 @celery_app.task(name="app.worker.tasks.billing_daily_job")
@@ -161,18 +157,14 @@ def billing_daily_job():
     Invalida cache Redis de subscription_blocked após alterar tenants.
     """
     from app.core.redis_cache import invalidate_subscription_blocked_all
-    from app.database.connection import SessionLocal
     from app.services import billing_service
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         changed = billing_service.apply_grace_policy(db)
         sent, notif_invalidate = billing_service.process_billing_notifications(db)
         if changed or notif_invalidate:
             invalidate_subscription_blocked_all()
         return {"grace_changed": changed, "notifications_sent": sent}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.certificado_expirando_alert_task")
@@ -183,11 +175,9 @@ def certificado_expirando_alert_task():
     """
     from datetime import date, timedelta
 
-    from app.database.connection import SessionLocal
     from app.models import Empresa
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         hoje = date.today()
         dias = [30, 15, 7]
         alertas = []
@@ -201,8 +191,6 @@ def certificado_expirando_alert_task():
             for emp in q:
                 alertas.append({"empresa_id": emp.id, "razao_social": emp.razao_social, "validade": str(emp.certificado_validade), "dias": d})
         return {"alertas": alertas}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.emitir_nfe_pedido_marketplace")
@@ -211,12 +199,10 @@ def emitir_nfe_pedido_marketplace(pedido_id: int):
     Cria NotaFiscal (rascunho) a partir do pedido marketplace e envia à SEFAZ.
     Executada após o checkout. Se falhar, a nota permanece em rascunho para retentativa.
     """
-    from app.database.connection import SessionLocal
     from app.services.fiscal.emissao_service import FiscalEmissaoService
     from app.services.fiscal.nfe_marketplace_service import criar_nota_fiscal_de_pedido_marketplace
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         ok, msg, nota_id = criar_nota_fiscal_de_pedido_marketplace(db, pedido_id, usuario_id_emitente=None)
         if not ok or not nota_id:
             return {"success": False, "reason": msg or "Não foi possível criar a nota"}
@@ -225,8 +211,6 @@ def emitir_nfe_pedido_marketplace(pedido_id: int):
         if enviado:
             return {"success": True, "nota_id": nota_id, "enviada": True}
         return {"success": True, "nota_id": nota_id, "enviada": False, "erro_envio": err}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.notificar_ca_novo_pedido")
@@ -235,12 +219,10 @@ def notificar_ca_novo_pedido(pedido_id: int):
     Envia e-mail aos responsáveis da loja (usuários com vínculo ao estabelecimento)
     com resumo do novo pedido.
     """
-    from app.database.connection import SessionLocal
     from app.models import AreaCliente, LojaMarketplace, PedidoMarketplace, Usuario
     from app.services.email_service import EmailService
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
         if not pedido:
             return {"sent": 0, "reason": "Pedido não encontrado"}
@@ -280,8 +262,6 @@ def notificar_ca_novo_pedido(pedido_id: int):
         svc = EmailService(db)
         sent = svc.send_email(to=emails, subject=assunto, body=corpo, funcao="marketplace")
         return {"sent": 1 if sent else 0, "emails": emails}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.notificar_marketplace_pagamento_confirmado")
@@ -290,15 +270,13 @@ def notificar_marketplace_pagamento_confirmado(pedido_id: int):
     Após o gateway confirmar pagamento (webhook/reconciliação): e-mail aos responsáveis da loja (CA)
     e ao comprador; grava notificações no sino do CA e no inbox do consumidor (app).     Idempotência no enqueue.
     """
-    from app.database.connection import SessionLocal
     from app.models import AreaCliente, LojaMarketplace, PedidoMarketplace, Usuario
     from app.models.consumidor_notificacao import ConsumidorNotificacao
     from app.models.usuario_notificacao import UsuarioNotificacao
 
     TIPO_INBOX = "marketplace_pedido_pago"
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
         if not pedido:
             return {"sent_ca": 0, "sent_buyer": 0, "reason": "Pedido não encontrado"}
@@ -426,8 +404,6 @@ def notificar_marketplace_pagamento_confirmado(pedido_id: int):
             "inbox_ca_rows": inbox_ca,
             "inbox_consumidor": inbox_buyer,
         }
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.notificar_marketplace_pedido_status_email_comprador")
@@ -438,12 +414,10 @@ def notificar_marketplace_pedido_status_email_comprador(
     status_label: str,
 ):
     """E-mail HTML ao comprador quando a loja altera status_pedido."""
-    from app.database.connection import SessionLocal
     from app.models import LojaMarketplace, PedidoMarketplace
     from app.services.marketplace_email_service import enviar_pedido_status_comprador
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         pedido = db.query(PedidoMarketplace).filter(PedidoMarketplace.id == pedido_id).first()
         if not pedido or not (pedido.comprador_email or "").strip():
             return {"sent": 0, "reason": "pedido ou e-mail ausente"}
@@ -454,15 +428,12 @@ def notificar_marketplace_pedido_status_email_comprador(
             return {"sent": 0, "reason": "loja não encontrada"}
         ok = enviar_pedido_status_comprador(db, pedido, loja, status_novo, status_label)
         return {"sent": 1 if ok else 0}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.notificar_marketplace_entrega_status_email_comprador")
 def notificar_marketplace_entrega_status_email_comprador(entrega_id: int, novo_status: str):
     """E-mail HTML ao comprador quando o entregador altera o status da entrega."""
     from app.core.constants import AGUARDANDO_PUBLICACAO, DISPONIVEL
-    from app.database.connection import SessionLocal
     from app.models import EntregaMarketplace, LojaMarketplace, PedidoMarketplace
     from app.services.marketplace_email_service import enviar_entrega_status_comprador
 
@@ -470,8 +441,7 @@ def notificar_marketplace_entrega_status_email_comprador(entrega_id: int, novo_s
     if ns in (AGUARDANDO_PUBLICACAO, DISPONIVEL):
         return {"sent": 0, "reason": "status_interno"}
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         entrega = db.query(EntregaMarketplace).filter(EntregaMarketplace.id == entrega_id).first()
         if not entrega:
             return {"sent": 0, "reason": "entrega não encontrada"}
@@ -483,8 +453,6 @@ def notificar_marketplace_entrega_status_email_comprador(entrega_id: int, novo_s
             return {"sent": 0, "reason": "loja não encontrada"}
         ok = enviar_entrega_status_comprador(db, pedido, loja, ns)
         return {"sent": 1 if ok else 0}
-    finally:
-        db.close()
 
 
 @celery_app.task(
@@ -519,15 +487,11 @@ def dispatch_venda_fechada_webhook(
 @celery_app.task(name="app.worker.tasks.expire_reservations_marketplace")
 def expire_reservations_marketplace():
     """Libera reservas de estoque marketplace com reserved_until vencido (job periódico)."""
-    from app.database.connection import SessionLocal
     from app.services.reserva_estoque_marketplace_service import expire_reservations
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         count = expire_reservations(db)
         db.commit()
         return {"released": count}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.process_webhook_event_marketplace")
@@ -537,20 +501,13 @@ def process_webhook_event_marketplace(webhook_event_id: int):
     Carrega o evento, busca pagamento no MP, reconcilia transação e marca processed_at.
     """
     from app.api.webhooks_mercadopago import process_webhook_event_by_id_sync
-    from app.database.connection import SessionLocal
 
-    db = SessionLocal()
     try:
-        ok = process_webhook_event_by_id_sync(db, webhook_event_id)
-        return {"processed": ok, "webhook_event_id": webhook_event_id}
+        with worker_db_session() as db:
+            ok = process_webhook_event_by_id_sync(db, webhook_event_id)
+            return {"processed": ok, "webhook_event_id": webhook_event_id}
     except Exception as e:
-        try:
-            db.rollback()
-        except Exception:
-            pass
         return {"processed": False, "webhook_event_id": webhook_event_id, "error": str(e)[:500]}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.reconcile_pending_marketplace_payments")
@@ -562,14 +519,12 @@ def reconcile_pending_marketplace_payments():
     """
     from app.core.billing_config import get_mp_access_token
     from app.core.logging import log_error, log_struct
-    from app.database.connection import SessionLocal
     from app.models import PaymentTransaction, PedidoMarketplace
     from app.services.payments.checkout_marketplace_service import _resolve_provider_and_credentials
     from app.services.payments.providers_marketplace import get_marketplace_provider
     from app.services.payments.webhook_marketplace_service import process_payment_notification
 
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
         pending_txs = (
             db.query(PaymentTransaction)
@@ -650,17 +605,13 @@ def reconcile_pending_marketplace_payments():
                 )
 
         return {"reconciled": reconciled, "checked": len(pending_txs)}
-    finally:
-        db.close()
 
 
 # ─── Mobile: Push Notification ───────────────────────────────
 @celery_app.task(name="app.worker.tasks.enviar_push_notification")
 def enviar_push_notification(consumidor_id: int, titulo: str, mensagem: str, tipo: str = "geral", dados: dict = None):
     """Envia push FCM para todos os tokens ativos do consumidor. Desativa tokens inválidos."""
-    from app.database.connection import SessionLocal
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         from app.models.consumidor_push_token import ConsumidorPushToken
         from app.services.notificacao_service import criar_notificacao
 
@@ -692,20 +643,14 @@ def enviar_push_notification(consumidor_id: int, titulo: str, mensagem: str, tip
             pass
 
         return {"enviados": enviados, "falhas": falhas}
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.registrar_termo_busca")
 def registrar_termo_busca(termo: str):
     """Registra ou incrementa contagem de um termo buscado."""
-    from app.database.connection import SessionLocal
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         from app.services.busca_service import registrar_termo
         registrar_termo(db, termo)
-    finally:
-        db.close()
 
 
 @celery_app.task(name="app.worker.tasks.carrinho_abandonado")
@@ -713,9 +658,7 @@ def carrinho_abandonado():
     """Envia push para consumidores com checkout abandonado há >24h (aceite_marketing=True)."""
     from datetime import datetime, timedelta, timezone
 
-    from app.database.connection import SessionLocal
-    db = SessionLocal()
-    try:
+    with worker_db_session() as db:
         from app.models import ConsumidorMarketplace, MarketplaceCheckoutSession
         limite = datetime.now(timezone.utc) - timedelta(hours=24)
         sessions = (
@@ -744,5 +687,13 @@ def carrinho_abandonado():
                 )
                 enviados += 1
         return {"verificados": len(sessions), "push_enviados": enviados}
-    finally:
-        db.close()
+
+
+@celery_app.task(name="app.worker.tasks.lgpd_purge_consumidores")
+def lgpd_purge_consumidores():
+    """Anonimiza consumidores com exclusão LGPD vencida (deleted_at <= now)."""
+    from app.services.lgpd_service import purge_consumidores_exclusao_vencida
+
+    with worker_db_session() as db:
+        count = purge_consumidores_exclusao_vencida(db)
+        return {"purged": count}

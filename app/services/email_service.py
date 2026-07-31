@@ -231,7 +231,7 @@ class EmailService:
 
         Args:
             to: Lista de destinatários
-            template_name: Nome do template (ex: 'certificado_pronto')
+            template_name: Nome do template (ex: 'nota_fiscal')
             context: Dicionário com variáveis do template
             subject: Assunto do e-mail
             funcao: Código da função para remetente configurado (ex: certificados)
@@ -275,7 +275,41 @@ class EmailService:
                 exc_info=e,
             )
             return False
-    
+
+    def send_template_html_string(
+        self,
+        to: List[str],
+        html_template: str,
+        context: Dict,
+        subject: str,
+        funcao: Optional[str] = None,
+        cliente_id: Optional[int] = None,
+        **kwargs,
+    ) -> bool:
+        """
+        Igual a send_template_email, mas recebe o HTML já carregado (ex.: override em configuracoes).
+        """
+        try:
+            html_body = html_template
+            for key, value in context.items():
+                html_body = html_body.replace(f"{{{{{key}}}}}", str(value))
+            text_body = self._html_to_text(html_body)
+            kwargs.setdefault("funcao", funcao)
+            kwargs.setdefault("cliente_id", cliente_id)
+            return self.send_email(
+                to=to,
+                subject=subject,
+                body=text_body,
+                html=html_body,
+                **kwargs,
+            )
+        except Exception as e:
+            log_error(
+                "EmailService.send_template_html_string falhou",
+                exc_info=e,
+            )
+            return False
+
     def _html_to_text(self, html: str) -> str:
         """Converte HTML simples para texto"""
         # Remover tags HTML básicas
@@ -333,28 +367,4 @@ def send_email_quick(
     service = EmailService(db)
     return service.send_email(to, subject, body, html, funcao=funcao, cliente_id=cliente_id)
 
-
-def send_certificate_ready_email(
-    db: Session,
-    to: str,
-    certificate_number: str,
-    client_name: str,
-    download_link: str,
-    cliente_id: Optional[int] = None,
-) -> bool:
-    """Envia e-mail de certificado pronto. Se cliente_id for informado e a flag de e-mail por cliente estiver ativa, usa remetente do cliente."""
-    service = EmailService(db)
-    context = {
-        "certificate_number": certificate_number,
-        "client_name": client_name,
-        "download_link": download_link,
-    }
-    return service.send_template_email(
-        to=[to],
-        template_name="certificado_pronto",
-        context=context,
-        subject=f"Certificado {certificate_number} - Pronto para Download",
-        funcao="certificados",
-        cliente_id=cliente_id,
-    )
 

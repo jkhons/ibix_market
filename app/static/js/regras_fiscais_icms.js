@@ -1,9 +1,18 @@
 // PDV Ibix - Regras Fiscais ICMS
 
 const RegrasFiscaisIcmsHelpers = {
+    /** Cookie HttpOnly não é legível; usa getAuthToken / sessionStorage. Sessão via credentials. */
     getToken() {
-        const m = document.cookie.match(/pdv_solumatica_token=([^;]+)/);
-        return m ? m[1].trim() : null;
+        if (typeof window.getAuthToken === 'function') {
+            return window.getAuthToken();
+        }
+        try {
+            return sessionStorage.getItem('pdv_solumatica_token')
+                || sessionStorage.getItem('pdv_automscale_token')
+                || null;
+        } catch (_) {
+            return null;
+        }
     },
 
     mostrarAlerta(msg, tipo = 'info') {

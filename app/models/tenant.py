@@ -1,7 +1,7 @@
 # PDV Ibix - Tenant Model (SaaS)
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, Date, ForeignKey, Index, Integer, String
+from sqlalchemy import Boolean, Column, Date, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from ..database.base import BaseModel
@@ -15,7 +15,8 @@ class Tenant(BaseModel):
     __tablename__ = "tenants"
 
     nome = Column(String(255), nullable=False)
-    slug = Column(String(100), nullable=True, unique=True, index=True)
+    slug = Column(String(100), nullable=True, index=True)
+    brand_id = Column(Integer, ForeignKey("brands.id", ondelete="RESTRICT"), nullable=False, index=True)
     external_id = Column(String(128), nullable=True, unique=True, index=True, comment="ID no gateway de pagamento")
     ativo = Column(Boolean, default=True, nullable=False)
     plan_id = Column(Integer, ForeignKey("plans.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -44,12 +45,14 @@ class Tenant(BaseModel):
     google_cse_uso_data = Column(Date, nullable=True, comment="Data do contador google_cse_uso_dia")
 
     plan = relationship("Plan", back_populates="tenants", foreign_keys=[plan_id], lazy="select")
+    brand = relationship("Brand", foreign_keys=[brand_id])
     default_empresa = relationship("Empresa", foreign_keys=[default_empresa_id])
     ca_cliente = relationship("Cliente", foreign_keys=[ca_cliente_id])
     usuarios = relationship("Usuario", back_populates="tenant", foreign_keys="Usuario.tenant_id")
     entitlements = relationship("TenantEntitlement", back_populates="tenant", cascade="all, delete-orphan")
 
     __table_args__ = (
+        UniqueConstraint("brand_id", "slug", name="uq_tenants_brand_slug"),
         Index("ix_tenants_ativo", "ativo"),
         {"comment": "Tenant SaaS: organização que assina planos"},
     )

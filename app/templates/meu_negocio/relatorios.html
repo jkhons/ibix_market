@@ -227,7 +227,7 @@
             var body = document.getElementById('vendas-body');
             if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="4" class="text-muted">Nenhum registro no período.</td></tr>'; document.getElementById('vendas-total').textContent = 'Total: 0'; return; }
             body.innerHTML = data.itens.map(function(r) {
-                return '<tr><td>' + (r.numero_venda || '-') + '</td><td>' + formatarData(r.data_venda) + '</td><td class="text-end">' + formatarMoeda(r.total) + '</td><td>' + (r.status || '-') + '</td></tr>';
+                return '<tr><td>' + DocRef.docRefSpan(r.numero_venda || '-') + '</td><td>' + formatarData(r.data_venda) + '</td><td class="text-end">' + formatarMoeda(r.total) + '</td><td>' + (r.status || '-') + '</td></tr>';
             }).join('');
             document.getElementById('vendas-total').textContent = 'Total: ' + (data.total || 0) + ' vendas';
         }).catch(function() { document.getElementById('vendas-body').innerHTML = '<tr><td colspan="4" class="text-danger">Erro ao carregar.</td></tr>'; });
@@ -235,7 +235,7 @@
     document.getElementById('btn-vendas-csv').addEventListener('click', function() {
         if (!lastVendas.length) { alert('Gere o relatório primeiro.'); return; }
         var header = ['Número','Data','Total','Status'];
-        var rows = lastVendas.map(function(r) { return [r.numero_venda||'', r.data_venda||'', r.total||'', r.status||'']; });
+        var rows = lastVendas.map(function(r) { return [DocRef.compactDocRef(r.numero_venda||''), r.data_venda||'', r.total||'', r.status||'']; });
         downloadCSV(header, rows, 'vendas-periodo.csv');
     });
     document.getElementById('btn-mais-vendidos').addEventListener('click', function() {
@@ -284,7 +284,7 @@
             var body = document.getElementById('cancelamentos-body');
             if (!data.itens || !data.itens.length) { body.innerHTML = '<tr><td colspan="3" class="text-muted">Nenhuma venda cancelada no período.</td></tr>'; document.getElementById('cancelamentos-total').textContent = 'Total: 0'; return; }
             body.innerHTML = data.itens.map(function(r) {
-                return '<tr><td>' + (r.numero_venda || '-') + '</td><td>' + formatarData(r.data_venda) + '</td><td class="text-end">' + formatarMoeda(r.total) + '</td></tr>';
+                return '<tr><td>' + DocRef.docRefSpan(r.numero_venda || '-') + '</td><td>' + formatarData(r.data_venda) + '</td><td class="text-end">' + formatarMoeda(r.total) + '</td></tr>';
             }).join('');
             document.getElementById('cancelamentos-total').textContent = 'Total: ' + (data.total || 0) + ' cancelamentos';
         }).catch(function() { document.getElementById('cancelamentos-body').innerHTML = '<tr><td colspan="3" class="text-danger">Erro ao carregar.</td></tr>'; });
@@ -292,7 +292,7 @@
     document.getElementById('btn-cancelamentos-csv').addEventListener('click', function() {
         if (!lastCancelamentos.length) { alert('Gere o relatório primeiro.'); return; }
         var header = ['Número','Data','Total'];
-        var rows = lastCancelamentos.map(function(r) { return [r.numero_venda||'', r.data_venda||'', r.total||'']; });
+        var rows = lastCancelamentos.map(function(r) { return [DocRef.compactDocRef(r.numero_venda||''), r.data_venda||'', r.total||'']; });
         downloadCSV(header, rows, 'cancelamentos.csv');
     });
     var hoje = new Date().toISOString().slice(0,10);

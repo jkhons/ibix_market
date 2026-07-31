@@ -1,0 +1,28 @@
+---
+description: Gating de módulos por marca — marketplace/certificados só se brand_modules permitir
+globs: "**/*.{py,html,js}"
+alwaysApply: true
+---
+
+# Gating de módulos por marca
+
+Módulos efetivos = `brand_modules(brand) ∩ tenant_entitlements ∩ RBAC`.
+
+## Obrigatório (3 portas)
+
+1. **Sidebar/menu HTML** — `check_html_module_permission` / módulo no catálogo da marca
+2. **Rotas HTML** — `marketplace_brand_gate_middleware` + guards em paths `/loja`, `/negocio/marketplace`, etc.
+3. **API** — 403 explícito quando módulo fora do catálogo da marca (`brand_module_gating`)
+
+## Regras
+
+- Solumática: **apenas `core`** — marketplace bloqueado (403/redirect)
+- Ibix: `core` + `marketplace`
+- Certificados/calibracao: cadastrados no catálogo; implementação adiada — bloquear até existir módulo real
+- **Sem fallback:** rota indisponível na marca → erro 403, nunca redirecionar para Ibix ou ocultar silenciosamente
+
+## Referências
+
+- [brand_module_gating.py](../../app/core/brand_module_gating.py)
+- [MAPA_RBAC.md](../../MAPA_SISTEMA/MAPA_RBAC.md) § 0.13
+- [MAPA_MULTIBRAND.md](../../MAPA_SISTEMA/MAPA_MULTIBRAND.md)

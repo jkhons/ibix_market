@@ -46,6 +46,14 @@ class OrdemServico(BaseModel):
 
     observacoes = Column(Text, nullable=True)
 
+    orcamento_origem_id = Column(
+        Integer,
+        ForeignKey("orcamentos.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="Orçamento que originou esta OS (conversão Orç→OS)",
+    )
+
     empresa_id = Column(Integer, ForeignKey("empresa.id", ondelete="SET NULL"), nullable=True, index=True, comment="Emissor da NFS-e ao faturar a OS")
 
     # Relacionamentos

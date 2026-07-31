@@ -19,7 +19,13 @@ from ...services.chat_marketplace_service import (
 )
 from .loja import get_current_consumidor
 
-router = APIRouter(prefix="/loja/conversas", tags=["Loja – Chat"])
+from ...core.brand_module_gating import MARKETPLACE_ROUTER_DEPENDENCIES
+
+router = APIRouter(
+    prefix="/loja/conversas",
+    tags=["Loja – Chat"],
+    dependencies=MARKETPLACE_ROUTER_DEPENDENCIES,
+)
 
 
 @router.get("", response_model=ConversasListResponse)

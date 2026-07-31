@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard Super Admin | Ibix{% endblock %}
+{% block title %}Dashboard Super Admin | {{ brand.nome_exibicao|default('PDV', true) }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -22,11 +22,12 @@
 
 {% block content %}
 <div class="container-fluid p-0 admin-dashboard">
+    {% include 'components/brand_scope_banner.html' %}
     <!-- Cabeçalho -->
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
         <div>
             <h1 class="h3 mb-1"><strong>Dashboard</strong> Super Admin</h1>
-            <p class="text-muted small mb-0">Visão geral de clientes, acessos e cobranças</p>
+            <p class="text-muted small mb-0" id="dashboardScopeSubtitle">Visão geral de clientes, acessos e cobranças</p>
         </div>
         <div class="d-flex gap-2 flex-wrap">
             <a href="/admin/leads" class="btn btn-outline-dark btn-sm">
@@ -42,6 +43,7 @@
     </div>
 
     <!-- Marketplace MP: só consulta ao gateway e sincroniza (Super Admin) -->
+    {% if brand_has_marketplace %}
     <div class="card mb-4 border-secondary">
         <div class="card-body">
             <h2 class="h6 mb-1"><i class="align-middle me-1" data-feather="refresh-cw" style="width: 1rem; height: 1rem;"></i> Pagamentos da vitrine — Mercado Pago</h2>
@@ -69,6 +71,7 @@
             <pre class="small bg-light border rounded p-2 mt-3 mb-0 d-none text-start" id="saReconcileOut" style="white-space:pre-wrap;max-height:240px;overflow:auto;"></pre>
         </div>
     </div>
+    {% endif %}
 
     <!-- Indicadores (cards) -->
     <p class="section-title mb-0">Indicadores</p>
@@ -163,7 +166,7 @@
     <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2 mt-3">
         <div>
             <p class="section-title mb-1">Visitantes da vitrine</p>
-            <p class="text-muted small mb-0">IPs únicos em <code class="small">/loja</code> (humanos, bots e cloud conforme user-agent). Período &quot;hoje&quot; usa o calendário no horário de Brasília.</p>
+            <p class="text-muted small mb-0">IPs únicos na vitrine pública (<code class="small">/loja</code>, <code class="small">/{slug}</code>, <code class="small">/categoria/…</code>, <code class="small">/lojas-parceiras</code>). Pageviews = páginas HTML (não inclui APIs nem assets). Período &quot;hoje&quot;: calendário de Brasília.</p>
         </div>
         <div class="btn-group visitantes-period" role="group" aria-label="Período de visitantes">
             <input type="radio" class="btn-check" name="visitantesPeriodo" id="vpHoje" value="hoje" autocomplete="off" checked>
@@ -215,6 +218,96 @@
             </div>
         </div>
     </div>
+
+    <p class="section-title mb-1 mt-2">Analytics da vitrine</p>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <p class="text-muted small mb-0 me-2">Rankings do período selecionado acima.</p>
+        <label class="small mb-0" for="saFiltroTipoVisitante">Tipo:</label>
+        <select id="saFiltroTipoVisitante" class="form-select form-select-sm" style="width: auto; min-width: 8rem;">
+            <option value="HUMANO" selected>Humanos</option>
+            <option value="BOT">Bots</option>
+            <option value="CLOUD">Cloud</option>
+            <option value="TODOS">Todos</option>
+        </select>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-7">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small">Páginas mais visitadas</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0">
+                            <thead class="sticky-top bg-white">
+                                <tr><th>Tipo</th><th>Path</th><th class="text-end">IPs únicos</th><th class="text-end">Req.</th></tr>
+                            </thead>
+                            <tbody id="saTabelaPaginasTop">
+                                <tr><td colspan="4" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-5">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small">Produtos mais vistos</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 320px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0">
+                            <thead class="sticky-top bg-white">
+                                <tr><th>Produto</th><th class="text-end">IPs</th><th class="text-end">Req.</th></tr>
+                            </thead>
+                            <tbody id="saTabelaProdutosTop">
+                                <tr><td colspan="3" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card h-100 card-table">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small">Lojas mais visitadas (/{slug})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+                        <table class="table table-sm table-hover my-0 mb-0">
+                            <thead class="sticky-top bg-white">
+                                <tr><th>Loja</th><th class="text-end">IPs</th><th class="text-end">Req.</th></tr>
+                            </thead>
+                            <tbody id="saTabelaLojasTop">
+                                <tr><td colspan="3" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="card card-table h-100">
+                <div class="card-header py-2 px-3">
+                    <h5 class="card-title mb-0 small">Funil por tipo de página (IPs únicos)</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover my-0 mb-0">
+                            <thead><tr><th>Tipo</th><th class="text-end">IPs únicos</th></tr></thead>
+                            <tbody id="saTabelaFunil">
+                                <tr><td colspan="2" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p id="saAnalyticsNota" class="small text-muted d-none mb-1"></p>
+    <p id="saAnalyticsErro" class="small text-danger d-none mb-3"></p>
 
     <!-- Listas (tabelas) -->
     <p class="section-title mb-0">Detalhes</p>
@@ -293,8 +386,13 @@
 <script>
 (function() {
     function getToken() {
-        var m = document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
-        return m ? m[1] : (localStorage.getItem('pdv_automscale_token') || localStorage.getItem('token') || '');
+        var m = document.cookie.match(/\bpdv_solumatica_token=([^;]*)/) || document.cookie.match(/\bpdv_automscale_token=([^;]*)/);
+        return m ? decodeURIComponent(m[1]) : (
+            localStorage.getItem('pdv_solumatica_token')
+            || localStorage.getItem('pdv_automscale_token')
+            || localStorage.getItem('token')
+            || ''
+        );
     }
     function authFetch(url) {
         if (typeof window.authenticatedFetch === 'function') return window.authenticatedFetch(url);
@@ -329,8 +427,38 @@
         tabelaCadastros: 'saTabelaCadastrosNovos',
         tabelaLogins: 'saTabelaUltimosLogins',
         tabelaVencidos: 'saTabelaPagamentosVencidos',
-        tabelaProximos: 'saTabelaProximos15d'
+        tabelaProximos: 'saTabelaProximos15d',
+        tabelaPaginasTop: 'saTabelaPaginasTop',
+        tabelaProdutosTop: 'saTabelaProdutosTop',
+        tabelaFunil: 'saTabelaFunil',
+        tabelaLojasTop: 'saTabelaLojasTop',
+        analyticsErro: 'saAnalyticsErro',
+        filtroTipoVisitante: 'saFiltroTipoVisitante'
     };
+    var TIPO_PAGINA_LABEL = {
+        home_marketplace: 'Home /loja',
+        produto: 'Produto',
+        categoria_plataforma: 'Categoria plataforma',
+        categoria_local: 'Categoria local',
+        loja_slug: 'Loja (slug raiz)',
+        busca: 'Busca',
+        carrinho: 'Carrinho',
+        checkout: 'Checkout',
+        obrigado: 'Obrigado / sucesso',
+        pagamento_cancelado: 'Pagamento cancelado',
+        auth: 'Login / cadastro',
+        conta_consumidor: 'Conta consumidor',
+        lojas_parceiras: 'Lojas parceiras',
+        loja_outros: 'Outras /loja',
+        outros: 'Outros'
+    };
+    function labelTipoPagina(t) {
+        return TIPO_PAGINA_LABEL[t] || t || '—';
+    }
+    function escapeHtml(s) {
+        if (s == null) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
     function set(id, text) {
         var el = document.getElementById(id);
         if (el) el.textContent = text;
@@ -356,11 +484,110 @@
         set(ids.visitantesBots, v.bots != null ? v.bots : 0);
         set(ids.visitantesCloud, v.cloud != null ? v.cloud : 0);
     }
+    function aplicarAnalytics(analytics) {
+        var errEl = document.getElementById(ids.analyticsErro);
+        if (errEl) { errEl.classList.add('d-none'); errEl.textContent = ''; }
+        var paginas = (analytics && analytics.paginas_top) || [];
+        var tbodyPag = document.getElementById(ids.tabelaPaginasTop);
+        if (tbodyPag) {
+            tbodyPag.innerHTML = paginas.length === 0
+                ? '<tr><td colspan="4" class="text-center text-muted py-4">Sem dados no período</td></tr>'
+                : paginas.map(function(p) {
+                    return '<tr><td><span class="badge bg-light text-dark border">' + escapeHtml(labelTipoPagina(p.tipo_pagina)) + '</span></td>'
+                        + '<td class="small"><code>' + escapeHtml(p.path) + '</code></td>'
+                        + '<td class="text-end">' + (p.ips_unicos != null ? p.ips_unicos : 0) + '</td>'
+                        + '<td class="text-end text-muted">' + (p.requisicoes != null ? p.requisicoes : 0) + '</td></tr>';
+                }).join('');
+        }
+        var produtos = (analytics && analytics.produtos_top) || [];
+        var tbodyProd = document.getElementById(ids.tabelaProdutosTop);
+        if (tbodyProd) {
+            tbodyProd.innerHTML = produtos.length === 0
+                ? '<tr><td colspan="3" class="text-center text-muted py-4">Sem produtos no período</td></tr>'
+                : produtos.map(function(p) {
+                    return '<tr><td>' + escapeHtml(p.titulo || '—') + '<br><small class="text-muted">#' + (p.anuncio_id != null ? p.anuncio_id : '—') + '</small></td>'
+                        + '<td class="text-end">' + (p.ips_unicos != null ? p.ips_unicos : 0) + '</td>'
+                        + '<td class="text-end text-muted">' + (p.requisicoes != null ? p.requisicoes : 0) + '</td></tr>';
+                }).join('');
+        }
+        var lojas = (analytics && analytics.lojas_top) || [];
+        var tbodyLojas = document.getElementById(ids.tabelaLojasTop);
+        if (tbodyLojas) {
+            tbodyLojas.innerHTML = lojas.length === 0
+                ? '<tr><td colspan="3" class="text-center text-muted py-3">Sem lojas no período</td></tr>'
+                : lojas.map(function(l) {
+                    return '<tr><td>' + escapeHtml(l.nome_loja || l.slug || '—')
+                        + '<br><small class="text-muted"><code>' + escapeHtml(l.path || '') + '</code></small></td>'
+                        + '<td class="text-end">' + (l.ips_unicos != null ? l.ips_unicos : 0) + '</td>'
+                        + '<td class="text-end text-muted">' + (l.requisicoes != null ? l.requisicoes : 0) + '</td></tr>';
+                }).join('');
+        }
+        var funil = (analytics && analytics.funil) || [];
+        var tbodyFunil = document.getElementById(ids.tabelaFunil);
+        if (tbodyFunil) {
+            tbodyFunil.innerHTML = funil.length === 0
+                ? '<tr><td colspan="2" class="text-center text-muted py-3">Sem dados</td></tr>'
+                : funil.map(function(f) {
+                    return '<tr><td>' + escapeHtml(labelTipoPagina(f.tipo_pagina)) + '</td><td class="text-end">' + (f.ips_unicos != null ? f.ips_unicos : 0) + '</td></tr>';
+                }).join('');
+        }
+        var nota = document.getElementById('saAnalyticsNota');
+        if (nota && analytics && analytics.nota_metrica) {
+            nota.textContent = analytics.nota_metrica;
+            nota.classList.remove('d-none');
+        }
+    }
+    function setAnalyticsLoading() {
+        var spin = '<tr><td colspan="4" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+        var spin3 = '<tr><td colspan="3" class="text-center text-muted py-4"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+        var spin2 = '<tr><td colspan="2" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm"></span></td></tr>';
+        var tbPag = document.getElementById(ids.tabelaPaginasTop);
+        var tbProd = document.getElementById(ids.tabelaProdutosTop);
+        var tbLojas = document.getElementById(ids.tabelaLojasTop);
+        var tbFun = document.getElementById(ids.tabelaFunil);
+        if (tbPag) tbPag.innerHTML = spin;
+        if (tbProd) tbProd.innerHTML = spin3;
+        if (tbLojas) tbLojas.innerHTML = spin3;
+        if (tbFun) tbFun.innerHTML = spin2;
+    }
+    function getTipoVisitanteFiltro() {
+        var sel = document.getElementById(ids.filtroTipoVisitante);
+        return sel && sel.value ? sel.value : 'HUMANO';
+    }
+    function loadAnalytics(periodo) {
+        setAnalyticsLoading();
+        var q = '?incluir_analytics=true&periodo=' + encodeURIComponent(periodo || 'hoje')
+            + '&tipo_visitante=' + encodeURIComponent(getTipoVisitanteFiltro());
+        authFetch('/api/v1/admin/dashboard' + q)
+            .then(function(r) {
+                if (r.ok) return r.json();
+                return r.json().catch(function() { return { detail: 'Erro HTTP ' + r.status }; }).then(function(j) { return Promise.reject(j); });
+            })
+            .then(function(data) {
+                if (!data || !data.visitantes_vitrine_analytics) {
+                    return Promise.reject({ detail: 'Resposta sem visitantes_vitrine_analytics' });
+                }
+                aplicarAnalytics(data.visitantes_vitrine_analytics);
+            })
+            .catch(function(err) {
+                var msg = (err && err.detail) ? (typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail)) : 'Erro ao carregar analytics';
+                if (String(msg).indexOf('Token') >= 0 || String(msg).indexOf('401') >= 0) {
+                    msg = 'Sessão expirada ou token ausente. Faça login novamente.';
+                }
+                var errEl = document.getElementById(ids.analyticsErro);
+                if (errEl) { errEl.textContent = msg; errEl.classList.remove('d-none'); }
+                aplicarAnalytics(null);
+            });
+    }
     function load() {
         authFetch('/api/v1/admin/dashboard')
             .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('Erro ' + r.status)); })
             .then(function(data) {
                 window._dashVisitantesPayload = data;
+                var subEl = document.getElementById('dashboardScopeSubtitle');
+                if (subEl && data.brand_scope && data.brand_scope.scope_label) {
+                    subEl.textContent = data.brand_scope.scope_label + ' — indicadores abaixo';
+                }
                 set(ids.clientes7d, data.clientes_novos && data.clientes_novos.total_7d != null ? data.clientes_novos.total_7d : 0);
                 set(ids.cadastros7d, data.cadastros_novos && data.cadastros_novos.total_7d != null ? data.cadastros_novos.total_7d : 0);
                 set(ids.usuarios24h, data.usuarios_ativos_24h && data.usuarios_ativos_24h.total != null ? data.usuarios_ativos_24h.total : 0);
@@ -369,7 +596,9 @@
                 set(ids.vencidos, data.pagamentos_vencidos && data.pagamentos_vencidos.total != null ? data.pagamentos_vencidos.total : 0);
                 set(ids.proximos15d, (data.proximos_pagamentos_15d && data.proximos_pagamentos_15d.lista ? data.proximos_pagamentos_15d.lista.length : 0));
                 var periodoSel = document.querySelector('input[name="visitantesPeriodo"]:checked');
-                aplicarVisitantesVitrine(data, periodoSel ? periodoSel.value : 'hoje');
+                var periodoVal = periodoSel ? periodoSel.value : 'hoje';
+                aplicarVisitantesVitrine(data, periodoVal);
+                loadAnalytics(periodoVal);
                 var cadastros = (data.cadastros_novos && data.cadastros_novos.lista) || [];
                 var tbodyCadastros = document.getElementById(ids.tabelaCadastros);
                 if (tbodyCadastros) {
@@ -464,10 +693,20 @@
         document.querySelectorAll('input[name="visitantesPeriodo"]').forEach(function(inp) {
             inp.addEventListener('change', function(ev) {
                 var t = ev.target;
-                if (!t.checked || !window._dashVisitantesPayload) return;
-                aplicarVisitantesVitrine(window._dashVisitantesPayload, t.value);
+                if (!t.checked) return;
+                if (window._dashVisitantesPayload) {
+                    aplicarVisitantesVitrine(window._dashVisitantesPayload, t.value);
+                }
+                loadAnalytics(t.value);
             });
         });
+        var selTipo = document.getElementById(ids.filtroTipoVisitante);
+        if (selTipo) {
+            selTipo.addEventListener('change', function() {
+                var periodoSel = document.querySelector('input[name="visitantesPeriodo"]:checked');
+                loadAnalytics(periodoSel ? periodoSel.value : 'hoje');
+            });
+        }
         load();
     });
 })();

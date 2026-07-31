@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+
+{% block title %}Marketing Ibix — Lançamento | {{ brand.nome_exibicao }}{% endblock %}
+
+{% block head_extra %}
+<meta name="robots" content="noindex,nofollow">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0">
+  <div class="mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <h1 class="h3 mb-0" id="mil-titulo">Marketing Ibix — Lançamento</h1>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="/admin/montagem_anuncio" class="btn btn-outline-secondary btn-sm">Montagem de anúncio</a>
+      <a href="/admin/marketing-vitrine" class="btn btn-outline-secondary btn-sm">Marketing Vitrine</a>
+    </div>
+  </div>
+
+  <div class="alert alert-secondary border py-2 px-3 small mb-3" role="status">
+    Painel operacional da campanha de 40 dias: <strong>roteiro</strong> (legenda, cortes, telas) + status de aprovação/produção/publicação.
+    Conteúdo do Bloco A vem de <code>MARKETING_ESTRUTURADO/copies_bloco_a.md</code>. Blocos B–D aguardam copies — sem inventar texto.
+    Apenas Superadministrador.
+  </div>
+
+  <div id="mil-alert"></div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+            <div>
+              <div class="text-muted small">Campanha</div>
+              <div class="fw-semibold" id="mil-campanha-titulo">—</div>
+            </div>
+            <div>
+              <span class="badge bg-primary" id="mil-campanha-status">—</span>
+            </div>
+          </div>
+          <div class="small text-muted mb-1" id="mil-campanha-periodo">—</div>
+          <div class="small mb-2" id="mil-campanha-canais">—</div>
+          <div class="small mb-1"><strong>Formato:</strong> <span id="mil-campanha-formato">—</span></div>
+          <div class="small mb-1"><strong>Tom / gancho:</strong> <span id="mil-campanha-tom">—</span></div>
+          <div class="small mb-2"><strong>Frase-âncora:</strong> <span id="mil-campanha-ancora">—</span></div>
+          <div class="small mb-3" id="mil-campanha-editorial"></div>
+          <label class="form-label small mb-1" for="mil-proximo-passo">Próximo passo</label>
+          <div class="input-group input-group-sm">
+            <input type="text" class="form-control" id="mil-proximo-passo" maxlength="2000" autocomplete="off">
+            <button type="button" class="btn btn-outline-primary" id="mil-btn-salvar-passo">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card border-primary h-100">
+        <div class="card-header bg-light py-2"><strong>Hoje / próximo</strong></div>
+        <div class="card-body" id="mil-hoje-box">
+          <p class="text-muted small mb-0">Carregando…</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <strong>Progresso por bloco</strong>
+      <div class="btn-group btn-group-sm" role="group" id="mil-bloco-filters">
+        <button type="button" class="btn btn-outline-secondary active" data-bloco="">Todos</button>
+        <button type="button" class="btn btn-outline-secondary" data-bloco="A">A</button>
+        <button type="button" class="btn btn-outline-secondary" data-bloco="B">B</button>
+        <button type="button" class="btn btn-outline-secondary" data-bloco="C">C</button>
+        <button type="button" class="btn btn-outline-secondary" data-bloco="D">D</button>
+      </div>
+    </div>
+    <div class="card-body py-2">
+      <div class="row g-2 small" id="mil-progresso-blocos"></div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header py-2"><strong>Quadro de posts</strong></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>#</th>
+              <th>Data</th>
+              <th>Bloco</th>
+              <th>Tipo</th>
+              <th>Tema</th>
+              <th>Roteiro</th>
+              <th>Copy</th>
+              <th>Telas</th>
+              <th>Produção</th>
+              <th>Publicação</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="mil-posts-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header py-2"><strong>Guia operacional (do plano)</strong></div>
+    <div class="card-body small">
+      <p class="mb-2" id="mil-guia-ritmo">—</p>
+      <p class="mb-0" id="mil-guia-reuso">—</p>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Post — padrão MAPA_DE_REGRAS (CSS inline, sem Bootstrap Modal) -->
+<div id="modalMilPostCustom" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 10000;">
+  <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; border-radius: 8px; width: 95%; max-width: 900px; max-height: 95vh; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); display: flex; flex-direction: column;">
+    <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); color: white; padding: 20px 30px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+      <h3 style="margin: 0; font-size: 1.5rem; font-weight: 700;" id="mil-modal-title">Post</h3>
+      <button type="button" onclick="fecharModalCustom('modalMilPostCustom')" style="background: rgba(255, 255, 255, 0.25); border: none; color: white; font-size: 32px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+    </div>
+    <div style="padding: 24px 30px; overflow-y: auto; flex: 1; background: #f8f9fa;">
+      <input type="hidden" id="mil-edit-numero" value="">
+      <p class="small text-muted" id="mil-edit-meta"></p>
+      <p class="mb-2 fw-semibold" id="mil-edit-tema"></p>
+
+      <div id="mil-edit-editorial" class="mb-3"></div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-md-4">
+          <label class="form-label" for="mil-edit-status-copy">Copy</label>
+          <select class="form-select form-select-sm" id="mil-edit-status-copy">
+            <option value="proposta">Proposta</option>
+            <option value="aprovado">Aprovado</option>
+            <option value="rejeitado">Rejeitado</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="mil-edit-status-producao">Produção</label>
+          <select class="form-select form-select-sm" id="mil-edit-status-producao">
+            <option value="pendente">Pendente</option>
+            <option value="gravado">Gravado</option>
+            <option value="pronto">Pronto</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="mil-edit-status-publicacao">Publicação</label>
+          <select class="form-select form-select-sm" id="mil-edit-status-publicacao">
+            <option value="pendente">Pendente</option>
+            <option value="ig">Instagram</option>
+            <option value="fb">Facebook</option>
+            <option value="ambos">Ambos</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <div class="form-check mt-4">
+            <input class="form-check-input" type="checkbox" id="mil-edit-telas-ok">
+            <label class="form-check-label" for="mil-edit-telas-ok">Telas OK</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="mil-edit-reuso">Reuso origem (#)</label>
+          <input type="number" class="form-control form-control-sm" id="mil-edit-reuso" min="1" max="28" placeholder="opcional">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label" for="mil-edit-copy-ref">Copy ref</label>
+          <input type="text" class="form-control form-control-sm" id="mil-edit-copy-ref" readonly>
+        </div>
+      </div>
+      <div class="mb-3">
+        <div class="fw-semibold small mb-2">Checklist antes do post</div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mil-chk-texto"><label class="form-check-label" for="mil-chk-texto">Texto curto</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mil-chk-tela"><label class="form-check-label" for="mil-chk-tela">Tela real (sem inventar números)</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mil-chk-igfb"><label class="form-check-label" for="mil-chk-igfb">Mesmo conteúdo IG + Facebook</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mil-chk-ancora"><label class="form-check-label" for="mil-chk-ancora">Frase-âncora + Lençóis Paulista</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mil-chk-entrega"><label class="form-check-label" for="mil-chk-entrega">Entrega só como: mesmo dia / ~2h ou agendar</label></div>
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="mil-chk-stories"><label class="form-check-label" for="mil-chk-stories">Stories no mesmo dia (tipo cheio)</label></div>
+      </div>
+      <label class="form-label" for="mil-edit-notas">Notas</label>
+      <textarea class="form-control form-control-sm" id="mil-edit-notas" rows="3" maxlength="2000"></textarea>
+    </div>
+    <div style="background: #f8f9fa; padding: 20px 30px; border-radius: 0 0 8px 8px; border-top: 2px solid #e9ecef; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0;">
+      <button type="button" onclick="fecharModalCustom('modalMilPostCustom')" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #6c757d; color: white;">Cancelar</button>
+      <button type="button" id="mil-btn-salvar-post" style="padding: 10px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; background: #3498db; color: white;">Salvar</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  var API = '/api/v1/marketing/ibix-lancamento';
+  var filtroBloco = '';
+  var postsCache = [];
+
+  function abrirModalMilPost() {
+    window.abrirModalCustom('modalMilPostCustom');
+  }
+
+  function fecharModalMilPost() {
+    window.fecharModalCustom('modalMilPostCustom');
+  }
+  window.abrirModalMilPost = abrirModalMilPost;
+  window.fecharModalMilPost = fecharModalMilPost;
+  window.bindModalCustomOutsideClick('modalMilPostCustom');
+
+  function showAlert(msg, kind) {
+    var el = document.getElementById('mil-alert');
+    if (!el) return;
+    el.innerHTML = '<div class="alert alert-' + (kind || 'danger') + ' py-2 px-3 small">' + msg + '</div>';
+  }
+
+  function clearAlert() {
+    var el = document.getElementById('mil-alert');
+    if (el) el.innerHTML = '';
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    var p = String(iso).slice(0, 10).split('-');
+    if (p.length !== 3) return iso;
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function badgeCopy(v) {
+    if (v === 'aprovado') return 'success';
+    if (v === 'rejeitado') return 'danger';
+    return 'secondary';
+  }
+
+  function badgePub(v) {
+    if (v === 'ambos') return 'success';
+    if (v === 'ig' || v === 'fb') return 'warning';
+    return 'secondary';
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderEditorialHtml(p) {
+    if (!p.tem_roteiro) {
+      return '<div class="alert alert-warning py-2 px-3 small mb-0">' +
+        'Roteiro editorial ainda <strong>não cadastrado</strong> neste post (Blocos B–D aguardam copies no plano). ' +
+        'Não inventar legenda/cortes — use só o tema do calendário até o Bloco ser escrito.' +
+        '</div>';
+    }
+    var html = '';
+    if (p.duracao) {
+      html += '<div class="small mb-2"><strong>Duração / modelo:</strong> ' + escapeHtml(p.duracao) + '</div>';
+    }
+    if (p.telas_necessarias) {
+      html += '<div class="small mb-2"><strong>Telas necessárias:</strong> ' + escapeHtml(p.telas_necessarias) + '</div>';
+    }
+    if (p.roteiro_notas) {
+      html += '<div class="alert alert-info py-2 px-3 small">' + escapeHtml(p.roteiro_notas) + '</div>';
+    }
+    if (p.legenda_reels) {
+      html += '<div class="mb-2"><div class="fw-semibold small mb-1">Legenda Reels</div>' +
+        '<pre class="bg-white border rounded p-2 small mb-0" style="white-space:pre-wrap;">' +
+        escapeHtml(p.legenda_reels) + '</pre></div>';
+    }
+    var cortes = Array.isArray(p.cortes) ? p.cortes : [];
+    if (cortes.length) {
+      html += '<div class="table-responsive mb-0"><table class="table table-sm table-bordered bg-white mb-0">' +
+        '<thead class="table-light"><tr><th>#</th><th>Tempo</th><th>Texto na tela</th><th>Visual</th></tr></thead><tbody>';
+      cortes.forEach(function (c) {
+        html += '<tr><td>' + escapeHtml(c.corte) + '</td><td>' + escapeHtml(c.tempo) +
+          '</td><td>' + escapeHtml(c.texto_tela) + '</td><td>' + escapeHtml(c.visual) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    return html;
+  }
+
+  function renderHoje(campanha) {
+    var box = document.getElementById('mil-hoje-box');
+    var p = campanha.post_hoje || campanha.proximo_pendente;
+    if (!p) {
+      box.innerHTML = '<p class="small text-muted mb-0">Nenhum post pendente à frente.</p>';
+      return;
+    }
+    var label = campanha.post_hoje ? 'Post de hoje' : 'Próximo pendente';
+    var legendaPreview = p.legenda_reels
+      ? '<pre class="small bg-light border rounded p-2 mb-2" style="white-space:pre-wrap;max-height:5.5rem;overflow:auto;">' +
+        escapeHtml(p.legenda_reels) + '</pre>'
+      : '<p class="small text-warning mb-2">Sem roteiro cadastrado ainda.</p>';
+    box.innerHTML =
+      '<div class="small text-muted mb-1">' + label + '</div>' +
+      '<div class="fw-semibold mb-1">#' + p.numero + ' · ' + fmtDate(p.data_prevista) + ' · ' + escapeHtml(p.tipo) + '</div>' +
+      '<div class="small mb-2">' + escapeHtml(p.tema || '') + '</div>' +
+      legendaPreview +
+      '<div class="d-flex flex-wrap gap-1">' +
+      '<button type="button" class="btn btn-sm btn-outline-success" data-quick="aprovado" data-n="' + p.numero + '">Aprovar copy</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-primary" data-quick="telas" data-n="' + p.numero + '">Telas OK</button>' +
+      '<button type="button" class="btn btn-sm btn-outline-dark" data-quick="ambos" data-n="' + p.numero + '">Postado ambos</button>' +
+      '<button type="button" class="btn btn-sm btn-primary" data-open="' + p.numero + '">Abrir roteiro</button>' +
+      '</div>';
+  }
+
+  function renderProgresso(blocos) {
+    var el = document.getElementById('mil-progresso-blocos');
+    el.innerHTML = (blocos || []).map(function (b) {
+      return '<div class="col-6 col-md-3"><div class="border rounded p-2">' +
+        '<div class="fw-semibold">Bloco ' + b.bloco + '</div>' +
+        '<div>Copy OK: ' + b.copy_aprovado + '/' + b.total + '</div>' +
+        '<div>Publicados: ' + b.publicados_ambos + '/' + b.total + '</div>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  function renderPosts(posts) {
+    var tbody = document.getElementById('mil-posts-tbody');
+    if (!posts.length) {
+      tbody.innerHTML = '<tr><td colspan="11" class="text-muted text-center py-3">Nenhum post neste filtro.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = posts.map(function (p) {
+      return '<tr>' +
+        '<td>' + p.numero + '</td>' +
+        '<td>' + fmtDate(p.data_prevista) + '</td>' +
+        '<td>' + p.bloco + '</td>' +
+        '<td>' + escapeHtml(p.tipo) + '</td>' +
+        '<td class="small" style="max-width:220px">' + escapeHtml(p.tema || '') + '</td>' +
+        '<td>' + (p.tem_roteiro
+          ? '<span class="badge bg-info text-dark">OK</span>'
+          : '<span class="badge bg-light text-muted border">—</span>') + '</td>' +
+        '<td><span class="badge bg-' + badgeCopy(p.status_copy) + '">' + escapeHtml(p.status_copy) + '</span></td>' +
+        '<td>' + (p.telas_ok ? '✓' : '—') + '</td>' +
+        '<td class="small">' + escapeHtml(p.status_producao) + '</td>' +
+        '<td><span class="badge bg-' + badgePub(p.status_publicacao) + '">' + escapeHtml(p.status_publicacao) + '</span></td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-primary" data-open="' + p.numero + '">Abrir</button></td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  async function loadCampanha() {
+    var r = await window.authenticatedFetch(API + '/campanha');
+    if (!r.ok) {
+      var err = await r.json().catch(function () { return {}; });
+      throw new Error(err.detail || ('Erro ao carregar campanha (' + r.status + ')'));
+    }
+    return r.json();
+  }
+
+  async function loadPosts() {
+    var q = filtroBloco ? ('?bloco=' + encodeURIComponent(filtroBloco)) : '';
+    var r = await window.authenticatedFetch(API + '/posts' + q);
+    if (!r.ok) {
+      var err = await r.json().catch(function () { return {}; });
+      throw new Error(err.detail || ('Erro ao listar posts (' + r.status + ')'));
+    }
+    return r.json();
+  }
+
+  async function refresh() {
+    clearAlert();
+    var campanha = await loadCampanha();
+    document.getElementById('mil-titulo').textContent = campanha.titulo || 'Marketing Ibix — Lançamento';
+    document.getElementById('mil-campanha-titulo').textContent = campanha.titulo;
+    document.getElementById('mil-campanha-status').textContent = campanha.status;
+    document.getElementById('mil-campanha-periodo').textContent =
+      fmtDate(campanha.data_inicio) + ' → ' + fmtDate(campanha.data_fim);
+    document.getElementById('mil-campanha-canais').textContent = campanha.canais || '';
+    document.getElementById('mil-campanha-formato').textContent = campanha.formato || '—';
+    document.getElementById('mil-campanha-tom').textContent =
+      ((campanha.tom || '') + (campanha.linha_gancho ? ' · ' + campanha.linha_gancho : '')) || '—';
+    document.getElementById('mil-campanha-ancora').textContent = campanha.frase_ancora || '—';
+    document.getElementById('mil-campanha-editorial').textContent = campanha.linha_editorial
+      ? ('Linha editorial: ' + campanha.linha_editorial)
+      : '';
+    document.getElementById('mil-proximo-passo').value = campanha.proximo_passo || '';
+    document.getElementById('mil-guia-ritmo').innerHTML =
+      '<strong>Ritmo:</strong> ' + escapeHtml(campanha.ritmo_resumo || '—');
+    document.getElementById('mil-guia-reuso').innerHTML =
+      '<strong>Reuso:</strong> ' + escapeHtml(campanha.politica_reuso || '—');
+    renderHoje(campanha);
+    renderProgresso(campanha.progresso_blocos);
+    postsCache = await loadPosts();
+    renderPosts(postsCache);
+  }
+
+  function openPost(numero) {
+    var p = postsCache.find(function (x) { return x.numero === numero; });
+    if (!p) {
+      showAlert('Post #' + numero + ' não está na lista carregada. Recarregue a página.');
+      return;
+    }
+    document.getElementById('mil-edit-numero').value = String(p.numero);
+    document.getElementById('mil-modal-title').textContent = 'Post #' + p.numero + (p.tem_roteiro ? ' — roteiro' : '');
+    document.getElementById('mil-edit-meta').textContent =
+      fmtDate(p.data_prevista) + ' · Bloco ' + p.bloco + ' · ' + p.tipo + ' · ' + p.angulo;
+    document.getElementById('mil-edit-tema').textContent = p.tema || '';
+    document.getElementById('mil-edit-editorial').innerHTML = renderEditorialHtml(p);
+    document.getElementById('mil-edit-status-copy').value = p.status_copy;
+    document.getElementById('mil-edit-status-producao').value = p.status_producao;
+    document.getElementById('mil-edit-status-publicacao').value = p.status_publicacao;
+    document.getElementById('mil-edit-telas-ok').checked = !!p.telas_ok;
+    document.getElementById('mil-edit-reuso').value = p.reuso_origem_numero || '';
+    document.getElementById('mil-edit-copy-ref').value = p.copy_ref || '';
+    document.getElementById('mil-chk-texto').checked = !!p.chk_texto_curto;
+    document.getElementById('mil-chk-tela').checked = !!p.chk_tela_real;
+    document.getElementById('mil-chk-igfb').checked = !!p.chk_mesmo_ig_fb;
+    document.getElementById('mil-chk-ancora').checked = !!p.chk_frase_ancora;
+    document.getElementById('mil-chk-entrega').checked = !!p.chk_entrega_regra;
+    document.getElementById('mil-chk-stories').checked = !!p.chk_stories_mesmo_dia;
+    document.getElementById('mil-edit-notas').value = p.notas || '';
+    abrirModalMilPost();
+  }
+
+  async function savePost() {
+    var numero = parseInt(document.getElementById('mil-edit-numero').value, 10);
+    var reusoRaw = document.getElementById('mil-edit-reuso').value;
+    var body = {
+      status_copy: document.getElementById('mil-edit-status-copy').value,
+      status_producao: document.getElementById('mil-edit-status-producao').value,
+      status_publicacao: document.getElementById('mil-edit-status-publicacao').value,
+      telas_ok: document.getElementById('mil-edit-telas-ok').checked,
+      chk_texto_curto: document.getElementById('mil-chk-texto').checked,
+      chk_tela_real: document.getElementById('mil-chk-tela').checked,
+      chk_mesmo_ig_fb: document.getElementById('mil-chk-igfb').checked,
+      chk_frase_ancora: document.getElementById('mil-chk-ancora').checked,
+      chk_entrega_regra: document.getElementById('mil-chk-entrega').checked,
+      chk_stories_mesmo_dia: document.getElementById('mil-chk-stories').checked,
+      notas: document.getElementById('mil-edit-notas').value || null,
+      reuso_origem_numero: reusoRaw ? parseInt(reusoRaw, 10) : null
+    };
+    var r = await window.authenticatedFetch(API + '/posts/' + numero, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!r.ok) {
+      var err = await r.json().catch(function () { return {}; });
+      var detail = err.detail;
+      if (Array.isArray(detail)) detail = detail.map(function (e) { return e.msg; }).join('; ');
+      throw new Error(detail || ('Falha ao salvar post (' + r.status + ')'));
+    }
+    fecharModalMilPost();
+    await refresh();
+    showAlert('Post #' + numero + ' atualizado.', 'success');
+  }
+
+  document.getElementById('mil-btn-salvar-passo').addEventListener('click', async function () {
+    try {
+      clearAlert();
+      var passo = document.getElementById('mil-proximo-passo').value.trim();
+      if (!passo) {
+        showAlert('Próximo passo é obrigatório.');
+        return;
+      }
+      var r = await window.authenticatedFetch(API + '/campanha', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proximo_passo: passo })
+      });
+      if (!r.ok) {
+        var err = await r.json().catch(function () { return {}; });
+        throw new Error(err.detail || ('Falha ao salvar próximo passo (' + r.status + ')'));
+      }
+      await refresh();
+      showAlert('Próximo passo salvo.', 'success');
+    } catch (e) {
+      showAlert(e.message || String(e));
+    }
+  });
+
+  document.getElementById('mil-btn-salvar-post').addEventListener('click', async function () {
+    try {
+      clearAlert();
+      await savePost();
+    } catch (e) {
+      showAlert(e.message || String(e));
+    }
+  });
+
+  document.getElementById('mil-bloco-filters').addEventListener('click', async function (ev) {
+    var btn = ev.target.closest('[data-bloco]');
+    if (!btn) return;
+    filtroBloco = btn.getAttribute('data-bloco') || '';
+    Array.prototype.forEach.call(document.querySelectorAll('#mil-bloco-filters .btn'), function (b) {
+      b.classList.toggle('active', b === btn);
+    });
+    try {
+      postsCache = await loadPosts();
+      renderPosts(postsCache);
+    } catch (e) {
+      showAlert(e.message || String(e));
+    }
+  });
+
+  document.addEventListener('click', async function (ev) {
+    var openBtn = ev.target.closest('[data-open]');
+    if (openBtn) {
+      openPost(parseInt(openBtn.getAttribute('data-open'), 10));
+      return;
+    }
+    var quick = ev.target.closest('[data-quick]');
+    if (!quick) return;
+    var n = parseInt(quick.getAttribute('data-n'), 10);
+    var action = quick.getAttribute('data-quick');
+    var body = {};
+    if (action === 'aprovado') body.status_copy = 'aprovado';
+    if (action === 'telas') body.telas_ok = true;
+    if (action === 'ambos') body.status_publicacao = 'ambos';
+    try {
+      clearAlert();
+      var r = await window.authenticatedFetch(API + '/posts/' + n, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        var err = await r.json().catch(function () { return {}; });
+        throw new Error(err.detail || ('Falha no atalho (' + r.status + ')'));
+      }
+      await refresh();
+      showAlert('Post #' + n + ' atualizado.', 'success');
+    } catch (e) {
+      showAlert(e.message || String(e));
+    }
+  });
+
+  refresh().catch(function (e) {
+    showAlert(e.message || String(e));
+  });
+})();
+</script>
+{% endblock %}
