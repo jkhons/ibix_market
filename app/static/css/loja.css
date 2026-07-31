@@ -299,7 +299,7 @@ main.loja-main .btn-outline-primary:hover {
 .loja-section-block {
   background: var(--loja-surface);
   border-radius: 14px;
-  border: 1px solid var(--loja-border);
+  border: none;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
   padding: 1.5rem 0;
   margin: 2rem 0;
@@ -592,7 +592,7 @@ main.loja-main .btn-outline-primary:hover {
   padding: 6px 10px 8px;
   background: var(--loja-surface);
   border-radius: 10px;
-  border: 1px solid var(--loja-border);
+  border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   width: 100%;
   max-width: 100%;
@@ -813,7 +813,7 @@ main.loja-main .btn-outline-primary:hover {
 }
 .loja-hero-inner {
   background: linear-gradient(135deg, rgba(44, 62, 80, 0.10), rgba(52, 73, 94, 0.05));
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: none;
   border-radius: 12px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
   overflow: hidden;
@@ -1366,7 +1366,7 @@ main.loja-main .btn-outline-primary:hover {
 }
 .loja-loja-card {
   background: var(--loja-surface);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: none;
   border-radius: 12px;
   padding: 18px;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.04);
@@ -1423,7 +1423,7 @@ main.loja-main .btn-outline-primary:hover {
 /* Marketplace how V2: foco comercial com card principal + entrada suave */
 .loja-marketplace-how {
   background: linear-gradient(180deg, rgba(254, 247, 241, 0.9) 0%, rgba(255, 255, 255, 0.92) 100%);
-  border-color: rgba(47, 58, 68, 0.12);
+  border: none;
 }
 .loja-marketplace-how .loja-marketplace-how-head {
   justify-content: center;
@@ -1444,9 +1444,9 @@ main.loja-main .btn-outline-primary:hover {
 }
 .loja-marketplace-how-card {
   padding: 1.3rem;
-  border-color: rgba(47, 58, 68, 0.12);
+  border: none;
   box-shadow: 0 10px 24px rgba(47, 58, 68, 0.08);
-  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
   opacity: 0;
   transform: translateY(20px);
   animation: fadeUp 0.46s cubic-bezier(0.22, 1, 0.36, 1) forwards;
@@ -1458,7 +1458,6 @@ main.loja-main .btn-outline-primary:hover {
 .loja-marketplace-how-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 16px 30px rgba(47, 58, 68, 0.14);
-  border-color: rgba(92, 110, 74, 0.32);
 }
 .loja-marketplace-how-icon {
   width: 44px;
@@ -1485,7 +1484,7 @@ main.loja-main .btn-outline-primary:hover {
   color: rgba(47, 58, 68, 0.74);
 }
 .loja-marketplace-how-card--featured {
-  border: 2px solid rgba(92, 110, 74, 0.38);
+  border: none;
   background: linear-gradient(180deg, rgba(92, 110, 74, 0.08) 0%, rgba(255, 255, 255, 0.96) 100%);
   box-shadow: 0 16px 32px rgba(92, 110, 74, 0.12);
 }
@@ -1502,7 +1501,7 @@ main.loja-main .btn-outline-primary:hover {
   color: var(--ibix-text-strong);
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(47, 58, 68, 0.10);
+  border: none;
   box-shadow: 0 14px 34px rgba(47, 58, 68, 0.08);
 }
 .vitrine-hero::after {
@@ -1691,7 +1690,7 @@ main.loja-main .btn-outline-primary:hover {
 
 /* ---- Cards: peso comercial, respiro, preço em destaque ---- */
 .loja-card {
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: none;
   border-radius: 12px;
   overflow: hidden;
   background: var(--loja-surface);
@@ -1704,6 +1703,26 @@ main.loja-main .btn-outline-primary:hover {
 .loja-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+/* Vitrine: sem linha de contorno em cards e blocos de seção */
+.loja-page .loja-card,
+.loja-page .produto-card,
+.loja-page .loja-card--featured,
+.loja-page .produto-card--destaque,
+.loja-page .produto-card--destaque-xl,
+.loja-page .loja-section-block,
+.loja-page .secao-vitrine,
+.loja-page .loja-card-listagem,
+.loja-page .loja-loja-card,
+.loja-page .vitrine-hero,
+.loja-page .loja-hero-inner,
+.loja-page .loja-categorias-strip,
+.loja-page .loja-marketplace-how,
+.loja-page .loja-marketplace-how-card,
+.loja-page .loja-marketplace-how-card--featured {
+  border: none !important;
+  outline: none;
 }
 .loja-card-link {
   text-decoration: none;
@@ -1905,7 +1924,7 @@ main.loja-main .btn-outline-primary:hover {
 
 /* Card em destaque no grid (ritmo a cada N itens) */
 .loja-card--featured {
-  border-color: rgba(15, 45, 74, 0.28);
+  border: none;
   box-shadow: 0 10px 28px rgba(15, 75, 140, 0.14);
 }
 .loja-card--featured:hover {
@@ -3327,7 +3346,7 @@ body.loja-produto-zoom-open {
   max-width: 100%;
   box-sizing: border-box;
   background: var(--loja-surface);
-  border: 1px solid var(--loja-border);
+  border: none;
   border-radius: 12px;
   box-shadow: var(--loja-shadow-block);
   overflow: hidden;
@@ -3339,7 +3358,7 @@ body.loja-produto-zoom-open {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--loja-border);
+  border-bottom: none;
   background: rgba(44, 62, 80, 0.04);
 }
 .loja-card-listagem-title {
@@ -4469,7 +4488,7 @@ body.loja-produto-zoom-open {
   font-weight: 800;
   border-radius: 14px;
   margin-bottom: 16px;
-  border: 1px solid rgba(196, 122, 68, 0.30);
+  border: none;
   box-shadow: 0 10px 24px rgba(47, 58, 68, 0.08);
 }
 .barra-urgencia strong {
@@ -4485,7 +4504,7 @@ body.loja-produto-zoom-open {
 }
 .secao-vitrine--hero-card {
   background: linear-gradient(180deg, #fffaf1 0%, #fff 100%);
-  border: 1px solid rgba(255, 152, 0, 0.2);
+  border: none;
 }
 /* V4 ajuste: reduzir "Produto em evidência" em ~50% (bloco + tipografia) */
 #loja-produto-heroi.secao-vitrine--hero-card {
@@ -4509,11 +4528,11 @@ body.loja-produto-zoom-open {
 }
 .secao-vitrine--oferta-relampago {
   background: linear-gradient(180deg, #fff3f0 0%, #fff 100%);
-  border: 1px solid rgba(255, 87, 34, 0.2);
+  border: none;
 }
 .secao-vitrine--prova-social {
   background: linear-gradient(180deg, #f2f8ff 0%, #fff 100%);
-  border: 1px solid rgba(23, 52, 80, 0.12);
+  border: none;
 }
 
 .produto-card:hover {
@@ -4521,7 +4540,7 @@ body.loja-produto-zoom-open {
 }
 .produto-card--destaque {
   transform: scale(1.05);
-  border: 2px solid #ff9800;
+  border: none;
   box-shadow: 0 16px 40px rgba(255, 152, 0, 0.25);
 }
 .card-destaque,
@@ -4577,7 +4596,7 @@ body.loja-produto-zoom-open {
     padding: 8px;
     border-radius: 10px 10px 0 0;
     background: #fff;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.03);
+    box-shadow: none;
   }
 
   #loja-ofertas .produto-card .loja-card-img-wrap::after,
@@ -4784,7 +4803,7 @@ body.loja-produto-zoom-open {
 }
 #loja-produto-heroi-grid .produto-card--destaque-xl {
   transform: none;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: none;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
 }
 #loja-produto-heroi-grid .produto-preco-valor {
