@@ -44,6 +44,15 @@ body:has(.loja-header.loja-header--compact) {
 /* âncoras (#loja-todos-produtos, #loja-ofertas) alinhadas ao header sticky + notch */
 html:has(body.loja-page) {
   scroll-padding-top: calc(5.25rem + env(safe-area-inset-top, 0px));
+  /* dashboard.css força height:100% em html/body — na vitrine isso + flex esmaga o rodapé */
+  height: auto;
+  min-height: 100%;
+}
+body.loja-page {
+  height: auto !important;
+  min-height: 100vh;
+  overflow-x: clip;
+  overflow-y: auto;
 }
 @supports not selector(:has(*)) {
   body.loja-page {
@@ -156,9 +165,12 @@ main.loja-main .btn-outline-primary:hover {
 }
 
 /* ---- Footer: mesmo wash do cabeçalho ---- */
+/* Não usar overflow:hidden no footer flex: com body height:100% (dashboard.css)
+   o flex-shrink esmaga o rodapé e corta mascote/links/Seguro — só a wash interna clipe. */
 .cp-footer.loja-footer {
   position: relative;
-  overflow: hidden;
+  flex-shrink: 0;
+  overflow: visible;
   border-top: none;
   box-shadow: none;
   background:
@@ -3256,11 +3268,6 @@ body.loja-produto-zoom-open {
   margin-bottom: 0.1rem;
   min-height: 0;
 }
-#loja-produto-semelhantes .loja-produto-semelhante-item .produto-btn-detalhes {
-  margin-top: 0.25rem;
-  font-size: 0.65rem;
-  padding: 0.22rem 0.45rem;
-}
 @media (min-width: 768px) {
   .loja-produto-semelhante-item {
     flex: 0 0 180px;
@@ -4702,33 +4709,6 @@ body.loja-produto-zoom-open {
   100% { transform: scale(1); }
 }
 
-.produto-btn-detalhes {
-  margin-top: 0.35rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #ff9800, #ff5722);
-  color: #fff;
-  font-weight: 900;
-  border-radius: 8px;
-  padding: 0.32rem 0.55rem;
-  font-size: 0.72rem;
-  line-height: 1.1;
-}
-.produto-btn-detalhes:hover {
-  background: linear-gradient(135deg, #ffad2e, #ff7043);
-  color: #fff;
-}
-.produto-btn-detalhes--icon {
-  min-width: 38px;
-  width: 38px;
-  padding: 0;
-  justify-content: center;
-}
-.produto-btn-detalhes--icon .feather {
-  width: 14px;
-  height: 14px;
-}
 .produto-tags-wrap {
   display: flex;
   gap: 0.35rem;
@@ -4808,10 +4788,6 @@ body.loja-produto-zoom-open {
 }
 #loja-produto-heroi-grid .produto-preco-valor {
   font-size: 1.05rem;
-}
-#loja-produto-heroi-grid .produto-btn-detalhes {
-  font-size: 0.72rem;
-  padding: 0.32rem 0.55rem;
 }
 
 /* Seção Destaques: alinhar preço e carrinho na mesma linha-base */
@@ -5072,18 +5048,6 @@ body.loja-produto-zoom-open {
     min-height: 14px;
     display: block;
   }
-  .produto-btn-detalhes {
-    min-width: 0;
-    width: 100%;
-    min-height: 38px;
-    height: 38px;
-    padding: 0 8px;
-    font-size: 0.74rem;
-    border-radius: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
   .loja-card-cart-btn {
     width: 40px;
     height: 40px;
@@ -5176,10 +5140,6 @@ body.loja-produto-zoom-open {
   }
   #loja-produto-heroi .loja-section-subtitle {
     font-size: 0.75rem;
-  }
-  #loja-produto-heroi-grid .produto-btn-detalhes {
-    font-size: 0.62rem;
-    padding: 0.22rem 0.4rem;
   }
 }
 

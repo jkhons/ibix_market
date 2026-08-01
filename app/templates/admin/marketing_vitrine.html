@@ -10,9 +10,9 @@
     </div>
     <div class="alert alert-secondary border py-2 px-3 small mb-3" role="status">
       <strong>Regra do sistema (documentada em MAPA_SISTEMA — MAPA_DE_API § 19 e MAPA_DO_SISTEMA § 12):</strong>
-      todos os cards da vitrine pública (<strong>Destaques</strong>, <strong>Ofertas da semana</strong> e <strong>cabeçalho</strong> da seção ofertas) são <strong>configurados e parametrizados apenas aqui</strong>, pelo <strong>Superadministrador</strong>, e gravados nas tabelas <code>marketing_vitrine_cards</code> e <code>marketing_vitrine_config</code>. Não existe cadastro paralelo em outra rota.
+      todos os cards da vitrine pública (<strong>Destaques</strong>, <strong>Ofertas da semana</strong>, <strong>Oferta em destaque agora</strong> e <strong>cabeçalho</strong> das seções de ofertas) são <strong>configurados e parametrizados apenas aqui</strong>, pelo <strong>Superadministrador</strong>, e gravados nas tabelas <code>marketing_vitrine_cards</code> e <code>marketing_vitrine_config</code>. Não existe cadastro paralelo em outra rota.
     </div>
-    <p class="text-muted small mb-2"><strong>Parametrização dos cards da vitrine:</strong> a home pública (<code>/loja</code>) monta a faixa «Destaques» e a grade «Ofertas da semana» a partir dos registros abaixo e da <strong>Configuração global</strong> — não há lista fixa de cards no código; tudo vem do banco via API. Use <strong>Cards da vitrine</strong> para cada item (livre, anúncio vinculado ou cabeçalho de ofertas). O tipo <strong>Cabeçalho da seção Ofertas</strong> define título, limite, tenants (CAs), embaralhar e só com desconto; se não houver cards de produto na seção ofertas, a home pode preencher automaticamente com anúncios promocionais usando essas regras. <strong>Configuração global</strong>: liga/desliga módulo, seções (hero, em alta, lojas) e textos. Anúncios em cards: <strong>publicados</strong>, loja <strong>ativa</strong>, imagem válida. Cards precisam estar <strong>Ativos</strong> e, se usarem vigência, dentro da janela de datas. Apenas Superadministrador.</p>
+    <p class="text-muted small mb-2"><strong>Parametrização dos cards da vitrine:</strong> a home pública (<code>/loja</code>) monta a faixa «Destaques», a grade «Ofertas da semana» (Oferta relâmpago) e «Oferta em destaque agora» a partir dos registros abaixo e da <strong>Configuração global</strong> — não há lista fixa de cards no código; tudo vem do banco via API. Use <strong>Cards da vitrine</strong> para cada item (livre, anúncio vinculado ou cabeçalho). O tipo <strong>Cabeçalho</strong> (blocos «Oferta da semana» ou «Oferta em destaque agora») define título, limite, tenants (CAs), embaralhar e só com desconto; se não houver cards de produto na seção, a home pode preencher automaticamente com anúncios promocionais usando essas regras. <strong>Configuração global</strong>: liga/desliga módulo, seções (hero, em alta, lojas) e textos. Anúncios em cards: <strong>publicados</strong>, loja <strong>ativa</strong>, imagem válida. Cards precisam estar <strong>Ativos</strong> e, se usarem vigência, dentro da janela de datas. Apenas Superadministrador.</p>
     <p class="small mb-3">
       <a href="#secao-mv-cards" class="text-decoration-none">↓ Cards da vitrine</a>
       <span class="text-muted mx-1">·</span>
@@ -27,7 +27,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2 bg-light">
                     <div>
                         <h6 class="card-title mb-0">Cards da vitrine</h6>
-                        <p class="small text-muted mb-0 mt-1">Tabela + formulário «Novo card» / editar. Bloco <em>Destaque</em> = faixa na home (layout e setas em <strong>Configuração global</strong>); <em>Oferta da semana</em> = coluna «Ofertas da semana».</p>
+                        <p class="small text-muted mb-0 mt-1">Tabela + formulário «Novo card» / editar. Bloco <em>Destaque</em> = faixa na home; <em>Oferta da semana</em> = coluna «Oferta relâmpago»; <em>Oferta em destaque agora</em> = grade hero de produtos (mesmo padrão de cards/cabeçalho).</p>
                     </div>
                     <button type="button" class="btn btn-sm btn-primary" id="btn-novo-card">Novo card</button>
                 </div>
@@ -132,18 +132,19 @@
             <label class="form-label">Bloco</label>
             <select class="form-select" id="mv-card-tipo-bloco" required>
               <option value="destaque">Destaque (faixa horizontal «Destaques»)</option>
-              <option value="oferta_semana">Oferta da semana (seção «Ofertas da semana»)</option>
+              <option value="oferta_semana">Oferta da semana (seção «Oferta relâmpago»)</option>
+              <option value="destaque_agora">Oferta em destaque agora (grade hero)</option>
             </select>
-            <div class="form-text">Só aparece na home se o bloco corresponder: destaques ≠ ofertas.</div>
+            <div class="form-text">Só aparece na home se o bloco corresponder: destaques ≠ ofertas ≠ destaque agora.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Tipo de card</label>
             <select class="form-select" id="mv-card-tipo-card" required>
               <option value="livre">Livre (imagem + link)</option>
               <option value="anuncio">Anúncio (vínculo)</option>
-              <option value="cabecalho_ofertas">Cabeçalho da seção Ofertas (título, subtítulo, limite)</option>
+              <option value="cabecalho_ofertas">Cabeçalho da seção (título, subtítulo, limite)</option>
             </select>
-            <div class="form-text" id="mv-cabecalho-only-hint" style="display:none;">Tipo «Cabeçalho» só no bloco «Oferta da semana».</div>
+            <div class="form-text" id="mv-cabecalho-only-hint" style="display:none;">Tipo «Cabeçalho» só nos blocos «Oferta da semana» ou «Oferta em destaque agora».</div>
           </div>
           <div class="col-12 mv-cabecalho-ofertas-fields" style="display: none;">
             <label class="form-label" for="mv-card-desc-cab">Subtítulo da seção</label>
@@ -512,9 +513,10 @@
     var sel = document.getElementById('mv-card-tipo-card');
     var optCab = sel && sel.querySelector ? sel.querySelector('option[value="cabecalho_ofertas"]') : null;
     var hint = document.getElementById('mv-cabecalho-only-hint');
-    if (optCab) optCab.disabled = bloco !== 'oferta_semana';
-    if (hint) hint.style.display = (bloco !== 'oferta_semana') ? '' : 'none';
-    if (bloco !== 'oferta_semana' && sel && sel.value === 'cabecalho_ofertas') {
+    var cabOk = bloco === 'oferta_semana' || bloco === 'destaque_agora';
+    if (optCab) optCab.disabled = !cabOk;
+    if (hint) hint.style.display = cabOk ? 'none' : '';
+    if (!cabOk && sel && sel.value === 'cabecalho_ofertas') {
       sel.value = 'livre';
     }
   }
@@ -774,8 +776,8 @@
     var id = document.getElementById('mv-card-id').value.trim();
     var tipoCard = document.getElementById('mv-card-tipo-card').value;
     var tipoBloco = document.getElementById('mv-card-tipo-bloco').value;
-    if (tipoCard === 'cabecalho_ofertas' && tipoBloco !== 'oferta_semana') {
-      showAlert('Cabeçalho «Ofertas da semana» só pode ser usado no bloco «Oferta da semana».', false);
+    if (tipoCard === 'cabecalho_ofertas' && tipoBloco !== 'oferta_semana' && tipoBloco !== 'destaque_agora') {
+      showAlert('Cabeçalho só pode ser usado nos blocos «Oferta da semana» ou «Oferta em destaque agora».', false);
       return;
     }
     var body = {

@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.schemas.marketplace import AnuncioVitrineResponse
 
-TipoBloco = Literal["destaque", "oferta_semana"]
+TipoBloco = Literal["destaque", "oferta_semana", "destaque_agora"]
 TipoCard = Literal["livre", "anuncio", "cabecalho_ofertas"]
 
 
@@ -132,8 +132,10 @@ class MarketingVitrineCardCreate(MarketingVitrineCardBase):
                 raise ValueError("somente_com_desconto não se aplica a tipo_card=anuncio")
             return self.model_copy(update={"anuncio_id": aid or (ids[0] if ids else None), "anuncio_ids": ids})
         elif self.tipo_card == "cabecalho_ofertas":
-            if self.tipo_bloco != "oferta_semana":
-                raise ValueError("cabecalho_ofertas exige tipo_bloco=oferta_semana")
+            if self.tipo_bloco not in ("oferta_semana", "destaque_agora"):
+                raise ValueError(
+                    "cabecalho_ofertas exige tipo_bloco=oferta_semana ou destaque_agora"
+                )
             if self.imagem_url and str(self.imagem_url).strip():
                 raise ValueError("imagem_url não se usa em cabecalho_ofertas")
             if self.link_url and str(self.link_url).strip():
@@ -234,6 +236,13 @@ class MarketingVitrinePublicConfig(BaseModel):
     ofertas_cliente_ids: Optional[List[int]] = None
     ofertas_embaralhar: bool = False
     ofertas_somente_desconto: bool = True
+    # Seção «Oferta em destaque agora» (mesmo padrão de Oferta Relâmpago / cabecalho_ofertas).
+    titulo_destaque_agora: Optional[str] = None
+    subtitulo_destaque_agora: Optional[str] = None
+    limite_destaque_agora: int = Field(8, ge=1, le=8)
+    destaque_agora_cliente_ids: Optional[List[int]] = None
+    destaque_agora_embaralhar: bool = False
+    destaque_agora_somente_desconto: bool = True
     mostrar_hero_carrossel: bool = True
     mostrar_secao_em_alta: bool = True
     mostrar_secao_lojas_destaque: bool = True
@@ -247,4 +256,5 @@ class MarketingVitrinePublicPayload(BaseModel):
     config: MarketingVitrinePublicConfig
     destaques: List[Dict[str, Any]]
     ofertas_semana: List[Dict[str, Any]]
+    destaque_agora: List[Dict[str, Any]] = []
     generated_at: str  # ISO 8601 (mesmo formato JSON da API pública)

@@ -1,4 +1,4 @@
-# PDV Ibix — Cards de marketing da vitrine (destaques / oferta_semana)
+# PDV Ibix — Cards de marketing da vitrine (destaque / oferta_semana / destaque_agora)
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship

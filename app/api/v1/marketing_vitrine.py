@@ -179,7 +179,9 @@ def patch_config_admin(
 
 @router.get("/cards", response_model=List[MarketingVitrineCardAdminResponse])
 def list_cards_admin(
-    tipo_bloco: Optional[str] = Query(None, description="destaque | oferta_semana"),
+    tipo_bloco: Optional[str] = Query(
+        None, description="destaque | oferta_semana | destaque_agora"
+    ),
     db: Session = Depends(get_db),
     _: Usuario = Depends(require_superadmin()),
 ):

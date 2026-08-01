@@ -47,7 +47,6 @@
         <div class="loja-card-price-block">
           {% if tem_promo %}<span class="loja-card-price-old">R$ {{ '%.2f'|format(po)|replace('.', ',') }}</span>{% endif %}
           <span class="loja-card-price">R$ {{ '%.2f'|format(preco_efetivo)|replace('.', ',') }}</span>
-          {% if tem_promo %}<span class="produto-btn-detalhes" aria-hidden="true">Ver oferta</span>{% endif %}
         </div>
         {% if loja_id and a.id %}
         <button type="button" class="loja-card-cart-btn" data-action="add-cart-card" data-anuncio-id="{{ a.id }}" data-loja-id="{{ loja_id }}" data-titulo="{{ (a.titulo or '')|e }}" data-imagem-url="{{ img_cart|e }}" data-preco="{{ preco_efetivo }}" data-slug-loja="{{ (a.slug_loja or '')|e }}" data-nome-loja="{{ (a.nome_loja or '')|e }}" aria-label="Adicionar ao carrinho">

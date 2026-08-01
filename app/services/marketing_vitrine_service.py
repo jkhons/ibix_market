@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 MAX_DESTAQUES = 8
 MAX_OFERTAS_SEMANA = 8
+MAX_DESTAQUE_AGORA = 8
 
 CONFIG_ID = 1
 
@@ -34,6 +35,13 @@ def marketing_vitrine_template_fallback() -> Dict[str, Any]:
         "ofertas_semana": [],
         "titulo_ofertas_semana": None,
         "subtitulo_ofertas_semana": None,
+        "limite_destaque_agora": 8,
+        "destaque_agora_cliente_ids": None,
+        "destaque_agora_embaralhar": False,
+        "destaque_agora_somente_desconto": True,
+        "destaque_agora": [],
+        "titulo_destaque_agora": None,
+        "subtitulo_destaque_agora": None,
         "titulo_faixa_destaques": None,
         "destaque_layout": "carrossel",
         "destaque_mostrar_setas": True,
@@ -67,6 +75,8 @@ def vitrine_index_template_context(db: Session) -> Dict[str, Any]:
         "mostrar_secao_lojas_destaque": bool(c.get("mostrar_secao_lojas_destaque", True)),
         "titulo_ofertas_semana": c.get("titulo_ofertas_semana"),
         "subtitulo_ofertas_semana": c.get("subtitulo_ofertas_semana"),
+        "titulo_destaque_agora": c.get("titulo_destaque_agora"),
+        "subtitulo_destaque_agora": c.get("subtitulo_destaque_agora"),
         "titulo_faixa_destaques": c.get("titulo_faixa_destaques"),
         "destaque_layout": c.get("destaque_layout") or "carrossel",
         "destaque_mostrar_setas": bool(c.get("destaque_mostrar_setas", True)),
@@ -81,6 +91,11 @@ def vitrine_index_template_context(db: Session) -> Dict[str, Any]:
         "ofertas_embaralhar": bool(c.get("ofertas_embaralhar", False)),
         "ofertas_somente_desconto": bool(c.get("ofertas_somente_desconto", True)),
         "ofertas_semana": payload.get("ofertas_semana") or [],
+        "limite_destaque_agora": int(c.get("limite_destaque_agora", MAX_DESTAQUE_AGORA)),
+        "destaque_agora_cliente_ids": c.get("destaque_agora_cliente_ids"),
+        "destaque_agora_embaralhar": bool(c.get("destaque_agora_embaralhar", False)),
+        "destaque_agora_somente_desconto": bool(c.get("destaque_agora_somente_desconto", True)),
+        "destaque_agora": payload.get("destaque_agora") or [],
     }
 
 
@@ -106,12 +121,15 @@ def config_para_payload_publico(
     cfg: MarketingVitrineConfig,
     cabecalho_visivel: Optional[MarketingVitrineCard] = None,
     filtros_ofertas: Optional[Dict[str, Any]] = None,
+    cabecalho_destaque_agora: Optional[MarketingVitrineCard] = None,
+    filtros_destaque_agora: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Campos de config expostos na API pública.
 
-    - Textos (título/subtítulo): só do cabeçalho «visível» (ativo + janela de datas); senão legado na config singleton.
-    - Filtros (CAs, embaralhar, só desconto, limite): vêm de ``filtros_ofertas`` (merge de todos os cabeçalhos
-      no bloco oferta_semana — ver ``_merge_filtros_cabecalhos_oferta_semana``).
+    - Textos (título/subtítulo) de Ofertas: só do cabeçalho «visível» (ativo + janela de datas);
+      senão legado na config singleton.
+    - Filtros de Ofertas (CAs, embaralhar, só desconto, limite): ``filtros_ofertas``.
+    - Seção «Oferta em destaque agora»: mesmos campos via cabeçalho/filtros do bloco ``destaque_agora``.
     """
     limite_ofertas = getattr(cfg, "limite_ofertas_semana", MAX_OFERTAS_SEMANA) or MAX_OFERTAS_SEMANA
     titulo_os = cfg.titulo_ofertas_semana
@@ -133,6 +151,28 @@ def config_para_payload_publico(
         embaralhar = bool(ev) if ev is not None else False
         sv = filtros_ofertas.get("somente_com_desconto")
         somente_desc = bool(sv) if sv is not None else True
+
+    limite_da = MAX_DESTAQUE_AGORA
+    titulo_da: Optional[str] = None
+    subtitulo_da: Optional[str] = None
+    cli_ids_da: Optional[List[int]] = None
+    embaralhar_da = False
+    somente_desc_da = True
+
+    if cabecalho_destaque_agora is not None:
+        titulo_da = cabecalho_destaque_agora.titulo
+        subtitulo_da = cabecalho_destaque_agora.descricao
+
+    if filtros_destaque_agora is not None:
+        cli_ids_da = filtros_destaque_agora.get("cliente_ids")
+        le_da = filtros_destaque_agora.get("limite_exibicao")
+        if le_da is not None and 1 <= int(le_da) <= 8:
+            limite_da = int(le_da)
+        ev_da = filtros_destaque_agora.get("embaralhar_produtos")
+        embaralhar_da = bool(ev_da) if ev_da is not None else False
+        sv_da = filtros_destaque_agora.get("somente_com_desconto")
+        somente_desc_da = bool(sv_da) if sv_da is not None else True
+
     return {
         "mostrar_todos_produtos": bool(cfg.mostrar_todos_produtos),
         "titulo_ofertas_semana": titulo_os,
@@ -142,6 +182,12 @@ def config_para_payload_publico(
         "ofertas_cliente_ids": cli_ids,
         "ofertas_embaralhar": embaralhar,
         "ofertas_somente_desconto": somente_desc,
+        "titulo_destaque_agora": titulo_da,
+        "subtitulo_destaque_agora": subtitulo_da,
+        "limite_destaque_agora": int(limite_da),
+        "destaque_agora_cliente_ids": cli_ids_da,
+        "destaque_agora_embaralhar": embaralhar_da,
+        "destaque_agora_somente_desconto": somente_desc_da,
         "mostrar_hero_carrossel": bool(cfg.mostrar_hero_carrossel),
         "mostrar_secao_em_alta": bool(cfg.mostrar_secao_em_alta),
         "mostrar_secao_lojas_destaque": bool(cfg.mostrar_secao_lojas_destaque),
@@ -321,8 +367,8 @@ def _card_visivel_agora(card: MarketingVitrineCard, now: datetime) -> bool:
     return True
 
 
-def _merge_filtros_cabecalhos_oferta_semana(db: Session) -> Optional[Dict[str, Any]]:
-    """Une `cliente_ids` dos cards cabecalho_ofertas **ativos** do bloco oferta_semana.
+def _merge_filtros_cabecalhos(db: Session, tipo_bloco: str) -> Optional[Dict[str, Any]]:
+    """Une `cliente_ids` dos cards cabecalho_ofertas **ativos** do bloco informado.
 
     Só entram cards com ``ativo=True``; desativar o card no admin remove tenants/limite/flags
     da config pública (antes o merge ignorava ``ativo`` e a vitrine continuava com os parâmetros).
@@ -333,7 +379,7 @@ def _merge_filtros_cabecalhos_oferta_semana(db: Session) -> Optional[Dict[str, A
     cards = (
         db.query(MarketingVitrineCard)
         .filter(
-            MarketingVitrineCard.tipo_bloco == "oferta_semana",
+            MarketingVitrineCard.tipo_bloco == tipo_bloco,
             MarketingVitrineCard.tipo_card == "cabecalho_ofertas",
             MarketingVitrineCard.ativo.is_(True),
         )
@@ -384,12 +430,19 @@ def _merge_filtros_cabecalhos_oferta_semana(db: Session) -> Optional[Dict[str, A
     }
 
 
-def _primeiro_cabecalho_ofertas_visivel(db: Session, now: datetime) -> Optional[MarketingVitrineCard]:
-    """Primeiro card «cabeçalho» do bloco oferta_semana (ordem crescente) visível agora. Textos da seção."""
+def _merge_filtros_cabecalhos_oferta_semana(db: Session) -> Optional[Dict[str, Any]]:
+    """Compat: merge de cabeçalhos do bloco oferta_semana."""
+    return _merge_filtros_cabecalhos(db, "oferta_semana")
+
+
+def _primeiro_cabecalho_visivel(
+    db: Session, now: datetime, tipo_bloco: str
+) -> Optional[MarketingVitrineCard]:
+    """Primeiro card «cabeçalho» do bloco (ordem crescente) visível agora. Textos da seção."""
     q = (
         db.query(MarketingVitrineCard)
         .filter(
-            MarketingVitrineCard.tipo_bloco == "oferta_semana",
+            MarketingVitrineCard.tipo_bloco == tipo_bloco,
             MarketingVitrineCard.tipo_card == "cabecalho_ofertas",
         )
         .order_by(MarketingVitrineCard.ordem.asc(), MarketingVitrineCard.id.asc())
@@ -398,6 +451,75 @@ def _primeiro_cabecalho_ofertas_visivel(db: Session, now: datetime) -> Optional[
         if _card_visivel_agora(card, now):
             return card
     return None
+
+
+def _primeiro_cabecalho_ofertas_visivel(db: Session, now: datetime) -> Optional[MarketingVitrineCard]:
+    """Compat: primeiro cabeçalho visível do bloco oferta_semana."""
+    return _primeiro_cabecalho_visivel(db, now, "oferta_semana")
+
+
+def _coletar_itens_bloco_produto(
+    db: Session,
+    *,
+    tipo_bloco: str,
+    now: datetime,
+    limite: int,
+    somente_promo: bool,
+) -> List[Dict[str, Any]]:
+    """Monta itens públicos (livre/anúncio) de um bloco de produtos, respeitando limite e vigência."""
+    q = (
+        db.query(MarketingVitrineCard)
+        .filter(MarketingVitrineCard.tipo_bloco == tipo_bloco)
+        .order_by(MarketingVitrineCard.ordem.asc(), MarketingVitrineCard.id.desc())
+    )
+    items: List[Dict[str, Any]] = []
+    for card in q.all():
+        if card.tipo_card == "cabecalho_ofertas":
+            continue
+        if not _card_visivel_agora(card, now):
+            continue
+        if card.tipo_card == "anuncio":
+            ids = _anuncio_ids_do_card(card)
+            if ids:
+                for aid in ids:
+                    shadow = MarketingVitrineCard(
+                        tipo_bloco=card.tipo_bloco,
+                        tipo_card="anuncio",
+                        anuncio_id=aid,
+                        ativo=card.ativo,
+                        inicio_em=card.inicio_em,
+                        fim_em=card.fim_em,
+                    )
+                    item = _card_para_item_publico(
+                        shadow,
+                        db,
+                        aplicar_somente_promocao=somente_promo,
+                    )
+                    if item:
+                        items.append(item)
+                    if len(items) >= limite:
+                        break
+            else:
+                item = _card_para_item_publico(
+                    card,
+                    db,
+                    aplicar_somente_promocao=somente_promo,
+                )
+                if item:
+                    items.append(item)
+            if len(items) >= limite:
+                break
+        else:
+            item = _card_para_item_publico(
+                card,
+                db,
+                aplicar_somente_promocao=somente_promo,
+            )
+            if item:
+                items.append(item)
+            if len(items) >= limite:
+                break
+    return items
 
 
 def _anuncio_tem_preco_promocional_valido(anuncio: AnuncioPlataforma) -> bool:
@@ -487,6 +609,12 @@ def _empty_public_payload(now: datetime) -> Dict[str, Any]:
         "ofertas_cliente_ids": fb["ofertas_cliente_ids"],
         "ofertas_embaralhar": fb["ofertas_embaralhar"],
         "ofertas_somente_desconto": fb["ofertas_somente_desconto"],
+        "titulo_destaque_agora": fb["titulo_destaque_agora"],
+        "subtitulo_destaque_agora": fb["subtitulo_destaque_agora"],
+        "limite_destaque_agora": fb["limite_destaque_agora"],
+        "destaque_agora_cliente_ids": fb["destaque_agora_cliente_ids"],
+        "destaque_agora_embaralhar": fb["destaque_agora_embaralhar"],
+        "destaque_agora_somente_desconto": fb["destaque_agora_somente_desconto"],
         "mostrar_hero_carrossel": fb["mostrar_hero_carrossel"],
         "mostrar_secao_em_alta": fb["mostrar_secao_em_alta"],
         "mostrar_secao_lojas_destaque": fb["mostrar_secao_lojas_destaque"],
@@ -502,6 +630,7 @@ def _empty_public_payload(now: datetime) -> Dict[str, Any]:
         "config": c,
         "destaques": [],
         "ofertas_semana": [],
+        "destaque_agora": [],
         "generated_at": now.isoformat(),
     }
 
@@ -512,13 +641,22 @@ def build_public_payload(db: Session) -> Dict[str, Any]:
         cfg = get_or_create_config_row(db)
         cab_visivel = _primeiro_cabecalho_ofertas_visivel(db, now)
         filtros_ofertas = _merge_filtros_cabecalhos_oferta_semana(db)
+        cab_destaque_agora = _primeiro_cabecalho_visivel(db, now, "destaque_agora")
+        filtros_destaque_agora = _merge_filtros_cabecalhos(db, "destaque_agora")
         if not cfg.ativo:
-            c = config_para_payload_publico(cfg, cabecalho_visivel=cab_visivel, filtros_ofertas=filtros_ofertas)
+            c = config_para_payload_publico(
+                cfg,
+                cabecalho_visivel=cab_visivel,
+                filtros_ofertas=filtros_ofertas,
+                cabecalho_destaque_agora=cab_destaque_agora,
+                filtros_destaque_agora=filtros_destaque_agora,
+            )
             c["ativo"] = False
             return {
                 "config": c,
                 "destaques": [],
                 "ofertas_semana": [],
+                "destaque_agora": [],
                 "generated_at": now.isoformat(),
             }
 
@@ -564,66 +702,38 @@ def build_public_payload(db: Session) -> Dict[str, Any]:
         if bool(getattr(cfg, "destaque_embaralhar", False)) and len(destaques) > 1:
             random.shuffle(destaques)
 
-        q2 = (
-            db.query(MarketingVitrineCard)
-            .filter(MarketingVitrineCard.tipo_bloco == "oferta_semana")
-            .order_by(MarketingVitrineCard.ordem.asc(), MarketingVitrineCard.id.desc())
+        merged_cfg = config_para_payload_publico(
+            cfg,
+            cabecalho_visivel=cab_visivel,
+            filtros_ofertas=filtros_ofertas,
+            cabecalho_destaque_agora=cab_destaque_agora,
+            filtros_destaque_agora=filtros_destaque_agora,
         )
-        ofertas: List[Dict[str, Any]] = []
-        merged_cfg = config_para_payload_publico(cfg, cabecalho_visivel=cab_visivel, filtros_ofertas=filtros_ofertas)
         limite_ofertas = int(merged_cfg.get("limite_ofertas_semana", MAX_OFERTAS_SEMANA))
         somente_promo_ofertas = bool(merged_cfg.get("ofertas_somente_desconto", True))
-        for card in q2.all():
-            if card.tipo_card == "cabecalho_ofertas":
-                continue
-            if not _card_visivel_agora(card, now):
-                continue
-            if card.tipo_card == "anuncio":
-                ids = _anuncio_ids_do_card(card)
-                if ids:
-                    for aid in ids:
-                        shadow = MarketingVitrineCard(
-                            tipo_bloco=card.tipo_bloco,
-                            tipo_card="anuncio",
-                            anuncio_id=aid,
-                            ativo=card.ativo,
-                            inicio_em=card.inicio_em,
-                            fim_em=card.fim_em,
-                        )
-                        item = _card_para_item_publico(
-                            shadow,
-                            db,
-                            aplicar_somente_promocao=somente_promo_ofertas,
-                        )
-                        if item:
-                            ofertas.append(item)
-                        if len(ofertas) >= limite_ofertas:
-                            break
-                else:
-                    item = _card_para_item_publico(
-                        card,
-                        db,
-                        aplicar_somente_promocao=somente_promo_ofertas,
-                    )
-                    if item:
-                        ofertas.append(item)
-                if len(ofertas) >= limite_ofertas:
-                    break
-            else:
-                item = _card_para_item_publico(
-                    card,
-                    db,
-                    aplicar_somente_promocao=somente_promo_ofertas,
-                )
-                if item:
-                    ofertas.append(item)
-                if len(ofertas) >= limite_ofertas:
-                    break
+        ofertas = _coletar_itens_bloco_produto(
+            db,
+            tipo_bloco="oferta_semana",
+            now=now,
+            limite=limite_ofertas,
+            somente_promo=somente_promo_ofertas,
+        )
+
+        limite_da = int(merged_cfg.get("limite_destaque_agora", MAX_DESTAQUE_AGORA))
+        somente_promo_da = bool(merged_cfg.get("destaque_agora_somente_desconto", True))
+        destaque_agora = _coletar_itens_bloco_produto(
+            db,
+            tipo_bloco="destaque_agora",
+            now=now,
+            limite=limite_da,
+            somente_promo=somente_promo_da,
+        )
 
         return {
             "config": merged_cfg,
             "destaques": destaques,
             "ofertas_semana": ofertas,
+            "destaque_agora": destaque_agora,
             "generated_at": now.isoformat(),
         }
     except ProgrammingError as e:
