@@ -2228,9 +2228,9 @@ def _fiscal_nfse_has_permission(db, user):
     ).first() is not None
 
 
-@app.get("/fiscal/nfse-config", response_class=HTMLResponse)
-async def fiscal_nfse_config(request: Request, db: Session = Depends(get_db)):
-    """Configuração NFS-e do CA: empresa emissora e cliente tomador padrão; assistente IBGE."""
+@app.get("/fiscal/emissao-nf", response_class=HTMLResponse)
+async def fiscal_emissao_nf(request: Request, db: Session = Depends(get_db)):
+    """Emissão NF: Configuração NFS-e, Pendências NFS-e e Regras Fiscais ICMS (abas)."""
     auth_check = await check_auth_for_html(request, db)
     if auth_check:
         return auth_check
@@ -2244,34 +2244,23 @@ async def fiscal_nfse_config(request: Request, db: Session = Depends(get_db)):
         if not user:
             return RedirectResponse(url="/login", status_code=302)
         if not _fiscal_nfse_has_permission(db, user):
-            return await _response_403(request, db, "Você não tem permissão para configurar NFS-e.")
+            return await _response_403(request, db, "Você não tem permissão para acessar Emissão NF.")
     except Exception:
         return RedirectResponse(url="/login", status_code=302)
     context = await get_template_context_async(request, db)
-    return await _render_template_async("fiscal/nfse_config.html", context)
+    return await _render_template_async("fiscal/emissao_nf.html", context)
+
+
+@app.get("/fiscal/nfse-config", response_class=HTMLResponse)
+async def fiscal_nfse_config(request: Request, db: Session = Depends(get_db)):
+    """Redirect legado → Emissão NF (aba config)."""
+    return RedirectResponse(url="/fiscal/emissao-nf?tab=config", status_code=302)
 
 
 @app.get("/fiscal/nfse-pendencias", response_class=HTMLResponse)
 async def fiscal_nfse_pendencias(request: Request, db: Session = Depends(get_db)):
-    """Tela de pendências NFS-e (QUEUED/REJECTED) com botão Tentar novamente."""
-    auth_check = await check_auth_for_html(request, db)
-    if auth_check:
-        return auth_check
-    try:
-        token = request.cookies.get("pdv_solumatica_token")
-        if not token:
-            return RedirectResponse(url="/login", status_code=302)
-        payload = AuthConfig.verify_token(token)
-        user_id = payload.get("sub")
-        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
-        if not user:
-            return RedirectResponse(url="/login", status_code=302)
-        if not _fiscal_nfse_has_permission(db, user):
-            return await _response_403(request, db, "Você não tem permissão para acessar pendências NFS-e.")
-    except Exception:
-        return RedirectResponse(url="/login", status_code=302)
-    context = await get_template_context_async(request, db)
-    return await _render_template_async("fiscal/nfse_pendencias.html", context)
+    """Redirect legado → Emissão NF (aba pendencias)."""
+    return RedirectResponse(url="/fiscal/emissao-nf?tab=pendencias", status_code=302)
 
 
 @app.get("/fiscal/notas-fiscais", response_class=HTMLResponse)
@@ -2315,32 +2304,8 @@ async def fiscal_notas_fiscais(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/fiscal/regras-fiscais-icms", response_class=HTMLResponse)
 async def fiscal_regras_fiscais_icms(request: Request, db: Session = Depends(get_db)):
-    """Página de cadastro de regras fiscais ICMS (motor tributário)"""
-    auth_check = await check_auth_for_html(request, db)
-    if auth_check:
-        return auth_check
-    try:
-        token = request.cookies.get("pdv_solumatica_token")
-        if not token:
-            return RedirectResponse(url="/login", status_code=302)
-        payload = AuthConfig.verify_token(token)
-        user_id = payload.get("sub")
-        user = db.query(Usuario).filter(Usuario.id == int(user_id)).first()
-        if not user or not user.role:
-            return RedirectResponse(url="/login", status_code=302)
-        has_permission = (user.role.nome == "Superadministrador") or db.query(Permissao).join(
-            RolePermissao, RolePermissao.permissao_id == Permissao.id
-        ).filter(
-            RolePermissao.role_id == user.role_id,
-            Permissao.modulo.in_(['fiscal.empresa', 'fiscal.notas-fiscais']),
-            Permissao.ativo == True
-        ).first()
-        if not has_permission:
-            return await _response_403(request, db, "Você não tem permissão para acessar Regras Fiscais ICMS")
-    except Exception:
-        return RedirectResponse(url="/login", status_code=302)
-    context = await get_template_context_async(request, db)
-    return await _render_template_async("fiscal/regras_fiscais_icms.html", context)
+    """Redirect legado → Emissão NF (aba icms)."""
+    return RedirectResponse(url="/fiscal/emissao-nf?tab=icms", status_code=302)
 
 
 @app.get("/fiscal/area-contador", response_class=HTMLResponse)

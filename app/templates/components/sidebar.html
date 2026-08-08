@@ -4,11 +4,10 @@
 {% set _brand_nome = _brand.nome_curto|default(_brand.nome_exibicao|default('PDV', true), true) %}
 <nav id="sidebar" class="sidebar js-sidebar">
     <div class="sidebar-content js-simplebar">
-        <a class="sidebar-brand" href="/dashboard">
+        <a class="sidebar-brand" href="/dashboard" style="display: flex; justify-content: center; align-items: center; width: 100%;">
             {% if _brand_logo_display %}
-            <img src="{{ _brand_logo_display }}" alt="{{ _brand_nome }}" class="sidebar-brand-icon me-2" style="height: 38px; width: auto; object-fit: contain;">
+            <img src="{{ _brand_logo_display }}" alt="{{ _brand_nome }}" class="sidebar-brand-icon" style="height: 56px; width: auto; object-fit: contain;">
             {% endif %}
-            <span class="align-middle">{{ _brand_nome }}</span>
         </a>
 
         <ul class="sidebar-nav">
@@ -148,14 +147,6 @@
             </li>
             {% endif %}
 
-            {% if user_permissions and 'clientes' in user_permissions %}
-            <li class="sidebar-item {% if request.url.path == '/clientes' %}active{% endif %}">
-                <a class="sidebar-link" href="/clientes">
-                    <i class="align-middle" data-feather="users"></i> <span class="align-middle">Clientes</span>
-                </a>
-            </li>
-            {% endif %}
-
             {% if user_permissions and ('negocios.venda:visualizar' in user_permissions or 'negocios.financeiro:visualizar' in user_permissions or 'negocios' in user_permissions) %}
             <li class="sidebar-item {% if request.url.path == '/negocio/recebiveis' %}active{% endif %}">
                 <a class="sidebar-link" href="/negocio/recebiveis">
@@ -167,6 +158,22 @@
             <li class="sidebar-header">
                 Negócios
             </li>
+
+            {% if brand_has_marketplace and user_permissions and 'marketplace:visualizar' in user_permissions %}
+            <li class="sidebar-item {% if '/negocio/marketplace' in request.url.path %}active{% endif %}">
+                <a class="sidebar-link" href="/negocio/marketplace">
+                    <i class="align-middle" data-feather="shopping-bag"></i> <span class="align-middle">Marketplace</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% if user_permissions and 'negocios.pedido:visualizar' in user_permissions %}
+            <li class="sidebar-item {% if request.url.path == '/negocio/pedidos' %}active{% endif %}">
+                <a class="sidebar-link" href="/negocio/pedidos">
+                    <i class="align-middle" data-feather="shopping-cart"></i> <span class="align-middle">Pedidos</span>
+                </a>
+            </li>
+            {% endif %}
 
             {% if user_permissions and ('pdv' in user_permissions or 'pdv:operar' in user_permissions or 'pdv:vendas' in user_permissions) and 'negocios.venda:visualizar' not in user_permissions %}
             <li class="sidebar-item {% if request.url.path == '/negocio/venda' or request.url.path == '/negocio/venda/pdv' %}active{% endif %}">
@@ -234,21 +241,6 @@
                 </a>
             </li>
             {% endif %}
-            {% if user_permissions and 'negocios.pedido:visualizar' in user_permissions %}
-            <li class="sidebar-item {% if request.url.path == '/negocio/pedidos' %}active{% endif %}">
-                <a class="sidebar-link" href="/negocio/pedidos">
-                    <i class="align-middle" data-feather="shopping-cart"></i> <span class="align-middle">Pedidos</span>
-                </a>
-            </li>
-            {% endif %}
-
-            {% if brand_has_marketplace and user_permissions and 'marketplace:visualizar' in user_permissions %}
-            <li class="sidebar-item {% if '/negocio/marketplace' in request.url.path %}active{% endif %}">
-                <a class="sidebar-link" href="/negocio/marketplace">
-                    <i class="align-middle" data-feather="shopping-bag"></i> <span class="align-middle">Marketplace</span>
-                </a>
-            </li>
-            {% endif %}
 
             {% if user_permissions and ('fiscal.notas-fiscais:visualizar' in user_permissions or 'fiscal.notas-fiscais' in user_permissions) %}
             <li class="sidebar-item {% if request.url.path == '/fiscal/notas-fiscais' %}active{% endif %}">
@@ -257,6 +249,15 @@
                 </a>
             </li>
             {% endif %}
+
+            {% if user_permissions and 'clientes' in user_permissions %}
+            <li class="sidebar-item {% if request.url.path == '/clientes' %}active{% endif %}">
+                <a class="sidebar-link" href="/clientes">
+                    <i class="align-middle" data-feather="users"></i> <span class="align-middle">Clientes</span>
+                </a>
+            </li>
+            {% endif %}
+
             {% if user_permissions and 'fiscal:visualizar_documentos' in user_permissions %}
             <li class="sidebar-item {% if request.url.path == '/fiscal/area-contador' %}active{% endif %}">
                 <a class="sidebar-link" href="/fiscal/area-contador">
@@ -294,19 +295,9 @@
                     <i class="align-middle" data-feather="briefcase"></i> <span class="align-middle">Empresa Fiscal</span>
                 </a>
             </li>
-            <li class="sidebar-item {% if request.url.path == '/fiscal/nfse-config' %}active{% endif %}">
-                <a class="sidebar-link" href="/fiscal/nfse-config">
-                    <i class="align-middle" data-feather="settings"></i> <span class="align-middle">Configuração NFS-e</span>
-                </a>
-            </li>
-            <li class="sidebar-item {% if request.url.path == '/fiscal/nfse-pendencias' %}active{% endif %}">
-                <a class="sidebar-link" href="/fiscal/nfse-pendencias">
-                    <i class="align-middle" data-feather="alert-circle"></i> <span class="align-middle">Pendências NFS-e</span>
-                </a>
-            </li>
-            <li class="sidebar-item {% if request.url.path == '/fiscal/regras-fiscais-icms' %}active{% endif %}">
-                <a class="sidebar-link" href="/fiscal/regras-fiscais-icms">
-                    <i class="align-middle" data-feather="layers"></i> <span class="align-middle">Regras Fiscais ICMS</span>
+            <li class="sidebar-item {% if request.url.path == '/fiscal/emissao-nf' or request.url.path in ['/fiscal/nfse-config', '/fiscal/nfse-pendencias', '/fiscal/regras-fiscais-icms'] %}active{% endif %}">
+                <a class="sidebar-link" href="/fiscal/emissao-nf">
+                    <i class="align-middle" data-feather="file-text"></i> <span class="align-middle">Emissão NF</span>
                 </a>
             </li>
             {% endif %}
