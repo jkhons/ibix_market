@@ -22,11 +22,11 @@ depends_on = None
 _COPIES = {
     1: {
         "duracao": "12–16s · 4 cortes",
-        "legenda_reels": "E se pedir na cidade fosse simples assim?\nIbix Market · Lençóis Paulista · Em breve",
+        "legenda_reels": "E se as lojas de Lençóis estivessem todas em um só lugar?\nIbix Market · Em breve",
         "roteiro_notas": None,
         "telas_necessarias": "Celular/marca · vitrine · logo",
         "cortes": [
-            {"corte": 1, "tempo": "0–3s", "texto_tela": "E se pedir na cidade fosse tão simples quanto abrir o celular?", "visual": "Celular / marca"},
+            {"corte": 1, "tempo": "0–3s", "texto_tela": "E se as lojas de Lençóis estivessem todas em um só lugar?", "visual": "Celular / marca"},
             {"corte": 2, "tempo": "3–7s", "texto_tela": "Lojas daqui. Num só lugar.", "visual": "Vitrine"},
             {"corte": 3, "tempo": "7–12s", "texto_tela": "Lençóis Paulista", "visual": "Cidade + UI ou tipografia"},
             {"corte": 4, "tempo": "12–16s", "texto_tela": "Ibix Market · Em breve", "visual": "Logo / home"},

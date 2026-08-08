@@ -177,7 +177,8 @@
 </section>
 </div>
 
-<aside id="loja-ofertas" class="loja-ofertas-sidebar-col loja-ofertas-col" aria-label="Ofertas relâmpago">
+<div class="loja-ofertas-sidebar-col">
+<aside id="loja-ofertas" class="loja-ofertas-col" aria-label="Ofertas relâmpago">
 <section class="loja-section-block secao-vitrine secao-vitrine--oferta-relampago">
   <div class="container">
     <div class="loja-section-head">
@@ -191,6 +192,7 @@
   </div>
 </section>
 </aside>
+</div>
 {% endif %}
 
 <div class="loja-vitrine-main-rest">
@@ -502,10 +504,65 @@
   function syncOfertasColunaShell() {
     var shell = document.querySelector(".loja-vitrine-page-shell");
     var aside = document.getElementById("loja-ofertas");
+    var col = document.querySelector(".loja-ofertas-sidebar-col");
     if (!shell || !aside) return;
-    if (aside.style.display === "none") shell.classList.add("loja-vitrine-page-shell--sem-ofertas");
+    var hidden = aside.style.display === "none";
+    if (hidden) shell.classList.add("loja-vitrine-page-shell--sem-ofertas");
     else shell.classList.remove("loja-vitrine-page-shell--sem-ofertas");
+    if (col) col.style.display = hidden ? "none" : "";
+    syncOfertasFixedPosition();
   }
+
+  /**
+   * Desktop: ancora #loja-ofertas em position:fixed na faixa do trilho,
+   * acompanhando o body o tempo todo (altura encolhe só ao encontrar o footer).
+   */
+  function syncOfertasFixedPosition() {
+    var aside = document.getElementById("loja-ofertas");
+    var col = document.querySelector(".loja-ofertas-sidebar-col");
+    var root = document.documentElement;
+    if (!aside || !col) return;
+    if (window.matchMedia("(max-width: 991.98px)").matches || aside.style.display === "none") {
+      root.style.removeProperty("--loja-ofertas-fixed-left");
+      root.style.removeProperty("--loja-ofertas-fixed-width");
+      root.style.removeProperty("--loja-ofertas-fixed-max-height");
+      return;
+    }
+    var rect = col.getBoundingClientRect();
+    var left = Math.max(0, Math.round(rect.left));
+    var width = Math.max(160, Math.round(rect.width || 200));
+    root.style.setProperty("--loja-ofertas-fixed-left", left + "px");
+    root.style.setProperty("--loja-ofertas-fixed-width", width + "px");
+
+    var stickyTopPx = parseFloat(getComputedStyle(aside).top);
+    if (isNaN(stickyTopPx) || stickyTopPx < 0) stickyTopPx = 84;
+
+    var bottomLimit = window.innerHeight - 12;
+    var footer = document.querySelector(".loja-footer");
+    if (footer) {
+      var fr = footer.getBoundingClientRect();
+      if (fr.top < window.innerHeight) {
+        bottomLimit = Math.min(bottomLimit, fr.top - 8);
+      }
+    }
+    var maxH = Math.max(96, Math.round(bottomLimit - stickyTopPx));
+    root.style.setProperty("--loja-ofertas-fixed-max-height", maxH + "px");
+  }
+
+  var __ofertasFixedRaf = null;
+  function scheduleOfertasFixedPosition() {
+    if (__ofertasFixedRaf != null) return;
+    __ofertasFixedRaf = window.requestAnimationFrame(function () {
+      __ofertasFixedRaf = null;
+      syncOfertasFixedPosition();
+    });
+  }
+  window.addEventListener("scroll", scheduleOfertasFixedPosition, { passive: true });
+  window.addEventListener("resize", scheduleOfertasFixedPosition);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(scheduleOfertasFixedPosition).catch(function () {});
+  }
+  scheduleOfertasFixedPosition();
 
   /** Classes de selo conforme faixa de desconto (v2visual: hierarquia). */
   function discountBadgeClass(desconto) {

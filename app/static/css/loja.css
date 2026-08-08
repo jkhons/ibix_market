@@ -398,19 +398,16 @@ main.loja-main .btn-outline-primary:hover {
 }
 
 /*
-  Oferta relâmpago (#loja-ofertas) e scroll
-  - Quando aparece: só na home sem busca (`index.html` + `{% if not busca_ativa %}`); conteúdo vem do marketing (`ofertas_semana` / vitrine.js).
-  - «Seguir o scroll»: `position:sticky` em `#loja-ofertas` dentro de `.loja-ofertas-sidebar-col`. O aside ocupa a altura do `.loja-vitrine-page-shell` (grid: coluna 1 em desktop, ordem mobile no grid), então o sticky acompanha do topo da página até o fim do shell (listagem + faixas finais), não só o bloco «Todos os produtos».
+  Oferta relâmpago (#loja-ofertas) — coluna infinita (acompanha o body)
+  - Home sem busca: conteúdo via marketing (`ofertas_semana` / vitrine.js).
+  - Desktop (≥992px): `position:fixed` em `#loja-ofertas`; `.loja-ofertas-sidebar-col`
+    só reserva a faixa no grid. left/width via --loja-ofertas-fixed-* (JS).
+  - Mobile: fluxo normal (sem fixed), evita scroll aninhado.
 */
 #loja-ofertas.loja-ofertas-col {
-  position: sticky;
-  top: var(--loja-ofertas-sticky-top, 5.25rem);
   z-index: 35;
-  align-self: flex-start;
-  max-height: calc(100dvh - var(--loja-ofertas-sticky-top, 5.25rem) - 1rem);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  /* Scroll continua (roda/trackpad); só remove a barra para não “quebrar” o visual da vitrine */
+  box-sizing: border-box;
+  /* Scroll interno no painel (desktop); barra oculta para não “quebrar” o visual */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -419,12 +416,12 @@ main.loja-main .btn-outline-primary:hover {
   height: 0;
 }
 
-/* Tablet/mobile: coluna ofertas deixa de ser sticky (evita scroll aninhado e sobreposição) */
 @media (max-width: 991.98px) {
   #loja-ofertas.loja-ofertas-col {
     position: relative;
     top: auto;
-    z-index: auto;
+    left: auto;
+    width: auto;
     max-height: none;
     overflow: visible;
     -webkit-overflow-scrolling: auto;
@@ -494,6 +491,29 @@ main.loja-main .btn-outline-primary:hover {
   .loja-ofertas-sidebar-col {
     grid-column: 1;
     grid-row: 1 / -1;
+    width: 200px;
+    min-width: 200px;
+    /* Trilho vazio: o painel #loja-ofertas é fixed e acompanha o viewport */
+    pointer-events: none;
+    align-self: stretch;
+  }
+  #loja-ofertas.loja-ofertas-col {
+    position: fixed;
+    top: var(--loja-ofertas-sticky-top, 5.25rem);
+    left: var(--loja-ofertas-fixed-left, 1.5rem);
+    width: var(--loja-ofertas-fixed-width, 200px);
+    height: var(
+      --loja-ofertas-fixed-max-height,
+      calc(100dvh - var(--loja-ofertas-sticky-top, 5.25rem) - 1rem)
+    );
+    max-height: var(
+      --loja-ofertas-fixed-max-height,
+      calc(100dvh - var(--loja-ofertas-sticky-top, 5.25rem) - 1rem)
+    );
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    pointer-events: auto;
   }
   .loja-vitrine-rail--top {
     grid-column: 2;
@@ -516,11 +536,13 @@ main.loja-main .btn-outline-primary:hover {
     margin-left: 0;
     margin-right: 0;
   }
-  .loja-ofertas-sidebar-col #loja-ofertas-grid {
+  .loja-ofertas-sidebar-col #loja-ofertas-grid,
+  #loja-ofertas #loja-ofertas-grid {
     flex-direction: column;
     flex-wrap: nowrap;
   }
-  .loja-ofertas-sidebar-col #loja-ofertas-grid > * {
+  .loja-ofertas-sidebar-col #loja-ofertas-grid > *,
+  #loja-ofertas #loja-ofertas-grid > * {
     flex: 0 0 180px;
     min-width: 180px;
     width: 180px;

@@ -21,6 +21,7 @@
     Conteúdo do Bloco A vem de <code>MARKETING_ESTRUTURADO/copies_bloco_a.md</code>. Blocos B–D aguardam copies — sem inventar texto.
     Apenas Superadministrador.
   </div>
+  <div id="mil-pre-inicio" class="alert alert-warning border py-2 px-3 small mb-3 d-none" role="status"></div>
 
   <div id="mil-alert"></div>
 
@@ -193,6 +194,8 @@
   var API = '/api/v1/marketing/ibix-lancamento';
   var filtroBloco = '';
   var postsCache = [];
+  var campanhaCache = null;
+  var focoMontagemSet = {};
 
   function abrirModalMilPost() {
     window.abrirModalCustom('modalMilPostCustom');
@@ -280,6 +283,19 @@
 
   function renderHoje(campanha) {
     var box = document.getElementById('mil-hoje-box');
+    if (campanha.pre_inicio) {
+      var foco = Array.isArray(campanha.foco_montagem) ? campanha.foco_montagem : [];
+      var btns = foco.map(function (n) {
+        return '<button type="button" class="btn btn-sm btn-primary" data-open="' + n + '">Abrir #' + n + '</button>';
+      }).join(' ');
+      box.innerHTML =
+        '<div class="small text-muted mb-1">Pré-início</div>' +
+        '<div class="fw-semibold mb-1">Montar posts ' + escapeHtml(foco.join(', ') || '—') + '</div>' +
+        '<div class="small mb-2">Postagens a partir de <strong>' + fmtDate(campanha.data_inicio) +
+        '</strong>. Hoje: gravar / agendar o primeiro lote.</div>' +
+        (btns ? '<div class="d-flex flex-wrap gap-1">' + btns + '</div>' : '');
+      return;
+    }
     var p = campanha.post_hoje || campanha.proximo_pendente;
     if (!p) {
       box.innerHTML = '<p class="small text-muted mb-0">Nenhum post pendente à frente.</p>';
@@ -321,8 +337,9 @@
       return;
     }
     tbody.innerHTML = posts.map(function (p) {
-      return '<tr>' +
-        '<td>' + p.numero + '</td>' +
+      var highlight = focoMontagemSet[p.numero] ? ' class="table-warning"' : '';
+      return '<tr' + highlight + '>' +
+        '<td>' + p.numero + (focoMontagemSet[p.numero] ? ' <span class="badge bg-warning text-dark">montar</span>' : '') + '</td>' +
         '<td>' + fmtDate(p.data_prevista) + '</td>' +
         '<td>' + p.bloco + '</td>' +
         '<td>' + escapeHtml(p.tipo) + '</td>' +
@@ -361,6 +378,21 @@
   async function refresh() {
     clearAlert();
     var campanha = await loadCampanha();
+    campanhaCache = campanha;
+    focoMontagemSet = {};
+    (campanha.foco_montagem || []).forEach(function (n) { focoMontagemSet[n] = true; });
+    var preEl = document.getElementById('mil-pre-inicio');
+    if (campanha.pre_inicio) {
+      preEl.classList.remove('d-none');
+      preEl.innerHTML =
+        '<strong>Pré-início.</strong> Calendário reagendado: postagens a partir de <strong>' +
+        fmtDate(campanha.data_inicio) + '</strong> (publicação final ' + fmtDate(campanha.data_fim) +
+        '). Foco de hoje: montar posts <strong>#' +
+        (campanha.foco_montagem || []).join(', #') + '</strong> e agendar.';
+    } else {
+      preEl.classList.add('d-none');
+      preEl.textContent = '';
+    }
     document.getElementById('mil-titulo').textContent = campanha.titulo || 'Marketing Ibix — Lançamento';
     document.getElementById('mil-campanha-titulo').textContent = campanha.titulo;
     document.getElementById('mil-campanha-status').textContent = campanha.status;

@@ -1,0 +1,68 @@
+{
+  "version": 6,
+  "label": "Ibix Market — Post 1 · Em breve (03/08)",
+  "theme": {
+    "id": "ibix-default",
+    "bg": "#FEF7F1",
+    "accent": "#E67E22",
+    "text": "#3D4A56",
+    "ouro": "#F1C40F",
+    "oliva": "#5D6346"
+  },
+  "master": {
+    "logo": "assets/escrita-ibix.png",
+    "deco": true
+  },
+  "scenes": [
+    {
+      "label": "Corte 1 — Gancho",
+      "type": "cover",
+      "duration": 3000,
+      "transition": "fade",
+      "kicker": "Lençóis Paulista",
+      "title": "E se as lojas de Lençóis estivessem todas em um só lugar?",
+      "subtitle": "",
+      "image": "assets/mascote-trust-guide.png",
+      "pills": ""
+    },
+    {
+      "label": "Corte 2 — Lojas",
+      "type": "hero",
+      "duration": 4000,
+      "transition": "push-left",
+      "kicker": "Marketplace local",
+      "title": "Lojas daqui. Num só lugar.",
+      "subtitle": "Comércio de Lençóis Paulista",
+      "image": "assets/mascote-trust-peek.png",
+      "pills": "laranja|Em breve"
+    },
+    {
+      "label": "Corte 3 — Cidade",
+      "type": "cover",
+      "duration": 5000,
+      "transition": "push-left",
+      "kicker": "Foco inicial",
+      "title": "Lençóis Paulista",
+      "subtitle": "Feito para a cidade",
+      "image": "assets/mascote-trust-hero.png",
+      "pills": ""
+    },
+    {
+      "label": "Corte 4 — CTA",
+      "type": "cta",
+      "duration": 4000,
+      "transition": "fade",
+      "kicker": "Ibix Market",
+      "title": "Em breve",
+      "subtitle": "Acompanhe @ibixmarket",
+      "image": "assets/mascote-trust-approve.png",
+      "pills": "oliva|Lençóis Paulista"
+    }
+  ],
+  "_notas_operador": [
+    "Legenda Reels (fora do JSON): E se as lojas de Lençóis estivessem todas em um só lugar? / Ibix Market · Em breve",
+    "Sem preço / sem inventar nº de lojas. Print da vitrine: só se anexar PNG real no Corte 2 (trocar image).",
+    "Export: MP4 1080x1920 @ 30fps · também Stories no mesmo dia.",
+    "Ajustar paths do mascote se os nomes dos arquivos forem diferentes no AIM."
+  ]
+}

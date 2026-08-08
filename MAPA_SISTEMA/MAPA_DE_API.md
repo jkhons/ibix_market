@@ -2347,11 +2347,11 @@ Configuração **global** (singleton) e **cards** da home da vitrine (`/loja`): 
 
 ### Marketing Ibix Lançamento — campanha operacional (`/api/v1/marketing/ibix-lancamento`)
 
-Painel operacional da campanha de pré-lançamento (40 dias). Fonte editorial: pasta `MARKETING_ESTRUTURADO/` no repositório. Persistência: `marketing_campanhas`, `marketing_posts` (migrações `me01`, `me02` — guia + copies Bloco A). Router: `app/api/v1/marketing/marketing_ibix_lancamento.py`.
+Painel operacional da campanha de pré-lançamento (40 dias). Fonte editorial: pasta `MARKETING_ESTRUTURADO/` no repositório. Persistência: `marketing_campanhas`, `marketing_posts` (migrações `me01`, `me02`, `me03` — guia + copies Bloco A; `me03` reagenda +7 dias: **03/08/2026 → 11/09/2026**). Router: `app/api/v1/marketing/marketing_ibix_lancamento.py`.
 
 **Governança:** somente **Superadministrador** (`require_superadmin()`). Brand gate marketplace (403 em marcas sem módulo). Sem publicação automática em redes sociais; PATCH altera apenas status operacional (não altera tema/data/legenda/cortes). Bloco A traz `legenda_reels`, `cortes`, `duracao`, `telas_necessarias`; B–D sem roteiro até seed futuro (UI mostra ausência explícita).
 
-- **GET** `/marketing/ibix-lancamento/campanha` — Campanha ativa (`slug=ibix_market_40d`) + resumo (totais, progresso por bloco, post de hoje / próximo pendente; timezone `America/Sao_Paulo`). **404** se campanha ausente.
+- **GET** `/marketing/ibix-lancamento/campanha` — Campanha ativa (`slug=ibix_market_40d`) + resumo (totais, progresso por bloco, post de hoje / próximo pendente; `pre_inicio` + `foco_montagem` quando hoje &lt; `data_inicio`; timezone `America/Sao_Paulo`). **404** se campanha ausente.
 - **PATCH** `/marketing/ibix-lancamento/campanha` — Body: `proximo_passo` e/ou `status` (`ativa`|`encerrada`).
 - **GET** `/marketing/ibix-lancamento/posts` — Query opcional `bloco` (A–D), `status_copy`, `status_publicacao`.
 - **GET** `/marketing/ibix-lancamento/posts/{numero}` — Detalhe do post.
@@ -2515,6 +2515,7 @@ LGPD export/offboarding legado: `/api/v1/admin/lgpd/tenant/{id}/*` (mantido).
 **Status:** Documentação Ativa - Referência Padrão  
 **Adições:**
 - **Seção 19 – Marketing Ibix Lançamento (2026-07-31):** prefixo `/api/v1/marketing/ibix-lancamento` (Superadmin + brand gate); HTML `/admin/marketing-ibix-lancamento`; tabelas `marketing_campanhas` / `marketing_posts` (me01).
+- **Marketing Ibix reagenda (2026-08-02):** me03 desloca calendário +7 dias (03/08→11/09); resumo com `pre_inicio` / `foco_montagem`.
 - **Auth + RLS + logout (2026-06-18):** `get_db_pre_auth` no login/cadastro/recuperação de senha; cookies HttpOnly; `POST/GET /logout` com `clear_pdv_auth_cookies`; front `user-dropdown.js` / `certipeso.js` — sessão via cookie, não redirect cego por ausência de token no JS. Ver MAPA_MULTIBRAND § 6.
 - **Clientes PII (2026-06-18):** máscara LGPD em listagem; CA com `pii:visualizar` (br36). MAPA_RBAC § 0.14.
 - **Seção 20 – Multi-brand (2026-06-18):** resolução por Host, guards marketplace, escopo `brand_id` em auth/billing/LGPD/OAuth/pagamentos; referência MAPA_MULTIBRAND.

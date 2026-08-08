@@ -1,41 +1,44 @@
-# Copies — Bloco A (27/07 a 05/08/2026)
+# Copies — Bloco A (03/08 a 12/08/2026)
 
 **Formato:** Stories / Reels · 9:16 · texto grande · cortes rápidos  
 **Tom:** ritmo Americanas — **sem** copiar visual  
 **Linha:** B — curiosidade  
-**Canais:** Instagram `@ibixmarket` + Facebook **Ibix Market**
+**Canais:** Instagram `@ibixmarket` + Facebook **Ibix Market**  
+**Nota:** datas reagendadas (+7 dias; calendário anterior não executado).
 
 | Post | Data | Tipo | Status |
 |------|------|------|--------|
-| 1 | 27/07 | Cheio | **Aprovado** |
-| 2 | 29/07 | Cheio | Proposta |
-| 3 | 31/07 | Cheio | Proposta |
-| 4 | 01/08 | **Leve** | Proposta |
-| 5 | 02/08 | **Reuso** | Proposta (sem roteiro novo) |
-| 6 | 03/08 | Cheio | Proposta |
-| 7 | 05/08 | Cheio | Proposta |
+| 1 | 03/08 | Cheio | **Aprovado** |
+| 2 | 05/08 | Cheio | Proposta |
+| 3 | 07/08 | Cheio | Proposta |
+| 4 | 08/08 | **Leve** | Proposta |
+| 5 | 09/08 | **Reuso** | Proposta (sem roteiro novo) |
+| 6 | 10/08 | Cheio | Proposta |
+| 7 | 12/08 | Cheio | Proposta |
 
 ---
 
-## Post 1 · 27/07 (Seg) — APROVADO
+## Post 1 · 03/08 (Seg) — APROVADO
 
 **Duração:** 12–16s · 4 cortes  
 **Legenda Reels:**
 ```
-E se pedir na cidade fosse simples assim?
-Ibix Market · Lençóis Paulista · Em breve
+E se as lojas de Lençóis estivessem todas em um só lugar?
+Ibix Market · Em breve
 ```
 
 | Corte | Tempo | Texto na tela | Visual |
 |-------|-------|---------------|--------|
-| 1 | 0–3s | E se pedir na cidade fosse tão simples quanto abrir o celular? | Celular / marca |
+| 1 | 0–3s | E se as lojas de Lençóis estivessem todas em um só lugar? | Celular / marca |
 | 2 | 3–7s | Lojas daqui. Num só lugar. | Vitrine |
 | 3 | 7–12s | Lençóis Paulista | Cidade + UI ou tipografia |
 | 4 | 12–16s | Ibix Market · Em breve | Logo / home |
 
+**AIM (4 cenas = 4 cortes):** ver `aim_post_1.json` · ponte em `aim_gerenciador_cenas.md`.
+
 ---
 
-## Post 2 · 29/07 (Qua) — Começamos em casa · TIPO: CHEIO
+## Post 2 · 05/08 (Qua) — Começamos em casa · TIPO: CHEIO
 
 **Duração:** 10–14s · 4 cortes  
 **Legenda Reels:**
@@ -53,7 +56,7 @@ Ibix Market · Lençóis Paulista
 
 ---
 
-## Post 3 · 31/07 (Sex) — Bastidores / construindo · TIPO: CHEIO
+## Post 3 · 07/08 (Sex) — Bastidores / construindo · TIPO: CHEIO
 
 **Duração:** 10–14s · 4 cortes  
 **Legenda Reels:**
@@ -71,7 +74,7 @@ Em breve · Lençóis Paulista
 
 ---
 
-## Post 4 · 01/08 (Sáb) — Vitrine / um só lugar · TIPO: LEVE
+## Post 4 · 08/08 (Sáb) — Vitrine / um só lugar · TIPO: LEVE
 
 **Duração:** 6–10s · **2–3 cortes** (não 4)  
 **Legenda Reels:**
@@ -88,7 +91,7 @@ A vitrine local está chegando.
 
 ---
 
-## Post 5 · 02/08 (Dom) — TIPO: REUSO
+## Post 5 · 09/08 (Dom) — TIPO: REUSO
 
 **Não gravar roteiro novo.**  
 Repetir o **melhor** da semana (Stories; Reels opcional):
@@ -102,7 +105,7 @@ Ibix Market
 
 ---
 
-## Post 6 · 03/08 (Seg) — Bastidor publicar · TIPO: CHEIO
+## Post 6 · 10/08 (Seg) — Bastidor publicar · TIPO: CHEIO
 
 **Duração:** 10–14s · 4 cortes  
 **Legenda Reels:**
@@ -119,7 +122,7 @@ Bastidores: o lojista publica. A cidade vê.
 
 ---
 
-## Post 7 · 05/08 (Qua) — Local, não genérico · TIPO: CHEIO
+## Post 7 · 12/08 (Qua) — Local, não genérico · TIPO: CHEIO
 
 **Duração:** 10–14s · 4 cortes  
 **Legenda Reels:**
@@ -147,7 +150,7 @@ Não é mais um app genérico.
 | 2 | Cidade · vitrine · logo | |
 | 3 | Bastidor painel · logo | |
 | 4 | Vitrine scroll · home · logo | |
-| 5 | Minha loja · produto/carrinho · logo | |
+| 5 | Reuso do material da semana (Post 1 ou 4) | |
 | 6 | Publicar anúncio · mesmo item na vitrine · logo | |
 | 7 | Tipografia · vitrine/cidade · logo | |
 
@@ -155,6 +158,7 @@ Não é mais um app genérico.
 
 ## Próximo passo
 
-1. Aprovar posts **2–7** (bloco ou um a um)  
-2. Marcar telas que você já tem  
-3. Com OK → Bloco B no mesmo formato  
+1. **Hoje:** montar posts **1–3** e agendar (início das postagens **03/08**)  
+2. Aprovar posts **2–7** (bloco ou um a um)  
+3. Marcar telas que você já tem  
+4. Com OK → Bloco B no mesmo formato  

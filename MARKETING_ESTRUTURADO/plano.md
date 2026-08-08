@@ -111,12 +111,16 @@ Nada disso é preenchido automaticamente.
 
 ## 6. Estado atual
 
-- **Data:** 2026-07-31  
+- **Data:** 2026-08-03  
+- **Reagendamento:** calendário 27/07→04/09 **não foi executado** → novo: **03/08/2026 → 11/09/2026** (+7 dias, mesmo ritmo).  
 - **Status:** ritmo meio-termo **fechado** · Post 1 aprovado · aguarda OK dos posts **2, 3, 4, 6, 7** (5 = reuso)  
-- **Campanha:** 27/07/2026 → 04/09/2026  
-- **Arquivos:** `calendario_40_dias.md` · `copies_bloco_a.md` · `plano.md`  
+- **Semente de perfil (03/08):** **10 posts** de grade com info real do plano — arquivo `semente_perfil_10_posts.md` · status `PROPOSTA — ajuste um a um` · não substitui o calendário 40 dias · não há modo “publicar sem notificar” a base (~500).  
+- **Campanha:** 03/08/2026 → 11/09/2026  
+- **Arquivos:** `calendario_40_dias.md` · `copies_bloco_a.md` · `semente_perfil_10_posts.md` · `plano.md` · `aim_gerenciador_cenas.md` · `aim_post_1.json`  
+- **Produção visual:** AIM (fora deste repo) — timeline 9:16; 1 corte = 1 cena; Post 1 = JSON em `aim_post_1.json`  
 - **Operação (equipe / Superadmin):** painel PDV [`/admin/marketing-ibix-lancamento`](/admin/marketing-ibix-lancamento) — exibe **roteiro operacional** (legenda, cortes, duração, telas) do Bloco A + status de copy/produção/publicação. Blocos B–D sem copies no UI até existirem no plano (sem inventar).  
-- **Próximo passo:** aprovar 2–7 → Bloco B
+- **Próximo passo (03/08):** (1) revisar/ajustar semente **S1–S10** · (2) montar **Post 1** do calendário (telas + gravação) · metas: **3.000 seguidores** + **10 lojas** · depois posts 2–3 · aprovar copies 2–7 → Bloco B  
+- **Aberto:** CTA do Bloco D (decidir no Bloco D). Dia D = **fim do plano 40 dias**, não lançamento do produto; lançamento real = etapa seguinte.
 
 ---
 
@@ -131,8 +135,18 @@ Nada disso é preenchido automaticamente.
 - Ordem da narrativa: objetivo da ferramenta → benefício do lojista → benefício do consumidor.
 
 ### 7.3 Objetivo do pré-lançamento
-- Propagar; mostrar desenvolvimento; rotina de postagens até a publicação final.
-- Meta numérica: ainda aberta.
+- Propagar; mostrar desenvolvimento; rotina de postagens até a publicação final **deste plano**.
+- **Atrair os dois públicos** ao longo dos 40 dias: **lojista** e **consumidor** (narrativa em fases A→B→C, mas o objetivo de audiência é **ambos** até o fim do plano).
+- **Metas numéricas (validadas 02/08/2026):**
+  - **3.000 seguidores** (Instagram `@ibixmarket` — canal principal de contagem; Facebook acompanha o mesmo conteúdo).
+  - **10 lojas** (lojistas de Lençóis Paulista interessados / alinhados para a vitrine).
+- Critério de sucesso **deste plano**: bater ou superar essas duas metas até **11/09/2026**, sem inventar prova social nos posts.
+
+### 7.3.1 O que é o Dia D (11/09) — validado 02/08/2026
+- **Não é** o lançamento oficial do produto/marketplace.
+- **É** o **fim deste plano de 40 dias** (fecho da campanha de propagação + bastidores).
+- CTA exato do post 28 / Bloco D: **decidir no Bloco D** (ainda aberto).
+- **Depois do Dia D:** organizar o **lançamento real** em etapa seguinte (fora do escopo fechado destes 40 dias — não inventar data/oferta agora).
 
 ### 7.4 Formato e canais
 - **Formato principal:** Stories / Reels (vídeo vertical 9:16).
@@ -188,7 +202,9 @@ Nada disso é preenchido automaticamente.
 | A — Apresentar | 1–10 | Objetivo + “estamos construindo” |
 | B — Lojista | 11–22 | Benefício do lojista (Lençóis Paulista) |
 | C — Consumidor + entrega | 23–32 | Consumidor + prazo (mesmo dia / 2h ou agendar) |
-| D — Aceleração | 33–40 | Contagem + CTA publicação final |
+| D — Aceleração | 33–40 | Contagem + fecho **deste plano** (não = lançamento do produto) |
 
 Detalhamento por post: ver **`calendario_40_dias.md`**.  
-**Dia 1:** 27/07/2026 · **Publicação final:** 04/09/2026.
+**Dia 1:** 03/08/2026 · **Fim deste plano (Dia D):** 11/09/2026.  
+*(Reagendado em 02/08/2026 — janela anterior não executada.)*  
+**Lançamento real do marketplace:** etapa **após** o Dia D — a organizar; CTA do Bloco D definido no próprio Bloco D.

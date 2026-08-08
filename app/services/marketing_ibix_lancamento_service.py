@@ -141,6 +141,11 @@ def build_campanha_resumo(db: Session) -> MarketingCampanhaResumo:
     hoje = hoje_sp()
     post_hoje = _post_hoje(posts, hoje)
     proximo = _proximo_pendente(posts, hoje)
+    pre_inicio = hoje < campanha.data_inicio
+    # Pré-início: montar os 3 primeiros posts do Bloco A (primeiro lote agendável).
+    foco_montagem: List[int] = []
+    if pre_inicio:
+        foco_montagem = [p.numero for p in posts if p.bloco == "A" and p.numero <= 3]
     return MarketingCampanhaResumo(
         id=campanha.id,
         slug=campanha.slug,
@@ -163,6 +168,8 @@ def build_campanha_resumo(db: Session) -> MarketingCampanhaResumo:
         progresso_blocos=_progresso_blocos(posts),
         post_hoje=post_to_out(post_hoje) if post_hoje else None,
         proximo_pendente=post_to_out(proximo) if proximo else None,
+        pre_inicio=pre_inicio,
+        foco_montagem=foco_montagem,
     )
 
 

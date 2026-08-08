@@ -108,3 +108,5 @@ class MarketingCampanhaResumo(BaseModel):
     progresso_blocos: List[BlocoProgresso]
     post_hoje: Optional[MarketingPostOut] = None
     proximo_pendente: Optional[MarketingPostOut] = None
+    pre_inicio: bool = False
+    foco_montagem: List[int] = Field(default_factory=list)

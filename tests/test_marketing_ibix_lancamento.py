@@ -33,10 +33,10 @@ def test_marketing_post_patch_aceita_enums_validos():
 
 
 def test_proximo_pendente_escolhe_menor_data_nao_ambos():
-    p1 = MagicMock(data_prevista=date(2026, 7, 27), status_publicacao="ambos", numero=1)
-    p2 = MagicMock(data_prevista=date(2026, 7, 29), status_publicacao="pendente", numero=2)
-    p3 = MagicMock(data_prevista=date(2026, 7, 31), status_publicacao="ig", numero=3)
-    got = _proximo_pendente([p1, p2, p3], date(2026, 7, 28))
+    p1 = MagicMock(data_prevista=date(2026, 8, 3), status_publicacao="ambos", numero=1)
+    p2 = MagicMock(data_prevista=date(2026, 8, 5), status_publicacao="pendente", numero=2)
+    p3 = MagicMock(data_prevista=date(2026, 8, 7), status_publicacao="ig", numero=3)
+    got = _proximo_pendente([p1, p2, p3], date(2026, 8, 4))
     assert got is p2
 
 
