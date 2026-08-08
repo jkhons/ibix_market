@@ -59,7 +59,7 @@
             el.innerHTML =
               '<div style="display:flex;justify-content:space-between;"><span>Subtotal</span><strong>' + fmt(p.subtotal) + '</strong></div>' +
               (p.taxa_entrega > 0 ? '<div style="display:flex;justify-content:space-between;"><span>Frete</span><strong>' + fmt(p.taxa_entrega) + '</strong></div>' : '<div style="display:flex;justify-content:space-between;"><span>Frete</span><strong>Grátis</strong></div>') +
-              '<div style="display:flex;justify-content:space-between;border-top:1px solid #ddd;padding-top:4px;margin-top:4px;"><span><strong>Total</strong></span><strong>' + fmt(p.total) + '</strong></div>';
+              '<div style="display:flex;justify-content:space-between;border-top:1px solid rgba(47,58,68,0.14);padding-top:4px;margin-top:4px;"><span><strong>Total</strong></span><strong>' + fmt(p.total) + '</strong></div>';
           }
         }
       }).catch(function(){});

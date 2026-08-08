@@ -20,7 +20,7 @@
     <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
     <meta name="description" content="{% if _seo_description %}{{ _seo_description }}{% else %}{% block seo_description %}Comércio que você conhece, entregue como você precisa. Compre em várias lojas em um só lugar.{% endblock %}{% endif %}">
     <meta name="keywords" content="{% block seo_keywords %}{{ _brand_nome }}, marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endblock %}">
-    <meta name="theme-color" content="#FEF7F1">
+    <meta name="theme-color" content="#F8F5EF">
     <title>{% if _seo_title %}{{ _seo_title }}{% else %}{% block title %}Vitrine{% endblock %} | {{ _brand_nome }}{% endif %}</title>
     <link rel="canonical" href="{{ _seo_canonical }}" />
 
@@ -100,10 +100,10 @@
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
     <link href="/static/css/landing/header.css" rel="stylesheet">
-    <link href="/static/css/loja.css?v=78" rel="stylesheet">
+    <link href="/static/css/loja.css?v=86" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
-        body.loja-page { background: var(--loja-bg, #FEF7F1); }
+        body.loja-page { background: var(--loja-bg, #F8F5EF); }
         body:not(.loja-page) { background: var(--bs-gray-100, #f8f9fa); }
         main { flex: 1; }
         .loja-page { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
@@ -231,11 +231,18 @@
             .loja-header .loja-brand { margin-left: 0; margin-right: 0; }
             .loja-header--compact .loja-brand { margin-left: 0; margin-right: 0; }
         }
-        /* Vitrine: herói + faixa de categorias (inline com o HTML, não depende de cache de loja.css) */
+        /* Vitrine: navegação de categorias (inline, não depende só do cache de loja.css) */
         .loja-categorias-wrap { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+        .loja-categorias-viewport {
+            flex: 1 1 0%;
+            min-width: 0;
+            max-width: 100%;
+            position: relative;
+            overflow: hidden;
+        }
         .loja-categorias-list,
         #loja-categorias-list {
-            flex: 1 1 0%;
+            flex: 1 1 auto;
             min-width: 0;
             max-width: 100%;
             width: 100%;
@@ -474,6 +481,7 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script>window.LOJA_CONSUMIDOR_ID = {{ consumidor_id|default(none)|tojson }};</script>
     <script>window.LOJA_SLUG_CONTEXT = {{ loja_slug_context|default(none)|tojson }};</script>
+    <script>window.LOJA_BRAND_NOME = {{ _brand_nome|tojson }};</script>
     <script src="/static/js/vitrine.js?v=22"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {

@@ -411,44 +411,51 @@
     }
     function vitrineCanonicalDescTexto(s) {
       if (!s || typeof s !== "string") return "";
-      return s.replace(/\s+/g, " ").trim();
+      return s
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+    function vitrineDescricoesEquivalentes(a, b) {
+      var ca = vitrineCanonicalDescTexto(a);
+      var cb = vitrineCanonicalDescTexto(b);
+      if (!ca || !cb) return false;
+      if (ca === cb) return true;
+      var shorter = ca.length <= cb.length ? ca : cb;
+      var longer = ca.length > cb.length ? ca : cb;
+      if (shorter.length >= 40 && longer.indexOf(shorter) !== -1) return true;
+      return false;
+    }
+    function vitrineFmtDescHtml(texto) {
+      return window.Vitrine.escapeHtml(texto).replace(/\n/g, "<br>");
     }
     var rawDescAnuncio = (anuncio.descricao && String(anuncio.descricao).trim()) ? String(anuncio.descricao).trim() : "";
     var rawDescCa = (anuncio.produto_ca_descricao && String(anuncio.produto_ca_descricao).trim()) ? String(anuncio.produto_ca_descricao).trim() : "";
-    var descricaoDuplicada =
-      rawDescAnuncio.length > 0 &&
-      rawDescCa.length > 0 &&
-      vitrineCanonicalDescTexto(rawDescAnuncio) === vitrineCanonicalDescTexto(rawDescCa);
-
-    var descHtml = "";
-    if (!descricaoDuplicada && rawDescAnuncio) {
-      descHtml =
-        '<div class="loja-produto-desc">' +
-          "<h3>Descrição do anúncio</h3>" +
-          '<div class="loja-produto-desc-content">' + window.Vitrine.escapeHtml(rawDescAnuncio).replace(/\n/g, "<br>") + "</div>" +
-        "</div>";
-    }
-    var descricaoCaConteudo = rawDescCa
-      ? (window.Vitrine.escapeHtml(rawDescCa).replace(/\n/g, "<br>"))
-      : '<span class="loja-produto-desc-empty">Este produto ainda não possui descrição cadastrada pelo vendedor.</span>';
-    var descricaoCaHtmlHorizontal = "";
-    if (!descricaoDuplicada) {
-      descricaoCaHtmlHorizontal =
-        '<div class="loja-produto-desc loja-produto-desc-produto-ca">' +
-          "<h3>Descrição do Produto</h3>" +
-          '<div class="loja-produto-desc-content">' + descricaoCaConteudo + "</div>" +
-        "</div>";
-    }
-    var descricaoBlocosHtml = "";
-    if (descricaoDuplicada) {
-      descricaoBlocosHtml =
-        '<div class="loja-produto-desc loja-produto-desc-unificada">' +
-          "<h3>Descrição</h3>" +
-          '<div class="loja-produto-desc-content">' + window.Vitrine.escapeHtml(rawDescAnuncio).replace(/\n/g, "<br>") + "</div>" +
-        "</div>";
+    var descricoesEquivalentes = vitrineDescricoesEquivalentes(rawDescAnuncio, rawDescCa);
+    var descricaoConteudoHtml = "";
+    if (rawDescCa && rawDescAnuncio) {
+      if (descricoesEquivalentes) {
+        var unica = rawDescCa.length >= rawDescAnuncio.length ? rawDescCa : rawDescAnuncio;
+        descricaoConteudoHtml = vitrineFmtDescHtml(unica);
+      } else {
+        descricaoConteudoHtml =
+          vitrineFmtDescHtml(rawDescCa) +
+          '<hr class="loja-produto-desc-sep" aria-hidden="true">' +
+          vitrineFmtDescHtml(rawDescAnuncio);
+      }
+    } else if (rawDescCa || rawDescAnuncio) {
+      descricaoConteudoHtml = vitrineFmtDescHtml(rawDescCa || rawDescAnuncio);
     } else {
-      descricaoBlocosHtml = descricaoCaHtmlHorizontal + descHtml;
+      descricaoConteudoHtml =
+        '<span class="loja-produto-desc-empty">Este produto ainda não possui descrição cadastrada pelo vendedor.</span>';
     }
+    var descricaoBlocosHtml =
+      '<div class="loja-produto-desc loja-produto-desc-unificada">' +
+        "<h3>Descrição</h3>" +
+        '<div class="loja-produto-desc-content">' + descricaoConteudoHtml + "</div>" +
+      "</div>";
     var semelhantesHtml =
       '<section class="loja-produto-extra-card loja-produto-semelhantes" id="loja-produto-semelhantes" style="display:none;">' +
         '<div class="loja-produto-semelhantes-head">' +

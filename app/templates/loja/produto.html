@@ -2,11 +2,11 @@
 
 {% block title %}{{ ssr_titulo|default('Produto', true) }}{% endblock %}
 
-{% block seo_description %}{% if ssr_titulo %}{{ ssr_titulo }} - Compre na Ibix Marketplace com entrega segura e pagamento protegido.{% else %}Produto disponível na Ibix Marketplace.{% endif %}{% endblock %}
+{% block seo_description %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{% if ssr_titulo %}{{ ssr_titulo }} - Compre{% if _seo_brand %} no {{ _seo_brand }}{% endif %} com entrega segura e pagamento protegido.{% else %}Produto disponível{% if _seo_brand %} no {{ _seo_brand }}{% endif %}.{% endif %}{% endblock %}
 
-{% block seo_og_title %}{{ ssr_titulo|default('Produto', true) }} | Ibix{% endblock %}
+{% block seo_og_title %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{{ ssr_titulo|default('Produto', true) }}{% if _seo_brand %} | {{ _seo_brand }}{% endif %}{% endblock %}
 
-{% block seo_og_description %}{% if ssr_titulo %}{{ ssr_titulo }}{% if ssr_preco %} - R$ {{ "%.2f"|format(ssr_preco) }}{% endif %}. Compre na Ibix.{% else %}Produto disponível na Ibix Marketplace.{% endif %}{% endblock %}
+{% block seo_og_description %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{% if ssr_titulo %}{{ ssr_titulo }}{% if ssr_preco %} - R$ {{ "%.2f"|format(ssr_preco) }}{% endif %}.{% if _seo_brand %} Compre no {{ _seo_brand }}.{% endif %}{% else %}Produto disponível{% if _seo_brand %} no {{ _seo_brand }}{% endif %}.{% endif %}{% endblock %}
 
 {% if ssr_titulo %}
 {% block seo_extra %}
@@ -69,7 +69,7 @@
         {% if ssr_imagem %}<div class="col-md-5 mb-3"><img src="{{ ssr_imagem }}" alt="{{ ssr_titulo }}{% if ssr_brand %} - {{ ssr_brand }}{% endif %}" style="max-width:100%;border-radius:8px" fetchpriority="high"></div>{% endif %}
         <div class="col-md-7">
             <h1>{{ ssr_titulo }}</h1>
-            {% if ssr_preco %}<p style="font-size:1.5rem;font-weight:700;color:#2c3e50">R$ {{ "%.2f"|format(ssr_preco) }}</p>{% endif %}
+            {% if ssr_preco %}<p style="font-size:1.5rem;font-weight:700;color:#2F3A44">R$ {{ "%.2f"|format(ssr_preco) }}</p>{% endif %}
             {% if ssr_descricao %}<p>{{ ssr_descricao }}</p>{% endif %}
         </div>
     </div>
@@ -433,44 +433,52 @@
     }
     function vitrineCanonicalDescTexto(s) {
       if (!s || typeof s !== "string") return "";
-      return s.replace(/\s+/g, " ").trim();
+      return s
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\u00a0/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    }
+    function vitrineDescricoesEquivalentes(a, b) {
+      var ca = vitrineCanonicalDescTexto(a);
+      var cb = vitrineCanonicalDescTexto(b);
+      if (!ca || !cb) return false;
+      if (ca === cb) return true;
+      var shorter = ca.length <= cb.length ? ca : cb;
+      var longer = ca.length > cb.length ? ca : cb;
+      /* Cópia de estoque no anúncio com trecho reordenado/estendido — evita dois cards quase iguais. */
+      if (shorter.length >= 40 && longer.indexOf(shorter) !== -1) return true;
+      return false;
+    }
+    function vitrineFmtDescHtml(texto) {
+      return window.Vitrine.escapeHtml(texto).replace(/\n/g, "<br>");
     }
     var rawDescAnuncio = (anuncio.descricao && String(anuncio.descricao).trim()) ? String(anuncio.descricao).trim() : "";
     var rawDescCa = (anuncio.produto_ca_descricao && String(anuncio.produto_ca_descricao).trim()) ? String(anuncio.produto_ca_descricao).trim() : "";
-    var descricaoDuplicada =
-      rawDescAnuncio.length > 0 &&
-      rawDescCa.length > 0 &&
-      vitrineCanonicalDescTexto(rawDescAnuncio) === vitrineCanonicalDescTexto(rawDescCa);
-
-    var descHtml = "";
-    if (!descricaoDuplicada && rawDescAnuncio) {
-      descHtml =
-        '<div class="loja-produto-desc">' +
-          "<h3>Descrição do anúncio</h3>" +
-          '<div class="loja-produto-desc-content">' + window.Vitrine.escapeHtml(rawDescAnuncio).replace(/\n/g, "<br>") + "</div>" +
-        "</div>";
-    }
-    var descricaoCaConteudo = rawDescCa
-      ? (window.Vitrine.escapeHtml(rawDescCa).replace(/\n/g, "<br>"))
-      : '<span class="loja-produto-desc-empty">Este produto ainda não possui descrição cadastrada pelo vendedor.</span>';
-    var descricaoCaHtmlHorizontal = "";
-    if (!descricaoDuplicada) {
-      descricaoCaHtmlHorizontal =
-        '<div class="loja-produto-desc loja-produto-desc-produto-ca">' +
-          "<h3>Descrição do Produto</h3>" +
-          '<div class="loja-produto-desc-content">' + descricaoCaConteudo + "</div>" +
-        "</div>";
-    }
-    var descricaoBlocosHtml = "";
-    if (descricaoDuplicada) {
-      descricaoBlocosHtml =
-        '<div class="loja-produto-desc loja-produto-desc-unificada">' +
-          "<h3>Descrição</h3>" +
-          '<div class="loja-produto-desc-content">' + window.Vitrine.escapeHtml(rawDescAnuncio).replace(/\n/g, "<br>") + "</div>" +
-        "</div>";
+    var descricoesEquivalentes = vitrineDescricoesEquivalentes(rawDescAnuncio, rawDescCa);
+    var descricaoConteudoHtml = "";
+    if (rawDescCa && rawDescAnuncio) {
+      if (descricoesEquivalentes) {
+        var unica = rawDescCa.length >= rawDescAnuncio.length ? rawDescCa : rawDescAnuncio;
+        descricaoConteudoHtml = vitrineFmtDescHtml(unica);
+      } else {
+        descricaoConteudoHtml =
+          vitrineFmtDescHtml(rawDescCa) +
+          '<hr class="loja-produto-desc-sep" aria-hidden="true">' +
+          vitrineFmtDescHtml(rawDescAnuncio);
+      }
+    } else if (rawDescCa || rawDescAnuncio) {
+      descricaoConteudoHtml = vitrineFmtDescHtml(rawDescCa || rawDescAnuncio);
     } else {
-      descricaoBlocosHtml = descricaoCaHtmlHorizontal + descHtml;
+      descricaoConteudoHtml =
+        '<span class="loja-produto-desc-empty">Este produto ainda não possui descrição cadastrada pelo vendedor.</span>';
     }
+    var descricaoBlocosHtml =
+      '<div class="loja-produto-desc loja-produto-desc-unificada">' +
+        "<h3>Descrição</h3>" +
+        '<div class="loja-produto-desc-content">' + descricaoConteudoHtml + "</div>" +
+      "</div>";
     var semelhantesHtml =
       '<section class="loja-produto-extra-card loja-produto-semelhantes" id="loja-produto-semelhantes" style="display:none;">' +
         '<div class="loja-produto-semelhantes-head">' +
@@ -736,7 +744,7 @@
         });
     })();
 
-    document.title = (anuncio.titulo || "Produto") + " | Ibix";
+    document.title = (anuncio.titulo || "Produto") + (window.LOJA_BRAND_NOME ? (" | " + window.LOJA_BRAND_NOME) : "");
     loadSemelhantes(anuncio.id);
   }
 

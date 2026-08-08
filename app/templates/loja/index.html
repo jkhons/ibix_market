@@ -2,13 +2,13 @@
 
 {% block title %}{% if loja_nome_context %}{{ loja_nome_context }}{% elif categoria_nome %}{{ categoria_nome }}{% else %}Vitrine{% endif %}{% endblock %}
 
-{% block seo_description %}{% if loja_nome_context and busca_ativa and busca_q %}{{ loja_nome_context }}: resultados para "{{ busca_q }}". Pesquise produtos por nome, descrição, assunto e categoria.{% elif loja_nome_context %}Produtos da loja {{ loja_nome_context }}. Busque por nome, descrição, assunto e categoria.{% elif categoria_nome %}Produtos de {{ categoria_nome }} - Encontre as melhores ofertas.{% elif busca_ativa and busca_q %}Resultados para "{{ busca_q }}" - Encontre produtos.{% else %}Comércio que você conhece, entregue como você precisa. Compre em várias lojas em um só lugar.{% endif %}{% endblock %}
+{% block seo_description %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{% if loja_nome_context and busca_ativa and busca_q %}{{ loja_nome_context }}: resultados para "{{ busca_q }}". Pesquise produtos por nome, descrição, assunto e categoria.{% elif loja_nome_context %}Produtos da loja {{ loja_nome_context }}. Busque por nome, descrição, assunto e categoria.{% elif categoria_nome %}Produtos de {{ categoria_nome }} - Encontre as melhores ofertas.{% elif busca_ativa and busca_q %}Resultados para "{{ busca_q }}" - Encontre produtos.{% else %}Encontre produtos, ofertas e lojas da sua cidade{% if _seo_brand %} no {{ _seo_brand }}{% endif %}. Compre perto e escolha como receber: entrega, retirada ou combinação com a loja.{% endif %}{% endblock %}
 
-{% block seo_og_title %}{% if loja_nome_context %}{{ loja_nome_context }} | Ibix{% elif categoria_nome %}{{ categoria_nome }} | Ibix{% elif busca_ativa and busca_q %}{{ busca_q }} | Ibix{% else %}Vitrine | Ibix{% endif %}{% endblock %}
+{% block seo_og_title %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{% if loja_nome_context %}{{ loja_nome_context }}{% if _seo_brand %} | {{ _seo_brand }}{% endif %}{% elif categoria_nome %}{{ categoria_nome }}{% if _seo_brand %} | {{ _seo_brand }}{% endif %}{% elif busca_ativa and busca_q %}{{ busca_q }}{% if _seo_brand %} | {{ _seo_brand }}{% endif %}{% else %}Vitrine{% if _seo_brand %} | {{ _seo_brand }}{% endif %}{% endif %}{% endblock %}
 
-{% block seo_og_description %}{% if loja_nome_context %}Loja {{ loja_nome_context }} com produtos e ofertas no Ibix.{% elif categoria_nome %}Produtos de {{ categoria_nome }} - Encontre as melhores ofertas.{% else %}Comércio que você conhece. Entrega e retirada do seu jeito.{% endif %}{% endblock %}
+{% block seo_og_description %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{% if loja_nome_context %}Loja {{ loja_nome_context }} com produtos e ofertas{% if _seo_brand %} no {{ _seo_brand }}{% endif %}.{% elif categoria_nome %}Produtos de {{ categoria_nome }} - Encontre as melhores ofertas.{% else %}Encontre produtos, ofertas e lojas da sua cidade{% if _seo_brand %} no {{ _seo_brand }}{% endif %}. Compre perto e escolha como receber: entrega, retirada ou combinação com a loja.{% endif %}{% endblock %}
 
-{% block seo_keywords %}{% if loja_nome_context %}{{ loja_nome_context }}, loja {{ loja_nome_context }}, produtos {{ loja_nome_context }}, Ibix, marketplace, ofertas, comprar online{% elif busca_ativa and busca_q %}{{ busca_q }}, produtos, Ibix, marketplace, ofertas, comprar online{% else %}Ibix, marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endif %}{% endblock %}
+{% block seo_keywords %}{% set _seo_brand = (brand.nome_exibicao if brand and brand.nome_exibicao else (brand.nome if brand and brand.nome else '')) %}{% if loja_nome_context %}{{ loja_nome_context }}, loja {{ loja_nome_context }}, produtos {{ loja_nome_context }}{% if _seo_brand %}, {{ _seo_brand }}{% endif %}, marketplace, ofertas, comprar online{% elif busca_ativa and busca_q %}{{ busca_q }}, produtos{% if _seo_brand %}, {{ _seo_brand }}{% endif %}, marketplace, ofertas, comprar online{% else %}{% if _seo_brand %}{{ _seo_brand }}, {% endif %}marketplace, compras online, produtos, ofertas, loja online, comércio local, entrega, vitrine{% endif %}{% endblock %}
 
 {% block seo_extra %}
 {% if loja_slug_context %}
@@ -40,7 +40,9 @@
     <div class="loja-section-head" style="display:none;"></div>
     <div class="loja-categorias-wrap">
       <button type="button" class="loja-categorias-nav loja-categorias-nav-prev" id="loja-cat-prev" aria-label="Categorias anteriores"><i data-feather="chevron-left"></i></button>
-      <div id="loja-categorias-list" class="loja-categorias-list"></div>
+      <div class="loja-categorias-viewport" id="loja-categorias-viewport">
+        <div id="loja-categorias-list" class="loja-categorias-list"></div>
+      </div>
       <button type="button" class="loja-categorias-nav loja-categorias-nav-next" id="loja-cat-next" aria-label="Próximas categorias"><i data-feather="chevron-right"></i></button>
     </div>
   </div>
@@ -51,13 +53,18 @@
 <section class="loja-hero vitrine-hero secao-vitrine">
   <div class="container">
     <div class="loja-hero-inner">
-      <div class="loja-hero-grid">
+      <div class="loja-hero-grid loja-hero-grid--copy-only" id="loja-hero-grid">
         <div class="loja-hero-copy">
-          <h1 id="loja-hero-h1" class="vitrine-hero__titulo {% if vitrine_hero_titulo_uma_linha %}loja-hero-h1-uma-linha{% endif %}">{% if seo and seo.h1 %}{{ seo.h1 }}{% else %}Comércio que você conhece, entregue como você precisa.{% endif %}</h1>
+          {% if seo and seo.h1 %}
+          <h1 id="loja-hero-h1" class="vitrine-hero__titulo">{{ seo.h1 }}</h1>
           {% if descricao_publica %}
           <p class="loja-hero-desc vitrine-hero__texto">{{ descricao_publica }}</p>
           {% endif %}
-          <p class="loja-hero-extra mb-0">Receba rápido, retire na loja ou combine do seu jeito.</p>
+          {% else %}
+          <span class="loja-kicker">Ofertas da sua cidade</span>
+          <h1 id="loja-hero-h1" class="vitrine-hero__titulo">Compre perto.<br>Receba do seu jeito.</h1>
+          <p class="loja-hero-desc vitrine-hero__texto">Encontre produtos e ofertas das lojas da sua cidade.</p>
+          {% endif %}
           {% if loja_categoria_context and loja_cidade_context %}
           <p class="mb-0 mt-2 loja-hero-extra">
             <a href="/categoria/{{ loja_categoria_context }}-{{ loja_cidade_context }}">
@@ -67,64 +74,10 @@
           {% endif %}
           <div class="loja-hero-actions">
             <a href="#loja-ofertas" class="btn btn-primary">Ver ofertas</a>
-            <a href="#loja-todos-produtos" class="btn btn-outline-primary">Explorar categorias</a>
+            <a href="#inicio-vitrine" class="btn btn-outline-primary">Explorar categorias</a>
           </div>
         </div>
-        <div class="loja-hero-banner" role="region" aria-label="Destaques e ofertas">
-          <div class="loja-hero-carousel" id="loja-hero-carousel" tabindex="0">
-            <div class="loja-hero-carousel-track">
-
-              <div class="loja-hero-slide loja-hero-slide-active" data-layout="single" data-slide-index="0">
-                <div class="loja-hero-banner-card">
-                  <img src="/static/img/loja/hero-logo.jpg" alt="Destaque institucional da vitrine" class="loja-hero-banner-logo" />
-                </div>
-              </div>
-
-              <div class="loja-hero-slide" data-layout="single" data-slide-index="1">
-                <div class="loja-hero-banner-card loja-hero-slide-promo">
-                  <div class="loja-hero-slide-content">
-                    <span class="loja-hero-slide-kicker">Ofertas especiais</span>
-                    <h2 class="loja-hero-slide-title">Até 50% off em seleção</h2>
-                    <p class="loja-hero-slide-text">Aproveite as melhores promoções da vitrine.</p>
-                    <a href="#loja-ofertas" class="btn btn-primary loja-hero-slide-cta">Ver ofertas</a>
-                  </div>
-                </div>
-              </div>
-
-              <div class="loja-hero-slide" data-layout="single" data-slide-index="2">
-                <div class="loja-hero-banner-card loja-hero-slide-beneficio">
-                  <div class="loja-hero-slide-content">
-                    <span class="loja-hero-slide-icon"><i data-feather="truck"></i></span>
-                    <h2 class="loja-hero-slide-title">Frete ou retirada</h2>
-                    <p class="loja-hero-slide-text">Escolha como receber seu pedido.</p>
-                    <a href="#loja-todos-produtos" class="btn btn-outline-primary loja-hero-slide-cta">Explorar produtos</a>
-                  </div>
-                </div>
-              </div>
-
-              <div class="loja-hero-slide" data-layout="single" data-slide-index="3">
-                <a href="https://www.certilog.com.br" target="_blank" rel="noopener noreferrer" class="loja-hero-banner-card loja-hero-banner-card-link">
-                  <img src="/static/img/loja/certilog.png" alt="Certilog" class="loja-hero-banner-logo" />
-                </a>
-              </div>
-
-              <div class="loja-hero-slide" data-layout="single" data-slide-index="4">
-                <div class="loja-hero-banner-card loja-hero-slide-roma">
-                  <img src="/static/img/loja/roma.png" alt="ROMA - Peças para Trucks e Carretas" class="loja-hero-banner-logo" />
-                </div>
-              </div>
-            </div>
-            <button type="button" class="loja-hero-carousel-prev" id="loja-hero-carousel-prev" aria-label="Slide anterior" title="Anterior"><i data-feather="chevron-left"></i></button>
-            <button type="button" class="loja-hero-carousel-next" id="loja-hero-carousel-next" aria-label="Próximo slide" title="Próximo"><i data-feather="chevron-right"></i></button>
-            <div class="loja-hero-carousel-dots" id="loja-hero-carousel-dots" role="tablist" aria-label="Slides">
-              <button type="button" class="loja-hero-carousel-dot loja-hero-carousel-dot-active" role="tab" aria-selected="true" aria-label="Slide 1" data-slide-index="0"></button>
-              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 2" data-slide-index="1"></button>
-              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 3" data-slide-index="2"></button>
-              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 4 Certilog" data-slide-index="3"></button>
-              <button type="button" class="loja-hero-carousel-dot" role="tab" aria-selected="false" aria-label="Slide 5 ROMA" data-slide-index="4"></button>
-            </div>
-          </div>
-        </div>
+        <div class="loja-hero-produtos" id="loja-hero-produtos" hidden aria-label="Produtos em destaque" aria-busy="true"></div>
       </div>
     </div>
   </div>
@@ -526,16 +479,20 @@
       root.style.removeProperty("--loja-ofertas-fixed-left");
       root.style.removeProperty("--loja-ofertas-fixed-width");
       root.style.removeProperty("--loja-ofertas-fixed-max-height");
+      root.style.removeProperty("--loja-ofertas-sticky-top");
       return;
     }
     var rect = col.getBoundingClientRect();
     var left = Math.max(0, Math.round(rect.left));
-    var width = Math.max(160, Math.round(rect.width || 200));
+    var width = Math.max(136, Math.round(rect.width || 156));
     root.style.setProperty("--loja-ofertas-fixed-left", left + "px");
     root.style.setProperty("--loja-ofertas-fixed-width", width + "px");
 
-    var stickyTopPx = parseFloat(getComputedStyle(aside).top);
-    if (isNaN(stickyTopPx) || stickyTopPx < 0) stickyTopPx = 84;
+    /* Medir header real — CSS fixo 5.25rem ficava abaixo do sticky e cortava o kicker */
+    var header = document.querySelector(".loja-header");
+    var headerH = header ? Math.ceil(header.getBoundingClientRect().height) : 0;
+    var stickyTopPx = Math.max(headerH + 10, 88);
+    root.style.setProperty("--loja-ofertas-sticky-top", stickyTopPx + "px");
 
     var bottomLimit = window.innerHeight - 12;
     var footer = document.querySelector(".loja-footer");
@@ -650,6 +607,139 @@
     wrap.className = wrapperClass;
     wrap.innerHTML = html;
     container.appendChild(wrap);
+  }
+
+  /** Card minimalista do hero (foto + nome + preço). Sem badge/carrinho/PLACEHOLDER. */
+  function renderHeroCardHtml(item) {
+    var id = parseInt(item && item.id, 10);
+    if (isNaN(id) || id < 1) return "";
+    var img = Vitrine.imagemPrincipalAnuncio(item);
+    if (!img || String(img).indexOf("data:image/svg") === 0) return "";
+    var titulo = String(item.titulo || "").trim();
+    if (!titulo) return "";
+    if (item.preco_original == null && item.preco_promocional == null) return "";
+    var precoVal = Vitrine.precoEfetivo(item);
+    var tituloEsc = Vitrine.escapeHtml(titulo);
+    var preco = Vitrine.formatPrecoCard(precoVal);
+    var href = Vitrine.produtoUrl(titulo, id);
+    return (
+      '<a class="produto-card produto-card--hero" href="' + href + '">' +
+        '<div class="produto-card-hero__media">' +
+          '<img src="' + Vitrine.escapeHtml(img) + '" alt="' + tituloEsc + '" loading="lazy" ' +
+            'onerror="this.style.display=\'none\';this.parentElement.classList.add(\'is-img-error\');">' +
+        "</div>" +
+        '<div class="produto-card-hero__body">' +
+          '<span class="produto-card-hero__title">' + tituloEsc + "</span>" +
+          '<span class="produto-card-hero__price">' + preco + "</span>" +
+        "</div>" +
+      "</a>"
+    );
+  }
+
+  function heroAnuncioId(item) {
+    var id = parseInt(item && item.id, 10);
+    return !isNaN(id) && id >= 1 ? id : null;
+  }
+
+  function heroAnuncioElegivel(item) {
+    if (!item || heroAnuncioId(item) == null) return false;
+    var img = Vitrine.imagemPrincipalAnuncio(item);
+    if (!img || String(img).indexOf("data:image/svg") === 0) return false;
+    if (!String(item.titulo || "").trim()) return false;
+    /* precoEfetivo() devolve 0 quando ambos são null — exigir preço real no payload */
+    if (item.preco_original == null && item.preco_promocional == null) return false;
+    return true;
+  }
+
+  /** Extrai anúncios de cards marketing (só tipo anuncio), na ordem da API. */
+  function extractAnunciosFromMarketingCards(cards) {
+    var out = [];
+    if (!cards || !cards.length) return out;
+    for (var i = 0; i < cards.length; i++) {
+      var entry = cards[i];
+      if (!entry || entry.tipo_card !== "anuncio" || !entry.anuncio) continue;
+      out.push(entry.anuncio);
+    }
+    return out;
+  }
+
+  function pushHeroUnique(list, seen, items) {
+    if (!items || !items.length) return;
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (!heroAnuncioElegivel(item)) continue;
+      var id = heroAnuncioId(item);
+      if (seen[id]) continue;
+      seen[id] = true;
+      list.push(item);
+      if (list.length >= 3) return;
+    }
+  }
+
+  function applyHeroProdutos(items) {
+    var host = document.getElementById("loja-hero-produtos");
+    var grid = document.getElementById("loja-hero-grid");
+    if (!host) return;
+    host.className = "loja-hero-produtos";
+    host.innerHTML = "";
+    var list = items || [];
+    var rendered = 0;
+    for (var i = 0; i < list.length && rendered < 3; i++) {
+      var html = renderHeroCardHtml(list[i]);
+      if (!html) continue;
+      rendered += 1;
+      var wrap = document.createElement("div");
+      wrap.className = "loja-hero-produto-slot loja-hero-produto-slot--" + rendered;
+      wrap.innerHTML = html;
+      host.appendChild(wrap);
+    }
+    if (rendered < 1) {
+      host.setAttribute("hidden", "");
+      host.setAttribute("aria-busy", "false");
+      if (grid) {
+        grid.classList.add("loja-hero-grid--copy-only");
+        grid.classList.remove("loja-hero-grid--with-produtos");
+      }
+      return;
+    }
+    host.classList.add("loja-hero-produtos--n" + rendered);
+    host.removeAttribute("hidden");
+    host.setAttribute("aria-busy", "false");
+    if (grid) {
+      grid.classList.remove("loja-hero-grid--copy-only");
+      grid.classList.add("loja-hero-grid--with-produtos");
+    }
+  }
+
+  /**
+   * Preenche 0–3 produtos no hero: destaque_agora → ofertas_semana → getAnuncios.
+   * Dedupa por id; ignora livre/cabeçalho; sem placeholder.
+   */
+  function fillHeroProdutos(m) {
+    var host = document.getElementById("loja-hero-produtos");
+    if (!host) return Promise.resolve();
+    var collected = [];
+    var seen = {};
+    if (m) {
+      pushHeroUnique(collected, seen, extractAnunciosFromMarketingCards(m.destaque_agora));
+      if (collected.length < 3) {
+        pushHeroUnique(collected, seen, extractAnunciosFromMarketingCards(m.ofertas_semana));
+      }
+    }
+    if (collected.length >= 3 || typeof Vitrine.getAnuncios !== "function") {
+      applyHeroProdutos(collected);
+      return Promise.resolve();
+    }
+    var params = { skip: 0, limit: 8, sort: "recent" };
+    if (lojaSlugContext) params.loja_slug = lojaSlugContext;
+    return Vitrine.getAnuncios(params)
+      .then(function (data) {
+        pushHeroUnique(collected, seen, (data && data.items) ? data.items : []);
+        applyHeroProdutos(collected);
+      })
+      .catch(function () {
+        applyHeroProdutos(collected);
+      });
   }
 
   function renderLivreCardHtml(entry) {
@@ -1099,16 +1189,19 @@
       loadFaixaDestaquesFallback(destaqueDefaultsCfg());
       loadOfertasFromAnunciosPromocao({ ativo: true, ofertas_somente_desconto: true });
       loadDestaqueAgoraFromAnunciosPromocao({ ativo: true, destaque_agora_somente_desconto: true });
+      fillHeroProdutos(null);
       return;
     }
     Vitrine.getMarketingVitrineHome()
       .then(function (m) {
         if (m && m.config && m.config.ativo === false) {
           hideMarketingFaixaEOfertas();
+          fillHeroProdutos(null);
         } else {
           loadDestaqueAgoraFromMarketing(m);
           loadFaixaFromMarketing(m);
           loadOfertasFromMarketing(m);
+          fillHeroProdutos(m);
         }
         if (m && m.config && m.config.mostrar_todos_produtos === false) {
           var tsec = document.getElementById("loja-todos-produtos");
@@ -1124,6 +1217,7 @@
         loadFaixaDestaquesFallback(destaqueDefaultsCfg());
         loadOfertasFromAnunciosPromocao({ ativo: true, ofertas_somente_desconto: true });
         loadDestaqueAgoraFromAnunciosPromocao({ ativo: true, destaque_agora_somente_desconto: true });
+        fillHeroProdutos(null);
       });
   }
 
@@ -1233,10 +1327,17 @@
     categoriasList.innerHTML = "";
     var allBtn = document.createElement("button");
     allBtn.type = "button";
-    allBtn.className = "loja-categoria-chip" + (selectedCategoryId == null ? " is-active" : "");
+    allBtn.className = "loja-categorias-anchor" + (selectedCategoryId == null ? " is-current" : "");
     allBtn.setAttribute("data-categoria-id", "");
+    if (selectedCategoryId == null) allBtn.setAttribute("aria-current", "true");
     allBtn.textContent = "Categorias";
     categoriasList.appendChild(allBtn);
+
+    var sep = document.createElement("span");
+    sep.className = "loja-categorias-sep";
+    sep.setAttribute("aria-hidden", "true");
+    sep.textContent = "|";
+    categoriasList.appendChild(sep);
 
     categoriasState.forEach(function (c) {
       var id = c && c.id != null ? Number(c.id) : null;
@@ -1250,12 +1351,19 @@
       categoriasList.appendChild(btn);
     });
     featherReplace();
+    if (typeof window.__lojaUpdateCatNavState === "function") {
+      window.requestAnimationFrame(function () {
+        window.__lojaUpdateCatNavState();
+      });
+    }
   }
 
   function bindCategoriasEvents() {
     if (!categoriasList) return;
     categoriasList.addEventListener("click", function (ev) {
-      var el = ev.target && ev.target.closest ? ev.target.closest(".loja-categoria-chip") : null;
+      var el = ev.target && ev.target.closest
+        ? ev.target.closest(".loja-categoria-chip, .loja-categorias-anchor")
+        : null;
       if (!el) return;
       var raw = el.getAttribute("data-categoria-id");
       selectedCategoryId = raw ? Number(raw) : null;
@@ -1265,18 +1373,25 @@
     });
     var prev = document.getElementById("loja-cat-prev");
     var next = document.getElementById("loja-cat-next");
+    var viewport = document.getElementById("loja-categorias-viewport");
+    var FADE_TOL = 2;
     function stepSize() {
       var first = categoriasList.querySelector(".loja-categoria-chip");
       if (!first) return 280;
       return Math.max(220, Math.round(first.getBoundingClientRect().width * 2.2));
     }
     function updateNavState() {
-      if (!prev || !next) return;
       var max = categoriasList.scrollWidth - categoriasList.clientWidth;
       var left = categoriasList.scrollLeft;
-      prev.disabled = left <= 2;
-      next.disabled = left >= (max - 2);
+      var hasOverflow = max > FADE_TOL;
+      if (prev) prev.disabled = left <= FADE_TOL;
+      if (next) next.disabled = !hasOverflow || left >= (max - FADE_TOL);
+      if (viewport) {
+        viewport.classList.toggle("has-fade-start", hasOverflow && left > FADE_TOL);
+        viewport.classList.toggle("has-fade-end", hasOverflow && left < (max - FADE_TOL));
+      }
     }
+    window.__lojaUpdateCatNavState = updateNavState;
     if (prev) prev.addEventListener("click", function () {
       categoriasList.scrollBy({ left: -stepSize(), behavior: "smooth" });
     });
@@ -1299,205 +1414,6 @@
       })
       .catch(function () { /* mantém a seção visível mesmo em erro (evita flicker ao atualizar) */ });
   }
-
-  // --- Hero carrossel: auto-rotate, prev/next, dots, swipe (incl. mobile). ---
-  (function initHeroCarousel() {
-    var carousel = document.getElementById("loja-hero-carousel");
-    var track = carousel && carousel.querySelector(".loja-hero-carousel-track");
-    var slides = track && track.querySelectorAll(".loja-hero-slide");
-    var prevBtn = document.getElementById("loja-hero-carousel-prev");
-    var nextBtn = document.getElementById("loja-hero-carousel-next");
-    var dotsContainer = document.getElementById("loja-hero-carousel-dots");
-    var dots = dotsContainer && dotsContainer.querySelectorAll(".loja-hero-carousel-dot");
-    if (!slides || slides.length === 0) return;
-
-    var total = slides.length;
-    var current = 0;
-    var intervalMs = 6000;
-    var timer = null;
-    var isPaused = false;
-
-    function goTo(index) {
-      index = (index + total) % total;
-      current = index;
-      for (var i = 0; i < slides.length; i++) {
-        slides[i].classList.toggle("loja-hero-slide-active", i === index);
-      }
-      if (dots) {
-        for (var d = 0; d < dots.length; d++) {
-          dots[d].classList.toggle("loja-hero-carousel-dot-active", d === index);
-          dots[d].setAttribute("aria-selected", d === index);
-        }
-      }
-      if (track) track.style.transform = "translateX(-" + (index * (100 / total)) + "%)";
-    }
-
-    function next() {
-      goTo(current + 1);
-      resetTimer();
-    }
-
-    function prev() {
-      goTo(current - 1);
-      resetTimer();
-    }
-
-    function resetTimer() {
-      if (timer) clearInterval(timer);
-      if (!isPaused) timer = setInterval(next, intervalMs);
-    }
-
-    function pause() {
-      isPaused = true;
-      if (timer) clearInterval(timer);
-      timer = null;
-    }
-
-    function resume() {
-      isPaused = false;
-      resetTimer();
-    }
-
-    if (prevBtn) prevBtn.addEventListener("click", function () { prev(); });
-    if (nextBtn) nextBtn.addEventListener("click", function () { next(); });
-
-    if (dots) {
-      for (var d = 0; d < dots.length; d++) {
-        (function (idx) {
-          dots[idx].addEventListener("click", function () { goTo(idx); resetTimer(); });
-        })(d);
-      }
-    }
-
-    if (carousel) {
-      carousel.addEventListener("mouseenter", pause);
-      carousel.addEventListener("mouseleave", resume);
-      carousel.addEventListener("focusin", pause);
-      carousel.addEventListener("focusout", resume);
-    }
-
-    // Swipe (mobile): usa o viewport do carrossel; ignora setas/dots para não disputar com toque
-    var touchStartX = 0;
-    var swipeEl = carousel || track;
-    if (swipeEl) {
-      swipeEl.addEventListener(
-        "touchstart",
-        function (e) {
-          if (e.target.closest(".loja-hero-carousel-prev, .loja-hero-carousel-next, .loja-hero-carousel-dots"))
-            return;
-          var t = e.touches && e.touches[0];
-          touchStartX = t ? t.screenX : 0;
-        },
-        { passive: true }
-      );
-      swipeEl.addEventListener(
-        "touchend",
-        function (e) {
-          if (e.target.closest(".loja-hero-carousel-prev, .loja-hero-carousel-next, .loja-hero-carousel-dots"))
-            return;
-          var t = e.changedTouches && e.changedTouches[0];
-          if (!t) return;
-          var diff = touchStartX - t.screenX;
-          if (Math.abs(diff) > 50) {
-            if (diff > 0) next();
-            else prev();
-          }
-        },
-        { passive: true }
-      );
-    }
-
-    goTo(0);
-    resetTimer();
-    if (typeof feather !== "undefined" && feather.replace) feather.replace();
-  })();
-
-  // --- Hero: título em uma linha — reduz font-size até o texto caber (sem cortar com …); ellipsis só abaixo do mínimo ---
-  (function initHeroTituloUmaLinha() {
-    var h = document.getElementById("loja-hero-h1");
-    if (!h || !h.classList.contains("loja-hero-h1-uma-linha")) return;
-
-    var minRem = 0.7;
-    var resizeTimer = null;
-
-    function apply() {
-      if (!h || !h.classList.contains("loja-hero-h1-uma-linha")) return;
-      h.style.fontSize = "";
-      h.style.textOverflow = "";
-      h.style.overflow = "";
-      h.style.whiteSpace = "nowrap";
-      var w = h.clientWidth;
-      if (w <= 0) return;
-
-      var cs = window.getComputedStyle(h);
-      var maxPx = parseFloat(cs.fontSize);
-      if (!maxPx || maxPx !== maxPx) return;
-      var rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      var maxRem = maxPx / rootPx;
-      if (maxRem <= minRem) {
-        h.style.fontSize = minRem + "rem";
-        h.style.overflow = "hidden";
-        h.style.textOverflow = h.scrollWidth > w ? "ellipsis" : "";
-        return;
-      }
-
-      if (h.scrollWidth <= w) {
-        return;
-      }
-
-      h.style.overflow = "hidden";
-      h.style.textOverflow = "clip";
-      var lo = minRem;
-      var hi = maxRem;
-      var i;
-      for (i = 0; i < 22; i++) {
-        var mid = (lo + hi) / 2;
-        h.style.fontSize = mid + "rem";
-        if (h.scrollWidth <= w) {
-          lo = mid;
-        } else {
-          hi = mid;
-        }
-      }
-      h.style.fontSize = lo + "rem";
-      while (h.scrollWidth > w && lo > minRem + 1e-6) {
-        lo = Math.max(minRem, lo - 0.03125);
-        h.style.fontSize = lo + "rem";
-      }
-      if (h.scrollWidth > w) {
-        h.style.fontSize = minRem + "rem";
-        if (h.scrollWidth > w) {
-          h.style.textOverflow = "ellipsis";
-        }
-      }
-      if (h.style.textOverflow === "ellipsis") {
-        h.style.overflow = "hidden";
-      } else {
-        h.style.overflow = "visible";
-        h.style.textOverflow = "";
-      }
-    }
-
-    function schedule() {
-      if (resizeTimer) clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(function () {
-        requestAnimationFrame(apply);
-      }, 120);
-    }
-
-    function runAfterLayout() {
-      requestAnimationFrame(function () {
-        requestAnimationFrame(apply);
-      });
-    }
-
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(runAfterLayout).catch(runAfterLayout);
-    } else {
-      runAfterLayout();
-    }
-    window.addEventListener("resize", schedule);
-  })();
 
   // --- Marketing vitrine (destaques + ofertas + listagem principal) ---
   // runMarketingHomeAndList é chamado após a definição de load() (ver final do script).
