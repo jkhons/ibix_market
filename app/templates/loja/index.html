@@ -84,20 +84,19 @@
 </section>
 {% endif %}
 
-<aside id="loja-ofertas" class="loja-ofertas-col loja-card-listagem-wrap secao-vitrine" aria-label="Ofertas relâmpago">
-  <div class="loja-card-listagem">
-    <div class="loja-card-listagem-header loja-ofertas-header">
-      <div class="min-w-0 flex-grow-1">
+<aside id="loja-ofertas" class="loja-ofertas-col" aria-label="Ofertas relâmpago">
+<section class="loja-section-block secao-vitrine secao-vitrine--oferta-relampago">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
         <span class="loja-section-kicker">⚡ Oferta relâmpago</span>
-        <h2 class="loja-card-listagem-title">{% if marketing_vitrine.titulo_ofertas_semana %}{{ marketing_vitrine.titulo_ofertas_semana }}{% else %}Oferta relâmpago{% endif %}</h2>
-        <p class="loja-section-subtitle mb-0 mt-1">{% if marketing_vitrine.subtitulo_ofertas_semana %}{{ marketing_vitrine.subtitulo_ofertas_semana }}{% else %}Preços em evidência e produtos com saída acelerada.{% endif %}</p>
+        <h2>{% if marketing_vitrine.titulo_ofertas_semana %}{{ marketing_vitrine.titulo_ofertas_semana }}{% else %}Oferta relâmpago{% endif %}</h2>
+        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_ofertas_semana %}{{ marketing_vitrine.subtitulo_ofertas_semana }}{% else %}Preços em evidência e produtos com saída acelerada.{% endif %}</p>
       </div>
-      <a href="#loja-todos-produtos" class="loja-section-more">Ver todas <span aria-hidden="true">→</span></a>
     </div>
-    <div class="loja-card-listagem-body">
-      <div id="loja-ofertas-grid" class="loja-grid-produtos"></div>
-    </div>
+    <div id="loja-ofertas-grid" class="row g-3 loja-grid-produtos"></div>
   </div>
+</section>
 </aside>
 
 <section id="loja-produto-heroi" class="loja-card-listagem-wrap secao-vitrine" style="display:none;">
@@ -950,7 +949,7 @@
         ofertasSection.style.display = "";
         syncOfertasColunaShell();
         promos.forEach(function (item) {
-          appendCardToGrid(ofertasGrid, item, LOJA_COL_CARD);
+          appendCardToGrid(ofertasGrid, item, "col-6 col-md-4 col-lg-3");
         });
         featherReplace();
       })
@@ -979,10 +978,10 @@
     ofertasSection.style.display = "";
     syncOfertasColunaShell();
     ofertasGrid.innerHTML = "";
-    var headH2 = ofertasSection.querySelector(".loja-card-listagem-title");
+    var headH2 = ofertasSection.querySelector(".loja-section-head h2");
     var headSub = ofertasSection.querySelector(".loja-section-subtitle");
-    if (headH2) headH2.textContent = (cfg.titulo_ofertas_semana != null && String(cfg.titulo_ofertas_semana).trim() !== "") ? String(cfg.titulo_ofertas_semana) : "Oferta relâmpago";
-    if (headSub) headSub.textContent = (cfg.subtitulo_ofertas_semana != null && String(cfg.subtitulo_ofertas_semana).trim() !== "") ? String(cfg.subtitulo_ofertas_semana) : "Preços em evidência e produtos com saída acelerada.";
+    if (headH2) headH2.textContent = (cfg.titulo_ofertas_semana != null && String(cfg.titulo_ofertas_semana).trim() !== "") ? String(cfg.titulo_ofertas_semana) : "";
+    if (headSub) headSub.textContent = (cfg.subtitulo_ofertas_semana != null && String(cfg.subtitulo_ofertas_semana).trim() !== "") ? String(cfg.subtitulo_ofertas_semana) : "";
     var items = (m && m.ofertas_semana) ? m.ofertas_semana : [];
     if (items.length === 0) {
       loadOfertasFromAnunciosPromocao(cfg);
@@ -991,11 +990,11 @@
     items.forEach(function (entry) {
       if (entry.tipo_card === "livre") {
         var col = document.createElement("div");
-        col.className = LOJA_COL_CARD;
+        col.className = "col-6 col-md-4 col-lg-3";
         col.innerHTML = renderLivreCardHtml(entry);
         ofertasGrid.appendChild(col);
       } else if (entry.tipo_card === "anuncio" && entry.anuncio) {
-        appendCardToGrid(ofertasGrid, entry.anuncio, LOJA_COL_CARD);
+        appendCardToGrid(ofertasGrid, entry.anuncio, "col-6 col-md-4 col-lg-3");
       }
     });
     if (ofertasGrid.children.length === 0) {

@@ -100,7 +100,7 @@
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
     <link href="/static/css/landing/header.css" rel="stylesheet">
-    <link href="/static/css/loja.css?v=90" rel="stylesheet">
+    <link href="/static/css/loja.css?v=93" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
         body.loja-page { background: var(--loja-bg, #F8F5EF); }
@@ -253,8 +253,7 @@
         @media (max-width: 767px) {
             .loja-categorias-list, #loja-categorias-list { scroll-snap-type: none; }
         }
-        /* Oferta relâmpago + Oferta em destaque agora: mesma grade de «Todos os produtos». */
-        #loja-ofertas #loja-ofertas-grid,
+        /* Oferta em destaque agora: mesma grade de «Todos os produtos». */
         #loja-produto-heroi-grid,
         #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
             display: grid !important;
@@ -266,7 +265,6 @@
             margin: 0 !important;
             justify-content: stretch !important;
         }
-        #loja-ofertas #loja-ofertas-grid > *,
         #loja-produto-heroi-grid > .loja-heroi-produto-slot,
         #loja-produto-heroi-grid > * {
             flex: initial !important;
@@ -277,13 +275,11 @@
             box-sizing: border-box;
         }
         @media (max-width: 767px) {
-            #loja-ofertas #loja-ofertas-grid,
             #loja-produto-heroi-grid,
             #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
                 grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                 gap: 10px !important;
             }
-            #loja-ofertas #loja-ofertas-grid > *,
             #loja-produto-heroi-grid > .loja-heroi-produto-slot,
             #loja-produto-heroi-grid > * {
                 width: auto !important;
