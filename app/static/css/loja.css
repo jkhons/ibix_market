@@ -613,10 +613,10 @@ main.loja-main .btn-outline-primary:hover {
   .loja-vitrine-main-rest #loja-todos-produtos,
   #loja-produto-heroi {
     min-width: 0;
-    max-width: 1280px;
+    max-width: none;
     width: 100%;
-    margin-left: auto;
-    margin-right: auto;
+    margin-left: 0;
+    margin-right: 0;
   }
   /* Evita padding duplo: o shell já inseta o conteúdo */
   .loja-vitrine-page-shell:not(.loja-vitrine-page-shell--busca) .loja-vitrine-rail,
@@ -3522,6 +3522,17 @@ body.loja-produto-zoom-open {
   margin-left: auto;
   margin-right: auto;
 }
+/* Home: mesma largura do banner / Mais procurados (trilho), sem inset extra */
+.loja-vitrine-rail #loja-produto-heroi.loja-card-listagem-wrap,
+.loja-ofertas-todos-wrap #loja-todos-produtos.loja-card-listagem-wrap {
+  max-width: none;
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+  margin-left: 0;
+  margin-right: 0;
+  box-sizing: border-box;
+}
 /* Página de busca: listagem é a primeira área abaixo do header */
 .loja-card-listagem-wrap.loja-busca-first {
   padding-top: 1.5rem;
@@ -3578,12 +3589,27 @@ body.loja-produto-zoom-open {
 @media (min-width: 576px) {
   .loja-card-listagem-wrap { padding-left: 1.25rem; padding-right: 1.25rem; }
   .loja-card-listagem-body { padding: 1.25rem; }
+  .loja-vitrine-rail #loja-produto-heroi.loja-card-listagem-wrap,
+  .loja-ofertas-todos-wrap #loja-todos-produtos.loja-card-listagem-wrap {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 @media (min-width: 768px) {
   .loja-card-listagem-wrap { padding-left: 1.5rem; padding-right: 1.5rem; margin-top: 2rem; }
+  .loja-vitrine-rail #loja-produto-heroi.loja-card-listagem-wrap,
+  .loja-ofertas-todos-wrap #loja-todos-produtos.loja-card-listagem-wrap {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 @media (min-width: 992px) {
   .loja-card-listagem-wrap { padding-left: 2rem; padding-right: 2rem; }
+  .loja-vitrine-rail #loja-produto-heroi.loja-card-listagem-wrap,
+  .loja-ofertas-todos-wrap #loja-todos-produtos.loja-card-listagem-wrap {
+    padding-left: 0;
+    padding-right: 0;
+  }
 }
 
 @media (max-width: 575px) {
