@@ -100,7 +100,7 @@
     <link href="/static/css/dashboard.css" rel="stylesheet">
     <link href="/static/css/certipeso.css" rel="stylesheet">
     <link href="/static/css/landing/header.css" rel="stylesheet">
-    <link href="/static/css/loja.css?v=87" rel="stylesheet">
+    <link href="/static/css/loja.css?v=90" rel="stylesheet">
     <style>
         body { font-family: "DM Sans", system-ui, -apple-system, sans-serif; color: var(--ibix-text-strong, #2F3A44); min-height: 100vh; display: flex; flex-direction: column; }
         body.loja-page { background: var(--loja-bg, #F8F5EF); }
@@ -253,36 +253,42 @@
         @media (max-width: 767px) {
             .loja-categorias-list, #loja-categorias-list { scroll-snap-type: none; }
         }
-        /* Oferta em destaque agora: empacota como «Perto de você» (sem 1fr que abre vãos). */
+        /* Oferta relâmpago + Oferta em destaque agora: mesma grade de «Todos os produtos». */
+        #loja-ofertas #loja-ofertas-grid,
         #loja-produto-heroi-grid,
         #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            justify-content: flex-start !important;
-            align-content: flex-start !important;
-            gap: 10px !important;
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+            gap: 18px !important;
             box-sizing: border-box;
             width: 100% !important;
             max-width: 100% !important;
             margin: 0 !important;
-            grid-template-columns: none !important;
+            justify-content: stretch !important;
         }
+        #loja-ofertas #loja-ofertas-grid > *,
         #loja-produto-heroi-grid > .loja-heroi-produto-slot,
         #loja-produto-heroi-grid > * {
-            flex: 0 0 180px !important;
-            width: 180px !important;
-            min-width: 180px !important;
-            max-width: 180px !important;
+            flex: initial !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
             margin: 0 !important;
             box-sizing: border-box;
         }
-        @media (max-width: 575.98px) {
+        @media (max-width: 767px) {
+            #loja-ofertas #loja-ofertas-grid,
+            #loja-produto-heroi-grid,
+            #loja-produto-heroi-grid.loja-heroi-produtos-wrap {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 10px !important;
+            }
+            #loja-ofertas #loja-ofertas-grid > *,
             #loja-produto-heroi-grid > .loja-heroi-produto-slot,
             #loja-produto-heroi-grid > * {
-                flex: 0 0 155px !important;
-                width: 155px !important;
-                min-width: 155px !important;
-                max-width: 155px !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: 100% !important;
             }
         }
         #loja-todos-produtos #loja-anuncios {

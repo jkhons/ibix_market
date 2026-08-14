@@ -27,6 +27,13 @@ class MarketingVitrineConfigResponse(BaseModel):
     destaque_embaralhar: bool = False
     titulo_em_alta: Optional[str] = None
     subtitulo_em_alta: Optional[str] = None
+    perto_voce_bbox_km: float = 50.0
+    perto_voce_limit: int = 12
+    perto_voce_pool: int = 40
+    perto_voce_max_por_loja: int = 2
+    proximos_bbox_km: float = 80.0
+    proximos_limit: int = 12
+    geocode_faltantes_limite: int = 50
     updated_at: Optional[datetime] = None
     updated_by: Optional[int] = None
 
@@ -46,6 +53,13 @@ class MarketingVitrineConfigUpdate(BaseModel):
     destaque_embaralhar: Optional[bool] = None
     titulo_em_alta: Optional[str] = Field(None, max_length=200)
     subtitulo_em_alta: Optional[str] = None
+    perto_voce_bbox_km: Optional[float] = Field(None, gt=0, le=200)
+    perto_voce_limit: Optional[int] = Field(None, ge=1, le=24)
+    perto_voce_pool: Optional[int] = Field(None, ge=5, le=120)
+    perto_voce_max_por_loja: Optional[int] = Field(None, ge=1, le=12)
+    proximos_bbox_km: Optional[float] = Field(None, gt=0, le=200)
+    proximos_limit: Optional[int] = Field(None, ge=1, le=24)
+    geocode_faltantes_limite: Optional[int] = Field(None, ge=1, le=200)
 
 
 def _norm_cliente_ids(v: Optional[List[int]]) -> Optional[List[int]]:

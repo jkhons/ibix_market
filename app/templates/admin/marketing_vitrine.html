@@ -17,6 +17,8 @@
       <a href="#secao-mv-cards" class="text-decoration-none">↓ Cards da vitrine</a>
       <span class="text-muted mx-1">·</span>
       <a href="#secao-mv-config" class="text-decoration-none">↓ Configuração global</a>
+      <span class="text-muted mx-1">·</span>
+      <a href="#secao-mv-config" class="text-decoration-none">↓ Perto de você</a>
     </p>
 
     <div id="alert-mv"></div>
@@ -108,6 +110,43 @@
                         <div class="mb-3">
                             <label class="form-label" for="mv-sub-em-alta">Subtítulo — Em alta</label>
                             <textarea class="form-control" id="mv-sub-em-alta" rows="2" placeholder="Produtos que estão chamando atenção agora."></textarea>
+                        </div>
+                        <hr class="my-3">
+                        <p class="text-muted small mb-2"><strong>Perto de você</strong> / proximidade (home e pós-busca). Gravado em <code>marketing_vitrine_config</code>; a API pública usa estes valores quando a query não envia override.</p>
+                        <div class="row g-2 mb-2">
+                          <div class="col-6">
+                            <label class="form-label" for="mv-perto-bbox">Raio pré-filtro (km)</label>
+                            <input type="number" class="form-control form-control-sm" id="mv-perto-bbox" min="1" max="200" step="1" value="50">
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label" for="mv-perto-limit">Itens na faixa</label>
+                            <input type="number" class="form-control form-control-sm" id="mv-perto-limit" min="1" max="24" step="1" value="12">
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label" for="mv-perto-pool">Pool amostragem</label>
+                            <input type="number" class="form-control form-control-sm" id="mv-perto-pool" min="5" max="120" step="1" value="40">
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label" for="mv-perto-max-loja">Máx. anúncios por loja</label>
+                            <input type="number" class="form-control form-control-sm" id="mv-perto-max-loja" min="1" max="12" step="1" value="2">
+                          </div>
+                        </div>
+                        <div class="form-text mb-3">Ex.: 3 lojas × máx. 2 = até 6 cards (mesmo com dezenas de anúncios por loja).</div>
+                        <p class="text-muted small mb-2">Pós-busca («Mais perto de você que vendem isso»)</p>
+                        <div class="row g-2 mb-2">
+                          <div class="col-6">
+                            <label class="form-label" for="mv-prox-bbox">Raio busca (km)</label>
+                            <input type="number" class="form-control form-control-sm" id="mv-prox-bbox" min="1" max="200" step="1" value="80">
+                          </div>
+                          <div class="col-6">
+                            <label class="form-label" for="mv-prox-limit">Itens pós-busca</label>
+                            <input type="number" class="form-control form-control-sm" id="mv-prox-limit" min="1" max="24" step="1" value="12">
+                          </div>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label" for="mv-geo-faltantes">Lote diário geocode órfãos</label>
+                          <input type="number" class="form-control form-control-sm" id="mv-geo-faltantes" min="1" max="200" step="1" value="50">
+                          <div class="form-text">Celery Beat 03:30 — clientes com CEP sem lat/lng (prioriza loja ativa).</div>
                         </div>
                         <button type="submit" class="btn btn-primary btn-sm" id="btn-salvar-config">Salvar configuração</button>
                     </form>
@@ -581,6 +620,19 @@
       syncDestaqueLayoutFields();
       document.getElementById('mv-titulo-em-alta').value = c.titulo_em_alta || '';
       document.getElementById('mv-sub-em-alta').value = c.subtitulo_em_alta || '';
+      var setNum = function (id, val, fallback) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var n = Number(val);
+        el.value = (Number.isFinite(n) ? n : fallback);
+      };
+      setNum('mv-perto-bbox', c.perto_voce_bbox_km, 50);
+      setNum('mv-perto-limit', c.perto_voce_limit, 12);
+      setNum('mv-perto-pool', c.perto_voce_pool, 40);
+      setNum('mv-perto-max-loja', c.perto_voce_max_por_loja, 2);
+      setNum('mv-prox-bbox', c.proximos_bbox_km, 80);
+      setNum('mv-prox-limit', c.proximos_limit, 12);
+      setNum('mv-geo-faltantes', c.geocode_faltantes_limite, 50);
     }).catch(function () {
       showAlert('Erro ao carregar configuração.', false);
     });
@@ -588,6 +640,12 @@
 
   document.getElementById('form-mv-config').addEventListener('submit', function (e) {
     e.preventDefault();
+    function numOrNull(id) {
+      var el = document.getElementById(id);
+      if (!el) return null;
+      var n = Number(el.value);
+      return Number.isFinite(n) ? n : null;
+    }
     var body = {
       ativo: document.getElementById('mv-ativo').checked,
       mostrar_todos_produtos: document.getElementById('mv-mostrar-todos').checked,
@@ -599,7 +657,14 @@
       destaque_mostrar_setas: document.getElementById('mv-destaque-setas').checked,
       destaque_scroll_snap: document.getElementById('mv-destaque-snap').checked,
       titulo_em_alta: document.getElementById('mv-titulo-em-alta').value.trim() || null,
-      subtitulo_em_alta: document.getElementById('mv-sub-em-alta').value.trim() || null
+      subtitulo_em_alta: document.getElementById('mv-sub-em-alta').value.trim() || null,
+      perto_voce_bbox_km: numOrNull('mv-perto-bbox'),
+      perto_voce_limit: numOrNull('mv-perto-limit'),
+      perto_voce_pool: numOrNull('mv-perto-pool'),
+      perto_voce_max_por_loja: numOrNull('mv-perto-max-loja'),
+      proximos_bbox_km: numOrNull('mv-prox-bbox'),
+      proximos_limit: numOrNull('mv-prox-limit'),
+      geocode_faltantes_limite: numOrNull('mv-geo-faltantes')
     };
     mvFetch('/api/v1/marketing-vitrine/config', {
       method: 'PATCH',

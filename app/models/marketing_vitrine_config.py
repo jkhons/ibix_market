@@ -1,5 +1,5 @@
 # PDV Ibix — Configuração global da vitrine (singleton id=1)
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 
 from ..database.base import Base
@@ -32,4 +32,12 @@ class MarketingVitrineConfig(Base):
     destaque_embaralhar = Column(Boolean, nullable=False, server_default="false")
     titulo_em_alta = Column(String(200), nullable=True)
     subtitulo_em_alta = Column(Text(), nullable=True)
+    # «Perto de você» / proximidade — Superadmin em /admin/marketing-vitrine.
+    perto_voce_bbox_km = Column(Float, nullable=False, server_default="50")
+    perto_voce_limit = Column(Integer, nullable=False, server_default="12")
+    perto_voce_pool = Column(Integer, nullable=False, server_default="40")
+    perto_voce_max_por_loja = Column(Integer, nullable=False, server_default="2")
+    proximos_bbox_km = Column(Float, nullable=False, server_default="80")
+    proximos_limit = Column(Integer, nullable=False, server_default="12")
+    geocode_faltantes_limite = Column(Integer, nullable=False, server_default="50")
     updated_by = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)

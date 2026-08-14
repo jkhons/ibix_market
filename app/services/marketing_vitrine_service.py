@@ -218,11 +218,43 @@ def get_or_create_config_row(db: Session) -> MarketingVitrineConfig:
         destaque_mostrar_setas=True,
         destaque_scroll_snap=True,
         destaque_embaralhar=False,
+        perto_voce_bbox_km=50.0,
+        perto_voce_limit=12,
+        perto_voce_pool=40,
+        perto_voce_max_por_loja=2,
+        proximos_bbox_km=80.0,
+        proximos_limit=12,
+        geocode_faltantes_limite=50,
     )
     db.add(row)
     db.commit()
     db.refresh(row)
     return row
+
+
+def get_vitrine_geo_params(db: Session) -> Dict[str, Any]:
+    """Parâmetros Superadmin para «Perto de você» / proximos / beat geocode (defaults seguros)."""
+    try:
+        cfg = get_or_create_config_row(db)
+    except ProgrammingError:
+        return {
+            "perto_voce_bbox_km": 50.0,
+            "perto_voce_limit": 12,
+            "perto_voce_pool": 40,
+            "perto_voce_max_por_loja": 2,
+            "proximos_bbox_km": 80.0,
+            "proximos_limit": 12,
+            "geocode_faltantes_limite": 50,
+        }
+    return {
+        "perto_voce_bbox_km": float(getattr(cfg, "perto_voce_bbox_km", None) or 50.0),
+        "perto_voce_limit": int(getattr(cfg, "perto_voce_limit", None) or 12),
+        "perto_voce_pool": int(getattr(cfg, "perto_voce_pool", None) or 40),
+        "perto_voce_max_por_loja": int(getattr(cfg, "perto_voce_max_por_loja", None) or 2),
+        "proximos_bbox_km": float(getattr(cfg, "proximos_bbox_km", None) or 80.0),
+        "proximos_limit": int(getattr(cfg, "proximos_limit", None) or 12),
+        "geocode_faltantes_limite": int(getattr(cfg, "geocode_faltantes_limite", None) or 50),
+    }
 
 
 def anuncio_e_publicavel(anuncio: Optional[AnuncioPlataforma]) -> bool:
