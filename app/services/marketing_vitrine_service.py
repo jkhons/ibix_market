@@ -458,6 +458,27 @@ def _primeiro_cabecalho_ofertas_visivel(db: Session, now: datetime) -> Optional[
     return _primeiro_cabecalho_visivel(db, now, "oferta_semana")
 
 
+def _bloco_tem_embaralhar_em_card_anuncio(
+    db: Session, *, tipo_bloco: str, now: datetime
+) -> bool:
+    """True se algum card «anúncio» ativo do bloco pediu embaralhar_produtos."""
+    rows = (
+        db.query(MarketingVitrineCard)
+        .filter(
+            MarketingVitrineCard.tipo_bloco == tipo_bloco,
+            MarketingVitrineCard.tipo_card == "anuncio",
+            MarketingVitrineCard.ativo.is_(True),
+        )
+        .all()
+    )
+    for card in rows:
+        if not _card_visivel_agora(card, now):
+            continue
+        if bool(getattr(card, "embaralhar_produtos", False)):
+            return True
+    return False
+
+
 def _coletar_itens_bloco_produto(
     db: Session,
     *,
@@ -465,8 +486,19 @@ def _coletar_itens_bloco_produto(
     now: datetime,
     limite: int,
     somente_promo: bool,
+    embaralhar: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Monta itens públicos (livre/anúncio) de um bloco de produtos, respeitando limite e vigência."""
+    """Monta itens públicos (livre/anúncio) de um bloco curado no admin.
+
+    Cards manuais (anúncio/livre) entram pela seleção do Superadmin — **não** aplicamos
+    ``somente_promo`` aqui. Esse filtro vale só no preenchimento automático da home
+    (fallback JS) via ``destaque_agora_somente_desconto`` / ``ofertas_somente_desconto``.
+
+    Com ``embaralhar=True``: coleta todos os itens elegíveis do bloco, embaralha e
+    devolve no máximo ``limite`` (assim o checkbox do cabeçalho também vale com cards
+    manuais — antes só afetava o fallback automático).
+    """
+    del somente_promo  # reservado ao fallback automático da vitrine, não aos cards curados
     q = (
         db.query(MarketingVitrineCard)
         .filter(MarketingVitrineCard.tipo_bloco == tipo_bloco)
@@ -490,36 +522,26 @@ def _coletar_itens_bloco_produto(
                         inicio_em=card.inicio_em,
                         fim_em=card.fim_em,
                     )
-                    item = _card_para_item_publico(
-                        shadow,
-                        db,
-                        aplicar_somente_promocao=somente_promo,
-                    )
+                    item = _card_para_item_publico(shadow, db, aplicar_somente_promocao=False)
                     if item:
                         items.append(item)
-                    if len(items) >= limite:
+                    if not embaralhar and len(items) >= limite:
                         break
             else:
-                item = _card_para_item_publico(
-                    card,
-                    db,
-                    aplicar_somente_promocao=somente_promo,
-                )
+                item = _card_para_item_publico(card, db, aplicar_somente_promocao=False)
                 if item:
                     items.append(item)
-            if len(items) >= limite:
+            if not embaralhar and len(items) >= limite:
                 break
         else:
-            item = _card_para_item_publico(
-                card,
-                db,
-                aplicar_somente_promocao=somente_promo,
-            )
+            item = _card_para_item_publico(card, db, aplicar_somente_promocao=False)
             if item:
                 items.append(item)
-            if len(items) >= limite:
+            if not embaralhar and len(items) >= limite:
                 break
-    return items
+    if embaralhar and len(items) > 1:
+        random.shuffle(items)
+    return items[: max(0, int(limite))]
 
 
 def _anuncio_tem_preco_promocional_valido(anuncio: AnuncioPlataforma) -> bool:
@@ -711,23 +733,34 @@ def build_public_payload(db: Session) -> Dict[str, Any]:
         )
         limite_ofertas = int(merged_cfg.get("limite_ofertas_semana", MAX_OFERTAS_SEMANA))
         somente_promo_ofertas = bool(merged_cfg.get("ofertas_somente_desconto", True))
+        embaralhar_ofertas = bool(merged_cfg.get("ofertas_embaralhar", False)) or _bloco_tem_embaralhar_em_card_anuncio(
+            db, tipo_bloco="oferta_semana", now=now
+        )
         ofertas = _coletar_itens_bloco_produto(
             db,
             tipo_bloco="oferta_semana",
             now=now,
             limite=limite_ofertas,
             somente_promo=somente_promo_ofertas,
+            embaralhar=embaralhar_ofertas,
         )
 
         limite_da = int(merged_cfg.get("limite_destaque_agora", MAX_DESTAQUE_AGORA))
         somente_promo_da = bool(merged_cfg.get("destaque_agora_somente_desconto", True))
+        embaralhar_da = bool(merged_cfg.get("destaque_agora_embaralhar", False)) or _bloco_tem_embaralhar_em_card_anuncio(
+            db, tipo_bloco="destaque_agora", now=now
+        )
         destaque_agora = _coletar_itens_bloco_produto(
             db,
             tipo_bloco="destaque_agora",
             now=now,
             limite=limite_da,
             somente_promo=somente_promo_da,
+            embaralhar=embaralhar_da,
         )
+        # Espelha no config público o embaralhar efetivo (cabeçalho OU card anúncio).
+        merged_cfg["ofertas_embaralhar"] = bool(embaralhar_ofertas)
+        merged_cfg["destaque_agora_embaralhar"] = bool(embaralhar_da)
 
         return {
             "config": merged_cfg,

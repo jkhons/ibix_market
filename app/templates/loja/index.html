@@ -84,6 +84,21 @@
 </section>
 {% endif %}
 
+<aside id="loja-ofertas" class="loja-ofertas-col" aria-label="Ofertas relâmpago">
+<section class="loja-section-block secao-vitrine secao-vitrine--oferta-relampago">
+  <div class="container">
+    <div class="loja-section-head">
+      <div>
+        <span class="loja-section-kicker">⚡ Oferta relâmpago</span>
+        <h2>{% if marketing_vitrine.titulo_ofertas_semana %}{{ marketing_vitrine.titulo_ofertas_semana }}{% else %}Oferta relâmpago{% endif %}</h2>
+        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_ofertas_semana %}{{ marketing_vitrine.subtitulo_ofertas_semana }}{% else %}Preços em evidência e produtos com saída acelerada.{% endif %}</p>
+      </div>
+    </div>
+    <div id="loja-ofertas-grid" class="row g-3 loja-grid-produtos"></div>
+  </div>
+</section>
+</aside>
+
 <section id="loja-produto-heroi" class="loja-section-block secao-vitrine secao-vitrine--hero-card" style="display:none;">
   <div class="container">
     <div class="loja-section-head">
@@ -91,6 +106,7 @@
         <h2>{% if marketing_vitrine.titulo_destaque_agora %}{{ marketing_vitrine.titulo_destaque_agora }}{% else %}Oferta em destaque agora{% endif %}</h2>
         <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_destaque_agora %}{{ marketing_vitrine.subtitulo_destaque_agora }}{% else %}Item selecionado para máxima visibilidade por oportunidade comercial.{% endif %}</p>
       </div>
+      <a href="#loja-todos-produtos" class="loja-section-more">Ver todas <span aria-hidden="true">→</span></a>
     </div>
     <div id="loja-produto-heroi-grid" class="loja-heroi-produtos-wrap loja-grid-produtos"></div>
   </div>
@@ -128,23 +144,6 @@
     </div>
   </div>
 </section>
-</div>
-
-<div class="loja-ofertas-sidebar-col">
-<aside id="loja-ofertas" class="loja-ofertas-col" aria-label="Ofertas relâmpago">
-<section class="loja-section-block secao-vitrine secao-vitrine--oferta-relampago">
-  <div class="container">
-    <div class="loja-section-head">
-      <div>
-        <span class="loja-section-kicker">⚡ Oferta relâmpago</span>
-        <h2>{% if marketing_vitrine.titulo_ofertas_semana %}{{ marketing_vitrine.titulo_ofertas_semana }}{% else %}Oferta relâmpago{% endif %}</h2>
-        <p class="loja-section-subtitle">{% if marketing_vitrine.subtitulo_ofertas_semana %}{{ marketing_vitrine.subtitulo_ofertas_semana }}{% else %}Preços em evidência e produtos com saída acelerada.{% endif %}</p>
-      </div>
-    </div>
-    <div id="loja-ofertas-grid" class="row g-3 loja-grid-produtos"></div>
-  </div>
-</section>
-</aside>
 </div>
 {% endif %}
 
@@ -453,73 +452,15 @@
   var buscaAtiva = {{ busca_ativa | default(false) | tojson }};
   var buscaTermo = {{ (busca_q | default("")) | tojson }};
 
-  /** Recolhe o grid da vitrine quando o aside #loja-ofertas fica oculto (sem ofertas / marketing off). */
+  /** Recolhe o espaço da Oferta Relâmpago quando o aside #loja-ofertas fica oculto. */
   function syncOfertasColunaShell() {
     var shell = document.querySelector(".loja-vitrine-page-shell");
     var aside = document.getElementById("loja-ofertas");
-    var col = document.querySelector(".loja-ofertas-sidebar-col");
     if (!shell || !aside) return;
     var hidden = aside.style.display === "none";
     if (hidden) shell.classList.add("loja-vitrine-page-shell--sem-ofertas");
     else shell.classList.remove("loja-vitrine-page-shell--sem-ofertas");
-    if (col) col.style.display = hidden ? "none" : "";
-    syncOfertasFixedPosition();
   }
-
-  /**
-   * Desktop: ancora #loja-ofertas em position:fixed na faixa do trilho,
-   * acompanhando o body o tempo todo (altura encolhe só ao encontrar o footer).
-   */
-  function syncOfertasFixedPosition() {
-    var aside = document.getElementById("loja-ofertas");
-    var col = document.querySelector(".loja-ofertas-sidebar-col");
-    var root = document.documentElement;
-    if (!aside || !col) return;
-    if (window.matchMedia("(max-width: 991.98px)").matches || aside.style.display === "none") {
-      root.style.removeProperty("--loja-ofertas-fixed-left");
-      root.style.removeProperty("--loja-ofertas-fixed-width");
-      root.style.removeProperty("--loja-ofertas-fixed-max-height");
-      root.style.removeProperty("--loja-ofertas-sticky-top");
-      return;
-    }
-    var rect = col.getBoundingClientRect();
-    var left = Math.max(0, Math.round(rect.left));
-    var width = Math.max(136, Math.round(rect.width || 156));
-    root.style.setProperty("--loja-ofertas-fixed-left", left + "px");
-    root.style.setProperty("--loja-ofertas-fixed-width", width + "px");
-
-    /* Medir header real — CSS fixo 5.25rem ficava abaixo do sticky e cortava o kicker */
-    var header = document.querySelector(".loja-header");
-    var headerH = header ? Math.ceil(header.getBoundingClientRect().height) : 0;
-    var stickyTopPx = Math.max(headerH + 10, 88);
-    root.style.setProperty("--loja-ofertas-sticky-top", stickyTopPx + "px");
-
-    var bottomLimit = window.innerHeight - 12;
-    var footer = document.querySelector(".loja-footer");
-    if (footer) {
-      var fr = footer.getBoundingClientRect();
-      if (fr.top < window.innerHeight) {
-        bottomLimit = Math.min(bottomLimit, fr.top - 8);
-      }
-    }
-    var maxH = Math.max(96, Math.round(bottomLimit - stickyTopPx));
-    root.style.setProperty("--loja-ofertas-fixed-max-height", maxH + "px");
-  }
-
-  var __ofertasFixedRaf = null;
-  function scheduleOfertasFixedPosition() {
-    if (__ofertasFixedRaf != null) return;
-    __ofertasFixedRaf = window.requestAnimationFrame(function () {
-      __ofertasFixedRaf = null;
-      syncOfertasFixedPosition();
-    });
-  }
-  window.addEventListener("scroll", scheduleOfertasFixedPosition, { passive: true });
-  window.addEventListener("resize", scheduleOfertasFixedPosition);
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(scheduleOfertasFixedPosition).catch(function () {});
-  }
-  scheduleOfertasFixedPosition();
 
   /** Classes de selo conforme faixa de desconto (v2visual: hierarquia). */
   function discountBadgeClass(desconto) {
@@ -609,7 +550,7 @@
     container.appendChild(wrap);
   }
 
-  /** Card minimalista do hero (foto + nome + preço). Sem badge/carrinho/PLACEHOLDER. */
+  /** Card minimalista do hero (foto + nome, sem preço). Sem badge/carrinho/PLACEHOLDER. */
   function renderHeroCardHtml(item) {
     var id = parseInt(item && item.id, 10);
     if (isNaN(id) || id < 1) return "";
@@ -617,10 +558,7 @@
     if (!img || String(img).indexOf("data:image/svg") === 0) return "";
     var titulo = String(item.titulo || "").trim();
     if (!titulo) return "";
-    if (item.preco_original == null && item.preco_promocional == null) return "";
-    var precoVal = Vitrine.precoEfetivo(item);
     var tituloEsc = Vitrine.escapeHtml(titulo);
-    var preco = Vitrine.formatPrecoCard(precoVal);
     var href = Vitrine.produtoUrl(titulo, id);
     return (
       '<a class="produto-card produto-card--hero" href="' + href + '">' +
@@ -630,7 +568,6 @@
         "</div>" +
         '<div class="produto-card-hero__body">' +
           '<span class="produto-card-hero__title">' + tituloEsc + "</span>" +
-          '<span class="produto-card-hero__price">' + preco + "</span>" +
         "</div>" +
       "</a>"
     );
@@ -646,8 +583,6 @@
     var img = Vitrine.imagemPrincipalAnuncio(item);
     if (!img || String(img).indexOf("data:image/svg") === 0) return false;
     if (!String(item.titulo || "").trim()) return false;
-    /* precoEfetivo() devolve 0 quando ambos são null — exigir preço real no payload */
-    if (item.preco_original == null && item.preco_promocional == null) return false;
     return true;
   }
 
@@ -663,6 +598,8 @@
     return out;
   }
 
+  var HERO_PRODUTOS_MAX = 6;
+
   function pushHeroUnique(list, seen, items) {
     if (!items || !items.length) return;
     for (var i = 0; i < items.length; i++) {
@@ -672,7 +609,7 @@
       if (seen[id]) continue;
       seen[id] = true;
       list.push(item);
-      if (list.length >= 3) return;
+      if (list.length >= HERO_PRODUTOS_MAX) return;
     }
   }
 
@@ -684,7 +621,7 @@
     host.innerHTML = "";
     var list = items || [];
     var rendered = 0;
-    for (var i = 0; i < list.length && rendered < 3; i++) {
+    for (var i = 0; i < list.length && rendered < HERO_PRODUTOS_MAX; i++) {
       var html = renderHeroCardHtml(list[i]);
       if (!html) continue;
       rendered += 1;
@@ -712,8 +649,8 @@
   }
 
   /**
-   * Preenche 0–3 produtos no hero: destaque_agora → ofertas_semana → getAnuncios.
-   * Dedupa por id; ignora livre/cabeçalho; sem placeholder.
+   * Preenche 0–6 produtos no hero: destaque_agora → ofertas_semana → getAnuncios.
+   * Dedupa por id; ignora livre/cabeçalho; sem placeholder; sem preço no card.
    */
   function fillHeroProdutos(m) {
     var host = document.getElementById("loja-hero-produtos");
@@ -722,15 +659,15 @@
     var seen = {};
     if (m) {
       pushHeroUnique(collected, seen, extractAnunciosFromMarketingCards(m.destaque_agora));
-      if (collected.length < 3) {
+      if (collected.length < HERO_PRODUTOS_MAX) {
         pushHeroUnique(collected, seen, extractAnunciosFromMarketingCards(m.ofertas_semana));
       }
     }
-    if (collected.length >= 3 || typeof Vitrine.getAnuncios !== "function") {
+    if (collected.length >= HERO_PRODUTOS_MAX || typeof Vitrine.getAnuncios !== "function") {
       applyHeroProdutos(collected);
       return Promise.resolve();
     }
-    var params = { skip: 0, limit: 8, sort: "recent" };
+    var params = { skip: 0, limit: 16, sort: "recent" };
     if (lojaSlugContext) params.loja_slug = lojaSlugContext;
     return Vitrine.getAnuncios(params)
       .then(function (data) {

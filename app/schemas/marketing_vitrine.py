@@ -126,11 +126,26 @@ class MarketingVitrineCardCreate(MarketingVitrineCardBase):
                 raise ValueError("limite_exibicao não se aplica a tipo_card=anuncio")
             if self.cliente_ids is not None:
                 raise ValueError("cliente_ids não se aplica a tipo_card=anuncio")
-            if self.embaralhar_produtos is not None:
-                raise ValueError("embaralhar_produtos não se aplica a tipo_card=anuncio")
+            # Embaralhar no card «Anúncio» só faz sentido nos blocos com pool multi-ID + limite.
+            if self.embaralhar_produtos is not None and self.tipo_bloco not in (
+                "oferta_semana",
+                "destaque_agora",
+            ):
+                raise ValueError(
+                    "embaralhar_produtos em tipo_card=anuncio só vale para oferta_semana ou destaque_agora"
+                )
             if self.somente_com_desconto is not None:
                 raise ValueError("somente_com_desconto não se aplica a tipo_card=anuncio")
-            return self.model_copy(update={"anuncio_id": aid or (ids[0] if ids else None), "anuncio_ids": ids})
+            emb = None
+            if self.tipo_bloco in ("oferta_semana", "destaque_agora"):
+                emb = bool(self.embaralhar_produtos) if self.embaralhar_produtos is not None else False
+            return self.model_copy(
+                update={
+                    "anuncio_id": aid or (ids[0] if ids else None),
+                    "anuncio_ids": ids,
+                    "embaralhar_produtos": emb,
+                }
+            )
         elif self.tipo_card == "cabecalho_ofertas":
             if self.tipo_bloco not in ("oferta_semana", "destaque_agora"):
                 raise ValueError(

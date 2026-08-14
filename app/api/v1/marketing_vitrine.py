@@ -44,6 +44,13 @@ def _merge_card_create_from_row(row: MarketingVitrineCard, body: MarketingVitrin
 
     if tipo_card == "anuncio":
         aids = body.anuncio_ids if body.anuncio_ids is not None else getattr(row, "anuncio_ids", None)
+        emb = None
+        if tipo_bloco in ("oferta_semana", "destaque_agora"):
+            if "embaralhar_produtos" in patch:
+                emb = bool(body.embaralhar_produtos) if body.embaralhar_produtos is not None else False
+            else:
+                ev = getattr(row, "embaralhar_produtos", None)
+                emb = bool(ev) if ev is not None else False
         return MarketingVitrineCardCreate(
             tipo_bloco=tipo_bloco,  # type: ignore[arg-type]
             tipo_card=tipo_card,  # type: ignore[arg-type]
@@ -55,7 +62,7 @@ def _merge_card_create_from_row(row: MarketingVitrineCard, body: MarketingVitrin
             anuncio_ids=aids,
             limite_exibicao=None,
             cliente_ids=None,
-            embaralhar_produtos=None,
+            embaralhar_produtos=emb,
             somente_com_desconto=None,
             ordem=body.ordem if body.ordem is not None else row.ordem,
             ativo=body.ativo if body.ativo is not None else row.ativo,
@@ -216,7 +223,17 @@ def create_card_admin(
         anuncio_ids=body.anuncio_ids if body.tipo_card == "anuncio" else None,
         limite_exibicao=body.limite_exibicao,
         cliente_ids=body.cliente_ids if body.tipo_card == "cabecalho_ofertas" else None,
-        embaralhar_produtos=body.embaralhar_produtos if body.tipo_card == "cabecalho_ofertas" else None,
+        embaralhar_produtos=(
+            body.embaralhar_produtos
+            if (
+                body.tipo_card == "cabecalho_ofertas"
+                or (
+                    body.tipo_card == "anuncio"
+                    and body.tipo_bloco in ("oferta_semana", "destaque_agora")
+                )
+            )
+            else None
+        ),
         somente_com_desconto=body.somente_com_desconto if body.tipo_card == "cabecalho_ofertas" else None,
         ordem=body.ordem,
         ativo=body.ativo,

@@ -164,7 +164,7 @@
               <input class="form-check-input" type="checkbox" id="mv-card-somente-desconto" checked>
               <label class="form-check-label" for="mv-card-somente-desconto">Somente produtos com desconto (preço promocional) no sistema</label>
             </div>
-            <p class="small text-muted mt-2 mb-0">Estes parâmetros valem quando a seção usa o <strong>preenchimento automático</strong> (sem cards de anúncio na grade). Com cards manuais, o limite acima ainda limita quantos itens entram.</p>
+            <p class="small text-muted mt-2 mb-0"><strong>Embaralhar</strong> sorteia entre os cards/anúncios cadastrados neste bloco e exibe até o limite (também no preenchimento automático, se não houver cards de produto). Sem embaralhar, entram sempre os primeiros pela <strong>Ordem</strong>.</p>
           </div>
           <div class="col-12 mv-livre-titulo">
             <label class="form-label" for="mv-card-titulo">Título</label>
@@ -195,11 +195,13 @@
             </div>
             <div class="form-check mb-2">
               <input class="form-check-input" type="checkbox" id="mv-card-anuncio-embaralhar">
-              <label class="form-check-label" for="mv-card-anuncio-embaralhar">Embaralhar produtos da vitrine a cada atualização da página</label>
+              <label class="form-check-label" for="mv-card-anuncio-embaralhar" id="mv-card-anuncio-embaralhar-label">Embaralhar produtos da vitrine a cada atualização da página</label>
             </div>
+            <div class="form-text mb-2" id="mv-card-anuncio-embaralhar-hint">Na faixa <strong>Destaques</strong>, salva a config global. Em <strong>Oferta da semana</strong> / <strong>Oferta em destaque agora</strong>, sorteia entre os anúncios deste card (até o limite de exibição).</div>
             <select class="form-select" id="mv-card-anuncio-select" multiple size="8" style="max-height: 14rem;">
               <option value="">— Carregando anúncios… —</option>
             </select>
+            <div class="form-text" id="mv-anuncio-desconto-hint">Os anúncios escolhidos aqui entram na home <strong>mesmo sem preço promocional</strong>. A opção «Somente produtos com desconto» só aparece no tipo <strong>Cabeçalho da seção</strong> e vale apenas para o preenchimento automático (quando não há cards de anúncio neste bloco).</div>
             <label class="form-label mt-2" for="mv-card-anuncio-id-manual">ID do anúncio (manual)</label>
             <input type="number" class="form-control" id="mv-card-anuncio-id-manual" min="1" step="1" placeholder="Use se o anúncio não aparecer na lista">
             <div class="form-text mb-0">Fluxo padrão: selecione um ou mais <strong>CAs</strong>, carregue os produtos (anúncios), e então selecione um ou vários itens na lista. Use <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> para multi-seleção.</div>
@@ -411,6 +413,7 @@
     var tipo = document.getElementById('mv-card-tipo-card');
     var emb = document.getElementById('mv-card-anuncio-embaralhar');
     if (!bloco || !tipo || !emb) return done();
+    // Só a faixa Destaques usa config global; oferta_semana/destaque_agora gravam no card.
     if (bloco.value !== 'destaque' || tipo.value !== 'anuncio') return done();
     mvFetch('/api/v1/marketing-vitrine/config', {
       method: 'PATCH',
@@ -423,6 +426,21 @@
     }).catch(function () {
       showAlert('Não foi possível salvar "Embaralhar" da faixa Destaques.', false);
     });
+  }
+
+  function syncAnuncioEmbaralharUi() {
+    var bloco = document.getElementById('mv-card-tipo-bloco');
+    var lab = document.getElementById('mv-card-anuncio-embaralhar-label');
+    var hint = document.getElementById('mv-card-anuncio-embaralhar-hint');
+    if (!bloco) return;
+    var b = bloco.value;
+    if (lab) {
+      if (b === 'destaque') lab.textContent = 'Embaralhar produtos da faixa Destaques a cada atualização';
+      else lab.textContent = 'Embaralhar a cada atualização (sorteia entre os anúncios deste card)';
+    }
+    if (hint) {
+      hint.style.display = (b === 'destaque' || b === 'oferta_semana' || b === 'destaque_agora') ? '' : 'none';
+    }
   }
 
   function applyClientesCaSelectionFromRow(row) {
@@ -702,7 +720,15 @@
     var anuncioCa = document.getElementById('mv-card-anuncio-ca');
     if (anuncioCa) anuncioCa.value = '';
     var anuncioEmb = document.getElementById('mv-card-anuncio-embaralhar');
-    if (anuncioEmb) anuncioEmb.checked = mvDestaqueEmbaralharCfg === true;
+    if (anuncioEmb) {
+      var blocoVal = document.getElementById('mv-card-tipo-bloco').value;
+      if (blocoVal === 'oferta_semana' || blocoVal === 'destaque_agora') {
+        anuncioEmb.checked = row ? row.embaralhar_produtos === true : false;
+      } else {
+        anuncioEmb.checked = mvDestaqueEmbaralharCfg === true;
+      }
+    }
+    syncAnuncioEmbaralharUi();
     var descLivreEl = document.getElementById('mv-card-desc-livre');
     if (descLivreEl) {
       descLivreEl.value = row && row.tipo_card === 'livre' && row.descricao ? row.descricao : '';
@@ -829,8 +855,12 @@
       body.link_url = null;
       body.limite_exibicao = null;
       body.cliente_ids = null;
-      body.embaralhar_produtos = null;
       body.somente_com_desconto = null;
+      if (tipoBloco === 'oferta_semana' || tipoBloco === 'destaque_agora') {
+        body.embaralhar_produtos = document.getElementById('mv-card-anuncio-embaralhar').checked;
+      } else {
+        body.embaralhar_produtos = null;
+      }
       var manualEl = document.getElementById('mv-card-anuncio-id-manual');
       var selectedAnuncioIds = getSelectedAnuncioIdsFromSelect();
       var aid = NaN;
@@ -954,7 +984,11 @@
       });
     }
     var blocoEl = document.getElementById('mv-card-tipo-bloco');
-    if (blocoEl) blocoEl.addEventListener('change', function () { syncCabecalhoOptionVisibility(); toggleTipoFields(); });
+    if (blocoEl) blocoEl.addEventListener('change', function () {
+      syncCabecalhoOptionVisibility();
+      toggleTipoFields();
+      syncAnuncioEmbaralharUi();
+    });
     loadConfig();
     loadCards();
   }
